@@ -6,7 +6,7 @@ dotenv.config();
 
 export class SupabaseManager {
   constructor() {
-    const supabaseUrl = process.env.SUPABASE_URL || 'https://bbccqnfxgtdjhorhocwq.supabase.co';
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://hjgwbkcjjclwqamtmhsa.supabase.co';
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
     
     if (!supabaseKey) {

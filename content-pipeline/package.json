@@ -7,8 +7,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "ingest": "node src/ingest.js",
-    "validate": "node src/validate.js",
+    "ingest": "node src/index.js ingest",
+    "validate": "node src/index.js validate",
+    "status": "node src/index.js status",
+    "sync": "node src/index.js sync",
     "test": "node --test"
   },
   "dependencies": {
