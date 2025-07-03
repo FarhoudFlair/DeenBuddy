@@ -165,7 +165,10 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             self.madhab = madhab
         }
         
-        loadCachedPrayerTimes()
+        if let cachedTimes = loadCachedPrayerTimes() {
+            todaysPrayerTimes = cachedTimes
+            updateNextPrayer()
+        }
     }
     
     private func saveSettings() {
