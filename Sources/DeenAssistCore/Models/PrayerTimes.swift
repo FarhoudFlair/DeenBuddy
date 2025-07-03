@@ -2,17 +2,17 @@ import Foundation
 
 // MARK: - Prayer Time Models
 
-public enum Prayer: String, CaseIterable, Codable {
+public enum PrayerTimeType: String, CaseIterable, Codable {
     case fajr = "Fajr"
     case dhuhr = "Dhuhr"
     case asr = "Asr"
     case maghrib = "Maghrib"
     case isha = "Isha"
-    
+
     public var displayName: String {
         return rawValue
     }
-    
+
     public var notificationTitle: String {
         return "\(displayName) Prayer Time"
     }
@@ -48,7 +48,7 @@ public struct PrayerTimes: Codable, Equatable {
         self.location = location
     }
     
-    public func time(for prayer: Prayer) -> Date {
+    public func time(for prayer: PrayerTimeType) -> Date {
         switch prayer {
         case .fajr: return fajr
         case .dhuhr: return dhuhr
@@ -57,8 +57,8 @@ public struct PrayerTimes: Codable, Equatable {
         case .isha: return isha
         }
     }
-    
-    public var allPrayers: [(Prayer, Date)] {
+
+    public var allPrayers: [(PrayerTimeType, Date)] {
         return [
             (.fajr, fajr),
             (.dhuhr, dhuhr),
@@ -67,13 +67,13 @@ public struct PrayerTimes: Codable, Equatable {
             (.isha, isha)
         ]
     }
-    
-    public func nextPrayer(from currentTime: Date = Date()) -> (Prayer, Date)? {
+
+    public func nextPrayer(from currentTime: Date = Date()) -> (PrayerTimeType, Date)? {
         let upcomingPrayers = allPrayers.filter { $0.1 > currentTime }
         return upcomingPrayers.first
     }
-    
-    public func currentPrayer(at currentTime: Date = Date()) -> Prayer? {
+
+    public func currentPrayer(at currentTime: Date = Date()) -> PrayerTimeType? {
         let sortedPrayers = allPrayers.sorted { $0.1 < $1.1 }
         
         for i in 0..<sortedPrayers.count {
@@ -146,17 +146,17 @@ public enum CalculationMethod: String, CaseIterable, Codable {
     }
 }
 
-public enum Madhab: String, CaseIterable, Codable {
+public enum PrayerCalculationMadhab: String, CaseIterable, Codable {
     case shafi = "shafi"
     case hanafi = "hanafi"
-    
+
     public var displayName: String {
         switch self {
         case .shafi: return "Shafi"
         case .hanafi: return "Hanafi"
         }
     }
-    
+
     public var description: String {
         switch self {
         case .shafi: return "Earlier Asr time (shadow length = object length)"

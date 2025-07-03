@@ -1,204 +1,196 @@
 import Foundation
-import Supabase
 import Combine
+import Network
+import UIKit
 
 /// Service for managing Supabase backend integration
 @MainActor
 public class SupabaseService: ObservableObject {
-    
+
     // MARK: - Published Properties
-    
-    @Published public var isConnected = false
+
+    @Published public var prayerGuides: [PrayerGuide] = []
     @Published public var isLoading = false
-    @Published public var error: Error?
-    
+    @Published public var errorMessage: String?
+    @Published public var isOffline = false
+    @Published public var syncProgress: Double = 0.0
+
     // MARK: - Private Properties
-    
-    private var supabase: SupabaseClient?
-    private let configuration: SupabaseConfiguration
+
+    private let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
+    private let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
+
+    private let networkMonitor = NetworkMonitor.shared
+    private let offlineService = OfflineService()
     private var cancellables = Set<AnyCancellable>()
-    
+
     // MARK: - Initialization
-    
-    public init(configuration: SupabaseConfiguration) {
-        self.configuration = configuration
-        setupSupabaseClient()
+
+    public init() {
+        setupNetworkMonitoring()
+        setupBackgroundSync()
     }
-    
+
     // MARK: - Public Methods
-    
-    /// Initialize Supabase client and test connection
-    public func initialize() async {
+
+    /// Fetch prayer guides from Supabase with offline support
+    public func fetchPrayerGuides(forceRefresh: Bool = false) async {
         isLoading = true
-        error = nil
-        
-        do {
-            // Test connection with a simple query
-            try await testConnection()
-            isConnected = true
-            print("Supabase connection established successfully")
-        } catch {
-            self.error = error
-            isConnected = false
-            print("Failed to connect to Supabase: \(error)")
-        }
-        
-        isLoading = false
-    }
-    
-    /// Sync prayer guides from Supabase
-    public func syncPrayerGuides() async throws -> [PrayerGuide] {
-        guard let supabase = supabase else {
-            throw SupabaseError.clientNotInitialized
-        }
-        
-        isLoading = true
-        defer { isLoading = false }
-        
-        do {
-            // Query prayer guides from Supabase
-            let response: [SupabasePrayerGuide] = try await supabase
-                .from("prayer_guides")
-                .select()
-                .execute()
-                .value
-            
-            // Convert to local models
-            let guides = response.map { $0.toPrayerGuide() }
-            
-            print("Synced \(guides.count) prayer guides from Supabase")
-            return guides
-            
-        } catch {
-            self.error = error
-            throw error
-        }
-    }
-    
-    /// Upload user progress to Supabase
-    public func uploadProgress(for guide: PrayerGuide, userId: String) async throws {
-        guard let supabase = supabase else {
-            throw SupabaseError.clientNotInitialized
-        }
-        
-        let progressData = SupabaseUserProgress(
-            userId: userId,
-            guideId: guide.id,
-            isCompleted: guide.isCompleted,
-            completedAt: guide.isCompleted ? Date() : nil,
-            progress: calculateProgress(for: guide)
-        )
-        
-        try await supabase
-            .from("user_progress")
-            .upsert(progressData)
-            .execute()
-        
-        print("Uploaded progress for guide: \(guide.id)")
-    }
-    
-    /// Download user progress from Supabase
-    public func downloadProgress(for userId: String) async throws -> [SupabaseUserProgress] {
-        guard let supabase = supabase else {
-            throw SupabaseError.clientNotInitialized
-        }
-        
-        let response: [SupabaseUserProgress] = try await supabase
-            .from("user_progress")
-            .select()
-            .eq("user_id", value: userId)
-            .execute()
-            .value
-        
-        print("Downloaded progress for \(response.count) guides")
-        return response
-    }
-    
-    /// Check for content updates
-    public func checkForUpdates(lastSyncDate: Date) async throws -> Bool {
-        guard let supabase = supabase else {
-            throw SupabaseError.clientNotInitialized
-        }
-        
-        let formatter = ISO8601DateFormatter()
-        let lastSyncString = formatter.string(from: lastSyncDate)
-        
-        let response: [SupabasePrayerGuide] = try await supabase
-            .from("prayer_guides")
-            .select("id, updated_at")
-            .gt("updated_at", value: lastSyncString)
-            .execute()
-            .value
-        
-        return !response.isEmpty
-    }
-    
-    // MARK: - Private Methods
-    
-    private func setupSupabaseClient() {
-        guard !configuration.url.isEmpty && !configuration.anonKey.isEmpty else {
-            print("Supabase configuration is incomplete")
+        errorMessage = nil
+
+        // Try offline first if not forcing refresh
+        if !forceRefresh, let cachedGuides = await offlineService.getCachedGuides() {
+            self.prayerGuides = cachedGuides
+            self.isLoading = false
+
+            // Fetch updates in background
+            Task {
+                await fetchFromSupabase()
+            }
             return
         }
-        
-        supabase = SupabaseClient(
-            supabaseURL: URL(string: configuration.url)!,
-            supabaseKey: configuration.anonKey
-        )
+
+        await fetchFromSupabase()
     }
-    
-    private func testConnection() async throws {
-        guard let supabase = supabase else {
-            throw SupabaseError.clientNotInitialized
+
+    /// Fetch prayer guides from Supabase REST API
+    private func fetchFromSupabase() async {
+        guard let url = URL(string: "\(supabaseUrl)/rest/v1/prayer_guides") else {
+            await MainActor.run {
+                self.errorMessage = "Invalid URL"
+                self.isLoading = false
+            }
+            return
         }
-        
-        // Simple query to test connection
-        let _: [SupabasePrayerGuide] = try await supabase
-            .from("prayer_guides")
-            .select("id")
-            .limit(1)
-            .execute()
-            .value
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add query parameters for the data we need
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "select", value: "id,content_id,title,prayer_name,sect,rakah_count,text_content,video_url,thumbnail_url,is_available_offline,version,created_at,updated_at"),
+            URLQueryItem(name: "order", value: "prayer_name,sect")
+        ]
+
+        guard let finalUrl = components?.url else {
+            await MainActor.run {
+                self.errorMessage = "Failed to build URL"
+                self.isLoading = false
+            }
+            return
+        }
+
+        request.url = finalUrl
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                await MainActor.run {
+                    self.errorMessage = "Invalid response"
+                    self.isLoading = false
+                }
+                return
+            }
+
+            if httpResponse.statusCode == 200 {
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+
+                let guides = try decoder.decode([SupabasePrayerGuide].self, from: data)
+                let convertedGuides = guides.map { $0.toPrayerGuide() }
+
+                await MainActor.run {
+                    self.prayerGuides = convertedGuides
+                    self.isLoading = false
+                }
+
+                // Cache for offline use
+                await offlineService.cacheGuides(convertedGuides)
+
+            } else {
+                await MainActor.run {
+                    self.errorMessage = "Server error: \(httpResponse.statusCode)"
+                    self.isLoading = false
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Network error: \(error.localizedDescription)"
+                self.isLoading = false
+
+                // Try to load from cache on error
+                Task {
+                    if let cachedGuides = await self.offlineService.getCachedGuides() {
+                        self.prayerGuides = cachedGuides
+                        self.isOffline = true
+                    }
+                }
+            }
+        }
     }
-    
-    private func calculateProgress(for guide: PrayerGuide) -> Double {
-        let completedSteps = guide.steps.filter { $0.isCompleted }.count
-        return Double(completedSteps) / Double(guide.steps.count)
+
+    // MARK: - iOS-specific methods
+
+    private func setupNetworkMonitoring() {
+        networkMonitor.$isConnected
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isConnected in
+                self?.isOffline = !isConnected
+                if isConnected {
+                    Task {
+                        await self?.syncIfNeeded()
+                    }
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func setupBackgroundSync() {
+        // iOS background app refresh handling
+        NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in
+                Task {
+                    await self?.syncIfNeeded()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func syncIfNeeded() async {
+        guard !isOffline else { return }
+
+        let lastSync = UserDefaults.standard.object(forKey: "lastSyncDate") as? Date
+        let shouldSync = lastSync == nil || Date().timeIntervalSince(lastSync!) > 3600 // 1 hour
+
+        if shouldSync {
+            await fetchPrayerGuides(forceRefresh: true)
+            UserDefaults.standard.set(Date(), forKey: "lastSyncDate")
+        }
     }
 }
 
-// MARK: - Configuration
-
-public struct SupabaseConfiguration {
-    public let url: String
-    public let anonKey: String
-    public let serviceKey: String?
-    
-    public init(url: String, anonKey: String, serviceKey: String? = nil) {
-        self.url = url
-        self.anonKey = anonKey
-        self.serviceKey = serviceKey
+// MARK: - iOS-specific extensions
+extension SupabaseService {
+    public func getPrayerGuides(for madhab: Madhab) -> [PrayerGuide] {
+        return prayerGuides.filter { $0.madhab == madhab }
     }
-    
-    /// Default configuration for development
-    public static let development = SupabaseConfiguration(
-        url: "https://hjgwbkcjjclwqamtmhsa.supabase.co",
-        anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
-    )
-    
-    /// Load configuration from environment or plist
-    public static func fromEnvironment() -> SupabaseConfiguration {
-        let url = ProcessInfo.processInfo.environment["SUPABASE_URL"] ?? ""
-        let anonKey = ProcessInfo.processInfo.environment["SUPABASE_ANON_KEY"] ?? ""
-        let serviceKey = ProcessInfo.processInfo.environment["SUPABASE_SERVICE_KEY"]
-        
-        return SupabaseConfiguration(
-            url: url,
-            anonKey: anonKey,
-            serviceKey: serviceKey
-        )
+
+    public func getPrayerGuide(for prayer: Prayer, madhab: Madhab) -> PrayerGuide? {
+        return prayerGuides.first {
+            $0.prayer == prayer && $0.madhab == madhab
+        }
+    }
+
+    public func refreshData() async {
+        await fetchPrayerGuides(forceRefresh: true)
     }
 }
+
+
 
 // MARK: - Supabase Models
 
@@ -238,9 +230,6 @@ public struct SupabasePrayerGuide: Codable {
     public func toPrayerGuide() -> PrayerGuide {
         let formatter = ISO8601DateFormatter()
 
-        // Convert sect to madhab (simplified mapping)
-        let madhab: Madhab = sect.lowercased() == "shia" ? .hanafi : .shafi
-
         // Convert text content to steps
         let steps = textContent?.steps.enumerated().map { index, step in
             PrayerStep(
@@ -256,9 +245,9 @@ public struct SupabasePrayerGuide: Codable {
         return PrayerGuide(
             id: contentId,
             title: title,
-            prayer: Prayer(rawValue: prayerName) ?? .fajr,
-            madhab: madhab,
-            difficulty: .beginner, // Default difficulty
+            prayer: Prayer(rawValue: prayerName.capitalized) ?? .fajr,
+            madhab: sect.lowercased() == "shia" ? .hanafi : .shafi,
+            difficulty: PrayerGuide.Difficulty.beginner, // Default difficulty
             duration: TimeInterval(steps.count * 60), // Estimate based on steps
             description: "Complete guide for \(title)",
             steps: steps,
@@ -297,75 +286,6 @@ public struct SupabaseStep: Codable {
     }
 }
 
-public struct SupabasePrayerStep: Codable {
-    public let id: String
-    public let title: String
-    public let description: String
-    public let duration: Int
-    public let videoURL: String?
-    public let audioURL: String?
-    
-    enum CodingKeys: String, CodingKey {
-        case id
-        case title
-        case description
-        case duration
-        case videoURL = "video_url"
-        case audioURL = "audio_url"
-    }
-    
-    public func toPrayerStep() -> PrayerStep {
-        return PrayerStep(
-            id: id,
-            title: title,
-            description: description,
-            duration: TimeInterval(duration),
-            videoURL: videoURL,
-            audioURL: audioURL
-        )
-    }
-}
 
-public struct SupabaseUserProgress: Codable {
-    public let userId: String
-    public let guideId: String
-    public let isCompleted: Bool
-    public let completedAt: Date?
-    public let progress: Double
-    
-    enum CodingKeys: String, CodingKey {
-        case userId = "user_id"
-        case guideId = "guide_id"
-        case isCompleted = "is_completed"
-        case completedAt = "completed_at"
-        case progress
-    }
-}
 
-// MARK: - Error Types
 
-public enum SupabaseError: LocalizedError {
-    case clientNotInitialized
-    case configurationMissing
-    case connectionFailed
-    case syncFailed(Error)
-    case uploadFailed(Error)
-    case downloadFailed(Error)
-    
-    public var errorDescription: String? {
-        switch self {
-        case .clientNotInitialized:
-            return "Supabase client is not initialized"
-        case .configurationMissing:
-            return "Supabase configuration is missing"
-        case .connectionFailed:
-            return "Failed to connect to Supabase"
-        case .syncFailed(let error):
-            return "Failed to sync data: \(error.localizedDescription)"
-        case .uploadFailed(let error):
-            return "Failed to upload data: \(error.localizedDescription)"
-        case .downloadFailed(let error):
-            return "Failed to download data: \(error.localizedDescription)"
-        }
-    }
-}

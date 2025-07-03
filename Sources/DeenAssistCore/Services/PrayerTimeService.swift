@@ -14,7 +14,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     @Published public var nextPrayer: PrayerTime? = nil
     @Published public var timeUntilNextPrayer: TimeInterval? = nil
     @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague
-    @Published public var madhab: Madhab = .shafi
+    @Published public var madhab: PrayerCalculationMadhab = .shafi
     @Published public var isLoading: Bool = false
     @Published public var error: Error? = nil
     
@@ -161,7 +161,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         }
         
         if let madhabRawValue = userDefaults.string(forKey: CacheKeys.madhab),
-           let madhab = Madhab(rawValue: madhabRawValue) {
+           let madhab = PrayerCalculationMadhab(rawValue: madhabRawValue) {
             self.madhab = madhab
         }
         
@@ -287,7 +287,7 @@ extension CalculationMethod {
     }
 }
 
-extension Madhab {
+extension PrayerCalculationMadhab {
     func adhanMadhab() -> Adhan.Madhab {
         switch self {
         case .shafi:
