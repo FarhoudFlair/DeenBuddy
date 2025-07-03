@@ -92,11 +92,12 @@ public struct EnhancedOnboardingFlow: View {
     private func nextStep() {
         guard currentStep < totalSteps - 1 else { return }
         
+        analyticsService.trackUserAction("onboarding_step_completed", parameters: ["step": currentStep])
+        
         withAnimation {
             currentStep += 1
         }
         
-        analyticsService.trackUserAction("onboarding_step_completed", parameters: ["step": currentStep])
         accessibilityService.announceToVoiceOver("Step \(currentStep + 1) of \(totalSteps)")
     }
     
