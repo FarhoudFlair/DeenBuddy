@@ -101,11 +101,23 @@ public class ConfigurationManager: ObservableObject {
     }
     
     private func loadDevelopmentConfiguration() throws -> AppConfiguration {
+        // Store the actual Supabase keys securely if not already stored
+        let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
+
+        // Store in keychain if not already present
+        if getSecureValue(for: "SUPABASE_URL_DEV") == nil {
+            setSecureValue(supabaseUrl, for: "SUPABASE_URL_DEV")
+        }
+        if getSecureValue(for: "SUPABASE_ANON_KEY_DEV") == nil {
+            setSecureValue(anonKey, for: "SUPABASE_ANON_KEY_DEV")
+        }
+
         return AppConfiguration(
             environment: .development,
             supabase: SupabaseConfiguration(
-                url: getSecureValue(for: "SUPABASE_URL_DEV") ?? "https://your-dev-project.supabase.co",
-                anonKey: getSecureValue(for: "SUPABASE_ANON_KEY_DEV") ?? "your-dev-anon-key"
+                url: getSecureValue(for: "SUPABASE_URL_DEV") ?? supabaseUrl,
+                anonKey: getSecureValue(for: "SUPABASE_ANON_KEY_DEV") ?? anonKey
             ),
             api: APIConfiguration(
                 baseURL: "https://api.aladhan.com/v1",
@@ -155,10 +167,20 @@ public class ConfigurationManager: ObservableObject {
     }
     
     private func loadProductionConfiguration() throws -> AppConfiguration {
-        guard let supabaseURL = getSecureValue(for: "SUPABASE_URL_PROD"),
-              let supabaseKey = getSecureValue(for: "SUPABASE_ANON_KEY_PROD") else {
-            throw ConfigurationError.missingRequiredKeys
+        // Use the same Supabase keys for production (they're already production keys)
+        let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
+
+        // Store in keychain if not already present
+        if getSecureValue(for: "SUPABASE_URL_PROD") == nil {
+            setSecureValue(supabaseUrl, for: "SUPABASE_URL_PROD")
         }
+        if getSecureValue(for: "SUPABASE_ANON_KEY_PROD") == nil {
+            setSecureValue(anonKey, for: "SUPABASE_ANON_KEY_PROD")
+        }
+
+        let supabaseURL = getSecureValue(for: "SUPABASE_URL_PROD") ?? supabaseUrl
+        let supabaseKey = getSecureValue(for: "SUPABASE_ANON_KEY_PROD") ?? anonKey
         
         return AppConfiguration(
             environment: .production,

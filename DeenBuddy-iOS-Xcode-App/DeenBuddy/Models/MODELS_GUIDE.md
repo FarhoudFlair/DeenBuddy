@@ -1,4 +1,4 @@
-# Models Directory
+# Models Directory - iOS Implementation Guide
 
 **Engineer 2 - Core Models Migration**
 

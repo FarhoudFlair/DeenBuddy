@@ -6,13 +6,24 @@ import PackageDescription
 let package = Package(
     name: "DeenBuddyCore",
     platforms: [
-        .iOS(.v16),  // iOS only - removed macOS support
-        .macOS(.v12) // Add macOS support for testing
+        .iOS(.v16)  // iOS only - this is an iOS app
     ],
     products: [
         .library(
             name: "DeenBuddyCore",
             targets: ["DeenBuddyCore"]
+        ),
+        .library(
+            name: "DeenAssistUI",
+            targets: ["DeenAssistUI"]
+        ),
+        .library(
+            name: "DeenAssistProtocols",
+            targets: ["DeenAssistProtocols"]
+        ),
+        .executable(
+            name: "DeenAssistApp",
+            targets: ["DeenAssistApp"]
         )
     ],
     dependencies: [
@@ -41,6 +52,30 @@ let package = Package(
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
             ],
             path: "Sources/DeenAssistCore"
+        ),
+        .target(
+            name: "DeenAssistUI",
+            dependencies: [
+                "DeenBuddyCore",
+                "DeenAssistProtocols",
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
+            ],
+            path: "Sources/DeenAssistUI"
+        ),
+        .target(
+            name: "DeenAssistProtocols",
+            dependencies: [],
+            path: "Sources/DeenAssistProtocols"
+        ),
+        .executableTarget(
+            name: "DeenAssistApp",
+            dependencies: [
+                "DeenBuddyCore",
+                "DeenAssistUI",
+                "DeenAssistProtocols"
+            ],
+            path: ".",
+            sources: ["DeenAssistApp.swift"]
         ),
         .testTarget(
             name: "DeenBuddyCoreTests",

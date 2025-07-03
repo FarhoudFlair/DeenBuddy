@@ -27,7 +27,7 @@ struct SettingsView: View {
                     }
                     
                     Toggle("Prayer Notifications", isOn: $notificationsEnabled)
-                        .onChange(of: notificationsEnabled) { _, newValue in
+                        .onChange(of: notificationsEnabled) { newValue in
                             // TODO: Handle notification permission
                         }
                 }
@@ -41,7 +41,7 @@ struct SettingsView: View {
                     }
                     
                     Toggle("Offline Downloads", isOn: $offlineDownloadsEnabled)
-                        .onChange(of: offlineDownloadsEnabled) { _, newValue in
+                        .onChange(of: offlineDownloadsEnabled) { newValue in
                             // TODO: Handle offline download settings
                         }
                 }
