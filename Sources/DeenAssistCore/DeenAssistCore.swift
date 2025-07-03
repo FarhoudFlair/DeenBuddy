@@ -51,6 +51,14 @@ import Foundation
 @_exported import class DeenAssistCore.SupabaseService
 @_exported import class DeenAssistCore.ConfigurationManager
 
+// MARK: - iOS-Specific Services
+@_exported import class DeenAssistCore.UserPreferencesService
+@_exported import class DeenAssistCore.AppLifecycleManager
+@_exported import class DeenAssistCore.BackgroundTaskManager
+@_exported import class DeenAssistCore.HapticFeedbackService
+@_exported import class DeenAssistCore.ShareService
+@_exported import class DeenAssistCore.WidgetService
+
 // MARK: - Phase 2: Error Handling & Reliability
 @_exported import class DeenAssistCore.ErrorHandler
 @_exported import class DeenAssistCore.NetworkMonitor

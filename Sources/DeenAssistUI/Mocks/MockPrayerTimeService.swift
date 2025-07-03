@@ -9,7 +9,7 @@ public class MockPrayerTimeService: PrayerTimeServiceProtocol {
     @Published public var nextPrayer: PrayerTime? = nil
     @Published public var timeUntilNextPrayer: TimeInterval? = nil
     @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague
-    @Published public var madhab: Madhab = .shafi
+    @Published public var madhab: PrayerCalculationMadhab = .shafi
     @Published public var isLoading: Bool = false
     @Published public var error: Error? = nil
     

@@ -16,7 +16,7 @@ public protocol PrayerTimeServiceProtocol: ObservableObject {
     var calculationMethod: CalculationMethod { get set }
     
     /// Current madhab for Asr calculation
-    var madhab: Madhab { get set }
+    var madhab: PrayerCalculationMadhab { get set }
     
     /// Whether prayer times are currently loading
     var isLoading: Bool { get }
@@ -99,14 +99,14 @@ public enum CalculationMethod: String, CaseIterable {
 }
 
 /// Madhab for Asr calculation
-public enum Madhab: String, CaseIterable {
+public enum PrayerCalculationMadhab: String, CaseIterable {
     case shafi = "Shafi"
     case hanafi = "Hanafi"
-    
+
     public var displayName: String {
         return rawValue
     }
-    
+
     public var description: String {
         switch self {
         case .shafi:
