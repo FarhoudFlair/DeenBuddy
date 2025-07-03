@@ -21,7 +21,9 @@ let package = Package(
     ],
     dependencies: [
         // AdhanSwift for prayer time calculations
-        .package(url: "https://github.com/batoulapps/adhan-swift", from: "1.0.0")
+        .package(url: "https://github.com/batoulapps/adhan-swift", from: "1.0.0"),
+        // Supabase for backend integration
+        .package(url: "https://github.com/supabase/supabase-swift", from: "2.0.0")
     ],
     targets: [
         // MARK: - Protocols Module
@@ -35,7 +37,8 @@ let package = Package(
             name: "DeenAssistCore",
             dependencies: [
                 "DeenAssistProtocols",
-                .product(name: "Adhan", package: "adhan-swift")
+                .product(name: "Adhan", package: "adhan-swift"),
+                .product(name: "Supabase", package: "supabase-swift")
             ]
         ),
         
@@ -57,19 +60,5 @@ let package = Package(
             name: "DeenAssistUITests",
             dependencies: ["DeenAssistUI"]
         )
-            name: "DeenAssistCore",
-            targets: ["DeenAssistCore"]
-        ),
-        .target(
-            name: "DeenAssistCore",
-            dependencies: [
-                .product(name: "Adhan", package: "adhan-swift")
-            ],
-            path: "Sources/DeenAssistCore"
-        ),
-        .testTarget(
-            name: "DeenAssistCoreTests",
-            dependencies: ["DeenAssistCore"],
-            path: "Tests/DeenAssistCoreTests"
-        ),
-    ],
+    ]
+)

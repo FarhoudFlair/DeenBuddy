@@ -1,14 +1,17 @@
 import Foundation
 import Combine
+import DeenAssistProtocols
 
 // MARK: - Dependency Container
 
 public class DependencyContainer: ObservableObject {
     // MARK: - Services
-    
-    @Published public private(set) var locationService: LocationServiceProtocol
-    @Published public private(set) var apiClient: APIClientProtocol
-    @Published public private(set) var notificationService: NotificationServiceProtocol
+
+    @Published public private(set) var locationService: any LocationServiceProtocol
+    @Published public private(set) var apiClient: any APIClientProtocol
+    @Published public private(set) var notificationService: any NotificationServiceProtocol
+    @Published public private(set) var prayerTimeService: any PrayerTimeServiceProtocol
+    @Published public private(set) var settingsService: any SettingsServiceProtocol
     
     // MARK: - Configuration
     
@@ -18,9 +21,11 @@ public class DependencyContainer: ObservableObject {
     // MARK: - Initialization
     
     public init(
-        locationService: LocationServiceProtocol? = nil,
-        apiClient: APIClientProtocol? = nil,
-        notificationService: NotificationServiceProtocol? = nil,
+        locationService: (any LocationServiceProtocol)? = nil,
+        apiClient: (any APIClientProtocol)? = nil,
+        notificationService: (any NotificationServiceProtocol)? = nil,
+        prayerTimeService: (any PrayerTimeServiceProtocol)? = nil,
+        settingsService: (any SettingsServiceProtocol)? = nil,
         apiConfiguration: APIConfiguration = .default,
         isTestEnvironment: Bool = false
     ) {
@@ -32,10 +37,14 @@ public class DependencyContainer: ObservableObject {
             self.locationService = locationService ?? MockLocationService()
             self.apiClient = apiClient ?? MockAPIClient()
             self.notificationService = notificationService ?? MockNotificationService()
+            self.settingsService = settingsService ?? MockSettingsService()
+            self.prayerTimeService = prayerTimeService ?? MockPrayerTimeService()
         } else {
             self.locationService = locationService ?? LocationService()
             self.apiClient = apiClient ?? APIClient(configuration: apiConfiguration)
             self.notificationService = notificationService ?? NotificationService()
+            self.settingsService = settingsService ?? SettingsService()
+            self.prayerTimeService = prayerTimeService ?? PrayerTimeService(locationService: self.locationService)
         }
     }
     
@@ -44,16 +53,24 @@ public class DependencyContainer: ObservableObject {
     public func register<T>(service: T, for type: T.Type) {
         switch type {
         case is LocationServiceProtocol.Type:
-            if let locationService = service as? LocationServiceProtocol {
+            if let locationService = service as? any LocationServiceProtocol {
                 self.locationService = locationService
             }
         case is APIClientProtocol.Type:
-            if let apiClient = service as? APIClientProtocol {
+            if let apiClient = service as? any APIClientProtocol {
                 self.apiClient = apiClient
             }
         case is NotificationServiceProtocol.Type:
-            if let notificationService = service as? NotificationServiceProtocol {
+            if let notificationService = service as? any NotificationServiceProtocol {
                 self.notificationService = notificationService
+            }
+        case is PrayerTimeServiceProtocol.Type:
+            if let prayerTimeService = service as? any PrayerTimeServiceProtocol {
+                self.prayerTimeService = prayerTimeService
+            }
+        case is SettingsServiceProtocol.Type:
+            if let settingsService = service as? any SettingsServiceProtocol {
+                self.settingsService = settingsService
             }
         default:
             break
@@ -70,6 +87,10 @@ public class DependencyContainer: ObservableObject {
             return apiClient as? T
         case is NotificationServiceProtocol.Type:
             return notificationService as? T
+        case is PrayerTimeServiceProtocol.Type:
+            return prayerTimeService as? T
+        case is SettingsServiceProtocol.Type:
+            return settingsService as? T
         default:
             return nil
         }
@@ -96,19 +117,30 @@ public class DependencyContainer: ObservableObject {
 // MARK: - Service Factory
 
 public class ServiceFactory {
-    public static func createLocationService(isTest: Bool = false) -> LocationServiceProtocol {
+    public static func createLocationService(isTest: Bool = false) -> any LocationServiceProtocol {
         return isTest ? MockLocationService() : LocationService()
     }
-    
+
     public static func createAPIClient(
         configuration: APIConfiguration = .default,
         isTest: Bool = false
-    ) -> APIClientProtocol {
+    ) -> any APIClientProtocol {
         return isTest ? MockAPIClient() : APIClient(configuration: configuration)
     }
-    
-    public static func createNotificationService(isTest: Bool = false) -> NotificationServiceProtocol {
+
+    public static func createNotificationService(isTest: Bool = false) -> any NotificationServiceProtocol {
         return isTest ? MockNotificationService() : NotificationService()
+    }
+
+    public static func createPrayerTimeService(
+        locationService: any LocationServiceProtocol,
+        isTest: Bool = false
+    ) -> any PrayerTimeServiceProtocol {
+        return isTest ? MockPrayerTimeService() : PrayerTimeService(locationService: locationService)
+    }
+
+    public static func createSettingsService(isTest: Bool = false) -> any SettingsServiceProtocol {
+        return isTest ? MockSettingsService() : SettingsService()
     }
 }
 
@@ -121,14 +153,18 @@ public extension DependencyContainer {
     }()
     
     static func createForTesting(
-        locationService: LocationServiceProtocol? = nil,
-        apiClient: APIClientProtocol? = nil,
-        notificationService: NotificationServiceProtocol? = nil
+        locationService: (any LocationServiceProtocol)? = nil,
+        apiClient: (any APIClientProtocol)? = nil,
+        notificationService: (any NotificationServiceProtocol)? = nil,
+        prayerTimeService: (any PrayerTimeServiceProtocol)? = nil,
+        settingsService: (any SettingsServiceProtocol)? = nil
     ) -> DependencyContainer {
         return DependencyContainer(
             locationService: locationService,
             apiClient: apiClient,
             notificationService: notificationService,
+            prayerTimeService: prayerTimeService,
+            settingsService: settingsService,
             isTestEnvironment: true
         )
     }

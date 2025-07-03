@@ -35,8 +35,13 @@ public struct QiblaDirection: Codable, Equatable {
         if distance < 1000 {
             return String(format: "%.0f km", distance)
         } else {
-            return String(format: "%.1f km", distance / 1000)
+            return String(format: "%.1f km", distance)
         }
+    }
+
+    /// Calculate Qibla direction from a given coordinate
+    public static func calculate(from location: LocationCoordinate) -> QiblaDirection {
+        return KaabaLocation.calculateDirection(from: location)
     }
 }
 
