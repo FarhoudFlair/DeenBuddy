@@ -50,6 +50,12 @@ import Foundation
 @_exported import class DeenAssistCore.ContentService
 @_exported import class DeenAssistCore.SupabaseService
 @_exported import class DeenAssistCore.ConfigurationManager
+@_exported import class DeenAssistCore.ErrorHandler
+@_exported import class DeenAssistCore.NetworkMonitor
+@_exported import class DeenAssistCore.OfflineManager
+@_exported import class DeenAssistCore.RetryMechanism
+@_exported import class DeenAssistCore.MemoryManager
+@_exported import class DeenAssistCore.BatteryOptimizer
 
 // MARK: - Mocks (for testing and parallel development)
 @_exported import class DeenAssistCore.MockLocationService
