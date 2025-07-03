@@ -222,9 +222,10 @@ public class PerformanceMonitor: ObservableObject {
             return 0.0
         }
         
-        // Calculate total CPU time (user + system time)
-        let totalTime = threadInfo.user_time.seconds + threadInfo.user_time.microseconds / 1_000_000 +
-                       threadInfo.system_time.seconds + threadInfo.system_time.microseconds / 1_000_000
+        // Calculate total CPU time (user + system time) with proper field names and precision
+        let userTime = Double(threadInfo.user_time.tv_sec) + Double(threadInfo.user_time.tv_usec) / 1_000_000.0
+        let systemTime = Double(threadInfo.system_time.tv_sec) + Double(threadInfo.system_time.tv_usec) / 1_000_000.0
+        let totalTime = userTime + systemTime
         
         // Get current time for calculation
         let currentTime = Date().timeIntervalSince1970
@@ -236,7 +237,7 @@ public class PerformanceMonitor: ObservableObject {
         // Calculate CPU usage percentage
         let cpuUsage: Double
         if previousWallTime > 0 {
-            let cpuTimeDelta = Double(totalTime) - previousCPUTime
+            let cpuTimeDelta = totalTime - previousCPUTime
             let wallTimeDelta = currentTime - previousWallTime
             cpuUsage = (cpuTimeDelta / wallTimeDelta) * 100.0
         } else {
@@ -244,7 +245,7 @@ public class PerformanceMonitor: ObservableObject {
         }
         
         // Update previous values
-        previousCPUTime = Double(totalTime)
+        previousCPUTime = totalTime
         previousWallTime = currentTime
         
         // Clamp to reasonable range (0-100%)
