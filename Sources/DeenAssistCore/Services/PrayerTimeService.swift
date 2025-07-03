@@ -19,8 +19,11 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     @Published public var error: Error? = nil
     
     // MARK: - Private Properties
-    
+
     private let locationService: any LocationServiceProtocol
+    private let errorHandler = ErrorHandler.shared
+    private let retryMechanism = RetryMechanism.shared
+    private let networkMonitor = NetworkMonitor.shared
     private var cancellables = Set<AnyCancellable>()
     private var timer: Timer?
     private let userDefaults = UserDefaults.standard
@@ -50,24 +53,34 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     // MARK: - Protocol Implementation
     
     public func calculatePrayerTimes(for location: CLLocation, date: Date) async throws -> [PrayerTime] {
+        return try await retryMechanism.executeWithRetry(
+            operation: {
+                return try await self.performPrayerTimeCalculation(for: location, date: date)
+            },
+            retryPolicy: .conservative,
+            operationId: "calculatePrayerTimes-\(date.timeIntervalSince1970)"
+        )
+    }
+
+    private func performPrayerTimeCalculation(for location: CLLocation, date: Date) async throws -> [PrayerTime] {
         isLoading = true
         error = nil
-        
+
         defer {
             isLoading = false
         }
-        
+
         do {
             let coordinates = Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
             let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: date)
-            
+
             let params = calculationMethod.adhanCalculationParameters()
             params.madhab = madhab.adhanMadhab()
-            
+
             guard let adhanPrayerTimes = PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: params) else {
-                throw PrayerTimeError.calculationFailed
+                throw AppError.serviceUnavailable("Prayer time calculation")
             }
-            
+
             let prayerTimes = [
                 PrayerTime(prayer: .fajr, time: adhanPrayerTimes.fajr),
                 PrayerTime(prayer: .dhuhr, time: adhanPrayerTimes.dhuhr),
@@ -75,36 +88,51 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 PrayerTime(prayer: .maghrib, time: adhanPrayerTimes.maghrib),
                 PrayerTime(prayer: .isha, time: adhanPrayerTimes.isha)
             ]
-            
+
             // Cache the results
             cachePrayerTimes(prayerTimes, for: date)
-            
+
             return prayerTimes
-            
+
         } catch {
-            self.error = error
-            throw error
+            let appError = convertToAppError(error)
+            self.error = appError
+            errorHandler.handleError(appError)
+            throw appError
         }
     }
     
     public func refreshPrayerTimes() async {
-        guard let location = locationService.currentLocation?.clLocation else {
-            error = PrayerTimeError.locationUnavailable
-            return
-        }
-        
         do {
+            // Check for cached data first if offline
+            if !networkMonitor.isConnected {
+                if let cachedTimes = loadCachedPrayerTimes() {
+                    todaysPrayerTimes = cachedTimes
+                    updateNextPrayer()
+                    return
+                }
+            }
+
+            guard let location = locationService.currentLocation?.clLocation else {
+                let locationError = AppError.locationUnavailable
+                error = locationError
+                errorHandler.handleError(locationError)
+                return
+            }
+
             let prayerTimes = try await calculatePrayerTimes(for: location, date: Date())
             todaysPrayerTimes = prayerTimes
             updateNextPrayer()
         } catch {
-            self.error = error
+            let appError = convertToAppError(error)
+            self.error = appError
+            errorHandler.handleError(appError)
         }
     }
     
     public func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] {
         guard let location = locationService.currentLocation?.clLocation else {
-            throw PrayerTimeError.locationUnavailable
+            throw AppError.locationUnavailable
         }
         
         var result: [Date: [PrayerTime]] = [:]
@@ -137,7 +165,10 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             self.madhab = madhab
         }
         
-        loadCachedPrayerTimes()
+        if let cachedTimes = loadCachedPrayerTimes() {
+            todaysPrayerTimes = cachedTimes
+            updateNextPrayer()
+        }
     }
     
     private func saveSettings() {
@@ -201,17 +232,29 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         }
     }
     
-    private func loadCachedPrayerTimes() {
+    private func loadCachedPrayerTimes() -> [PrayerTime]? {
         let today = Date()
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let todayKey = dateFormatter.string(from: today)
-        
+
         if let data = userDefaults.data(forKey: "\(CacheKeys.cachedPrayerTimes)_\(todayKey)"),
            let cachedPrayers = try? JSONDecoder().decode([PrayerTime].self, from: data) {
-            todaysPrayerTimes = cachedPrayers
-            updateNextPrayer()
+            return cachedPrayers
         }
+        return nil
+    }
+
+    private func convertToAppError(_ error: Error) -> AppError {
+        if let appError = error as? AppError {
+            return appError
+        }
+
+        if error is PrayerTimeError {
+            return AppError.serviceUnavailable("Prayer time calculation")
+        }
+
+        return AppError.unknownError(error)
     }
 }
 
