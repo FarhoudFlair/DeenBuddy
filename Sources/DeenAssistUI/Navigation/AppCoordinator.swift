@@ -318,7 +318,6 @@ private struct MainAppView: View {
                 }
             )
         }
-        .errorAlert() // Add global error handling
         .errorAlert(
             error: $coordinator.currentError,
             onRetry: {
