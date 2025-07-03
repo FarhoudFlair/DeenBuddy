@@ -50,12 +50,20 @@ import Foundation
 @_exported import class DeenAssistCore.ContentService
 @_exported import class DeenAssistCore.SupabaseService
 @_exported import class DeenAssistCore.ConfigurationManager
+
+// MARK: - Phase 2: Error Handling & Reliability
 @_exported import class DeenAssistCore.ErrorHandler
 @_exported import class DeenAssistCore.NetworkMonitor
 @_exported import class DeenAssistCore.OfflineManager
 @_exported import class DeenAssistCore.RetryMechanism
 @_exported import class DeenAssistCore.MemoryManager
 @_exported import class DeenAssistCore.BatteryOptimizer
+
+// MARK: - Phase 3+4: Infrastructure & UX
+@_exported import class DeenAssistCore.AnalyticsService
+@_exported import class DeenAssistCore.AccessibilityService
+@_exported import class DeenAssistCore.LocalizationService
+@_exported import class DeenAssistCore.PerformanceMonitor
 
 // MARK: - Mocks (for testing and parallel development)
 @_exported import class DeenAssistCore.MockLocationService
