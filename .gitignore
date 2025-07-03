@@ -174,3 +174,22 @@ Temporary Items
 # Temporary files
 *.tmp
 *.temp
+
+# iOS Specific
+*.xcworkspace/xcshareddata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# iOS Simulator
+*.app/
+*.ipa
+
+# iOS Provisioning
+*.mobileprovision
+*.p12
+*.cer
+
+# iOS Keychain
+*.keychain
