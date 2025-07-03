@@ -17,12 +17,18 @@ public class SupabaseService: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
-    private let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
-
+    private let configurationManager = ConfigurationManager.shared
     private let networkMonitor = NetworkMonitor.shared
     private let offlineService = OfflineService()
     private var cancellables = Set<AnyCancellable>()
+
+    private var supabaseUrl: String {
+        return configurationManager.current.supabase.url
+    }
+
+    private var anonKey: String {
+        return configurationManager.current.supabase.anonKey
+    }
 
     // MARK: - Initialization
 
