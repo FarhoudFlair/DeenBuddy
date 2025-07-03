@@ -115,6 +115,7 @@ export class ContentIngester {
     // Create guide object
     const guide = {
       content_id: frontmatter.contentId,
+      contentId: frontmatter.contentId, // Add for compatibility with logging
       title: frontmatter.title,
       prayer_name: frontmatter.prayerName,
       sect: frontmatter.sect,

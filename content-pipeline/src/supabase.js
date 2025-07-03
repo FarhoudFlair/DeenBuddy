@@ -8,12 +8,22 @@ export class SupabaseManager {
   constructor() {
     const supabaseUrl = process.env.SUPABASE_URL || 'https://hjgwbkcjjclwqamtmhsa.supabase.co';
     const supabaseKey = process.env.SUPABASE_ANON_KEY;
-    
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
     if (!supabaseKey) {
       throw new Error('SUPABASE_ANON_KEY environment variable is required');
     }
-    
+
+    // Use anon key for read operations
     this.supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Use service role key for write operations if available
+    if (serviceRoleKey) {
+      this.supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    } else {
+      console.warn(chalk.yellow('⚠️  SUPABASE_SERVICE_ROLE_KEY not found. Write operations may fail due to RLS policies.'));
+      this.supabaseAdmin = this.supabase;
+    }
   }
 
   async getStatus() {
@@ -102,9 +112,12 @@ export class SupabaseManager {
 
   async upsertGuide(guide) {
     try {
-      const { data, error } = await this.supabase
+      // Remove contentId property if it exists (used only for logging)
+      const { contentId, ...dbGuide } = guide;
+
+      const { data, error } = await this.supabaseAdmin
         .from('prayer_guides')
-        .upsert(guide, { 
+        .upsert(dbGuide, {
           onConflict: 'content_id',
           returning: 'minimal'
         });
@@ -118,7 +131,7 @@ export class SupabaseManager {
 
   async deleteGuide(contentId) {
     try {
-      const { error } = await this.supabase
+      const { error } = await this.supabaseAdmin
         .from('prayer_guides')
         .delete()
         .eq('content_id', contentId);
