@@ -24,6 +24,14 @@ public class AppCoordinator: ObservableObject {
     public let prayerTimeService: any PrayerTimeServiceProtocol
     public let settingsService: any SettingsServiceProtocol
     public let themeManager: ThemeManager
+
+    // MARK: - Enhanced Services
+
+    private let analyticsService = AnalyticsService.shared
+    private let accessibilityService = AccessibilityService.shared
+    private let localizationService = LocalizationService.shared
+    private let performanceMonitor = PerformanceMonitor.shared
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
     
@@ -39,8 +47,9 @@ public class AppCoordinator: ObservableObject {
         self.prayerTimeService = prayerTimeService
         self.settingsService = settingsService
         self.themeManager = themeManager
-        
+
         setupInitialState()
+        setupEnhancedServices()
     }
     
     // MARK: - Public Methods
@@ -139,6 +148,32 @@ public class AppCoordinator: ObservableObject {
     
     private func setupInitialState() {
         currentScreen = .loading
+    }
+
+    private func setupEnhancedServices() {
+        // Start performance monitoring
+        performanceMonitor.startMonitoring()
+
+        // Track app launch
+        analyticsService.trackEvent(.sessionStarted)
+
+        // Setup accessibility observers
+        accessibilityService.$isVoiceOverEnabled
+            .sink { [weak self] isEnabled in
+                if isEnabled {
+                    self?.accessibilityService.announceToVoiceOver("Deen Assist is ready")
+                }
+            }
+            .store(in: &cancellables)
+
+        // Setup localization observers
+        NotificationCenter.default.publisher(for: .languageChanged)
+            .sink { [weak self] _ in
+                self?.accessibilityService.postLayoutChangeNotification()
+            }
+            .store(in: &cancellables)
+
+        print("🚀 Enhanced services initialized")
     }
     
     private func loadSettings() async {
