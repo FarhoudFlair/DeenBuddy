@@ -201,13 +201,54 @@ public class PerformanceMonitor: ObservableObject {
             }
         }
         
-        if kerr == KERN_SUCCESS {
-            // This is a simplified CPU usage calculation
-            // In a real implementation, you'd need more sophisticated CPU monitoring
-            return Double(info.resident_size) / Double(ProcessInfo.processInfo.physicalMemory) * 100
+        guard kerr == KERN_SUCCESS else {
+            return 0.0
         }
         
-        return 0.0
+        // Get thread times for proper CPU usage calculation
+        var threadInfo = task_thread_times_info()
+        var threadCount = mach_msg_type_number_t(MemoryLayout<task_thread_times_info>.size / MemoryLayout<natural_t>.size)
+        
+        let threadKerr = withUnsafeMutablePointer(to: &threadInfo) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                task_info(mach_task_self_,
+                         task_flavor_t(TASK_THREAD_TIMES_INFO),
+                         $0,
+                         &threadCount)
+            }
+        }
+        
+        guard threadKerr == KERN_SUCCESS else {
+            return 0.0
+        }
+        
+        // Calculate total CPU time (user + system time)
+        let totalTime = threadInfo.user_time.seconds + threadInfo.user_time.microseconds / 1_000_000 +
+                       threadInfo.system_time.seconds + threadInfo.system_time.microseconds / 1_000_000
+        
+        // Get current time for calculation
+        let currentTime = Date().timeIntervalSince1970
+        
+        // Store previous values for delta calculation
+        static var previousCPUTime: Double = 0
+        static var previousWallTime: Double = 0
+        
+        // Calculate CPU usage percentage
+        let cpuUsage: Double
+        if previousWallTime > 0 {
+            let cpuTimeDelta = Double(totalTime) - previousCPUTime
+            let wallTimeDelta = currentTime - previousWallTime
+            cpuUsage = (cpuTimeDelta / wallTimeDelta) * 100.0
+        } else {
+            cpuUsage = 0.0
+        }
+        
+        // Update previous values
+        previousCPUTime = Double(totalTime)
+        previousWallTime = currentTime
+        
+        // Clamp to reasonable range (0-100%)
+        return min(max(cpuUsage, 0.0), 100.0)
     }
     
     private func getCurrentMemoryUsage() -> Double {
