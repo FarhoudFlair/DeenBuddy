@@ -1,5 +1,6 @@
 import XCTest
 import Combine
+import CoreLocation
 @testable import DeenAssistCore
 @testable import DeenAssistProtocols
 
@@ -147,19 +148,28 @@ public class PerformanceTestSuite {
     /// Test prayer time calculation performance
     public static func testPrayerTimeCalculationPerformance() {
         let location = DeenAssistTestFramework.createTestLocation()
+        let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
         let service = PrayerTimeService(locationService: MockLocationService())
         
         measure {
+            let expectation = XCTestExpectation(description: "Prayer time calculation")
+            
             Task {
                 do {
                     _ = try await service.calculatePrayerTimes(
-                        for: location.clLocation,
+                        for: clLocation,
                         date: Date()
                     )
+                    expectation.fulfill()
                 } catch {
                     XCTFail("Prayer time calculation failed: \(error)")
+                    expectation.fulfill()
                 }
             }
+            
+            // Wait for async operation to complete
+            let result = XCTWaiter.wait(for: [expectation], timeout: 10.0)
+            XCTAssertEqual(result, .completed, "Prayer time calculation should complete within timeout")
         }
     }
     
@@ -209,6 +219,7 @@ public class IntegrationTestSuite {
     public static func testCompletePrayerTimeFlow() async throws {
         let container = DeenAssistTestFramework.createTestContainer()
         let location = DeenAssistTestFramework.createTestLocation()
+        let clLocation = CLLocation(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
         
         // Mock location service to return test location
         if let mockLocationService = container.locationService as? MockLocationService {
@@ -217,7 +228,7 @@ public class IntegrationTestSuite {
         
         // Test prayer time calculation
         let prayerTimes = try await container.prayerTimeService.calculatePrayerTimes(
-            for: location.clLocation,
+            for: clLocation,
             date: Date()
         )
         
