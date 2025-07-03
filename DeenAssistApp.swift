@@ -7,7 +7,7 @@ struct DeenAssistMainApp: App {
     
     // MARK: - App Coordinator
     
-    @StateObject private var coordinator = AppCoordinator.mock()
+    @StateObject private var coordinator = AppCoordinator.production()
     
     // MARK: - App Body
     

@@ -1,5 +1,6 @@
 import SwiftUI
 import DeenAssistProtocols
+import DeenAssistCore
 
 /// Main app coordinator that manages navigation and app state
 @MainActor
@@ -302,14 +303,20 @@ private struct MainAppView: View {
             )
         }
         .sheet(isPresented: $coordinator.showingCompass) {
-            CompassPlaceholderView {
-                coordinator.dismissCompass()
-            }
+            QiblaCompassScreen(
+                locationService: coordinator.locationService,
+                onDismiss: {
+                    coordinator.dismissCompass()
+                }
+            )
         }
         .sheet(isPresented: $coordinator.showingGuides) {
-            GuidesPlaceholderView {
-                coordinator.dismissGuides()
-            }
+            PrayerGuidesScreen(
+                settingsService: coordinator.settingsService,
+                onDismiss: {
+                    coordinator.dismissGuides()
+                }
+            )
         }
         .errorAlert(
             error: $coordinator.currentError,
@@ -427,17 +434,28 @@ private struct LoadingOverlay: View {
 public extension AppCoordinator {
     /// Create coordinator with mock services for previews and testing
     static func mock() -> AppCoordinator {
-        let locationService = MockLocationService()
-        let notificationService = MockNotificationService()
-        let prayerTimeService = MockPrayerTimeService()
-        let settingsService = MockSettingsService()
-        let themeManager = ThemeManager(settingsService: settingsService)
-        
+        let container = DependencyContainer.createForTesting()
+        let themeManager = ThemeManager(settingsService: container.settingsService)
+
         return AppCoordinator(
-            locationService: locationService,
-            notificationService: notificationService,
-            prayerTimeService: prayerTimeService,
-            settingsService: settingsService,
+            locationService: container.locationService,
+            notificationService: container.notificationService,
+            prayerTimeService: container.prayerTimeService,
+            settingsService: container.settingsService,
+            themeManager: themeManager
+        )
+    }
+
+    /// Create coordinator with real services for production
+    static func production() -> AppCoordinator {
+        let container = DependencyContainer.shared
+        let themeManager = ThemeManager(settingsService: container.settingsService)
+
+        return AppCoordinator(
+            locationService: container.locationService,
+            notificationService: container.notificationService,
+            prayerTimeService: container.prayerTimeService,
+            settingsService: container.settingsService,
             themeManager: themeManager
         )
     }

@@ -30,6 +30,9 @@ import Foundation
 @_exported import struct DeenAssistCore.NotificationContent
 @_exported import enum DeenAssistCore.NotificationSound
 @_exported import enum DeenAssistCore.NotificationError
+@_exported import enum DeenAssistCore.ThemeMode
+@_exported import enum DeenAssistCore.SettingsError
+@_exported import enum DeenAssistCore.PrayerTimeError
 
 // MARK: - Protocols
 @_exported import protocol DeenAssistCore.LocationServiceProtocol
@@ -42,6 +45,11 @@ import Foundation
 @_exported import class DeenAssistCore.APIClient
 @_exported import class DeenAssistCore.NotificationService
 @_exported import class DeenAssistCore.APICache
+@_exported import class DeenAssistCore.PrayerTimeService
+@_exported import class DeenAssistCore.SettingsService
+@_exported import class DeenAssistCore.ContentService
+@_exported import class DeenAssistCore.SupabaseService
+@_exported import class DeenAssistCore.ConfigurationManager
 
 // MARK: - Mocks (for testing and parallel development)
 @_exported import class DeenAssistCore.MockLocationService
