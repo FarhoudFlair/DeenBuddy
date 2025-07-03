@@ -182,8 +182,8 @@ public struct SupabaseConfiguration {
     
     /// Default configuration for development
     public static let development = SupabaseConfiguration(
-        url: "https://your-project.supabase.co",
-        anonKey: "your-anon-key"
+        url: "https://hjgwbkcjjclwqamtmhsa.supabase.co",
+        anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
     )
     
     /// Load configuration from environment or plist
@@ -204,47 +204,96 @@ public struct SupabaseConfiguration {
 
 public struct SupabasePrayerGuide: Codable {
     public let id: String
+    public let contentId: String
     public let title: String
-    public let prayer: String
-    public let madhab: String
-    public let difficulty: String
-    public let duration: Int
-    public let description: String
-    public let steps: [SupabasePrayerStep]
+    public let prayerName: String
+    public let sect: String
+    public let rakahCount: Int
+    public let contentType: String
+    public let textContent: SupabaseTextContent?
+    public let videoUrl: String?
+    public let thumbnailUrl: String?
     public let isAvailableOffline: Bool
+    public let version: Int
     public let createdAt: String
     public let updatedAt: String
-    
+
     enum CodingKeys: String, CodingKey {
         case id
+        case contentId = "content_id"
         case title
-        case prayer
-        case madhab
-        case difficulty
-        case duration
-        case description
-        case steps
+        case prayerName = "prayer_name"
+        case sect
+        case rakahCount = "rakah_count"
+        case contentType = "content_type"
+        case textContent = "text_content"
+        case videoUrl = "video_url"
+        case thumbnailUrl = "thumbnail_url"
         case isAvailableOffline = "is_available_offline"
+        case version
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
     
     public func toPrayerGuide() -> PrayerGuide {
         let formatter = ISO8601DateFormatter()
-        
+
+        // Convert sect to madhab (simplified mapping)
+        let madhab: Madhab = sect.lowercased() == "shia" ? .hanafi : .shafi
+
+        // Convert text content to steps
+        let steps = textContent?.steps.enumerated().map { index, step in
+            PrayerStep(
+                id: "\(contentId)_step_\(index + 1)",
+                title: step.title,
+                description: step.description,
+                duration: 60, // Default duration
+                videoURL: videoUrl,
+                audioURL: nil
+            )
+        } ?? []
+
         return PrayerGuide(
-            id: id,
+            id: contentId,
             title: title,
-            prayer: Prayer(rawValue: prayer) ?? .fajr,
-            madhab: Madhab(rawValue: madhab) ?? .shafi,
-            difficulty: PrayerGuide.Difficulty(rawValue: difficulty) ?? .beginner,
-            duration: TimeInterval(duration),
-            description: description,
-            steps: steps.map { $0.toPrayerStep() },
+            prayer: Prayer(rawValue: prayerName) ?? .fajr,
+            madhab: madhab,
+            difficulty: .beginner, // Default difficulty
+            duration: TimeInterval(steps.count * 60), // Estimate based on steps
+            description: "Complete guide for \(title)",
+            steps: steps,
             isAvailableOffline: isAvailableOffline,
             createdAt: formatter.date(from: createdAt) ?? Date(),
             updatedAt: formatter.date(from: updatedAt) ?? Date()
         )
+    }
+}
+
+// MARK: - Text Content Models
+
+public struct SupabaseTextContent: Codable {
+    public let steps: [SupabaseStep]
+    public let rakahInstructions: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case steps
+        case rakahInstructions = "rakah_instructions"
+    }
+}
+
+public struct SupabaseStep: Codable {
+    public let step: Int
+    public let title: String
+    public let description: String
+    public let arabic: String?
+    public let transliteration: String?
+
+    enum CodingKeys: String, CodingKey {
+        case step
+        case title
+        case description
+        case arabic
+        case transliteration
     }
 }
 

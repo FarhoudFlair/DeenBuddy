@@ -6,7 +6,8 @@ import PackageDescription
 let package = Package(
     name: "DeenAssist",
     platforms: [
-        .iOS(.v16)
+        .iOS(.v16),
+        .macOS(.v10_15)
     ],
     products: [
         .library(
