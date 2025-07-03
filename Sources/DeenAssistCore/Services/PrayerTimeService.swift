@@ -132,7 +132,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
     public func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] {
         guard let location = locationService.currentLocation?.clLocation else {
-            throw PrayerTimeError.locationUnavailable
+            throw AppError.locationUnavailable
         }
         
         var result: [Date: [PrayerTime]] = [:]
