@@ -29,6 +29,8 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     private let locationManager = CLLocationManager()
     private let geocoder = CLGeocoder()
+    private let batteryOptimizer = BatteryOptimizer.shared
+    private let errorHandler = ErrorHandler.shared
     private var locationContinuation: CheckedContinuation<LocationInfo, Error>?
     private var permissionContinuation: CheckedContinuation<LocationPermissionStatus, Never>?
     private var cachedLocation: LocationInfo?
@@ -52,6 +54,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     public override init() {
         super.init()
         setupLocationManager()
+        setupBatteryOptimization()
         loadCachedLocation()
         updatePermissionStatus()
     }
@@ -189,8 +192,37 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     private func setupLocationManager() {
         locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = 10.0 // Update every 10 meters
+
+        // Apply battery optimizations
+        batteryOptimizer.applyOptimizations(to: locationManager)
+
+        print("📍 Location manager configured with battery optimization")
+    }
+
+    private func setupBatteryOptimization() {
+        // Start intelligent location updates
+        batteryOptimizer.scheduleIntelligentLocationUpdate { [weak self] in
+            Task { @MainActor in
+                await self?.refreshLocationIfNeeded()
+            }
+        }
+
+        print("🔋 Battery optimization enabled for location services")
+    }
+
+    private func refreshLocationIfNeeded() async {
+        // Only refresh if we don't have a recent location
+        if let cached = cachedLocation,
+           Date().timeIntervalSince(cached.timestamp) < batteryOptimizer.getOptimizedUpdateInterval() {
+            return
+        }
+
+        // Refresh location
+        do {
+            _ = try await getCurrentLocation()
+        } catch {
+            errorHandler.handleError(error)
+        }
     }
     
     private func updatePermissionStatus() {
