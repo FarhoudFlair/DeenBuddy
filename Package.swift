@@ -6,7 +6,8 @@ import PackageDescription
 let package = Package(
     name: "DeenBuddyCore",
     platforms: [
-        .iOS(.v16)  // iOS only - removed macOS support
+        .iOS(.v16),  // iOS only - removed macOS support
+        .macOS(.v12) // Add macOS support for testing
     ],
     products: [
         .library(
