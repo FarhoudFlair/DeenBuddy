@@ -1,0 +1,237 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Description of what the lane does"
+  
+  before_all do
+    # Set up environment
+    setup_ci if ENV['CI']
+    
+    # Ensure we have the latest version of Xcode command line tools
+    ensure_xcode_version(version: "15.2")
+  end
+
+  desc "Run all tests"
+  lane :test do
+    run_tests(
+      scheme: "DeenBuddy",
+      devices: ["iPhone 15 Pro"],
+      clean: true,
+      code_coverage: true,
+      output_directory: "./test_output",
+      output_types: "html,junit"
+    )
+  end
+
+  desc "Build the app for development"
+  lane :build_dev do
+    # Increment build number
+    increment_build_number(xcodeproj: "DeenBuddy.xcodeproj")
+    
+    # Build the app
+    build_app(
+      scheme: "DeenBuddy",
+      configuration: "Debug",
+      export_method: "development",
+      output_directory: "./build",
+      clean: true
+    )
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    # Ensure we're on the right branch
+    ensure_git_branch(branch: 'main')
+    
+    # Make sure the repository is clean
+    ensure_git_status_clean
+    
+    # Increment build number
+    increment_build_number(xcodeproj: "DeenBuddy.xcodeproj")
+    
+    # Match certificates and provisioning profiles
+    match(
+      type: "appstore",
+      readonly: true
+    )
+    
+    # Build the app
+    build_app(
+      scheme: "DeenBuddy",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      clean: true,
+      include_bitcode: false,
+      include_symbols: true
+    )
+    
+    # Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: false,
+      changelog: changelog_from_git_commits(
+        commits_count: 10,
+        pretty: "- %s"
+      )
+    )
+    
+    # Commit and push the version bump
+    commit_version_bump(
+      message: "Version bump for TestFlight build",
+      xcodeproj: "DeenBuddy.xcodeproj"
+    )
+    
+    push_to_git_remote
+    
+    # Send notification
+    slack(
+      message: "Successfully uploaded new build to TestFlight! 🚀",
+      channel: "#ios-builds",
+      success: true
+    ) if ENV['SLACK_URL']
+  end
+
+  desc "Deploy to App Store"
+  lane :release do
+    # Ensure we're on the right branch
+    ensure_git_branch(branch: 'main')
+    
+    # Make sure the repository is clean
+    ensure_git_status_clean
+    
+    # Increment version number
+    increment_version_number(
+      bump_type: "patch",
+      xcodeproj: "DeenBuddy.xcodeproj"
+    )
+    
+    # Increment build number
+    increment_build_number(xcodeproj: "DeenBuddy.xcodeproj")
+    
+    # Match certificates and provisioning profiles
+    match(
+      type: "appstore",
+      readonly: true
+    )
+    
+    # Build the app
+    build_app(
+      scheme: "DeenBuddy",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      clean: true,
+      include_bitcode: false,
+      include_symbols: true
+    )
+    
+    # Upload to App Store
+    upload_to_app_store(
+      force: true,
+      reject_if_possible: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: false
+    )
+    
+    # Create git tag
+    add_git_tag(
+      tag: "v#{get_version_number(xcodeproj: 'DeenBuddy.xcodeproj')}"
+    )
+    
+    # Commit and push
+    commit_version_bump(
+      message: "Version bump for App Store release",
+      xcodeproj: "DeenBuddy.xcodeproj"
+    )
+    
+    push_to_git_remote(tags: true)
+    
+    # Send notification
+    slack(
+      message: "Successfully uploaded new version to App Store! 🎉",
+      channel: "#ios-releases",
+      success: true
+    ) if ENV['SLACK_URL']
+  end
+
+  desc "Setup code signing"
+  lane :setup_signing do
+    match(
+      type: "development",
+      force_for_new_devices: true
+    )
+    
+    match(
+      type: "appstore",
+      force_for_new_devices: true
+    )
+  end
+
+  desc "Refresh provisioning profiles"
+  lane :refresh_profiles do
+    match(
+      type: "development",
+      force: true
+    )
+    
+    match(
+      type: "appstore",
+      force: true
+    )
+  end
+
+  desc "Run SwiftLint"
+  lane :lint do
+    swiftlint(
+      mode: :lint,
+      config_file: ".swiftlint.yml",
+      strict: true
+    )
+  end
+
+  desc "Generate screenshots"
+  lane :screenshots do
+    capture_screenshots(
+      scheme: "DeenBuddyUITests",
+      output_directory: "./screenshots",
+      clear_previous_screenshots: true,
+      override_status_bar: true,
+      localize_simulator: true
+    )
+    
+    frame_screenshots(
+      path: "./screenshots",
+      use_legacy_iphone6_1: false
+    )
+  end
+
+  # Error handling
+  error do |lane, exception|
+    slack(
+      message: "Lane #{lane} failed with exception: #{exception}",
+      channel: "#ios-builds",
+      success: false
+    ) if ENV['SLACK_URL']
+  end
+
+  after_all do |lane|
+    # Clean up
+    clean_build_artifacts
+  end
+end
