@@ -30,6 +30,13 @@ DerivedData/
 *.dSYM.zip
 *.dSYM
 
+# iOS Simulator
+*.app
+
+# Provisioning profiles
+*.mobileprovision
+*.provisionprofile
+
 ## Playgrounds
 timeline.xctimeline
 playground.xcworkspace
@@ -44,10 +51,16 @@ Package.resolved
 #
 # Xcode automatically generates this directory with a .xcworkspace file and xcuserdata
 # hence it is not needed unless you have added a package configuration file to your project
-# .swiftpm
+.swiftpm/
+Packages/
 
 .build/
 .build-*/
+
+# iOS-specific Swift Package Manager
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+!*.xcworkspace/xcshareddata/
 
 # CocoaPods
 #
