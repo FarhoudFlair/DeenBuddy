@@ -9,11 +9,13 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: PrayerGuideViewModel
+    @StateObject private var prayerTimesViewModel = PrayerTimesViewModel()
     @State private var notificationsEnabled = true
     @State private var offlineDownloadsEnabled = true
     @State private var selectedTheme: AppTheme = .system
     @State private var showingAbout = false
     @State private var showingDataManagement = false
+    @State private var showingPrayerTimeSettings = false
     
     var body: some View {
         NavigationStack {
@@ -25,7 +27,11 @@ struct SettingsView: View {
                             Text(madhab.sectDisplayName).tag(madhab)
                         }
                     }
-                    
+
+                    NavigationLink("Prayer Time Settings") {
+                        PrayerTimeSettingsView(viewModel: prayerTimesViewModel)
+                    }
+
                     Toggle("Prayer Notifications", isOn: $notificationsEnabled)
                         .onChange(of: notificationsEnabled) { newValue in
                             // TODO: Handle notification permission

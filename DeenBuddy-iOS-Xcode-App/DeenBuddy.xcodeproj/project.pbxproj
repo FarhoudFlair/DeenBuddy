@@ -576,7 +576,7 @@
 			repositoryURL = "https://github.com/batoulapps/adhan-swift";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 1.5.0;
+				minimumVersion = 1.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

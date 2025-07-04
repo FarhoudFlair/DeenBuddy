@@ -16,6 +16,16 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            // Prayer Times Tab
+            NavigationStack {
+                PrayerTimesView()
+            }
+            .tabItem {
+                Image(systemName: "clock.fill")
+                Text("Prayer Times")
+            }
+            .tag(0)
+
             // Prayer Guides Tab
             NavigationStack {
                 PrayerGuideListView(viewModel: viewModel)
@@ -24,7 +34,7 @@ struct ContentView: View {
                 Image(systemName: "book.closed")
                 Text("Guides")
             }
-            .tag(0)
+            .tag(1)
 
             // Search Tab
             NavigationStack {
@@ -34,7 +44,7 @@ struct ContentView: View {
                 Image(systemName: "magnifyingglass")
                 Text("Search")
             }
-            .tag(1)
+            .tag(2)
 
             // Bookmarks Tab
             NavigationStack {
@@ -44,7 +54,7 @@ struct ContentView: View {
                 Image(systemName: "bookmark")
                 Text("Bookmarks")
             }
-            .tag(2)
+            .tag(3)
 
             // Qibla Compass Tab
             NavigationStack {
@@ -54,7 +64,7 @@ struct ContentView: View {
                 Image(systemName: "safari.fill")
                 Text("Qibla")
             }
-            .tag(3)
+            .tag(4)
 
             // Settings Tab
             NavigationStack {
@@ -64,7 +74,7 @@ struct ContentView: View {
                 Image(systemName: "gear")
                 Text("Settings")
             }
-            .tag(4)
+            .tag(5)
         }
         .task {
             await viewModel.fetchPrayerGuides()

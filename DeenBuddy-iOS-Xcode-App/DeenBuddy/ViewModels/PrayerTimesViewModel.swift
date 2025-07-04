@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 import CoreLocation
+import Network
 
 /// ViewModel for managing prayer times and related UI state
 @MainActor
@@ -40,11 +41,13 @@ public class PrayerTimesViewModel: ObservableObject {
     @Published public var upcomingEvents: [(date: Date, events: [IslamicEvent])] = []
     
     // MARK: - Private Properties
-    
+
     private let prayerTimeService: PrayerTimeService
     private let hijriCalendarService: HijriCalendarService
     private let locationManager: LocationManager
     private var cancellables = Set<AnyCancellable>()
+    private let networkMonitor = NWPathMonitor()
+    private let networkQueue = DispatchQueue(label: "NetworkMonitor")
     
     // MARK: - Computed Properties
     
@@ -89,7 +92,11 @@ public class PrayerTimesViewModel: ObservableObject {
     }
     
     // MARK: - Initialization
-    
+
+    deinit {
+        networkMonitor.cancel()
+    }
+
     public init(
         prayerTimeService: PrayerTimeService = PrayerTimeService(),
         hijriCalendarService: HijriCalendarService = HijriCalendarService(),
@@ -102,9 +109,10 @@ public class PrayerTimesViewModel: ObservableObject {
         self.dualCalendarDate = DualCalendarDate(gregorianDate: Date())
         
         setupBindings()
+        setupNetworkMonitoring()
         updateLocationPermissionStatus()
         updateTodaysEvents()
-        
+
         // Initial load
         Task {
             await loadInitialData()
@@ -133,6 +141,7 @@ public class PrayerTimesViewModel: ObservableObject {
     /// Update prayer time settings
     public func updateSettings(_ newSettings: PrayerTimeSettings) {
         settings = newSettings
+        validateAndFixSettings()
     }
     
     /// Get prayer times for a date range
@@ -160,10 +169,68 @@ public class PrayerTimesViewModel: ObservableObject {
         }
         return prayerTimeService.getRecommendedCalculationMethods(for: location)
     }
+
+    /// Check if current location has extreme latitude issues
+    public func hasExtremeLatitudeIssues() -> Bool {
+        guard let location = locationManager.currentLocation else { return false }
+        let latitude = abs(location.coordinate.latitude)
+        return latitude > 60.0 // Above 60 degrees latitude can have calculation issues
+    }
+
+    /// Handle extreme latitude locations with fallback methods
+    public func handleExtremeLatitude() async {
+        if hasExtremeLatitudeIssues() {
+            // Try different calculation methods that handle extreme latitudes better
+            let extremeLatitudeMethods: [CalculationMethod] = [.muslimWorldLeague, .karachi, .egyptian]
+
+            for method in extremeLatitudeMethods {
+                var testSettings = settings
+                testSettings.calculationMethod = method
+
+                // Test if this method works better
+                let tempService = PrayerTimeService()
+                tempService.updateSettings(testSettings)
+
+                do {
+                    if let location = locationManager.currentLocation {
+                        _ = try await tempService.calculatePrayerTimes(for: Date(), location: location)
+                        // If successful, update settings
+                        updateSettings(testSettings)
+                        await refreshPrayerTimes()
+                        break
+                    }
+                } catch {
+                    // Try next method
+                    continue
+                }
+            }
+        }
+    }
     
     /// Format prayer time according to user preferences
     public func formatPrayerTime(_ prayerTime: PrayerTime) -> String {
         return prayerTime.formattedTime(format: settings.timeFormat)
+    }
+
+    /// Validate and fix calculation settings if needed
+    public func validateAndFixSettings() {
+        // Check if current settings are valid for the location
+        if let location = locationManager.currentLocation {
+            let recommendedMethods = getRecommendedCalculationMethods()
+
+            // If current method is not recommended and we have recommendations, suggest change
+            if !recommendedMethods.contains(settings.calculationMethod) && !recommendedMethods.isEmpty {
+                // Could show a suggestion to user, but for now just log
+                print("Current calculation method may not be optimal for this location")
+            }
+        }
+
+        // Ensure notification offset is reasonable (between 1 minute and 1 hour)
+        if settings.notificationOffset < 60 || settings.notificationOffset > 3600 {
+            var newSettings = settings
+            newSettings.notificationOffset = 300 // Default to 5 minutes
+            updateSettings(newSettings)
+        }
     }
     
     /// Get status color for prayer time
@@ -185,6 +252,41 @@ public class PrayerTimesViewModel: ObservableObject {
     public func showSettings() {
         showingSettings = true
     }
+
+    /// Handle network connectivity changes
+    public func handleNetworkConnectivityChange(isConnected: Bool) {
+        if isConnected && error == .networkError {
+            // Network is back, try to refresh prayer times
+            Task {
+                await refreshPrayerTimes()
+            }
+        }
+    }
+
+    /// Retry failed operation with exponential backoff
+    public func retryWithBackoff() async {
+        let maxRetries = 3
+        var retryCount = 0
+
+        while retryCount < maxRetries {
+            do {
+                await refreshPrayerTimes()
+                if error == nil {
+                    break // Success, exit retry loop
+                }
+            } catch {
+                // Handle any thrown errors
+                print("Retry attempt \(retryCount + 1) failed: \(error)")
+            }
+
+            retryCount += 1
+            if retryCount < maxRetries {
+                // Exponential backoff: 1s, 2s, 4s
+                let delay = pow(2.0, Double(retryCount))
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+        }
+    }
     
     /// Show calculation method picker
     public func showCalculationMethodPicker() {
@@ -200,6 +302,24 @@ public class PrayerTimesViewModel: ObservableObject {
         }
     }
     
+    /// Handle app becoming active
+    public func handleAppBecameActive() {
+        Task {
+            // Update location permission status
+            updateLocationPermissionStatus()
+
+            // Refresh prayer times if needed
+            if isLocationAvailable {
+                await refreshPrayerTimes()
+            }
+
+            // Update calendar dates and events
+            updateDualCalendarDate()
+            updateTodaysEvents()
+            updateUpcomingEvents()
+        }
+    }
+
     /// Handle significant time change (e.g., timezone change)
     public func handleSignificantTimeChange() {
         Task {
@@ -210,7 +330,16 @@ public class PrayerTimesViewModel: ObservableObject {
     }
     
     // MARK: - Private Methods
-    
+
+    private func setupNetworkMonitoring() {
+        networkMonitor.pathUpdateHandler = { [weak self] path in
+            DispatchQueue.main.async {
+                self?.handleNetworkConnectivityChange(isConnected: path.status == .satisfied)
+            }
+        }
+        networkMonitor.start(queue: networkQueue)
+    }
+
     private func setupBindings() {
         // Bind prayer time service
         prayerTimeService.$currentSchedule
