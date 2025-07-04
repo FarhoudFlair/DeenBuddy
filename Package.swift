@@ -20,10 +20,6 @@ let package = Package(
         .library(
             name: "DeenAssistProtocols",
             targets: ["DeenAssistProtocols"]
-        ),
-        .executable(
-            name: "DeenAssistApp",
-            targets: ["DeenAssistApp"]
         )
     ],
     dependencies: [
@@ -66,16 +62,6 @@ let package = Package(
             name: "DeenAssistProtocols",
             dependencies: [],
             path: "Sources/DeenAssistProtocols"
-        ),
-        .executableTarget(
-            name: "DeenAssistApp",
-            dependencies: [
-                "DeenBuddyCore",
-                "DeenAssistUI",
-                "DeenAssistProtocols"
-            ],
-            path: ".",
-            sources: ["DeenAssistApp.swift"]
         ),
         .testTarget(
             name: "DeenBuddyCoreTests",
