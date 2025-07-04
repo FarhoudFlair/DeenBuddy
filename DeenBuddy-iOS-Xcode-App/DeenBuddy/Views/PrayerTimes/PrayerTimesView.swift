@@ -13,38 +13,18 @@ struct PrayerTimesView: View {
     @State private var showingRefreshAnimation = false
     
     var body: some View {
-        NavigationView {
-            ZStack {
-                // Background
-                Color(.systemGroupedBackground)
-                    .ignoresSafeArea()
-                
-                // Content
-                ScrollView {
-                    LazyVStack(spacing: 20) {
-                        // Date Header
-                        DateHeaderView(
-                            dualCalendarDate: viewModel.dualCalendarDate,
-                            todaysEvents: viewModel.todaysEvents
-                        )
-                        .padding(.horizontal)
-                        
-                        // Ramadan Banner (if applicable)
-                        if viewModel.isRamadan {
-                            RamadanBanner()
-                                .padding(.horizontal)
-                        }
-                        
-                        // Location Header
-                        LocationHeaderView(
-                            locationName: viewModel.formattedLocation,
-                            isLocationAvailable: viewModel.isLocationAvailable,
-                            onLocationTapped: {
-                                handleLocationTapped()
-                            }
-                        )
-                        .padding(.horizontal)
-                        
+        ZStack {
+            // Dark background
+            Color.black
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Mosque header image
+                    MosqueHeaderView()
+
+                    // Main content
+                    VStack(spacing: 20) {
                         // Main Content
                         Group {
                             if viewModel.isLoading {
@@ -66,7 +46,7 @@ struct PrayerTimesView: View {
                                 )
                                 .padding()
                             } else if let schedule = viewModel.currentSchedule {
-                                prayerTimesContent(schedule: schedule)
+                                modernPrayerTimesContent(schedule: schedule)
                             } else {
                                 PrayerTimesEmptyView {
                                     Task {
@@ -76,50 +56,27 @@ struct PrayerTimesView: View {
                                 .padding()
                             }
                         }
-                        
-                        // Settings Quick Access
-                        if viewModel.currentSchedule != nil {
-                            PrayerTimesSettingsBar(
-                                calculationMethod: viewModel.settings.calculationMethod,
-                                madhab: viewModel.settings.madhab,
-                                timeFormat: viewModel.settings.timeFormat,
-                                onSettingsTapped: {
-                                    viewModel.showSettings()
+
+                        // Location info at bottom
+                        if viewModel.isLocationAvailable {
+                            LocationInfoFooter(
+                                locationName: viewModel.formattedLocation,
+                                onLocationTapped: {
+                                    handleLocationTapped()
                                 }
                             )
-                            .padding(.horizontal)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 20)
                         }
                     }
-                    .padding(.vertical)
-                }
-                .refreshable {
-                    await refreshData()
+                    .padding(.top, 20)
                 }
             }
-            .navigationTitle("Prayer Times")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button("Refresh", systemImage: "arrow.clockwise") {
-                            Task {
-                                await refreshData()
-                            }
-                        }
-                        
-                        Button("Settings", systemImage: "gear") {
-                            viewModel.showSettings()
-                        }
-                        
-                        Button("Clear Cache", systemImage: "trash") {
-                            viewModel.clearCache()
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
+            .refreshable {
+                await refreshData()
             }
         }
+        .preferredColorScheme(.dark)
         .sheet(isPresented: $viewModel.showingSettings) {
             PrayerTimesSettingsView(viewModel: viewModel)
         }
@@ -210,77 +167,38 @@ struct PrayerTimesView: View {
     }
     
     // MARK: - Prayer Times Content
-    
+
     @ViewBuilder
-    private func prayerTimesContent(schedule: PrayerSchedule) -> some View {
-        VStack(spacing: 20) {
-            // Next Prayer Highlight
-            if let nextPrayer = viewModel.nextPrayer {
-                NextPrayerCard(
-                    prayerTime: nextPrayer,
-                    timeFormat: viewModel.settings.timeFormat
-                )
-                .padding(.horizontal)
-            }
-            
-            // All Prayer Times
-            VStack(spacing: 16) {
-                HStack {
-                    Text("Today's Prayer Times")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                }
-                .padding(.horizontal)
-                
-                PrayerTimesList(
-                    prayerTimes: viewModel.todaysPrayerTimes,
+    private func modernPrayerTimesContent(schedule: PrayerSchedule) -> some View {
+        VStack(spacing: 0) {
+            // Prayer times list
+            ForEach(Array(viewModel.todaysPrayerTimes.enumerated()), id: \.element.id) { index, prayerTime in
+                ModernPrayerTimeRow(
+                    prayerTime: prayerTime,
                     timeFormat: viewModel.settings.timeFormat,
-                    nextPrayerIndex: findNextPrayerIndex()
+                    isNext: findNextPrayerIndex() == index
                 )
-                .padding(.horizontal)
-            }
-            
-            // Additional Info
-            if viewModel.isSacredMonth {
-                sacredMonthBanner()
-                    .padding(.horizontal)
+                .padding(.horizontal, 20)
+
+                if index < viewModel.todaysPrayerTimes.count - 1 {
+                    Divider()
+                        .background(Color.white.opacity(0.1))
+                        .padding(.horizontal, 20)
+                }
             }
         }
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.black.opacity(0.3))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 20)
     }
     
-    @ViewBuilder
-    private func sacredMonthBanner() -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "star.crescent.fill")
-                .font(.title2)
-                .foregroundColor(.gold)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Sacred Month")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                
-                Text("This is one of the four sacred months in Islam")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            
-            Spacer()
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.gold.opacity(0.1))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.gold.opacity(0.3), lineWidth: 1)
-        )
-    }
+
     
     // MARK: - Helper Methods
     
@@ -415,6 +333,114 @@ struct PrayerTimesSettingsView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Supporting Views
+
+struct MosqueHeaderView: View {
+    var body: some View {
+        ZStack {
+            // Mosque silhouette image placeholder
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.blue.opacity(0.8),
+                            Color.purple.opacity(0.6)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(height: 200)
+
+            // Mosque silhouette overlay
+            VStack {
+                Spacer()
+                HStack(spacing: 20) {
+                    // Minaret 1
+                    Rectangle()
+                        .fill(Color.black.opacity(0.7))
+                        .frame(width: 8, height: 60)
+
+                    // Main dome
+                    Circle()
+                        .fill(Color.black.opacity(0.7))
+                        .frame(width: 80, height: 40)
+                        .clipShape(Rectangle().offset(y: 20))
+
+                    // Minaret 2
+                    Rectangle()
+                        .fill(Color.black.opacity(0.7))
+                        .frame(width: 8, height: 60)
+                }
+                .padding(.bottom, 20)
+            }
+        }
+    }
+}
+
+struct ModernPrayerTimeRow: View {
+    let prayerTime: PrayerTime
+    let timeFormat: TimeFormat
+    let isNext: Bool
+
+    var body: some View {
+        HStack {
+            // Prayer name
+            VStack(alignment: .leading, spacing: 2) {
+                Text(prayerTime.prayer.displayName)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+
+                Text(prayerTime.prayer.arabicName)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+            }
+
+            Spacer()
+
+            // Prayer time
+            Text(prayerTime.formattedTime(format: timeFormat))
+                .font(.body)
+                .fontWeight(.medium)
+                .foregroundColor(isNext ? .cyan : .white)
+
+            // Next prayer indicator
+            if isNext {
+                Circle()
+                    .fill(Color.cyan)
+                    .frame(width: 8, height: 8)
+            }
+        }
+        .padding(.vertical, 16)
+        .background(
+            isNext ? Color.cyan.opacity(0.1) : Color.clear
+        )
+    }
+}
+
+struct LocationInfoFooter: View {
+    let locationName: String
+    let onLocationTapped: () -> Void
+
+    var body: some View {
+        Button(action: onLocationTapped) {
+            HStack(spacing: 8) {
+                Image(systemName: "location.fill")
+                    .font(.caption)
+                    .foregroundColor(.cyan)
+
+                Text(locationName)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
+
+                Spacer()
+            }
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 

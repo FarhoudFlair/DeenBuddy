@@ -26,83 +26,118 @@ struct PrayerGuideListView: View {
     }
     
     var body: some View {
-        Group {
-            if viewModel.isLoading && viewModel.prayerGuides.isEmpty {
-                LoadingView(message: "Loading prayer guides...")
-            } else if let errorMessage = viewModel.errorMessage, viewModel.prayerGuides.isEmpty {
-                ErrorView(
-                    message: errorMessage,
-                    onRetry: {
-                        Task {
-                            await viewModel.refreshData()
-                        }
-                    }
-                )
-            } else if filteredGuides.isEmpty {
-                EmptyStateView(
-                    title: "No Prayer Guides",
-                    message: searchText.isEmpty ? 
-                        "No guides found for \(viewModel.selectedMadhab.sectDisplayName) tradition" :
-                        "No guides match your search",
-                    systemImage: searchText.isEmpty ? "book.closed" : "magnifyingglass"
-                )
-            } else {
-                List {
-                    // Offline mode indicator
-                    if viewModel.isOffline {
-                        Section {
-                            HStack {
-                                Image(systemName: "wifi.slash")
-                                    .foregroundColor(.orange)
-                                Text("Offline Mode - Using cached content")
-                                    .font(.caption)
-                                    .foregroundColor(.orange)
-                                Spacer()
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                    
-                    // Prayer guides section
-                    Section("Prayer Guides (\(filteredGuides.count))") {
-                        ForEach(filteredGuides) { guide in
-                            NavigationLink(destination: PrayerGuideDetailView(guide: guide)) {
-                                PrayerGuideRowView(guide: guide)
+        ZStack {
+            ModernGradientBackground()
+
+            Group {
+                if viewModel.isLoading && viewModel.prayerGuides.isEmpty {
+                    ModernLoadingView(message: "Loading prayer guides...")
+                } else if let errorMessage = viewModel.errorMessage, viewModel.prayerGuides.isEmpty {
+                    ModernErrorView(
+                        title: "Error Loading Guides",
+                        message: errorMessage,
+                        onRetry: {
+                            Task {
+                                await viewModel.refreshData()
                             }
                         }
-                    }
-                    
-                    // Summary section
-                    if searchText.isEmpty {
-                        Section("Summary") {
-                            SummaryRowView(
-                                title: "Total Guides",
-                                value: "\(viewModel.totalGuides)",
-                                color: .primary
-                            )
-                            
-                            SummaryRowView(
-                                title: "Sunni Guides",
-                                value: "\(viewModel.shafiGuides)",
-                                color: .green
-                            )
-                            
-                            SummaryRowView(
-                                title: "Shia Guides", 
-                                value: "\(viewModel.hanafiGuides)",
-                                color: .purple
-                            )
+                    )
+                } else if filteredGuides.isEmpty {
+                    ModernEmptyState(
+                        title: "No Prayer Guides",
+                        message: searchText.isEmpty ?
+                            "No guides found for \(viewModel.selectedMadhab.sectDisplayName) tradition" :
+                            "No guides match your search",
+                        systemImage: searchText.isEmpty ? "book.closed" : "magnifyingglass"
+                    )
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            // Offline mode indicator
+                            if viewModel.isOffline {
+                                ModernCard(backgroundColor: Color.orange.opacity(0.2), borderColor: Color.orange.opacity(0.3)) {
+                                    HStack {
+                                        Image(systemName: "wifi.slash")
+                                            .foregroundColor(.orange)
+                                        ModernCaption("Offline Mode - Using cached content", color: .orange)
+                                        Spacer()
+                                    }
+                                    .padding()
+                                }
+                                .padding(.horizontal)
+                            }
+
+                            // Prayer guides section
+                            ModernCard {
+                                VStack(spacing: 0) {
+                                    HStack {
+                                        ModernTitle("Prayer Guides (\(filteredGuides.count))")
+                                        Spacer()
+                                    }
+                                    .padding()
+
+                                    ForEach(Array(filteredGuides.enumerated()), id: \.element.id) { index, guide in
+                                        NavigationLink(destination: PrayerGuideDetailView(guide: guide)) {
+                                            ModernPrayerGuideRow(guide: guide)
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+
+                                        if index < filteredGuides.count - 1 {
+                                            Divider()
+                                                .background(Color.white.opacity(0.1))
+                                                .padding(.horizontal)
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+
+                            // Summary section
+                            if searchText.isEmpty {
+                                ModernCard {
+                                    VStack(spacing: 16) {
+                                        HStack {
+                                            ModernTitle("Summary")
+                                            Spacer()
+                                        }
+
+                                        VStack(spacing: 12) {
+                                            ModernSummaryRow(
+                                                title: "Total Guides",
+                                                value: "\(viewModel.totalGuides)",
+                                                color: .white
+                                            )
+
+                                            ModernSummaryRow(
+                                                title: "Sunni Guides",
+                                                value: "\(viewModel.shafiGuides)",
+                                                color: .green
+                                            )
+
+                                            ModernSummaryRow(
+                                                title: "Shia Guides",
+                                                value: "\(viewModel.hanafiGuides)",
+                                                color: .purple
+                                            )
+                                        }
+                                    }
+                                    .padding()
+                                }
+                                .padding(.horizontal)
+                            }
                         }
+                        .padding(.vertical)
+                    }
+                    .refreshable {
+                        await viewModel.refreshData()
                     }
                 }
-                .refreshable {
-                    await viewModel.refreshData()
-                }
-                .searchable(text: $searchText, prompt: "Search prayer guides...")
             }
         }
         .navigationTitle("Prayer Guides")
         .navigationBarTitleDisplayMode(.large)
+        .preferredColorScheme(.dark)
+        .searchable(text: $searchText, prompt: "Search prayer guides...")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Picker("Tradition", selection: $viewModel.selectedMadhab) {
@@ -112,21 +147,23 @@ struct PrayerGuideListView: View {
                     }
                 }
                 .pickerStyle(.menu)
+                .tint(.cyan)
             }
         }
     }
 }
 
-struct SummaryRowView: View {
+struct ModernSummaryRow: View {
     let title: String
     let value: String
     let color: Color
-    
+
     var body: some View {
         HStack {
-            Text(title)
+            ModernSubtitle(title)
             Spacer()
             Text(value)
+                .font(.body)
                 .fontWeight(.semibold)
                 .foregroundColor(color)
         }

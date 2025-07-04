@@ -48,49 +48,89 @@ struct SearchView: View {
     
     var body: some View {
         NavigationStack {
-            VStack {
-                // Search results
-                if viewModel.isLoading {
-                    LoadingView(message: "Searching prayer guides...")
-                } else if filteredGuides.isEmpty {
-                    EmptyStateView(
-                        title: "No Results",
-                        message: hasActiveFilters ? 
-                            "No guides match your search criteria" : 
-                            "Start typing to search prayer guides",
-                        systemImage: "magnifyingglass"
-                    )
-                } else {
-                    List {
-                        // Active filters section
-                        if hasActiveFilters {
-                            Section("Active Filters") {
-                                activeFiltersView
-                            }
-                        }
-                        
-                        // Search results
-                        Section("Results (\(filteredGuides.count))") {
-                            ForEach(filteredGuides) { guide in
-                                NavigationLink(destination: PrayerGuideDetailView(guide: guide)) {
-                                    PrayerGuideRowView(guide: guide)
+            ZStack {
+                // Dark background
+                ModernGradientBackground()
+
+                VStack {
+                    // Search results
+                    if viewModel.isLoading {
+                        ModernLoadingView(message: "Searching prayer guides...")
+                    } else if filteredGuides.isEmpty {
+                        ModernEmptyState(
+                            title: "No Results",
+                            message: hasActiveFilters ?
+                                "No guides match your search criteria" :
+                                "Start typing to search prayer guides",
+                            systemImage: "magnifyingglass"
+                        )
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 16) {
+                                // Active filters section
+                                if hasActiveFilters {
+                                    ModernCard {
+                                        VStack(alignment: .leading, spacing: 12) {
+                                            HStack {
+                                                ModernTitle("Active Filters")
+                                                Spacer()
+                                                Button("Clear All") {
+                                                    clearAllFilters()
+                                                }
+                                                .buttonStyle(SecondaryModernButtonStyle())
+                                            }
+
+                                            activeFiltersView
+                                        }
+                                        .padding()
+                                    }
+                                    .padding(.horizontal)
                                 }
+
+                                // Search results
+                                ModernCard {
+                                    VStack(spacing: 0) {
+                                        HStack {
+                                            ModernTitle("Results (\(filteredGuides.count))")
+                                            Spacer()
+                                        }
+                                        .padding()
+
+                                        ForEach(Array(filteredGuides.enumerated()), id: \.element.id) { index, guide in
+                                            NavigationLink(destination: PrayerGuideDetailView(guide: guide)) {
+                                                ModernPrayerGuideRow(guide: guide)
+                                            }
+                                            .buttonStyle(PlainButtonStyle())
+
+                                            if index < filteredGuides.count - 1 {
+                                                Divider()
+                                                    .background(Color.white.opacity(0.1))
+                                                    .padding(.horizontal)
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal)
                             }
+                            .padding(.vertical)
                         }
                     }
                 }
             }
             .navigationTitle("Search")
+            .navigationBarTitleDisplayMode(.large)
+            .preferredColorScheme(.dark)
             .searchable(text: $searchText, prompt: "Search prayer guides...")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Filters") {
                         showingFilters = true
                     }
+                    .foregroundColor(.cyan)
                 }
             }
             .sheet(isPresented: $showingFilters) {
-                FilterView(
+                ModernFilterView(
                     selectedPrayer: $selectedPrayer,
                     selectedMadhab: $selectedMadhab,
                     selectedDifficulty: $selectedDifficulty
@@ -104,52 +144,36 @@ struct SearchView: View {
     }
     
     private var activeFiltersView: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Filters")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
-                Spacer()
-                
-                Button("Clear All") {
-                    clearAllFilters()
-                }
-                .font(.caption)
-                .foregroundColor(.blue)
-            }
-            
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    if let selectedPrayer = selectedPrayer {
-                        FilterChip(
-                            title: selectedPrayer.displayName,
-                            color: selectedPrayer.color
-                        ) {
-                            self.selectedPrayer = nil
-                        }
-                    }
-                    
-                    if let selectedMadhab = selectedMadhab {
-                        FilterChip(
-                            title: selectedMadhab.sectDisplayName,
-                            color: selectedMadhab.color
-                        ) {
-                            self.selectedMadhab = nil
-                        }
-                    }
-                    
-                    if let selectedDifficulty = selectedDifficulty {
-                        FilterChip(
-                            title: selectedDifficulty.displayName,
-                            color: difficultyColor(selectedDifficulty)
-                        ) {
-                            self.selectedDifficulty = nil
-                        }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                if let selectedPrayer = selectedPrayer {
+                    ModernFilterChip(
+                        title: selectedPrayer.displayName,
+                        color: selectedPrayer.color
+                    ) {
+                        self.selectedPrayer = nil
                     }
                 }
-                .padding(.horizontal, 1)
+
+                if let selectedMadhab = selectedMadhab {
+                    ModernFilterChip(
+                        title: selectedMadhab.sectDisplayName,
+                        color: selectedMadhab.color
+                    ) {
+                        self.selectedMadhab = nil
+                    }
+                }
+
+                if let selectedDifficulty = selectedDifficulty {
+                    ModernFilterChip(
+                        title: selectedDifficulty.displayName,
+                        color: difficultyColor(selectedDifficulty)
+                    ) {
+                        self.selectedDifficulty = nil
+                    }
+                }
             }
+            .padding(.horizontal, 1)
         }
     }
     
@@ -168,68 +192,137 @@ struct SearchView: View {
     }
 }
 
-struct FilterChip: View {
+struct ModernFilterChip: View {
     let title: String
     let color: Color
     let onRemove: () -> Void
-    
+
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Text(title)
                 .font(.caption)
                 .fontWeight(.medium)
-            
+
             Button(action: onRemove) {
                 Image(systemName: "xmark")
                     .font(.caption2)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
         .background(color.opacity(0.2))
         .foregroundColor(color)
-        .cornerRadius(12)
+        .cornerRadius(16)
     }
 }
 
-struct FilterView: View {
+struct ModernPrayerGuideRow: View {
+    let guide: PrayerGuide
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Prayer icon
+            Image(systemName: guide.prayer.systemImageName)
+                .font(.title3)
+                .foregroundColor(guide.prayer.color)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(guide.title)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(.white)
+
+                HStack(spacing: 8) {
+                    ModernStatusIndicator(
+                        status: guide.prayer.displayName,
+                        color: guide.prayer.color
+                    )
+
+                    ModernStatusIndicator(
+                        status: guide.madhab.sectDisplayName,
+                        color: guide.madhab.color
+                    )
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.4))
+        }
+        .padding()
+    }
+}
+
+struct ModernFilterView: View {
     @Binding var selectedPrayer: Prayer?
     @Binding var selectedMadhab: Madhab?
     @Binding var selectedDifficulty: PrayerGuide.Difficulty?
     @Environment(\.dismiss) private var dismiss
-    
+
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Prayer Time") {
-                    Picker("Prayer", selection: $selectedPrayer) {
-                        Text("All Prayers").tag(Prayer?.none)
-                        ForEach(Prayer.allCases, id: \.self) { prayer in
-                            Text(prayer.displayName).tag(Prayer?.some(prayer))
+            ZStack {
+                ModernGradientBackground()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        ModernCard {
+                            VStack(alignment: .leading, spacing: 16) {
+                                ModernTitle("Prayer Time")
+
+                                Picker("Prayer", selection: $selectedPrayer) {
+                                    Text("All Prayers").tag(Prayer?.none)
+                                    ForEach(Prayer.allCases, id: \.self) { prayer in
+                                        Text(prayer.displayName).tag(Prayer?.some(prayer))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(.cyan)
+                            }
+                            .padding()
+                        }
+
+                        ModernCard {
+                            VStack(alignment: .leading, spacing: 16) {
+                                ModernTitle("Tradition")
+
+                                Picker("Tradition", selection: $selectedMadhab) {
+                                    Text("All Traditions").tag(Madhab?.none)
+                                    ForEach(Madhab.allCases, id: \.self) { madhab in
+                                        Text(madhab.sectDisplayName).tag(Madhab?.some(madhab))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(.cyan)
+                            }
+                            .padding()
+                        }
+
+                        ModernCard {
+                            VStack(alignment: .leading, spacing: 16) {
+                                ModernTitle("Difficulty")
+
+                                Picker("Difficulty", selection: $selectedDifficulty) {
+                                    Text("All Levels").tag(PrayerGuide.Difficulty?.none)
+                                    ForEach(PrayerGuide.Difficulty.allCases, id: \.self) { difficulty in
+                                        Text(difficulty.displayName).tag(PrayerGuide.Difficulty?.some(difficulty))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                                .tint(.cyan)
+                            }
+                            .padding()
                         }
                     }
-                }
-                
-                Section("Tradition") {
-                    Picker("Tradition", selection: $selectedMadhab) {
-                        Text("All Traditions").tag(Madhab?.none)
-                        ForEach(Madhab.allCases, id: \.self) { madhab in
-                            Text(madhab.sectDisplayName).tag(Madhab?.some(madhab))
-                        }
-                    }
-                }
-                
-                Section("Difficulty") {
-                    Picker("Difficulty", selection: $selectedDifficulty) {
-                        Text("All Levels").tag(PrayerGuide.Difficulty?.none)
-                        ForEach(PrayerGuide.Difficulty.allCases, id: \.self) { difficulty in
-                            Text(difficulty.displayName).tag(PrayerGuide.Difficulty?.some(difficulty))
-                        }
-                    }
+                    .padding()
                 }
             }
             .navigationTitle("Filters")
             .navigationBarTitleDisplayMode(.inline)
+            .preferredColorScheme(.dark)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Clear All") {
@@ -237,12 +330,14 @@ struct FilterView: View {
                         selectedMadhab = nil
                         selectedDifficulty = nil
                     }
+                    .foregroundColor(.cyan)
                 }
-                
+
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
+                    .foregroundColor(.cyan)
                 }
             }
         }
