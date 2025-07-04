@@ -4,7 +4,7 @@ import DeenAssistProtocols
 /// Theme manager for handling app-wide theming
 @MainActor
 public class ThemeManager: ObservableObject {
-    @Published public var currentTheme: ThemeMode = .system
+    @Published public var currentTheme: ThemeMode = .dark
     @Published public var colorScheme: ColorScheme? = nil
     
     private var settingsService: SettingsServiceProtocol?
@@ -24,12 +24,10 @@ public class ThemeManager: ObservableObject {
     /// Get the appropriate color scheme for the current theme
     public func getColorScheme() -> ColorScheme? {
         switch currentTheme {
-        case .light:
-            return .light
         case .dark:
             return .dark
-        case .system:
-            return nil // Let system decide
+        case .islamicGreen:
+            return .light // Islamic green theme uses light backgrounds
         }
     }
     
@@ -66,15 +64,16 @@ public class ThemeManager: ObservableObject {
 /// View modifier for applying theme
 public struct ThemedViewModifier: ViewModifier {
     @ObservedObject private var themeManager: ThemeManager
-    
+
     public init(themeManager: ThemeManager) {
         self.themeManager = themeManager
     }
-    
+
     public func body(content: Content) -> some View {
         content
             .preferredColorScheme(themeManager.colorScheme)
-            .background(ColorPalette.backgroundPrimary)
+            .environment(\.currentTheme, themeManager.currentTheme)
+            .background(themeManager.currentTheme == .dark ? ColorPalette.backgroundPrimary : Color.islamicBackgroundPrimary)
     }
 }
 
@@ -87,21 +86,15 @@ public extension View {
 
 /// Theme preview helper for SwiftUI previews
 public struct ThemePreview {
-    public static let lightTheme: ThemeManager = {
-        let manager = ThemeManager()
-        manager.setTheme(.light)
-        return manager
-    }()
-    
     public static let darkTheme: ThemeManager = {
         let manager = ThemeManager()
         manager.setTheme(.dark)
         return manager
     }()
-    
-    public static let systemTheme: ThemeManager = {
+
+    public static let islamicGreenTheme: ThemeManager = {
         let manager = ThemeManager()
-        manager.setTheme(.system)
+        manager.setTheme(.islamicGreen)
         return manager
     }()
 }

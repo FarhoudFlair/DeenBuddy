@@ -9,10 +9,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var viewModel: PrayerGuideViewModel
+    @ObservedObject var themeManager: ThemeManager
     @StateObject private var prayerTimesViewModel = PrayerTimesViewModel()
     @State private var notificationsEnabled = true
     @State private var offlineDownloadsEnabled = true
-    @State private var selectedTheme: AppTheme = .system
     @State private var showingAbout = false
     @State private var showingDataManagement = false
     @State private var showingPrayerTimeSettings = false
@@ -40,12 +40,12 @@ struct SettingsView: View {
                 
                 // App Settings
                 Section("App Settings") {
-                    Picker("Theme", selection: $selectedTheme) {
+                    Picker("Theme", selection: $themeManager.currentTheme) {
                         ForEach(AppTheme.allCases, id: \.self) { theme in
                             Text(theme.displayName).tag(theme)
                         }
                     }
-                    
+
                     Toggle("Offline Downloads", isOn: $offlineDownloadsEnabled)
                         .onChange(of: offlineDownloadsEnabled) { newValue in
                             // TODO: Handle offline download settings
@@ -152,19 +152,7 @@ struct StatRowView: View {
     }
 }
 
-enum AppTheme: String, CaseIterable {
-    case light = "light"
-    case dark = "dark"
-    case system = "system"
-    
-    var displayName: String {
-        switch self {
-        case .light: return "Light"
-        case .dark: return "Dark"
-        case .system: return "System"
-        }
-    }
-}
+
 
 struct AboutView: View {
     @Environment(\.dismiss) private var dismiss
@@ -295,5 +283,5 @@ struct DataManagementView: View {
 }
 
 #Preview {
-    SettingsView(viewModel: PrayerGuideViewModel())
+    SettingsView(viewModel: PrayerGuideViewModel(), themeManager: ThemeManager())
 }

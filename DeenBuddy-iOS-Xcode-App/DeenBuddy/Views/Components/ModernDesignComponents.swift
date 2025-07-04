@@ -11,27 +11,32 @@ import SwiftUI
 
 struct ModernCard<Content: View>: View {
     let content: Content
-    let backgroundColor: Color
-    let borderColor: Color
-    
+    let backgroundColor: Color?
+    let borderColor: Color?
+    @Environment(\.currentTheme) private var currentTheme
+
     init(
-        backgroundColor: Color = Color.black.opacity(0.3),
-        borderColor: Color = Color.white.opacity(0.1),
+        backgroundColor: Color? = nil,
+        borderColor: Color? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.backgroundColor = backgroundColor
         self.borderColor = borderColor
         self.content = content()
     }
-    
+
     var body: some View {
+        let colors = ThemeAwareColorPalette(theme: currentTheme)
+        let cardBackgroundColor = backgroundColor ?? (currentTheme == .dark ? Color.black.opacity(0.3) : colors.surfacePrimary)
+        let cardBorderColor = borderColor ?? (currentTheme == .dark ? Color.white.opacity(0.1) : colors.primary.opacity(0.2))
+
         content
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(backgroundColor)
+                    .fill(cardBackgroundColor)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(borderColor, lineWidth: 1)
+                            .stroke(cardBorderColor, lineWidth: 1)
                     )
             )
     }
@@ -40,22 +45,27 @@ struct ModernCard<Content: View>: View {
 // MARK: - Modern Button Styles
 
 struct PrimaryModernButtonStyle: ButtonStyle {
-    let backgroundColor: Color
-    let foregroundColor: Color
-    
-    init(backgroundColor: Color = .cyan, foregroundColor: Color = .black) {
+    let backgroundColor: Color?
+    let foregroundColor: Color?
+    @Environment(\.currentTheme) private var currentTheme
+
+    init(backgroundColor: Color? = nil, foregroundColor: Color? = nil) {
         self.backgroundColor = backgroundColor
         self.foregroundColor = foregroundColor
     }
-    
+
     func makeBody(configuration: Configuration) -> some View {
+        let colors = ThemeAwareColorPalette(theme: currentTheme)
+        let buttonBackgroundColor = backgroundColor ?? (currentTheme == .dark ? .cyan : colors.primary)
+        let buttonForegroundColor = foregroundColor ?? (currentTheme == .dark ? .black : .white)
+
         configuration.label
             .font(.body)
             .fontWeight(.medium)
-            .foregroundColor(foregroundColor)
+            .foregroundColor(buttonForegroundColor)
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .background(backgroundColor)
+            .background(buttonBackgroundColor)
             .cornerRadius(20)
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
@@ -224,15 +234,13 @@ struct ModernEmptyState: View {
 // MARK: - Modern Gradient Background
 
 struct ModernGradientBackground: View {
-    let colors: [Color]
+    let colors: [Color]?
     let startPoint: UnitPoint
     let endPoint: UnitPoint
-    
+    @Environment(\.currentTheme) private var currentTheme
+
     init(
-        colors: [Color] = [
-            Color(red: 0.1, green: 0.15, blue: 0.25),
-            Color(red: 0.05, green: 0.1, blue: 0.2)
-        ],
+        colors: [Color]? = nil,
         startPoint: UnitPoint = .topLeading,
         endPoint: UnitPoint = .bottomTrailing
     ) {
@@ -240,10 +248,16 @@ struct ModernGradientBackground: View {
         self.startPoint = startPoint
         self.endPoint = endPoint
     }
-    
+
     var body: some View {
+        let themeColors = ThemeAwareColorPalette(theme: currentTheme)
+        let gradientColors = colors ?? (currentTheme == .dark ?
+            [Color(red: 0.1, green: 0.15, blue: 0.25), Color(red: 0.05, green: 0.1, blue: 0.2)] :
+            [themeColors.backgroundPrimary, themeColors.backgroundSecondary]
+        )
+
         LinearGradient(
-            colors: colors,
+            colors: gradientColors,
             startPoint: startPoint,
             endPoint: endPoint
         )

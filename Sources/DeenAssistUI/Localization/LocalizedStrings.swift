@@ -372,12 +372,10 @@ public extension PrayerType {
 public extension ThemeMode {
     var localizedDisplayName: String {
         switch self {
-        case .light:
-            return NSLocalizedString("theme.light", value: "Light", comment: "Light theme name")
         case .dark:
-            return NSLocalizedString("theme.dark", value: "Dark", comment: "Dark theme name")
-        case .system:
-            return NSLocalizedString("theme.system", value: "System", comment: "System theme name")
+            return NSLocalizedString("theme.dark", value: "Dark Theme", comment: "Dark theme name")
+        case .islamicGreen:
+            return NSLocalizedString("theme.islamicGreen", value: "Islamic Green Theme", comment: "Islamic green theme name")
         }
     }
 }

@@ -11,6 +11,7 @@ import CoreMotion
 
 struct ContentView: View {
     @StateObject private var viewModel = PrayerGuideViewModel()
+    @StateObject private var themeManager = ThemeManager()
     @State private var selectedTab = 0
     @State private var showingQiblaCompass = false
 
@@ -68,7 +69,7 @@ struct ContentView: View {
 
             // Settings Tab
             NavigationStack {
-                SettingsView(viewModel: viewModel)
+                SettingsView(viewModel: viewModel, themeManager: themeManager)
             }
             .tabItem {
                 Image(systemName: "gear")
@@ -76,8 +77,8 @@ struct ContentView: View {
             }
             .tag(5)
         }
-        .tint(.cyan)
-        .preferredColorScheme(.dark)
+        .tint(themeManager.currentTheme == .dark ? .cyan : .islamicAccentGold)
+        .themed(with: themeManager)
         .task {
             await viewModel.fetchPrayerGuides()
         }

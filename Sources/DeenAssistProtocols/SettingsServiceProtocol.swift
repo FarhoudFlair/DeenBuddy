@@ -29,29 +29,24 @@ public protocol SettingsServiceProtocol: ObservableObject {
 
 /// Theme modes
 public enum ThemeMode: String, CaseIterable {
-    case light = "light"
     case dark = "dark"
-    case system = "system"
-    
+    case islamicGreen = "islamicGreen"
+
     public var displayName: String {
         switch self {
-        case .light:
-            return "Light"
         case .dark:
-            return "Dark"
-        case .system:
-            return "System"
+            return "Dark Theme"
+        case .islamicGreen:
+            return "Islamic Green Theme"
         }
     }
-    
+
     public var description: String {
         switch self {
-        case .light:
-            return "Always use light theme"
         case .dark:
-            return "Always use dark theme"
-        case .system:
-            return "Follow system appearance"
+            return "Modern dark theme with cyan accents"
+        case .islamicGreen:
+            return "Light theme with Islamic green colors and warm backgrounds"
         }
     }
 }
