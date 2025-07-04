@@ -85,11 +85,15 @@ public struct PrayerTime: Identifiable, Codable, Equatable {
     public let prayer: Prayer
     public let time: Date
     public let status: PrayerStatus
-    
+
     public init(prayer: Prayer, time: Date, status: PrayerStatus = .upcoming) {
         self.prayer = prayer
         self.time = time
         self.status = status
+    }
+
+    public static func == (lhs: PrayerTime, rhs: PrayerTime) -> Bool {
+        return lhs.prayer == rhs.prayer && lhs.time == rhs.time && lhs.status == rhs.status
     }
     
     /// Formatted time string based on user preferences

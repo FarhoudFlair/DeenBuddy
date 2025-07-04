@@ -12,73 +12,7 @@ import SwiftUI
 
 // MARK: - Mock Models (Temporary)
 
-public enum Prayer: String, CaseIterable, Codable {
-    case fajr = "Fajr"
-    case dhuhr = "Dhuhr"
-    case asr = "Asr"
-    case maghrib = "Maghrib"
-    case isha = "Isha"
-    
-    public var displayName: String {
-        return rawValue
-    }
-    
-    public var systemImageName: String {
-        switch self {
-        case .fajr: return "sunrise"
-        case .dhuhr: return "sun.max"
-        case .asr: return "sun.min"
-        case .maghrib: return "sunset"
-        case .isha: return "moon"
-        }
-    }
-    
-    public var color: Color {
-        switch self {
-        case .fajr: return .orange
-        case .dhuhr: return .yellow
-        case .asr: return .blue
-        case .maghrib: return .red
-        case .isha: return .indigo
-        }
-    }
-    
-    public var arabicName: String {
-        switch self {
-        case .fajr: return "الفجر"
-        case .dhuhr: return "الظهر"
-        case .asr: return "العصر"
-        case .maghrib: return "المغرب"
-        case .isha: return "العشاء"
-        }
-    }
-}
-
-public enum Madhab: String, CaseIterable, Codable {
-    case shafi = "shafi"
-    case hanafi = "hanafi"
-    
-    public var displayName: String {
-        switch self {
-        case .shafi: return "Shafi"
-        case .hanafi: return "Hanafi"
-        }
-    }
-    
-    public var sectDisplayName: String {
-        switch self {
-        case .shafi: return "Sunni"
-        case .hanafi: return "Shia"
-        }
-    }
-    
-    public var color: Color {
-        switch self {
-        case .shafi: return .green
-        case .hanafi: return .purple
-        }
-    }
-}
+// Note: Prayer and Madhab enums are now defined in PrayerTimeModels.swift and CalculationModels.swift
 
 public struct PrayerStep: Codable, Identifiable {
     public let id: String
