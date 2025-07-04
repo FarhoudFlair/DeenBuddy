@@ -14,8 +14,7 @@ struct PrayerTimeSettingsView: View {
         Form {
             calculationMethodSection
             madhabSection
-            adjustmentsSection
-            locationSection
+            timeFormatSection
             notificationsSection
         }
         .navigationTitle("Prayer Settings")
