@@ -67,50 +67,36 @@ struct PrayerTimeSettingsView: View {
         }
     }
 
-    private var locationSection: some View {
-        Section("Location") {
-            HStack {
-                Text("Current Location")
-                Spacer()
-                if viewModel.isLoadingLocation {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                } else {
-                    Button("Update") {
-                        Task {
-                            await viewModel.refreshLocation()
+    private var notificationsSection: some View {
+        Section("Notifications") {
+            Toggle("Enable Prayer Notifications", isOn: $viewModel.settings.enableNotifications)
+
+            if viewModel.settings.enableNotifications {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Notification Timing")
+                        .font(.headline)
+
+                    HStack {
+                        Text("Notify")
+                        Spacer()
+                        Stepper(
+                            value: Binding(
+                                get: { viewModel.settings.notificationOffset / 60 },
+                                set: { viewModel.settings.notificationOffset = $0 * 60 }
+                            ),
+                            in: 0...30,
+                            step: 1
+                        ) {
+                            Text("\(Int(viewModel.settings.notificationOffset / 60)) min before")
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
             }
-
-            if let location = viewModel.currentLocation {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Latitude: \(location.coordinate.latitude, specifier: "%.4f")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Longitude: \(location.coordinate.longitude, specifier: "%.4f")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
         }
     }
 
-    private var notificationsSection: some View {
-        Section("Notifications") {
-            Toggle("Enable Prayer Notifications", isOn: $viewModel.settings.notificationsEnabled)
 
-            if viewModel.settings.notificationsEnabled {
-                ForEach(Prayer.allCases, id: \.self) { prayer in
-                    Toggle(prayer.displayName, isOn: Binding(
-                        get: { viewModel.settings.notificationSettings[prayer] ?? false },
-                        set: { viewModel.settings.notificationSettings[prayer] = $0 }
-                    ))
-                }
-            }
-        }
-    }
 }
 
 #Preview {
