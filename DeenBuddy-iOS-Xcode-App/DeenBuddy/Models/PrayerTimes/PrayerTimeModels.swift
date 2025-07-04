@@ -218,6 +218,14 @@ public struct LocationInfo: Codable, Equatable {
         self.country = country
         self.timezone = timezone
     }
+
+    public static func == (lhs: LocationInfo, rhs: LocationInfo) -> Bool {
+        return lhs.coordinate.latitude == rhs.coordinate.latitude &&
+               lhs.coordinate.longitude == rhs.coordinate.longitude &&
+               lhs.city == rhs.city &&
+               lhs.country == rhs.country &&
+               lhs.timezone == rhs.timezone
+    }
     
     /// Display name for the location
     public var displayName: String {

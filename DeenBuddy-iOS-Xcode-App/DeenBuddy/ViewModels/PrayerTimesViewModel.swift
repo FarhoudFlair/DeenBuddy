@@ -98,14 +98,16 @@ public class PrayerTimesViewModel: ObservableObject {
     }
 
     public init(
-        prayerTimeService: PrayerTimeService = PrayerTimeService(),
-        hijriCalendarService: HijriCalendarService = HijriCalendarService(),
-        locationManager: LocationManager = LocationManager()
+        prayerTimeService: PrayerTimeService? = nil,
+        hijriCalendarService: HijriCalendarService? = nil,
+        locationManager: LocationManager? = nil
     ) {
-        self.prayerTimeService = prayerTimeService
-        self.hijriCalendarService = hijriCalendarService
-        self.locationManager = locationManager
-        self.settings = prayerTimeService.settings
+        let locationMgr = locationManager ?? LocationManager()
+        self.locationManager = locationMgr
+        let prayerService = prayerTimeService ?? PrayerTimeService(locationManager: locationMgr)
+        self.prayerTimeService = prayerService
+        self.hijriCalendarService = hijriCalendarService ?? HijriCalendarService()
+        self.settings = prayerService.settings
         self.dualCalendarDate = DualCalendarDate(gregorianDate: Date())
         
         setupBindings()
@@ -215,7 +217,7 @@ public class PrayerTimesViewModel: ObservableObject {
     /// Validate and fix calculation settings if needed
     public func validateAndFixSettings() {
         // Check if current settings are valid for the location
-        if let location = locationManager.currentLocation {
+        if locationManager.currentLocation != nil {
             let recommendedMethods = getRecommendedCalculationMethods()
 
             // If current method is not recommended and we have recommendations, suggest change
@@ -269,14 +271,9 @@ public class PrayerTimesViewModel: ObservableObject {
         var retryCount = 0
 
         while retryCount < maxRetries {
-            do {
-                await refreshPrayerTimes()
-                if error == nil {
-                    break // Success, exit retry loop
-                }
-            } catch {
-                // Handle any thrown errors
-                print("Retry attempt \(retryCount + 1) failed: \(error)")
+            await refreshPrayerTimes()
+            if error == nil {
+                break // Success, exit retry loop
             }
 
             retryCount += 1
@@ -291,15 +288,6 @@ public class PrayerTimesViewModel: ObservableObject {
     /// Show calculation method picker
     public func showCalculationMethodPicker() {
         showingCalculationMethodPicker = true
-    }
-    
-    /// Handle app becoming active (refresh data)
-    public func handleAppBecameActive() {
-        Task {
-            await refreshPrayerTimes()
-            updateTodaysEvents()
-            updateDualCalendarDate()
-        }
     }
     
     /// Handle app becoming active

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 import Adhan
 
 // MARK: - Calculation Method
@@ -133,31 +134,31 @@ public enum CalculationMethod: String, CaseIterable, Codable, Identifiable {
     public func adhanCalculationParameters() -> CalculationParameters {
         switch self {
         case .muslimWorldLeague:
-            return CalculationMethod.muslimWorldLeague.params
+            return Adhan.CalculationMethod.muslimWorldLeague.params
         case .egyptian:
-            return CalculationMethod.egyptian.params
+            return Adhan.CalculationMethod.egyptian.params
         case .karachi:
-            return CalculationMethod.karachi.params
+            return Adhan.CalculationMethod.karachi.params
         case .ummAlQura:
-            return CalculationMethod.ummAlQura.params
+            return Adhan.CalculationMethod.ummAlQura.params
         case .dubai:
-            return CalculationMethod.dubai.params
+            return Adhan.CalculationMethod.dubai.params
         case .moonsightingCommittee:
-            return CalculationMethod.moonsightingCommittee.params
+            return Adhan.CalculationMethod.moonsightingCommittee.params
         case .northAmerica:
-            return CalculationMethod.northAmerica.params
+            return Adhan.CalculationMethod.northAmerica.params
         case .kuwait:
-            return CalculationMethod.kuwait.params
+            return Adhan.CalculationMethod.kuwait.params
         case .qatar:
-            return CalculationMethod.qatar.params
+            return Adhan.CalculationMethod.qatar.params
         case .singapore:
-            return CalculationMethod.singapore.params
+            return Adhan.CalculationMethod.singapore.params
         case .tehran:
-            return CalculationMethod.tehran.params
+            return Adhan.CalculationMethod.tehran.params
         case .jafari:
             // Custom parameters for Jafari method
-            var params = CalculationMethod.tehran.params
-            params.madhab = .shafi // Will be overridden by madhab setting
+            var params = Adhan.CalculationMethod.tehran.params
+            params.madhab = Adhan.Madhab.shafi // Will be overridden by madhab setting
             return params
         }
     }
@@ -205,6 +206,27 @@ public enum Madhab: String, CaseIterable, Codable, Identifiable {
     /// Whether this is a Shia madhab
     public var isShia: Bool {
         return self == .jafari
+    }
+
+    /// Sect display name (Sunni/Shia)
+    public var sectDisplayName: String {
+        return isShia ? "Shia" : "Sunni"
+    }
+
+    /// Color associated with this madhab
+    public var color: Color {
+        switch self {
+        case .hanafi:
+            return .blue
+        case .shafi:
+            return .green
+        case .maliki:
+            return .orange
+        case .hanbali:
+            return .purple
+        case .jafari:
+            return .indigo
+        }
     }
     
     /// Convert to Adhan library madhab
@@ -290,7 +312,7 @@ public struct PrayerTimeSettings: Codable {
 // MARK: - Prayer Time Error
 
 /// Errors that can occur during prayer time calculation
-public enum PrayerTimeError: LocalizedError {
+public enum PrayerTimeError: LocalizedError, Equatable {
     case locationUnavailable
     case invalidLocation
     case calculationFailed(String)
@@ -327,6 +349,21 @@ public enum PrayerTimeError: LocalizedError {
             return "Check your internet connection and try again."
         case .cacheError:
             return "Clear app data and try again."
+        }
+    }
+
+    public static func == (lhs: PrayerTimeError, rhs: PrayerTimeError) -> Bool {
+        switch (lhs, rhs) {
+        case (.locationUnavailable, .locationUnavailable),
+             (.invalidLocation, .invalidLocation),
+             (.permissionDenied, .permissionDenied),
+             (.networkError, .networkError),
+             (.cacheError, .cacheError):
+            return true
+        case (.calculationFailed(let lhsReason), .calculationFailed(let rhsReason)):
+            return lhsReason == rhsReason
+        default:
+            return false
         }
     }
 }

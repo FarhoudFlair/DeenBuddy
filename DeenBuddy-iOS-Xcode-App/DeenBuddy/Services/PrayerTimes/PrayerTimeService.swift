@@ -111,7 +111,12 @@ public class PrayerTimeService: ObservableObject {
         to endDate: Date,
         location: CLLocation? = nil
     ) async throws -> [PrayerSchedule] {
-        let targetLocation = location ?? await getCurrentLocation()
+        let targetLocation: CLLocation?
+        if let providedLocation = location {
+            targetLocation = providedLocation
+        } else {
+            targetLocation = await getCurrentLocation()
+        }
         guard let targetLocation = targetLocation else {
             throw PrayerTimeError.locationUnavailable
         }
@@ -187,7 +192,7 @@ public class PrayerTimeService: ObservableObject {
     }
     
     private func updatePrayerStatuses() {
-        guard var schedule = currentSchedule else { return }
+        guard let schedule = currentSchedule else { return }
         
         let now = Date()
         var updatedPrayerTimes: [PrayerTime] = []
@@ -235,7 +240,7 @@ public class PrayerTimeService: ObservableObject {
         
         let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: date)
         
-        let params = settings.calculationMethod.adhanCalculationParameters()
+        var params = settings.calculationMethod.adhanCalculationParameters()
         params.madhab = settings.madhab.adhanMadhab()
         
         guard let adhanPrayerTimes = Adhan.PrayerTimes(
