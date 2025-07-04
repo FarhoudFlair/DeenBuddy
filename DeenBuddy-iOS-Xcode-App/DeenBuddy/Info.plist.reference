@@ -30,9 +30,13 @@
 	
 	<!-- Location Permissions -->
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>DeenBuddy needs location access to calculate accurate prayer times for your area.</string>
+	<string>DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times.</string>
+	<string>DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.</string>
+
+	<!-- Motion Permissions for Compass -->
+	<key>NSMotionUsageDescription</key>
+	<string>DeenBuddy uses motion sensors to provide an accurate Qibla compass direction pointing towards Kaaba.</string>
 	
 	<!-- Background Modes -->
 	<key>UIBackgroundModes</key>

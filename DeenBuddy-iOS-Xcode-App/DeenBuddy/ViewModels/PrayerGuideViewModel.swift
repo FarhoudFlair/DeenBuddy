@@ -30,10 +30,14 @@ public class PrayerGuideViewModel: ObservableObject {
     // MARK: - Initialization
     
     public init() {
-        // Initialize services with default configuration
+        // Initialize services with Supabase configuration
+        // Using the same production keys from the DeenAssist framework
+        let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
+        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
+
         let config = SupabaseConfiguration(
-            url: ProcessInfo.processInfo.environment["SUPABASE_URL"] ?? "",
-            anonKey: ProcessInfo.processInfo.environment["SUPABASE_ANON_KEY"] ?? ""
+            url: ProcessInfo.processInfo.environment["SUPABASE_URL"] ?? supabaseUrl,
+            anonKey: ProcessInfo.processInfo.environment["SUPABASE_ANON_KEY"] ?? anonKey
         )
         
         self.supabaseService = SupabaseService(configuration: config)

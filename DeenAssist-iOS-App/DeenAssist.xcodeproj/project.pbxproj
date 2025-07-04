@@ -85,9 +85,6 @@
 			);
 			name = DeenAssist;
 			packageProductDependencies = (
-				1A000019000000000000001 /* DeenAssistUI */,
-				1A00001A000000000000001 /* DeenAssistProtocols */,
-				1A00001B000000000000001 /* DeenBuddyCore */,
 			);
 			productName = DeenAssist;
 			productReference = 1A000009000000000000001 /* DeenAssist.app */;
@@ -118,7 +115,6 @@
 			);
 			mainGroup = 1A00000B000000000000001;
 			packageReferences = (
-				1A000018000000000000001 /* XCLocalSwiftPackageReference "../" */,
 			);
 			productRefGroup = 1A00000D000000000000001 /* Products */;
 			projectDirPath = "";
@@ -136,7 +132,6 @@
 			files = (
 				1A000005000000000000001 /* LaunchScreen.storyboard in Resources */,
 				1A000003000000000000001 /* Assets.xcassets in Resources */,
-				1A000007000000000000001 /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -148,6 +143,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				1A000001000000000000001 /* DeenAssistApp.swift in Sources */,
+				1A00001C000000000000001 /* QiblaCompassView.swift in Sources */,
+				1A00001E000000000000001 /* QiblaModels.swift in Sources */,
+				1A000020000000000000001 /* LocationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -351,31 +349,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		1A000018000000000000001 /* XCLocalSwiftPackageReference "../" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../;
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		1A000019000000000000001 /* DeenAssistUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 1A000018000000000000001 /* XCLocalSwiftPackageReference "../" */;
-			productName = DeenAssistUI;
-		};
-		1A00001A000000000000001 /* DeenAssistProtocols */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 1A000018000000000000001 /* XCLocalSwiftPackageReference "../" */;
-			productName = DeenAssistProtocols;
-		};
-		1A00001B000000000000001 /* DeenBuddyCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 1A000018000000000000001 /* XCLocalSwiftPackageReference "../" */;
-			productName = DeenBuddyCore;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1A000012000000000000001 /* Project object */;
 }
