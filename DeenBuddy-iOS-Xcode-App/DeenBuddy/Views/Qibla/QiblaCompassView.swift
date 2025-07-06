@@ -7,11 +7,14 @@ import CoreMotion
 struct QiblaCompassView: View {
     @StateObject private var locationManager = LocationManager()
     @StateObject private var compassManager = CompassManager()
+    @StateObject private var qiblaCache = QiblaDirectionCache()
 
     let onDismiss: () -> Void
 
     @State private var qiblaDirection: QiblaDirection?
+    @State private var optimisticDirection: QiblaDirection? // Shows immediately from cache
     @State private var isLoading = true
+    @State private var isUpdatingInBackground = false
     @State private var error: String?
     @State private var showingCalibration = false
 
@@ -31,16 +34,10 @@ struct QiblaCompassView: View {
 
                 Spacer()
 
-                if isLoading {
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(.white)
-                        Text("Finding Qibla direction...")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                    }
-                } else if let error = error {
+                if isLoading && optimisticDirection == nil {
+                    // Show Islamic-themed skeleton instead of loading spinner
+                    QiblaCompassSkeleton()
+                } else if let error = error && qiblaDirection == nil {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 50))
@@ -277,17 +274,54 @@ struct QiblaCompassView: View {
     // MARK: - Private Methods
 
     private func loadQiblaDirection() {
-        isLoading = true
+        loadQiblaDirectionOptimistically()
+    }
+
+    /// Optimistic Qibla loading - shows cached direction immediately, updates in background
+    private func loadQiblaDirectionOptimistically() {
         error = nil
 
+        // Try to get cached direction first for instant response (<50ms)
+        if let currentLocation = locationManager.currentLocation,
+           let cached = qiblaCache.getCachedDirection(for: currentLocation) {
+            optimisticDirection = cached
+            qiblaDirection = cached
+            isLoading = false
+            isUpdatingInBackground = true
+        } else {
+            isLoading = true
+        }
+
+        // Get fresh location and calculate in background
         locationManager.requestLocationPermission { result in
             switch result {
             case .success(let location):
-                self.qiblaDirection = QiblaDirection.calculate(from: location.coordinate)
-                self.isLoading = false
+                // Check cache again with fresh location
+                if let cached = self.qiblaCache.getCachedDirection(for: location) {
+                    self.qiblaDirection = cached
+                    self.optimisticDirection = nil
+                    self.isLoading = false
+                    self.isUpdatingInBackground = false
+                } else {
+                    // Calculate fresh direction
+                    let freshDirection = QiblaDirection.calculate(from: location.coordinate)
+
+                    // Cache the result for future instant access
+                    self.qiblaCache.cacheDirection(freshDirection, for: location)
+
+                    self.qiblaDirection = freshDirection
+                    self.optimisticDirection = nil
+                    self.isLoading = false
+                    self.isUpdatingInBackground = false
+                }
+
             case .failure(let locationError):
-                self.error = locationError.localizedDescription
-                self.isLoading = false
+                // Keep optimistic data if available, otherwise show error
+                if self.optimisticDirection == nil {
+                    self.error = locationError.localizedDescription
+                    self.isLoading = false
+                }
+                self.isUpdatingInBackground = false
             }
         }
     }

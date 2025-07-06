@@ -15,11 +15,14 @@ import Adhan
 public class PrayerTimeService: ObservableObject {
     
     // MARK: - Published Properties
-    
+
     @Published public var currentSchedule: PrayerSchedule?
+    @Published public var optimisticSchedule: PrayerSchedule? // Shows immediately from cache
     @Published public var isLoading: Bool = false
+    @Published public var isUpdatingInBackground: Bool = false // For subtle indicators
     @Published public var error: PrayerTimeError?
     @Published public var settings: PrayerTimeSettings
+    @Published public var lastUpdateTime: Date? // For cache freshness indication
     
     // MARK: - Private Properties
     
@@ -82,27 +85,59 @@ public class PrayerTimeService: ObservableObject {
         return schedule
     }
     
-    /// Refresh current prayer times
+    /// Refresh current prayer times with optimistic updates for sub-400ms response
     public func refreshPrayerTimes() async {
-        isLoading = true
-        error = nil
-        
+        await refreshPrayerTimesOptimistically()
+    }
+
+    /// Optimistic refresh - shows cached data immediately, updates in background
+    public func refreshPrayerTimesOptimistically() async {
+        // Show cached data immediately for instant perceived response (<100ms)
+        if let cached = getCachedSchedule(for: Date(), location: locationManager.currentLocation) {
+            await MainActor.run {
+                self.optimisticSchedule = cached
+                self.currentSchedule = cached
+                self.lastUpdateTime = Date()
+                self.error = nil
+            }
+        }
+
+        // Indicate background update is happening
+        await MainActor.run {
+            self.isUpdatingInBackground = true
+            self.isLoading = false // Never show loading spinner with optimistic updates
+        }
+
+        // Calculate fresh prayer times in background
         do {
             guard let location = await getCurrentLocation() else {
                 throw PrayerTimeError.locationUnavailable
             }
-            
-            let schedule = try await calculatePrayerTimes(
+
+            let freshSchedule = try await calculatePrayerTimes(
                 for: Date(),
                 location: location
             )
-            
-            currentSchedule = schedule
+
+            await MainActor.run {
+                // Update with fresh data
+                self.currentSchedule = freshSchedule
+                self.optimisticSchedule = nil // Clear optimistic state
+                self.isUpdatingInBackground = false
+                self.lastUpdateTime = Date()
+
+                // Cache the fresh data
+                self.cacheSchedule(freshSchedule)
+            }
         } catch {
-            self.error = error as? PrayerTimeError ?? .calculationFailed(error.localizedDescription)
+            await MainActor.run {
+                // Keep optimistic data on error, just stop background indicator
+                self.isUpdatingInBackground = false
+                if self.currentSchedule == nil {
+                    self.error = error as? PrayerTimeError ?? .calculationFailed(error.localizedDescription)
+                }
+            }
         }
-        
-        isLoading = false
     }
     
     /// Get prayer times for a date range

@@ -25,12 +25,13 @@ struct PrayerTimesView: View {
 
                     // Main content
                     VStack(spacing: 20) {
-                        // Main Content
+                        // Main Content with Optimistic Updates
                         Group {
-                            if viewModel.isLoading {
-                                PrayerTimesLoadingView()
+                            if viewModel.isLoading && viewModel.optimisticSchedule == nil {
+                                // Show Islamic skeleton instead of loading spinner
+                                PrayerTimesListSkeleton()
                                     .padding()
-                            } else if let error = viewModel.error {
+                            } else if let error = viewModel.error && viewModel.currentSchedule == nil {
                                 PrayerTimesErrorView(
                                     error: error,
                                     onRetry: {
