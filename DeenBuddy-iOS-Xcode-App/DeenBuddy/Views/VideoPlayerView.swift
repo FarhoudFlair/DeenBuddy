@@ -22,6 +22,7 @@ struct VideoPlayerView: View {
     @State private var showingControls = true
     @State private var error: Error?
     @State private var cancellables = Set<AnyCancellable>()
+    @State private var timeObserverToken: Any?
     
     @Environment(\.dismiss) private var dismiss
     
@@ -61,7 +62,7 @@ struct VideoPlayerView: View {
                 setupPlayer()
             }
             .onDisappear {
-                player?.pause()
+                cleanupPlayer()
             }
         }
     }
@@ -252,7 +253,7 @@ struct VideoPlayerView: View {
         let timeScale = CMTimeScale(NSEC_PER_SEC)
         let time = CMTime(seconds: 0.1, preferredTimescale: timeScale)
         
-        player.addPeriodicTimeObserver(forInterval: time, queue: .main) { [weak self] time in
+        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { [weak self] time in
             self?.currentTime = CMTimeGetSeconds(time)
         }
         
@@ -274,6 +275,25 @@ struct VideoPlayerView: View {
                 }
             }
             .store(in: &cancellables)
+    }
+    
+    private func cleanupPlayer() {
+        guard let player = player else { return }
+        
+        // Remove time observer
+        if let timeObserverToken = timeObserverToken {
+            player.removeTimeObserver(timeObserverToken)
+            self.timeObserverToken = nil
+        }
+        
+        // Cancel all publishers
+        cancellables.removeAll()
+        
+        // Pause player
+        player.pause()
+        
+        // Clear player reference
+        self.player = nil
     }
     
     private func togglePlayPause() {
