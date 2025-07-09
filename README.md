@@ -61,6 +61,13 @@ The app follows a clean, modular architecture with protocol-first design:
    # Edit .env with your Supabase credentials
    ```
 
+2. **Configure Environment Variables**
+   Create a `.env` file in the root directory and add the following:
+   ```
+   MACHINE_ID=<your-unique-machine-id>
+   ```
+   This ID is used for per-device analytics and should be a unique identifier.
+
 3. **Test content pipeline**
    ```bash
    npm run validate

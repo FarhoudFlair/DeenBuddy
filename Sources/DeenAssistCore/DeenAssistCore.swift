@@ -34,6 +34,35 @@ import Foundation
 @_exported import enum DeenAssistCore.SettingsError
 @_exported import enum DeenAssistCore.PrayerTimeError
 
+// MARK: - Islamic Knowledge Models
+@_exported import struct DeenAssistCore.QuranVerse
+@_exported import struct DeenAssistCore.QuranSurah
+@_exported import struct DeenAssistCore.QuranJuz
+@_exported import struct DeenAssistCore.QuranSearchResult
+@_exported import enum DeenAssistCore.RevelationPlace
+@_exported import enum DeenAssistCore.MatchType
+
+@_exported import struct DeenAssistCore.Hadith
+@_exported import struct DeenAssistCore.HadithSearchResult
+@_exported import enum DeenAssistCore.HadithBook
+@_exported import enum DeenAssistCore.HadithGrade
+@_exported import enum DeenAssistCore.HadithMatchType
+
+@_exported import struct DeenAssistCore.IslamicKnowledgeResult
+@_exported import enum DeenAssistCore.IslamicKnowledgeType
+
+// MARK: - Prayer Journal Models
+@_exported import struct DeenAssistCore.PrayerJournalEntry
+@_exported import struct DeenAssistCore.DailyPrayerStats
+@_exported import struct DeenAssistCore.WeeklyPrayerStats
+@_exported import struct DeenAssistCore.MonthlyPrayerStats
+@_exported import struct DeenAssistCore.PrayerGoal
+@_exported import enum DeenAssistCore.PrayerMood
+@_exported import enum DeenAssistCore.PrayerMethod
+@_exported import enum DeenAssistCore.CongregationType
+@_exported import enum DeenAssistCore.PrayerDifficulty
+@_exported import enum DeenAssistCore.PrayerGoalType
+
 // MARK: - Protocols
 @_exported import protocol DeenAssistCore.LocationServiceProtocol
 @_exported import protocol DeenAssistCore.APIClientProtocol
@@ -50,6 +79,9 @@ import Foundation
 @_exported import class DeenAssistCore.ContentService
 @_exported import class DeenAssistCore.SupabaseService
 @_exported import class DeenAssistCore.ConfigurationManager
+@_exported import class DeenAssistCore.IslamicKnowledgeService
+@_exported import class DeenAssistCore.OpenAIService
+@_exported import class DeenAssistCore.PrayerJournalService
 
 // MARK: - iOS-Specific Services
 @_exported import class DeenAssistCore.UserPreferencesService
@@ -66,6 +98,17 @@ import Foundation
 @_exported import class DeenAssistCore.RetryMechanism
 @_exported import class DeenAssistCore.MemoryManager
 @_exported import class DeenAssistCore.BatteryOptimizer
+
+// MARK: - Localization Models
+@_exported import struct DeenAssistCore.AppLanguage
+@_exported import enum DeenAssistCore.TextDirection
+@_exported import enum DeenAssistCore.LanguageRegion
+@_exported import enum DeenAssistCore.CalendarType
+@_exported import enum DeenAssistCore.NumberFormat
+@_exported import enum DeenAssistCore.DateFormat
+@_exported import struct DeenAssistCore.PrayerNames
+@_exported import enum DeenAssistCore.LocalizationKey
+@_exported import enum DeenAssistCore.LocalizationError
 
 // MARK: - Phase 3+4: Infrastructure & UX
 @_exported import class DeenAssistCore.AnalyticsService
