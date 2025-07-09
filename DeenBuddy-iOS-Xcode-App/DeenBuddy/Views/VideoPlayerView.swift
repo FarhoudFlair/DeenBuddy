@@ -45,7 +45,7 @@ struct VideoPlayerView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") {
-                        player?.pause()
+                        cleanupPlayer()
                         dismiss()
                     }
                     .foregroundColor(.white)
@@ -351,7 +351,7 @@ struct VideoPlayerView: View {
             timeObserverToken = nil
         }
         
-        // Cancel all cancellables
+        // Cancel all publishers
         cancellables.removeAll()
         
         // Pause player
