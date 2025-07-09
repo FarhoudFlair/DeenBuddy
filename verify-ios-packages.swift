@@ -29,13 +29,13 @@ print("\n🎯 Integration Steps:")
 print("1. Open DeenBuddy-iOS-Xcode-App/DeenBuddy.xcodeproj in Xcode")
 print("2. File → Add Package Dependencies")
 print("3. Add Local Package: Select the root directory containing Package.swift")
-print("4. Add DeenBuddyCore to the main app target")
-print("5. In your iOS code, import DeenBuddyCore")
+print("4. Add DeenAssistCore to the main app target")
+print("5. In your iOS code, import DeenAssistCore")
 
 print("\n🧪 Test Integration:")
 print("Add this to your iOS app to verify:")
 print("""
-import DeenBuddyCore
+import DeenAssistCore
 
 // Test that all dependencies are available:
 // - Supabase client creation

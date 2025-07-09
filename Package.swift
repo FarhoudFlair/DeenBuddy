@@ -4,14 +4,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "DeenBuddyCore",
+    name: "DeenAssistCore",
     platforms: [
         .iOS(.v16)  // iOS only - this is an iOS app
     ],
     products: [
         .library(
-            name: "DeenBuddyCore",
-            targets: ["DeenBuddyCore"]
+            name: "DeenAssistCore",
+            targets: ["DeenAssistCore"]
         ),
         .library(
             name: "DeenAssistUI",
@@ -41,7 +41,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "DeenBuddyCore",
+            name: "DeenAssistCore",
             dependencies: [
                 .product(name: "Supabase", package: "supabase-swift"),
                 .product(name: "Adhan", package: "adhan-swift"),
@@ -52,7 +52,7 @@ let package = Package(
         .target(
             name: "DeenAssistUI",
             dependencies: [
-                "DeenBuddyCore",
+                "DeenAssistCore",
                 "DeenAssistProtocols",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
             ],
@@ -64,8 +64,8 @@ let package = Package(
             path: "Sources/DeenAssistProtocols"
         ),
         .testTarget(
-            name: "DeenBuddyCoreTests",
-            dependencies: ["DeenBuddyCore"],
+            name: "DeenAssistCoreTests",
+            dependencies: ["DeenAssistCore"],
             path: "Tests/DeenAssistCoreTests"
         )
     ]

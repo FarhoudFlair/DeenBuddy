@@ -1,6 +1,6 @@
 //
 //  PackageExports.swift
-//  DeenBuddyCore
+//  DeenAssistCore
 //
 //  Package integration helper for iOS app
 //  This file re-exports all package dependencies to make imports easier
@@ -22,12 +22,12 @@
 
 // MARK: - Usage Instructions
 /*
- This file allows the main iOS app to import DeenBuddyCore and automatically
+ This file allows the main iOS app to import DeenAssistCore and automatically
  get access to all package dependencies without needing separate imports.
  
  In your iOS app, simply use:
  ```swift
- import DeenBuddyCore
+ import DeenAssistCore
  
  // Now you have access to:
  // - Supabase client and types
@@ -37,7 +37,7 @@
  
  Instead of needing multiple imports:
  ```swift
- import DeenBuddyCore
+ import DeenAssistCore
  import Supabase
  import Adhan
  import ComposableArchitecture
