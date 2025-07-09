@@ -424,20 +424,16 @@ struct IslamicKnowledgeDetailView: View {
         }
     }
     
-    private func loadDetailedExplanation() {
-        Task {
-            isLoadingExplanation = true
-            detailedExplanation = await service.getDetailedExplanation(for: result)
-            isLoadingExplanation = false
-        }
+    private func loadDetailedExplanation() async {
+        isLoadingExplanation = true
+        detailedExplanation = await service.getDetailedExplanation(for: result)
+        isLoadingExplanation = false
     }
     
-    private func loadRelatedContent() {
-        Task {
-            isLoadingRelated = true
-            relatedContent = await service.getRelatedContent(for: result)
-            isLoadingRelated = false
-        }
+    private func loadRelatedContent() async {
+        isLoadingRelated = true
+        relatedContent = await service.getRelatedContent(for: result)
+        isLoadingRelated = false
     }
     
     private func formatForSharing() -> String {
