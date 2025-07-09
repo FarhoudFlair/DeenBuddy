@@ -116,8 +116,4 @@ extension Difficulty: Comparable {
     }
 }
 
-extension Difficulty: CustomStringConvertible {
-    public var description: String {
-        return displayName
-    }
-}
+// Note: description property is already defined in the main enum

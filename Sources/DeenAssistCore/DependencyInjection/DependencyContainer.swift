@@ -32,20 +32,12 @@ public class DependencyContainer: ObservableObject {
         self.apiConfiguration = apiConfiguration
         self.isTestEnvironment = isTestEnvironment
         
-        // Use provided services or create defaults based on environment
-        if isTestEnvironment {
-            self.locationService = locationService ?? MockLocationService()
-            self.apiClient = apiClient ?? MockAPIClient()
-            self.notificationService = notificationService ?? MockNotificationService()
-            self.settingsService = settingsService ?? MockSettingsService()
-            self.prayerTimeService = prayerTimeService ?? MockPrayerTimeService()
-        } else {
-            self.locationService = locationService ?? LocationService()
-            self.apiClient = apiClient ?? APIClient(configuration: apiConfiguration)
-            self.notificationService = notificationService ?? NotificationService()
-            self.settingsService = settingsService ?? SettingsService()
-            self.prayerTimeService = prayerTimeService ?? PrayerTimeService(locationService: self.locationService)
-        }
+        // Use provided services or create defaults
+        self.locationService = locationService ?? LocationService()
+        self.apiClient = apiClient ?? APIClient(configuration: apiConfiguration)
+        self.notificationService = notificationService ?? NotificationService()
+        self.settingsService = settingsService ?? SettingsService(userDefaults: UserDefaults.standard)
+        self.prayerTimeService = prayerTimeService ?? PrayerTimeService(apiClient: self.apiClient, errorHandler: ErrorHandler(), retryMechanism: RetryMechanism(), networkMonitor: NetworkMonitor())
     }
     
     // MARK: - Service Registration
@@ -102,45 +94,46 @@ public class DependencyContainer: ObservableObject {
         // Initialize services that need async setup
         if !isTestEnvironment {
             // Request permissions if needed
-            _ = await locationService.requestLocationPermission()
-            _ = await notificationService.requestNotificationPermission()
+            locationService.requestLocationPermission()
+            _ = try? await notificationService.requestNotificationPermission()
         }
     }
     
     public func tearDown() {
         // Clean up services
-        locationService.stopLocationUpdates()
-        notificationService.cancelAllPrayerNotifications()
+        locationService.stopUpdatingLocation()
+        notificationService.cancelAllNotifications()
     }
 }
 
 // MARK: - Service Factory
 
 public class ServiceFactory {
-    public static func createLocationService(isTest: Bool = false) -> any LocationServiceProtocol {
-        return isTest ? MockLocationService() : LocationService()
+    public static func createLocationService() -> any LocationServiceProtocol {
+        return LocationService()
     }
 
     public static func createAPIClient(
-        configuration: APIConfiguration = .default,
-        isTest: Bool = false
+        configuration: APIConfiguration = .default
     ) -> any APIClientProtocol {
-        return isTest ? MockAPIClient() : APIClient(configuration: configuration)
+        return APIClient(configuration: configuration)
     }
 
-    public static func createNotificationService(isTest: Bool = false) -> any NotificationServiceProtocol {
-        return isTest ? MockNotificationService() : NotificationService()
+    public static func createNotificationService() -> any NotificationServiceProtocol {
+        return NotificationService()
     }
 
     public static func createPrayerTimeService(
-        locationService: any LocationServiceProtocol,
-        isTest: Bool = false
+        apiClient: any APIClientProtocol,
+        errorHandler: ErrorHandler,
+        retryMechanism: RetryMechanism,
+        networkMonitor: NetworkMonitor
     ) -> any PrayerTimeServiceProtocol {
-        return isTest ? MockPrayerTimeService() : PrayerTimeService(locationService: locationService)
+        return PrayerTimeService(apiClient: apiClient, errorHandler: errorHandler, retryMechanism: retryMechanism, networkMonitor: networkMonitor)
     }
 
-    public static func createSettingsService(isTest: Bool = false) -> any SettingsServiceProtocol {
-        return isTest ? MockSettingsService() : SettingsService()
+    public static func createSettingsService() -> any SettingsServiceProtocol {
+        return SettingsService()
     }
 }
 

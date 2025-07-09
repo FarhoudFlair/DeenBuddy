@@ -192,11 +192,7 @@ public enum Madhab: String, CaseIterable, Codable {
 
 // MARK: - Extensions
 
-extension Madhab: CustomStringConvertible {
-    public var description: String {
-        return "\(displayName) (\(arabicName))"
-    }
-}
+// Note: description property is already defined in the main enum
 
 extension Madhab {
     /// Returns the opposite tradition
