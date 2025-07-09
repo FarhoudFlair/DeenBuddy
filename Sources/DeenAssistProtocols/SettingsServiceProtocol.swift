@@ -1,5 +1,38 @@
 import Foundation
 
+public enum Madhab: String, CaseIterable, Codable {
+    case shafi = "shafi"
+    case hanafi = "hanafi"
+    case maliki = "maliki"
+    case hanbali = "hanbali"
+    case jafari = "jafari"
+    
+    public var displayName: String {
+        switch self {
+        case .shafi: return "Shafi"
+        case .hanafi: return "Hanafi"
+        case .maliki: return "Maliki"
+        case .hanbali: return "Hanbali"
+        case .jafari: return "Jafari (Shia)"
+        }
+    }
+    
+    public var description: String {
+        switch self {
+        case .shafi:
+            return "Shafi school - Asr when shadow equals object length"
+        case .hanafi:
+            return "Hanafi school - Asr when shadow equals twice object length"
+        case .maliki:
+            return "Maliki school - Asr when shadow equals object length"
+        case .hanbali:
+            return "Hanbali school - Asr when shadow equals object length"
+        case .jafari:
+            return "Jafari school (Shia) - Asr when shadow equals object length"
+        }
+    }
+}
+
 /// Protocol for user settings management
 public protocol SettingsServiceProtocol: ObservableObject {
     /// Current calculation method

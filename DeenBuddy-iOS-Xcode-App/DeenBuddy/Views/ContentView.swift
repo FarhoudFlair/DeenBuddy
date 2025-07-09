@@ -47,23 +47,23 @@ struct ContentView: View {
             }
             .tag(1)
 
-            // Search Tab
+            // Islamic Knowledge Search Tab
             NavigationStack {
-                SearchView(viewModel: viewModel)
+                IslamicKnowledgeSearchView()
             }
             .tabItem {
                 Image(systemName: "magnifyingglass")
-                Text("Search")
+                Text("Knowledge")
             }
             .tag(2)
 
-            // Bookmarks Tab
+            // Prayer Journal Tab
             NavigationStack {
-                BookmarksView(viewModel: viewModel)
+                PrayerJournalView()
             }
             .tabItem {
-                Image(systemName: "bookmark")
-                Text("Bookmarks")
+                Image(systemName: "book.pages")
+                Text("Journal")
             }
             .tag(3)
 

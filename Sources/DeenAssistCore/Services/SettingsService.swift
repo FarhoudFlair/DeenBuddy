@@ -14,7 +14,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
     }
     
-    @Published public var madhab: PrayerCalculationMadhab = .shafi {
+    @Published public var madhab: Madhab = .shafi {
         didSet {
             saveSettingsAsync()
         }
