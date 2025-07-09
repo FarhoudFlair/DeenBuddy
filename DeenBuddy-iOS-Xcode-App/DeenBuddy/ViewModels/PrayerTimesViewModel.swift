@@ -18,8 +18,10 @@ public class PrayerTimesViewModel: ObservableObject {
     // MARK: - Published Properties
     
     @Published public var currentSchedule: PrayerSchedule?
+    @Published public var optimisticSchedule: PrayerSchedule? // Shows immediately from cache
     @Published public var dualCalendarDate: DualCalendarDate
     @Published public var isLoading: Bool = false
+    @Published public var isUpdatingInBackground: Bool = false // For subtle indicators
     @Published public var error: PrayerTimeError?
     @Published public var showingLocationPermissionAlert: Bool = false
     @Published public var showingSettings: Bool = false
@@ -334,12 +336,22 @@ public class PrayerTimesViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .assign(to: \.currentSchedule, on: self)
             .store(in: &cancellables)
-        
+
+        prayerTimeService.$optimisticSchedule
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.optimisticSchedule, on: self)
+            .store(in: &cancellables)
+
         prayerTimeService.$isLoading
             .receive(on: DispatchQueue.main)
             .assign(to: \.isLoading, on: self)
             .store(in: &cancellables)
-        
+
+        prayerTimeService.$isUpdatingInBackground
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.isUpdatingInBackground, on: self)
+            .store(in: &cancellables)
+
         prayerTimeService.$error
             .receive(on: DispatchQueue.main)
             .assign(to: \.error, on: self)

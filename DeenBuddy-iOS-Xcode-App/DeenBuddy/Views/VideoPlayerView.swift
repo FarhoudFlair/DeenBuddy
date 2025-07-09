@@ -222,6 +222,9 @@ struct VideoPlayerView: View {
     }
     
     private func setupPlayer() {
+        // Clean up any existing player and observers to prevent memory leaks
+        cleanupPlayer()
+        
         isLoading = true
         error = nil
         
@@ -275,6 +278,25 @@ struct VideoPlayerView: View {
                 }
             }
             .store(in: &cancellables)
+    }
+    
+    private func cleanupPlayer() {
+        guard let player = player else { return }
+        
+        // Remove time observer
+        if let timeObserverToken = timeObserverToken {
+            player.removeTimeObserver(timeObserverToken)
+            self.timeObserverToken = nil
+        }
+        
+        // Cancel all publishers
+        cancellables.removeAll()
+        
+        // Pause player
+        player.pause()
+        
+        // Clear player reference
+        self.player = nil
     }
     
     private func togglePlayPause() {

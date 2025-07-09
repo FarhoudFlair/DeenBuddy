@@ -12,6 +12,16 @@ import CoreMotion
 struct ContentView: View {
     @StateObject private var viewModel = PrayerGuideViewModel()
     @StateObject private var themeManager = ThemeManager()
+    @StateObject private var performanceMonitor = IslamicAppPerformanceMonitor()
+    @StateObject private var backgroundRefreshService = BackgroundPrayerRefreshService(
+        prayerTimeService: PrayerTimeService(),
+        locationManager: LocationManager()
+    )
+    @StateObject private var dataPrefetcher = PrayerDataPrefetcher(
+        prayerTimeService: PrayerTimeService(),
+        qiblaCache: QiblaDirectionCache()
+    )
+
     @State private var selectedTab = 0
     @State private var showingQiblaCompass = false
 
@@ -80,7 +90,23 @@ struct ContentView: View {
         .tint(themeManager.currentTheme == .dark ? .cyan : .islamicAccentGold)
         .themed(with: themeManager)
         .task {
+            // Start performance monitoring for sub-400ms targets
+            performanceMonitor.startMonitoring()
+            performanceMonitor.startTiming(feature: .appLaunch)
+
+            // Start background services for optimal performance
+            backgroundRefreshService.startBackgroundRefresh()
+
+            // Prefetch critical Islamic data for instant access
+            await dataPrefetcher.prefetchCriticalData()
+
+            // Load prayer guides
             await viewModel.fetchPrayerGuides()
+
+            // Record app launch performance
+            performanceMonitor.endTiming(feature: .appLaunch)
+
+            print("🕌 DeenBuddy optimized for sub-400ms Islamic app performance")
         }
         .sheet(isPresented: $showingQiblaCompass) {
             QiblaCompassView(onDismiss: {
