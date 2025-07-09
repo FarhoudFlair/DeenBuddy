@@ -19,11 +19,7 @@ public class NetworkMonitor: ObservableObject {
     private let queue = DispatchQueue(label: "NetworkMonitor")
     private var cancellables = Set<AnyCancellable>()
     
-    // MARK: - Singleton
-    
-    public static let shared = NetworkMonitor()
-    
-    private init() {
+    public init() {
         startMonitoring()
     }
     
@@ -259,14 +255,11 @@ public class OfflineManager: ObservableObject {
     
     // MARK: - Private Properties
     
-    private let networkMonitor = NetworkMonitor.shared
+    private let networkMonitor: NetworkMonitor
     private var cancellables = Set<AnyCancellable>()
-    
-    // MARK: - Singleton
-    
-    public static let shared = OfflineManager()
-    
-    private init() {
+
+    public init(networkMonitor: NetworkMonitor) {
+        self.networkMonitor = networkMonitor
         setupNetworkObserver()
         setupOfflineCapabilities()
     }

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		234FB8922E1EE22E00048BD1 /* DeenAssistCore in Frameworks */ = {isa = PBXBuildFile; productRef = 234FB8912E1EE22E00048BD1 /* DeenAssistCore */; };
+		234FB8942E1EE22E00048BD1 /* DeenAssistProtocols in Frameworks */ = {isa = PBXBuildFile; productRef = 234FB8932E1EE22E00048BD1 /* DeenAssistProtocols */; };
+		234FB8962E1EE22E00048BD1 /* DeenAssistUI in Frameworks */ = {isa = PBXBuildFile; productRef = 234FB8952E1EE22E00048BD1 /* DeenAssistUI */; };
 		23B453912E177A49001A5C24 /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23F09F1A2E17293000E25D2F /* Adhan */; };
 /* End PBXBuildFile section */
 
@@ -56,7 +59,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				234FB8922E1EE22E00048BD1 /* DeenAssistCore in Frameworks */,
+				234FB8962E1EE22E00048BD1 /* DeenAssistUI in Frameworks */,
 				23B453912E177A49001A5C24 /* Adhan in Frameworks */,
+				234FB8942E1EE22E00048BD1 /* DeenAssistProtocols in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -118,6 +124,9 @@
 			name = DeenBuddy;
 			packageProductDependencies = (
 				23F09F1A2E17293000E25D2F /* Adhan */,
+				234FB8912E1EE22E00048BD1 /* DeenAssistCore */,
+				234FB8932E1EE22E00048BD1 /* DeenAssistProtocols */,
+				234FB8952E1EE22E00048BD1 /* DeenAssistUI */,
 			);
 			productName = DeenBuddy;
 			productReference = 23F09EF82E17292A00E25D2F /* DeenBuddy.app */;
@@ -140,8 +149,6 @@
 				23F09F082E17292B00E25D2F /* DeenBuddyTests */,
 			);
 			name = DeenBuddyTests;
-			packageProductDependencies = (
-			);
 			productName = DeenBuddyTests;
 			productReference = 23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -163,8 +170,6 @@
 				23F09F122E17292B00E25D2F /* DeenBuddyUITests */,
 			);
 			name = DeenBuddyUITests;
-			packageProductDependencies = (
-			);
 			productName = DeenBuddyUITests;
 			productReference = 23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -203,6 +208,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				23F09F1B2E17293000E25D2F /* XCRemoteSwiftPackageReference "adhan-swift" */,
+				234FB8902E1EE22E00048BD1 /* XCLocalSwiftPackageReference "../../DeenBuddy" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 23F09EF92E17292A00E25D2F /* Products */;
@@ -408,6 +414,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DeenBuddy;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
@@ -424,6 +431,9 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -441,6 +451,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DeenBuddy;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
@@ -457,6 +468,9 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -572,6 +586,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		234FB8902E1EE22E00048BD1 /* XCLocalSwiftPackageReference "../../DeenBuddy" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../DeenBuddy;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		23F09F1B2E17293000E25D2F /* XCRemoteSwiftPackageReference "adhan-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -584,6 +605,18 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		234FB8912E1EE22E00048BD1 /* DeenAssistCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeenAssistCore;
+		};
+		234FB8932E1EE22E00048BD1 /* DeenAssistProtocols */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeenAssistProtocols;
+		};
+		234FB8952E1EE22E00048BD1 /* DeenAssistUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DeenAssistUI;
+		};
 		23F09F1A2E17293000E25D2F /* Adhan */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 23F09F1B2E17293000E25D2F /* XCRemoteSwiftPackageReference "adhan-swift" */;

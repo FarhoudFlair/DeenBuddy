@@ -21,9 +21,9 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     // MARK: - Private Properties
 
     private let locationService: any LocationServiceProtocol
-    private let errorHandler = ErrorHandler.shared
-    private let retryMechanism = RetryMechanism.shared
-    private let networkMonitor = NetworkMonitor.shared
+    private let errorHandler: ErrorHandler
+    private let retryMechanism: RetryMechanism
+    private let networkMonitor: NetworkMonitor
     private var cancellables = Set<AnyCancellable>()
     private var timer: Timer?
     private let userDefaults = UserDefaults.standard
@@ -39,8 +39,11 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
     // MARK: - Initialization
     
-    public init(locationService: any LocationServiceProtocol) {
+    public init(locationService: any LocationServiceProtocol, errorHandler: ErrorHandler, retryMechanism: RetryMechanism, networkMonitor: NetworkMonitor) {
         self.locationService = locationService
+        self.errorHandler = errorHandler
+        self.retryMechanism = retryMechanism
+        self.networkMonitor = networkMonitor
         loadSettings()
         setupLocationObserver()
         startTimer()

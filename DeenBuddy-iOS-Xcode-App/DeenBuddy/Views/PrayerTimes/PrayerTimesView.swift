@@ -9,234 +9,30 @@ import SwiftUI
 
 /// Main view for displaying daily prayer times
 struct PrayerTimesView: View {
-    @StateObject private var viewModel = PrayerTimesViewModel()
-    @State private var showingRefreshAnimation = false
+    @StateObject private var viewModel: PrayerTimesViewModel
+    
+    init(container: DependencyContainer) {
+        _viewModel = StateObject(wrappedValue: PrayerTimesViewModel(container: container))
+    }
     
     var body: some View {
-        ZStack {
-            // Dark background
-            Color.black
-                .ignoresSafeArea()
-
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Mosque header image
-                    MosqueHeaderView()
-
-                    // Main content
-                    VStack(spacing: 20) {
-                        // Main Content with Optimistic Updates
-                        Group {
-                            if viewModel.isLoading && viewModel.optimisticSchedule == nil {
-                                // Show Islamic skeleton instead of loading spinner
-                                PrayerTimesListSkeleton()
-                                    .padding()
-                            } else if let error = viewModel.error && viewModel.currentSchedule == nil {
-                                PrayerTimesErrorView(
-                                    error: error,
-                                    onRetry: {
-                                        Task {
-                                            await viewModel.refreshPrayerTimes()
-                                        }
-                                    },
-                                    onRequestLocation: {
-                                        Task {
-                                            await viewModel.requestLocationPermission()
-                                        }
-                                    }
-                                )
-                                .padding()
-                            } else if let schedule = viewModel.currentSchedule {
-                                modernPrayerTimesContent(schedule: schedule)
-                            } else {
-                                PrayerTimesEmptyView {
-                                    Task {
-                                        await viewModel.requestLocationPermission()
-                                    }
-                                }
-                                .padding()
-                            }
-                        }
-
-                        // Location info at bottom
-                        if viewModel.isLocationAvailable {
-                            LocationInfoFooter(
-                                locationName: viewModel.formattedLocation,
-                                onLocationTapped: {
-                                    handleLocationTapped()
-                                }
-                            )
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 20)
-                        }
-                    }
-                    .padding(.top, 20)
-                }
-            }
-            .refreshable {
-                await refreshData()
-            }
-        }
-        .preferredColorScheme(.dark)
-        .sheet(isPresented: $viewModel.showingSettings) {
-            PrayerTimesSettingsView(viewModel: viewModel)
-        }
-        .alert("Location Permission Required", isPresented: $viewModel.showingLocationPermissionAlert) {
-            Button("Settings") {
-                openAppSettings()
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("DeenBuddy needs location access to calculate accurate prayer times. Please enable location access in Settings.")
-        }
-        .alert("Error", isPresented: .constant(viewModel.error != nil && !viewModel.showingLocationPermissionAlert)) {
-            if let error = viewModel.error {
-                switch error {
-                case .networkError:
-                    Button("Retry") {
-                        Task {
-                            await viewModel.retryWithBackoff()
-                        }
-                    }
-                    Button("Use Offline Data") {
-                        // Try to use cached data
-                        viewModel.error = nil
-                    }
-                    Button("Cancel", role: .cancel) {
-                        viewModel.error = nil
-                    }
-                case .calculationFailed:
-                    Button("Retry") {
-                        Task {
-                            await viewModel.refreshPrayerTimes()
-                        }
-                    }
-                    if viewModel.hasExtremeLatitudeIssues() {
-                        Button("Fix for High Latitude") {
-                            Task {
-                                await viewModel.handleExtremeLatitude()
-                            }
-                        }
-                    }
-                    Button("Reset Settings") {
-                        viewModel.updateSettings(PrayerTimeSettings())
-                        Task {
-                            await viewModel.refreshPrayerTimes()
-                        }
-                    }
-                    Button("Cancel", role: .cancel) {
-                        viewModel.error = nil
-                    }
-                case .cacheError:
-                    Button("Clear Cache") {
-                        viewModel.clearCache()
-                    }
-                    Button("Cancel", role: .cancel) {
-                        viewModel.error = nil
-                    }
-                default:
-                    Button("Retry") {
-                        Task {
-                            await viewModel.refreshPrayerTimes()
-                        }
-                    }
-                    Button("OK", role: .cancel) {
-                        viewModel.error = nil
-                    }
-                }
-            }
-        } message: {
-            if let error = viewModel.error {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(error.localizedDescription)
-                    if let suggestion = error.recoverySuggestion {
-                        Text(suggestion)
-                            .font(.caption)
-                    }
+        VStack {
+            if viewModel.isLoading {
+                ProgressView("Loading prayer times...")
+            } else if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .foregroundColor(.red)
+            } else if let prayerTimes = viewModel.prayerTimes {
+                // Display prayer times
+                Text("Prayer Times")
+                    .font(.largeTitle)
+                ForEach(prayerTimes.times, id: \.name) { prayerTime in
+                    Text("\(prayerTime.name): \(prayerTime.time)")
                 }
             }
         }
         .onAppear {
-            handleAppearance()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            viewModel.handleAppBecameActive()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
-            viewModel.handleSignificantTimeChange()
-        }
-    }
-    
-    // MARK: - Prayer Times Content
-
-    @ViewBuilder
-    private func modernPrayerTimesContent(schedule: PrayerSchedule) -> some View {
-        VStack(spacing: 0) {
-            // Prayer times list
-            ForEach(Array(viewModel.todaysPrayerTimes.enumerated()), id: \.element.id) { index, prayerTime in
-                ModernPrayerTimeRow(
-                    prayerTime: prayerTime,
-                    timeFormat: viewModel.settings.timeFormat,
-                    isNext: findNextPrayerIndex() == index
-                )
-                .padding(.horizontal, 20)
-
-                if index < viewModel.todaysPrayerTimes.count - 1 {
-                    Divider()
-                        .background(Color.white.opacity(0.1))
-                        .padding(.horizontal, 20)
-                }
-            }
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.black.opacity(0.3))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-        .padding(.horizontal, 20)
-    }
-    
-
-    
-    // MARK: - Helper Methods
-    
-    private func findNextPrayerIndex() -> Int? {
-        guard let nextPrayer = viewModel.nextPrayer else { return nil }
-        return viewModel.todaysPrayerTimes.firstIndex { $0.id == nextPrayer.id }
-    }
-    
-    private func handleLocationTapped() {
-        if !viewModel.isLocationAvailable {
-            Task {
-                await viewModel.requestLocationPermission()
-            }
-        }
-    }
-    
-    private func handleAppearance() {
-        // Request location permission if not determined
-        if viewModel.locationPermissionStatus == .notDetermined {
-            Task {
-                await viewModel.requestLocationPermission()
-            }
-        }
-    }
-    
-    private func refreshData() async {
-        showingRefreshAnimation = true
-        await viewModel.refreshPrayerTimes()
-        
-        // Add a small delay for better UX
-        try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        showingRefreshAnimation = false
-    }
-    
-    private func openAppSettings() {
-        if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(settingsUrl)
+            viewModel.fetchPrayerTimes()
         }
     }
 }

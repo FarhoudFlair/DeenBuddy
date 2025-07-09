@@ -12,14 +12,11 @@ public class RetryMechanism: ObservableObject {
     
     // MARK: - Private Properties
     
-    private let networkMonitor = NetworkMonitor.shared
+    private let networkMonitor: NetworkMonitor
     private var cancellables = Set<AnyCancellable>()
     
-    // MARK: - Singleton
-    
-    public static let shared = RetryMechanism()
-    
-    private init() {
+    public init(networkMonitor: NetworkMonitor) {
+        self.networkMonitor = networkMonitor
         setupNetworkObserver()
     }
     

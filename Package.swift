@@ -4,69 +4,52 @@
 import PackageDescription
 
 let package = Package(
-    name: "DeenAssistCore",
+    name: "DeenBuddy",
     platforms: [
-        .iOS(.v16)  // iOS only - this is an iOS app
+        .iOS(.v15),
+        .macOS(.v12)
     ],
     products: [
         .library(
             name: "DeenAssistCore",
-            targets: ["DeenAssistCore"]
-        ),
+            targets: ["DeenAssistCore"]),
         .library(
             name: "DeenAssistUI",
-            targets: ["DeenAssistUI"]
-        ),
+            targets: ["DeenAssistUI"]),
         .library(
             name: "DeenAssistProtocols",
-            targets: ["DeenAssistProtocols"]
-        )
+            targets: ["DeenAssistProtocols"]),
     ],
     dependencies: [
-        // Existing working dependencies
-        .package(
-            url: "https://github.com/batoulapps/adhan-swift",
-            from: "1.0.0"
-        ),
-        .package(
-            url: "https://github.com/supabase/supabase-swift",
-            from: "2.0.0"
-        ),
-
-        // iOS-specific dependencies
-        .package(
-            url: "https://github.com/pointfreeco/swift-composable-architecture",
-            from: "1.0.0"
-        )
+        // Dependencies declare other packages that this package depends on.
+        .package(url: "https://github.com/supabase-community/supabase-swift.git", from: "2.0.0"),
+        .package(url: "https://github.com/batoulapps/Adhan-Swift.git", from: "1.4.0"),
+        .package(url: "https://github.com/pointfreeco/swift-composable-architecture.git", from: "1.0.0"),
+        .package(url: "https://github.com/Swinject/Swinject.git", from: "2.8.0"),
+        .package(name: "QiblaKit", path: "./QiblaKit")
     ],
     targets: [
         .target(
             name: "DeenAssistCore",
             dependencies: [
                 .product(name: "Supabase", package: "supabase-swift"),
-                .product(name: "Adhan", package: "adhan-swift"),
-                .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
+                .product(name: "Adhan", package: "Adhan-Swift"),
+                .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+                "Swinject",
+                "DeenAssistProtocols",
+                .product(name: "QiblaKit", package: "QiblaKit")
             ],
-            path: "Sources/DeenAssistCore"
-        ),
+            path: "Sources/DeenAssistCore"),
         .target(
             name: "DeenAssistUI",
-            dependencies: [
-                "DeenAssistCore",
-                "DeenAssistProtocols",
-                .product(name: "ComposableArchitecture", package: "swift-composable-architecture")
-            ],
-            path: "Sources/DeenAssistUI"
-        ),
+            dependencies: ["DeenAssistCore"],
+            path: "Sources/DeenAssistUI"),
         .target(
             name: "DeenAssistProtocols",
             dependencies: [],
-            path: "Sources/DeenAssistProtocols"
-        ),
+            path: "Sources/DeenAssistProtocols"),
         .testTarget(
             name: "DeenAssistCoreTests",
-            dependencies: ["DeenAssistCore"],
-            path: "Tests/DeenAssistCoreTests"
-        )
+            dependencies: ["DeenAssistCore"]),
     ]
 )

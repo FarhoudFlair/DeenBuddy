@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import CoreMotion
 
 /// A comprehensive Qibla direction calculator with high precision
 public class QiblaCalculator {

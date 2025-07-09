@@ -201,12 +201,8 @@ public class ErrorHandler: ObservableObject {
     private let crashReporter: CrashReporter
     private var retryAttempts: [String: Int] = [:]
     
-    // MARK: - Singleton
-    
-    public static let shared = ErrorHandler()
-    
-    private init() {
-        self.crashReporter = CrashReporter.shared
+    public init(crashReporter: CrashReporter) {
+        self.crashReporter = crashReporter
     }
     
     // MARK: - Public Methods
@@ -308,12 +304,10 @@ public class ErrorHandler: ObservableObject {
 
 public class CrashReporter {
     
-    public static let shared = CrashReporter()
-    
     private let userDefaults = UserDefaults.standard
     private let crashLogKey = "DeenAssist.CrashLogs"
     
-    private init() {}
+    public init() {}
     
     /// Record an error for crash reporting
     public func recordError(_ error: Error) {
