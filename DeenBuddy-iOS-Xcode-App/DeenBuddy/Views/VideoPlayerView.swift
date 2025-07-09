@@ -222,6 +222,9 @@ struct VideoPlayerView: View {
     }
     
     private func setupPlayer() {
+        // Clean up any existing player and observers to prevent memory leaks
+        cleanupPlayer()
+        
         isLoading = true
         error = nil
         
