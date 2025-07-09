@@ -18,8 +18,9 @@ public struct DeenAssistCore {
     
     /// Create a dependency container for the app
     /// Note: DependencyContainer methods are available in DependencyContainer.swift
+    @available(*, deprecated, message: "Use DependencyContainer.shared or direct instantiation instead.")
     public static func createDependencyContainer() {
-        print("Use DependencyContainer directly for service management")
+        fatalError("createDependencyContainer() is deprecated. Use DependencyContainer.shared or instantiate DependencyContainer directly.")
     }
 }
 

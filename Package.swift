@@ -6,8 +6,7 @@ import PackageDescription
 let package = Package(
     name: "DeenBuddy",
     platforms: [
-        .iOS(.v15),
-        .macOS(.v12)
+        .iOS(.v15)
     ],
     products: [
         .library(
@@ -22,7 +21,7 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "https://github.com/supabase-community/supabase-swift.git", from: "2.0.0"),
+        .package(url: "https://github.com/supabase/supabase-swift.git", from: "2.0.0"),
         .package(url: "https://github.com/batoulapps/Adhan-Swift.git", from: "1.4.0"),
         .package(url: "https://github.com/pointfreeco/swift-composable-architecture.git", from: "1.0.0"),
         .package(url: "https://github.com/Swinject/Swinject.git", from: "2.8.0"),
@@ -39,7 +38,10 @@ let package = Package(
                 "DeenAssistProtocols",
                 .product(name: "QiblaKit", package: "QiblaKit")
             ],
-            path: "Sources/DeenAssistCore"),
+            path: "Sources/DeenAssistCore",
+            resources: [
+                .process("Localization/Resources")
+            ]),
         .target(
             name: "DeenAssistUI",
             dependencies: ["DeenAssistCore"],
