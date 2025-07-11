@@ -75,13 +75,11 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             return
         }
         
-        // Always cancel existing notifications for this date, regardless of prayerTimes array
+        // Cancel existing notifications for this date only if we have prayer times to schedule
         if let firstPrayerTime = prayerTimes.first {
             await cancelNotificationsForDate(firstPrayerTime.time)
-        } else {
-            // If prayerTimes is empty, cancel all existing notifications
-            await cancelAllNotifications()
         }
+        // If prayerTimes is empty, don't cancel any notifications to avoid affecting other dates
         
         // Schedule new notifications for each prayer
         for prayerTime in prayerTimes {
