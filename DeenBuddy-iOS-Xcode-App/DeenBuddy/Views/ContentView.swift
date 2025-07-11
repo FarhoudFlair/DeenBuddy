@@ -10,10 +10,10 @@ import CoreLocation
 import CoreMotion
 
 struct ContentView: View {
-    @EnvironmentObject var container: DependencyContainer
+    @EnvironmentObject var appContainer: AppDependencyContainer
     
     var body: some View {
-        PrayerTimesView(container: container)
+        PrayerTimesView(container: DependencyContainer.shared)
     }
 }
 
@@ -112,4 +112,5 @@ struct ModernInfoCard: View {
 
 #Preview {
     ContentView()
+        .environmentObject(AppDependencyContainer.shared)
 }
