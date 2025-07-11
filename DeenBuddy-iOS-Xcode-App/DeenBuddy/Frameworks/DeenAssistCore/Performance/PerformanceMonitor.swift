@@ -414,7 +414,7 @@ public struct PerformanceIssue: Codable, Identifiable {
     public let description: String
     public let severity: Severity
     public let timestamp: Date
-    public let metadata: [String: Double]
+    public let metadata: [String: Any]
     
     public enum IssueType: String, Codable, CaseIterable {
         case highCPUUsage = "high_cpu_usage"
@@ -440,6 +440,44 @@ public struct PerformanceIssue: Codable, Identifiable {
             case .critical: return "red"
             }
         }
+    }
+}
+
+// MARK: - PerformanceIssue Codable Implementation
+
+extension PerformanceIssue {
+    private enum CodingKeys: String, CodingKey {
+        case id, type, description, severity, timestamp, metadata
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        type = try container.decode(IssueType.self, forKey: .type)
+        description = try container.decode(String.self, forKey: .description)
+        severity = try container.decode(Severity.self, forKey: .severity)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        
+        // Decode metadata as JSON and convert to [String: Any]
+        let metadataData = try container.decode(Data.self, forKey: .metadata)
+        if let metadataDict = try? JSONSerialization.jsonObject(with: metadataData) as? [String: Any] {
+            metadata = metadataDict
+        } else {
+            metadata = [:]
+        }
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(type, forKey: .type)
+        try container.encode(description, forKey: .description)
+        try container.encode(severity, forKey: .severity)
+        try container.encode(timestamp, forKey: .timestamp)
+        
+        // Encode metadata as JSON data
+        let metadataData = try JSONSerialization.data(withJSONObject: metadata)
+        try container.encode(metadataData, forKey: .metadata)
     }
 }
 

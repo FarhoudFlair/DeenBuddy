@@ -271,17 +271,18 @@ public class IslamicAppPerformanceMonitor: ObservableObject {
         }
     }
     
+    /// Add a performance issue with full metadata preservation
+    /// - Note: All metadata values are preserved (strings, booleans, numbers) for better debugging
     private func addPerformanceIssue(type: PerformanceIssueType, description: String, severity: PerformanceIssueSeverity, metadata: [String: Any]) {
         let mappedType = mapToStandardType(type)
         let mappedSeverity = mapToStandardSeverity(severity)
-        let doubleMetadata = metadata.compactMapValues { $0 as? Double }
         
         let issue = PerformanceIssue(
             type: mappedType,
             description: description,
             severity: mappedSeverity,
             timestamp: Date(),
-            metadata: doubleMetadata
+            metadata: metadata
         )
         
         performanceIssues.append(issue)
