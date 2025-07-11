@@ -16,19 +16,68 @@ struct PrayerTimesView: View {
     }
     
     var body: some View {
-        VStack {
+        VStack(spacing: 20) {
             if viewModel.isLoading {
                 ProgressView("Loading prayer times...")
+                    .padding()
             } else if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .foregroundColor(.red)
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    
+                    Text("Prayer Times Unavailable")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text(errorMessage)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    Button("Try Again") {
+                        Task {
+                            await viewModel.fetchPrayerTimes()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Button("Use Mock Data") {
+                        viewModel.loadMockData()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding()
             } else if let prayerTimes = viewModel.prayerTimes {
                 // Display prayer times
-                Text("Prayer Times")
-                    .font(.largeTitle)
-                ForEach(prayerTimes.allPrayers, id: \.0) { prayerType, prayerTime in
-                    Text("\(prayerType.displayName): \(prayerTime.formatted(date: .omitted, time: .shortened))")
+                VStack(spacing: 16) {
+                    Text("Prayer Times")
+                        .font(.largeTitle)
+                        .bold()
+                    
+                    Text("Today - \(prayerTimes.date.formatted(date: .abbreviated, time: .omitted))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    VStack(spacing: 12) {
+                        ForEach(prayerTimes.allPrayers, id: \.0) { prayerType, prayerTime in
+                            HStack {
+                                Text(prayerType.displayName)
+                                    .font(.headline)
+                                Spacer()
+                                Text(prayerTime.formatted(date: .omitted, time: .shortened))
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
                 }
+                .padding()
+            } else {
+                Text("No prayer times available")
+                    .foregroundColor(.secondary)
             }
         }
         .onAppear {

@@ -100,6 +100,33 @@ class PrayerTimesViewModel: ObservableObject {
             }
         }
     }
+    
+    @MainActor
+    func loadMockData() {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        // Create mock prayer times for today
+        let fajrTime = calendar.date(bySettingHour: 5, minute: 30, second: 0, of: now) ?? now
+        let dhuhrTime = calendar.date(bySettingHour: 12, minute: 15, second: 0, of: now) ?? now
+        let asrTime = calendar.date(bySettingHour: 15, minute: 45, second: 0, of: now) ?? now
+        let maghribTime = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: now) ?? now
+        let ishaTime = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: now) ?? now
+        
+        self.prayerTimes = PrayerTimes(
+            date: now,
+            fajr: fajrTime,
+            dhuhr: dhuhrTime,
+            asr: asrTime,
+            maghrib: maghribTime,
+            isha: ishaTime,
+            calculationMethod: "Mock Data (Default)",
+            location: LocationCoordinate(latitude: 37.7749, longitude: -122.4194) // San Francisco
+        )
+        
+        self.errorMessage = nil
+        self.isLoading = false
+    }
 }
 
 // MARK: - Dummy Services for Fallback
