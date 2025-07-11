@@ -684,9 +684,106 @@ extension PerformanceIssue {
         try container.encode(severity, forKey: .severity)
         try container.encode(timestamp, forKey: .timestamp)
         
-        // Encode metadata as JSON data
-        let metadataData = try JSONSerialization.data(withJSONObject: metadata)
+        // Safely encode metadata by filtering out non-JSON-serializable values
+        let safeMetadata = filterJSONSerializableValues(from: metadata)
+        let metadataData = try JSONSerialization.data(withJSONObject: safeMetadata)
         try container.encode(metadataData, forKey: .metadata)
+    }
+    
+    /// Filters out non-JSON-serializable values from the metadata dictionary
+    private func filterJSONSerializableValues(from dict: [String: Any]) -> [String: Any] {
+        var safeDict: [String: Any] = [:]
+        
+        for (key, value) in dict {
+            if isJSONSerializable(value) {
+                safeDict[key] = value
+            } else {
+                // Replace non-serializable values with a string representation
+                safeDict[key] = "\(value)"
+            }
+        }
+        
+        return safeDict
+    }
+    
+    /// Checks if a value is JSON-serializable
+    private func isJSONSerializable(_ value: Any) -> Bool {
+        var visited = Set<ObjectIdentifier>()
+        return isJSONSerializable(value, visited: &visited)
+    }
+    
+    /// Checks if a value is JSON-serializable with cycle detection
+    private func isJSONSerializable(_ value: Any, visited: inout Set<ObjectIdentifier>) -> Bool {
+        // Handle all basic types (including Foundation bridged types)
+        switch value {
+        case is String, is NSNumber, is Bool, is NSNull,
+             is Int, is Int8, is Int16, is Int32, is Int64,
+             is UInt, is UInt8, is UInt16, is UInt32, is UInt64,
+             is Float, is Double:
+            return true
+        case is NSData, is NSDate:
+            // NSData and NSDate are not directly JSON-serializable
+            return false
+        case let array as NSArray:
+            let objectId = ObjectIdentifier(array)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
+            for element in array {
+                if !isJSONSerializable(element, visited: &visited) { return false }
+            }
+            return true
+        case let dict as NSDictionary:
+            let objectId = ObjectIdentifier(dict)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
+            for key in dict.allKeys {
+                // JSON requires string keys
+                if !(key is String) { return false }
+            }
+            for value in dict.allValues {
+                if !isJSONSerializable(value, visited: &visited) { return false }
+            }
+            return true
+        case let array as [Any]:
+            return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
+        case let dict as [String: Any]:
+            return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+        case let dict as [AnyHashable: Any]:
+            // Only allow if all keys are String
+            return dict.keys.allSatisfy { $0 is String } && dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+        case let object as AnyObject:
+            // Only composite Foundation types should be tracked; basic types are handled above
+            if object is NSString || object is NSNumber || object is NSNull {
+                return true
+            }
+            if object is NSData || object is NSDate {
+                return false
+            }
+            let objectId = ObjectIdentifier(object)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
+            if let dict = object as? NSDictionary {
+                for key in dict.allKeys {
+                    if !(key is String) { return false }
+                }
+                for value in dict.allValues {
+                    if !isJSONSerializable(value, visited: &visited) { return false }
+                }
+                return true
+            } else if let array = object as? NSArray {
+                for element in array {
+                    if !isJSONSerializable(element, visited: &visited) { return false }
+                }
+                return true
+            } else {
+                return false // Non-serializable custom object
+            }
+        default:
+            return false
+        }
     }
 }
 
