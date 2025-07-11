@@ -50,4 +50,9 @@ class AppDependencyContainer: ObservableObject {
             return nil
         }
     }
+    
+    // Access to the core container for views that need the full DependencyContainer
+    func getCoreContainer() -> DependencyContainer {
+        return coreContainer
+    }
 }
