@@ -47,6 +47,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         timeFormat = .twelveHour
         notificationOffset = 300
         hasCompletedOnboarding = false
+        overrideBatteryOptimization = false
         
         print("Mock: Settings loaded")
     }
@@ -62,6 +63,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         timeFormat = .twelveHour
         notificationOffset = 300
         hasCompletedOnboarding = false
+        overrideBatteryOptimization = false
         
         print("Mock: Settings reset to defaults")
     }
