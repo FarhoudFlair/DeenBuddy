@@ -312,16 +312,13 @@ public struct QiblaCompassScreen: View {
         do {
             // First, check if we already have a location
             guard let location = self.locationService.currentLocation else {
-                // If not, request permission and the location
+                // If not, request permission and then actively request the location
                 _ = await self.locationService.requestLocationPermission()
-                guard let updatedLocation = self.locationService.currentLocation else {
-                    // If it's still unavailable, set an error
-                    await MainActor.run {
-                        self.error = NSError(domain: "LocationError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unable to determine your location"])
-                    }
-                    return
-                }
-                // If successful, calculate the direction
+                
+                // Now actively request the location coordinates
+                let updatedLocation = try await self.locationService.requestLocation()
+                
+                // Calculate the direction with the obtained location
                 await MainActor.run {
                     self.qiblaDirection = QiblaDirection.calculate(from: LocationCoordinate(latitude: updatedLocation.coordinate.latitude, 
                                                                                          longitude: updatedLocation.coordinate.longitude))
