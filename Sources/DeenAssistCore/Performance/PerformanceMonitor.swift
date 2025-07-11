@@ -516,16 +516,8 @@ extension PerformanceIssue {
             return array.allSatisfy { isJSONSerializable($0, visited: visited) }
         case let dict as [String: Any]:
             return dict.values.allSatisfy { isJSONSerializable($0, visited: visited) }
-        case let object as AnyObject:
-            // Check for circular references
-            let objectId = ObjectIdentifier(object)
-            if visited.contains(objectId) {
-                return false // Circular reference detected
-            }
-            var newVisited = visited
-            newVisited.insert(objectId)
-            
-            // For objects, we'll be conservative and only allow if they can be converted to JSON
+        case is AnyObject:
+            // For objects, we'll be conservative and reject them for JSON serialization
             return false
         default:
             return false
