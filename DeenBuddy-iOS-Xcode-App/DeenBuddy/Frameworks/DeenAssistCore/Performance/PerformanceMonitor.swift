@@ -521,13 +521,21 @@ extension PerformanceIssue {
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            return (array as! [Any]).allSatisfy { isJSONSerializable($0, visited: &visited) }
+            if let swiftArray = array as? [Any] {
+                return swiftArray.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            } else {
+                return false
+            }
         case let dict as NSDictionary:
             let objectId = ObjectIdentifier(dict)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            return (dict as! [AnyHashable: Any]).values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            if let swiftDict = dict as? [AnyHashable: Any] {
+                return swiftDict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            } else {
+                return false
+            }
         case let array as [Any]:
             // For Swift arrays (value types), cycles are not possible unless bridged
             // But if the array is bridged to NSArray, it will be caught above
