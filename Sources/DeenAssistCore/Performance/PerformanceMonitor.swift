@@ -425,7 +425,14 @@ private enum JSONValue: Codable {
         if let double = value as? Double {
             return double
         } else if let int = value as? Int {
-            return Double(int)
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: Int = 1 << 53
+            if int >= -maxSafeInteger && int <= maxSafeInteger {
+                return Double(int)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
         } else if let float = value as? Float {
             return Double(float)
         } else if let cgFloat = value as? CGFloat {
@@ -446,7 +453,14 @@ private enum JSONValue: Codable {
             // For large values, return nil to indicate they should be handled as strings
             return nil
         } else if let uint = value as? UInt {
-            return Double(uint)
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: UInt = 1 << 53
+            if uint <= maxSafeInteger {
+                return Double(uint)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
         } else if let uint8 = value as? UInt8 {
             return Double(uint8)
         } else if let uint16 = value as? UInt16 {
@@ -550,6 +564,12 @@ private enum JSONValue: Codable {
             return .string(string)
         } else if let double = convertToDouble(value) {
             return .number(double)
+        } else if let int = value as? Int {
+            // Large Int values that couldn't be converted to Double are preserved as strings
+            return .string(String(int))
+        } else if let uint = value as? UInt {
+            // Large UInt values that couldn't be converted to Double are preserved as strings
+            return .string(String(uint))
         } else if let int64 = value as? Int64 {
             // Large Int64 values that couldn't be converted to Double are preserved as strings
             return .string(String(int64))
