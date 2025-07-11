@@ -256,25 +256,25 @@ struct VideoPlayerView: View {
         let timeScale = CMTimeScale(NSEC_PER_SEC)
         let time = CMTime(seconds: 0.1, preferredTimescale: timeScale)
         
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { [weak self] time in
-            self?.currentTime = CMTimeGetSeconds(time)
+        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { time in
+            self.currentTime = CMTimeGetSeconds(time)
         }
         
         // Playback state observer
         player.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                self?.isPlaying = status == .playing
+            .sink { status in
+                self.isPlaying = status == .playing
             }
             .store(in: &cancellables)
         
         // Error observer
         player.publisher(for: \.error)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] error in
+            .sink { error in
                 if let error = error {
-                    self?.error = error
-                    self?.isLoading = false
+                    self.error = error
+                    self.isLoading = false
                 }
             }
             .store(in: &cancellables)
@@ -344,22 +344,6 @@ struct VideoPlayerView: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
     
-    private func cleanupPlayer() {
-        // Remove time observer
-        if let player = player, let token = timeObserverToken {
-            player.removeTimeObserver(token)
-            timeObserverToken = nil
-        }
-        
-        // Cancel all publishers
-        cancellables.removeAll()
-        
-        // Pause player
-        player?.pause()
-        
-        // Clear player reference
-        player = nil
-    }
 }
 
 // MARK: - Enhanced Prayer Guide Detail View with Video Support
@@ -513,7 +497,7 @@ struct EnhancedPrayerGuideDetailView: View {
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
                 
-                ForEach(Array(guide.steps.enumerated()), id: \.element.id) { index, step in
+                ForEach(Array((guide.textContent?.steps ?? []).enumerated()), id: \.element.id) { index, step in
                     PrayerStepCard(
                         step: step,
                         stepNumber: index + 1,
@@ -526,7 +510,7 @@ struct EnhancedPrayerGuideDetailView: View {
                         }
                     }
                     
-                    if index < guide.steps.count - 1 {
+                    if index < (guide.textContent?.steps.count ?? 0) - 1 {
                         Divider()
                             .background(Color.white.opacity(0.1))
                     }
@@ -565,7 +549,7 @@ struct EnhancedPrayerGuideDetailView: View {
     
     private var hasVideo: Bool {
         // Check if any step has a video URL
-        return guide.steps.contains { $0.videoURL != nil }
+        return (guide.textContent?.steps ?? []).contains { $0.videoUrl != nil }
     }
     
     private var difficultyColor: Color {
@@ -578,8 +562,9 @@ struct EnhancedPrayerGuideDetailView: View {
     
     private func playVideo() {
         // Find the first step with a video URL
-        if let step = guide.steps.first(where: { $0.videoURL != nil }),
-           let videoURL = step.videoURL {
+        if let step = (guide.textContent?.steps ?? []).first(where: { $0.videoUrl != nil }),
+           let videoURLString = step.videoUrl,
+           let videoURL = URL(string: videoURLString) {
             selectedVideoURL = videoURL
             showingVideoPlayer = true
         }
@@ -593,7 +578,7 @@ struct EnhancedPrayerGuideDetailView: View {
         
         Prayer: \(guide.prayer.displayName)
         Tradition: \(guide.madhab.sectDisplayName)
-        Steps: \(guide.steps.count)
+        Steps: \(guide.textContent?.steps.count ?? 0)
         
         Shared from DeenBuddy - Islamic Prayer Companion
         """
@@ -664,7 +649,7 @@ struct PrayerStepCard: View {
                     
                     Spacer()
                     
-                    if step.videoURL != nil {
+                    if step.videoUrl != nil {
                         Image(systemName: "play.circle")
                             .foregroundColor(.cyan)
                             .font(.title3)
@@ -684,7 +669,8 @@ struct PrayerStepCard: View {
                         .foregroundColor(.white.opacity(0.8))
                         .multilineTextAlignment(.leading)
                     
-                    if let videoURL = step.videoURL {
+                    if let videoURLString = step.videoUrl,
+                       let videoURL = URL(string: videoURLString) {
                         Button(action: { playStepVideo(videoURL) }) {
                             HStack {
                                 Image(systemName: "play.circle.fill")

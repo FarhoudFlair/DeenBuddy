@@ -100,57 +100,59 @@ struct PrayerGuideRowView: View {
         PrayerGuideRowView(
             guide: PrayerGuide(
                 id: "fajr_shafi",
+                contentId: "fajr_shafi_guide",
                 title: "Fajr Prayer Guide (Sunni)",
-                prayer: .fajr,
-                madhab: .shafi,
-                difficulty: .beginner,
-                duration: 300,
-                description: "Complete guide for performing Fajr prayer according to Sunni tradition",
-                steps: [
+                prayerName: "fajr",
+                sect: "sunni",
+                rakahCount: 2,
+                textContent: PrayerContent(steps: [ // Corrected position
                     PrayerStep(
                         id: "step1",
                         title: "Preparation",
                         description: "Perform Wudu and face Qibla",
+                        stepNumber: 1,
                         duration: 60
                     ),
                     PrayerStep(
                         id: "step2",
                         title: "Prayer",
                         description: "Perform 2 rakahs",
+                        stepNumber: 2,
                         duration: 240
                     )
-                ],
-                isAvailableOffline: true,
-                isCompleted: false
+                ]),
+                difficulty: .beginner,
+                duration: 300,
+                description: "Complete guide for performing Fajr prayer according to Sunni tradition"
             )
         )
         
-        PrayerGuideRowView(
-            guide: PrayerGuide(
-                id: "dhuhr_hanafi",
-                title: "Dhuhr Prayer Guide (Shia)",
-                prayer: .dhuhr,
-                madhab: .hanafi,
-                difficulty: .intermediate,
-                duration: 600,
-                description: "Complete guide for performing Dhuhr prayer according to Shia tradition",
-                steps: [
-                    PrayerStep(
-                        id: "step1",
-                        title: "Preparation",
-                        description: "Perform Wudu and face Qibla",
-                        duration: 60
-                    ),
-                    PrayerStep(
-                        id: "step2",
-                        title: "Prayer",
-                        description: "Perform 4 rakahs",
-                        duration: 540
-                    )
-                ],
-                isAvailableOffline: false,
-                isCompleted: true
-            )
-        )
+//        PrayerGuideRowView(
+//            guide: PrayerGuide(
+//                id: "dhuhr_hanafi",
+//                title: "Dhuhr Prayer Guide (Shia)",
+//                prayer: .dhuhr,
+//                madhab: .hanafi,
+//                difficulty: .intermediate,
+//                duration: 600,
+//                description: "Complete guide for performing Dhuhr prayer according to Shia tradition",
+//                steps: [
+//                    PrayerStep(
+//                        id: "step1",
+//                        title: "Preparation",
+//                        description: "Perform Wudu and face Qibla",
+//                        duration: 60
+//                    ),
+//                    PrayerStep(
+//                        id: "step2",
+//                        title: "Prayer",
+//                        description: "Perform 4 rakahs",
+//                        duration: 540
+//                    )
+//                ],
+//                isAvailableOffline: false,
+//                isCompleted: true
+//            )
+//        )
     }
 }

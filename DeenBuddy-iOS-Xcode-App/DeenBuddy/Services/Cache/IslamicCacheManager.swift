@@ -20,7 +20,7 @@ public class IslamicCacheManager: ObservableObject {
     
     // MARK: - Cache Entry
     
-    private struct CacheEntry<T: Codable> {
+    private struct CacheEntry<T: Codable>: Codable {
         let data: T
         let timestamp: Date
         let expirationDate: Date
@@ -70,7 +70,7 @@ public class IslamicCacheManager: ObservableObject {
         let result = getCachedObject(PrayerSchedule.self, key: key, type: .prayerTimes)
         
         updateCacheStats(type: .prayerTimes, operation: .read)
-        return result
+        return (result.content, result.isStale)
     }
     
     /// Cache Qibla direction with location-based expiry
@@ -88,9 +88,9 @@ public class IslamicCacheManager: ObservableObject {
         let exactKey = createQiblaCacheKey(for: location)
         let exactResult = getCachedObject(QiblaDirection.self, key: exactKey, type: .qiblaDirections)
         
-        if exactResult.schedule != nil {
+        if exactResult.content != nil {
             updateCacheStats(type: .qiblaDirections, operation: .read)
-            return (exactResult.schedule, exactResult.isStale)
+            return (exactResult.content, exactResult.isStale)
         }
         
         // Check nearby locations within radius
@@ -113,7 +113,7 @@ public class IslamicCacheManager: ObservableObject {
     public func getCachedIslamicContent<T: Codable>(_ type: T.Type, key: String) -> (content: T?, isStale: Bool) {
         let result = getCachedObject(type, key: key, type: .islamicContent)
         updateCacheStats(type: .islamicContent, operation: .read)
-        return result
+        return (result.content, result.isStale)
     }
     
     /// Cache user preferences
@@ -126,7 +126,7 @@ public class IslamicCacheManager: ObservableObject {
     /// Get cached user preferences
     public func getCachedUserPreferences<T: Codable>(_ type: T.Type, key: String) -> T? {
         let result = getCachedObject(type, key: key, type: .userPreferences)
-        return result.schedule
+        return result.content
     }
     
     /// Clear expired cache entries
@@ -135,9 +135,15 @@ public class IslamicCacheManager: ObservableObject {
         let cacheFiles = getAllCacheFiles()
         
         for file in cacheFiles {
-            if let entry = loadCacheEntry(from: file), entry.expirationDate < now {
-                try? fileManager.removeItem(at: file)
-                print("🗑️ Removed expired cache entry: \(file.lastPathComponent)")
+            // Try to load entry metadata to check expiration
+            if let data = try? Data(contentsOf: file),
+               let metadata = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let expirationTimestamp = metadata["expirationDate"] as? TimeInterval {
+                let expirationDate = Date(timeIntervalSince1970: expirationTimestamp)
+                if expirationDate < now {
+                    try? fileManager.removeItem(at: file)
+                    print("🗑️ Removed expired cache entry: \(file.lastPathComponent)")
+                }
             }
         }
         
@@ -178,7 +184,7 @@ public class IslamicCacheManager: ObservableObject {
         }
     }
     
-    private func getCachedObject<T: Codable>(_ type: T.Type, key: String, type cacheType: CacheType) -> (schedule: T?, isStale: Bool) {
+    private func getCachedObject<T: Codable>(_ type: T.Type, key: String, type cacheType: CacheType) -> (content: T?, isStale: Bool) {
         let fileName = "\(cacheType.rawValue)_\(key).cache"
         let fileURL = cacheDirectory.appendingPathComponent(fileName)
         
@@ -274,9 +280,9 @@ public class IslamicCacheManager: ObservableObject {
         let totalSize = files.reduce(0) { total, file in
             let attributes = try? fileManager.attributesOfItem(atPath: file.path)
             let size = attributes?[.size] as? Int64 ?? 0
-            return total + size
+            return total + Int(size)
         }
-        cacheStats.totalSizeBytes = totalSize
+        cacheStats.totalSizeBytes = Int64(totalSize)
         
         cacheStats.lastUpdated = Date()
     }

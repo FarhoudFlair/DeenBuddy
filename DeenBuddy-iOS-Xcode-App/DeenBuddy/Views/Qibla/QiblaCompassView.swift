@@ -5,9 +5,9 @@ import CoreMotion
 // MARK: - Qibla Compass View
 
 struct QiblaCompassView: View {
-    @StateObject private var locationManager = LocationManager()
-    @StateObject private var compassManager = CompassManager()
+    @StateObject private var locationService = LocationService()
     @StateObject private var qiblaCache = QiblaDirectionCache()
+    @StateObject private var compassManager = CompassManager()
 
     let onDismiss: () -> Void
 
@@ -37,7 +37,7 @@ struct QiblaCompassView: View {
                 if isLoading && optimisticDirection == nil {
                     // Show Islamic-themed skeleton instead of loading spinner
                     QiblaCompassSkeleton()
-                } else if let error = error && qiblaDirection == nil {
+                } else if let error = error, qiblaDirection == nil {
                     VStack(spacing: 16) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 50))
@@ -147,7 +147,7 @@ struct QiblaCompassView: View {
                         .foregroundColor(.white.opacity(0.7))
 
                     HStack(spacing: 8) {
-                        Text(compassManager.accuracy.displayName)
+                        Text(compassManager.accuracy.description)
                             .font(.body)
                             .foregroundColor(.white)
 
@@ -282,7 +282,7 @@ struct QiblaCompassView: View {
         error = nil
 
         // Try to get cached direction first for instant response (<50ms)
-        if let currentLocation = locationManager.currentLocation,
+        if let currentLocation = locationService.currentLocation,
            let cached = qiblaCache.getCachedDirection(for: currentLocation) {
             optimisticDirection = cached
             qiblaDirection = cached
@@ -293,35 +293,45 @@ struct QiblaCompassView: View {
         }
 
         // Get fresh location and calculate in background
-        locationManager.requestLocationPermission { result in
-            switch result {
-            case .success(let location):
+        locationService.requestLocationPermission()
+        locationService.startUpdatingLocation()
+        
+        // Use async approach with proper timing
+        Task {
+            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            
+            if let location = locationService.currentLocation {
                 // Check cache again with fresh location
                 if let cached = self.qiblaCache.getCachedDirection(for: location) {
-                    self.qiblaDirection = cached
-                    self.optimisticDirection = nil
-                    self.isLoading = false
-                    self.isUpdatingInBackground = false
+                    await MainActor.run {
+                        self.qiblaDirection = cached
+                        self.optimisticDirection = nil
+                        self.isLoading = false
+                        self.isUpdatingInBackground = false
+                    }
                 } else {
                     // Calculate fresh direction
-                    let freshDirection = QiblaDirection.calculate(from: location.coordinate)
+                    let freshDirection = QiblaDirection.calculate(from: LocationCoordinate(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude))
 
                     // Cache the result for future instant access
                     self.qiblaCache.cacheDirection(freshDirection, for: location)
 
-                    self.qiblaDirection = freshDirection
-                    self.optimisticDirection = nil
-                    self.isLoading = false
+                    await MainActor.run {
+                        self.qiblaDirection = freshDirection
+                        self.optimisticDirection = nil
+                        self.isLoading = false
+                        self.isUpdatingInBackground = false
+                    }
+                }
+            } else {
+                // Handle location error
+                await MainActor.run {
+                    if self.optimisticDirection == nil {
+                        self.error = "Unable to get location"
+                        self.isLoading = false
+                    }
                     self.isUpdatingInBackground = false
                 }
-
-            case .failure(let locationError):
-                // Keep optimistic data if available, otherwise show error
-                if self.optimisticDirection == nil {
-                    self.error = locationError.localizedDescription
-                    self.isLoading = false
-                }
-                self.isUpdatingInBackground = false
             }
         }
     }
@@ -414,15 +424,50 @@ struct CalibrateButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Extensions
+// MARK: - Compass Manager
 
-extension CompassAccuracy {
-    var displayName: String {
-        switch self {
-        case .high: return "High"
-        case .medium: return "Medium"
-        case .low: return "Low"
-        case .unknown: return "Unknown"
+@MainActor
+private class CompassManager: NSObject, ObservableObject {
+    @Published var heading: Double = 0
+    @Published var accuracy: CompassAccuracy = .unknown
+    
+    private let motionManager = CMMotionManager()
+    private let locationManager = CLLocationManager()
+    
+    override init() {
+        super.init()
+        locationManager.delegate = self
+    }
+    
+    func startUpdating() {
+        guard CLLocationManager.headingAvailable() else { return }
+        locationManager.startUpdatingHeading()
+    }
+    
+    func stopUpdating() {
+        locationManager.stopUpdatingHeading()
+    }
+}
+
+extension CompassManager: @preconcurrency CLLocationManagerDelegate {
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        Task { @MainActor in
+            heading = newHeading.magneticHeading
+            
+            // Update accuracy based on heading accuracy
+            if newHeading.headingAccuracy < 0 {
+                accuracy = .unknown
+            } else if newHeading.headingAccuracy < 5 {
+                accuracy = .high
+            } else if newHeading.headingAccuracy < 15 {
+                accuracy = .medium
+            } else {
+                accuracy = .low
+            }
         }
     }
 }
+
+// MARK: - Supporting Types
+
+// CompassAccuracy and QiblaDirectionCache are now imported from their proper locations

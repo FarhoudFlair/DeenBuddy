@@ -272,12 +272,16 @@ public class IslamicAppPerformanceMonitor: ObservableObject {
     }
     
     private func addPerformanceIssue(type: PerformanceIssueType, description: String, severity: PerformanceIssueSeverity, metadata: [String: Any]) {
+        let mappedType = mapToStandardType(type)
+        let mappedSeverity = mapToStandardSeverity(severity)
+        let doubleMetadata = metadata.compactMapValues { $0 as? Double }
+        
         let issue = PerformanceIssue(
-            type: type,
+            type: mappedType,
             description: description,
-            severity: severity,
+            severity: mappedSeverity,
             timestamp: Date(),
-            metadata: metadata
+            metadata: doubleMetadata
         )
         
         performanceIssues.append(issue)
@@ -312,10 +316,42 @@ public class IslamicAppPerformanceMonitor: ObservableObject {
                 score -= mediumPriorityPenalty
             case .low:
                 score -= lowPriorityPenalty
+            case .critical:
+                score -= highPriorityPenalty * 2.0
             }
         }
         
         return max(0.0, score)
+    }
+    
+    // MARK: - Helper Methods
+    
+    private func mapToStandardType(_ type: PerformanceIssueType) -> PerformanceIssue.IssueType {
+        switch type {
+        case .slowPrayerDisplay, .slowQiblaCompass:
+            return .slowOperation
+        case .slowLocationAcquisition:
+            return .slowOperation
+        case .lowCacheHitRate:
+            return .slowOperation
+        case .backgroundRefreshFailure:
+            return .networkIssue
+        case .memoryPressure:
+            return .highMemoryUsage
+        case .networkTimeout:
+            return .networkIssue
+        }
+    }
+    
+    private func mapToStandardSeverity(_ severity: PerformanceIssueSeverity) -> PerformanceIssue.Severity {
+        switch severity {
+        case .low:
+            return .low
+        case .medium:
+            return .medium
+        case .high:
+            return .high
+        }
     }
 }
 
@@ -348,10 +384,3 @@ public enum PerformanceIssueSeverity: String {
     case high = "high"
 }
 
-public struct PerformanceIssue {
-    public let type: PerformanceIssueType
-    public let description: String
-    public let severity: PerformanceIssueSeverity
-    public let timestamp: Date
-    public let metadata: [String: Any]
-}

@@ -10,7 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var viewModel: PrayerGuideViewModel
     @ObservedObject var themeManager: ThemeManager
-    @StateObject private var prayerTimesViewModel = PrayerTimesViewModel()
+    @State private var prayerTimesViewModel: PrayerTimesViewModel?
     @State private var notificationsEnabled = true
     @State private var offlineDownloadsEnabled = true
     @State private var showingAbout = false
@@ -29,7 +29,11 @@ struct SettingsView: View {
                     }
 
                     NavigationLink("Prayer Time Settings") {
-                        PrayerTimeSettingsView(viewModel: prayerTimesViewModel)
+                        if let prayerTimesViewModel = prayerTimesViewModel {
+                            PrayerTimeSettingsView(viewModel: prayerTimesViewModel)
+                        } else {
+                            LoadingView()
+                        }
                     }
 
                     Toggle("Prayer Notifications", isOn: $notificationsEnabled)
@@ -41,7 +45,7 @@ struct SettingsView: View {
                 // App Settings
                 Section("App Settings") {
                     Picker("Theme", selection: $themeManager.currentTheme) {
-                        ForEach(AppTheme.allCases, id: \.self) { theme in
+                        ForEach(ThemeMode.allCases, id: \.self) { theme in
                             Text(theme.displayName).tag(theme)
                         }
                     }
@@ -104,8 +108,15 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .task {
+                if prayerTimesViewModel == nil {
+                    prayerTimesViewModel = PrayerTimesViewModel(preview: true)
+                }
+            }
             .sheet(isPresented: $showingAbout) {
-                AboutView()
+                AboutView { 
+                    showingAbout = false
+                }
             }
             .sheet(isPresented: $showingDataManagement) {
                 DataManagementView(viewModel: viewModel)
@@ -148,90 +159,6 @@ struct StatRowView: View {
             Text(value)
                 .fontWeight(.medium)
                 .foregroundColor(.blue)
-        }
-    }
-}
-
-
-
-struct AboutView: View {
-    @Environment(\.dismiss) private var dismiss
-    
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // App Icon
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 80))
-                        .foregroundColor(.blue)
-                    
-                    // App Name
-                    Text("DeenBuddy")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                    
-                    Text("Your Islamic Prayer Companion")
-                        .font(.headline)
-                        .foregroundColor(.secondary)
-                    
-                    // Description
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("About DeenBuddy")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        Text("DeenBuddy is your comprehensive guide to Islamic prayers, providing step-by-step instructions for both Sunni and Shia traditions. Learn and practice your daily prayers with confidence.")
-                            .font(.body)
-                            .multilineTextAlignment(.leading)
-                        
-                        Text("Features:")
-                            .font(.headline)
-                            .padding(.top)
-                        
-                        VStack(alignment: .leading, spacing: 8) {
-                            FeatureRowView(icon: "book.closed", text: "Comprehensive prayer guides")
-                            FeatureRowView(icon: "globe", text: "Sunni and Shia traditions")
-                            FeatureRowView(icon: "arrow.down.circle", text: "Offline access")
-                            FeatureRowView(icon: "bell", text: "Prayer time notifications")
-                            FeatureRowView(icon: "magnifyingglass", text: "Search and filter")
-                        }
-                    }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
-                    
-                    // Version
-                    Text("Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding()
-            }
-            .navigationTitle("About")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-}
-
-struct FeatureRowView: View {
-    let icon: String
-    let text: String
-    
-    var body: some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundColor(.blue)
-                .frame(width: 20)
-            Text(text)
-            Spacer()
         }
     }
 }

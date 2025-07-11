@@ -12,7 +12,7 @@ struct SearchView: View {
     @State private var searchText = ""
     @State private var selectedPrayer: Prayer?
     @State private var selectedMadhab: Madhab?
-    @State private var selectedDifficulty: PrayerGuide.Difficulty?
+    @State private var selectedDifficulty: Difficulty?
     @State private var showingFilters = false
     
     private var filteredGuides: [PrayerGuide] {
@@ -183,7 +183,7 @@ struct SearchView: View {
         selectedDifficulty = nil
     }
     
-    private func difficultyColor(_ difficulty: PrayerGuide.Difficulty) -> Color {
+    private func difficultyColor(_ difficulty: Difficulty) -> Color {
         switch difficulty {
         case .beginner: return .green
         case .intermediate: return .orange
@@ -259,88 +259,99 @@ struct ModernPrayerGuideRow: View {
 struct ModernFilterView: View {
     @Binding var selectedPrayer: Prayer?
     @Binding var selectedMadhab: Madhab?
-    @Binding var selectedDifficulty: PrayerGuide.Difficulty?
+    @Binding var selectedDifficulty: Difficulty?
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             ZStack {
                 ModernGradientBackground()
-
-                ScrollView {
-                    VStack(spacing: 20) {
-                        ModernCard {
-                            VStack(alignment: .leading, spacing: 16) {
-                                ModernTitle("Prayer Time")
-
-                                Picker("Prayer", selection: $selectedPrayer) {
-                                    Text("All Prayers").tag(Prayer?.none)
-                                    ForEach(Prayer.allCases, id: \.self) { prayer in
-                                        Text(prayer.displayName).tag(Prayer?.some(prayer))
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .tint(.cyan)
-                            }
-                            .padding()
-                        }
-
-                        ModernCard {
-                            VStack(alignment: .leading, spacing: 16) {
-                                ModernTitle("Tradition")
-
-                                Picker("Tradition", selection: $selectedMadhab) {
-                                    Text("All Traditions").tag(Madhab?.none)
-                                    ForEach(Madhab.allCases, id: \.self) { madhab in
-                                        Text(madhab.sectDisplayName).tag(Madhab?.some(madhab))
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .tint(.cyan)
-                            }
-                            .padding()
-                        }
-
-                        ModernCard {
-                            VStack(alignment: .leading, spacing: 16) {
-                                ModernTitle("Difficulty")
-
-                                Picker("Difficulty", selection: $selectedDifficulty) {
-                                    Text("All Levels").tag(PrayerGuide.Difficulty?.none)
-                                    ForEach(PrayerGuide.Difficulty.allCases, id: \.self) { difficulty in
-                                        Text(difficulty.displayName).tag(PrayerGuide.Difficulty?.some(difficulty))
-                                    }
-                                }
-                                .pickerStyle(.menu)
-                                .tint(.cyan)
-                            }
-                            .padding()
-                        }
-                    }
-                    .padding()
-                }
+                filterScrollView
             }
-            .navigationTitle("Filters")
+            .navigationTitle("Filter")
             .navigationBarTitleDisplayMode(.inline)
-            .preferredColorScheme(.dark)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Clear All") {
-                        selectedPrayer = nil
-                        selectedMadhab = nil
-                        selectedDifficulty = nil
-                    }
-                    .foregroundColor(.cyan)
-                }
-
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
-                    .foregroundColor(.cyan)
                 }
             }
         }
+    }
+    
+    private var filterScrollView: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                prayerFilterCard
+                madhabbFilterCard
+                difficultyFilterCard
+            }
+            .padding()
+        }
+    }
+    
+    private var prayerFilterCard: some View {
+        ModernCard {
+            VStack(alignment: .leading, spacing: 16) {
+                ModernTitle("Prayer Time")
+                prayerPicker
+            }
+            .padding()
+        }
+    }
+    
+    private var prayerPicker: some View {
+        Picker("Prayer", selection: $selectedPrayer) {
+            Text("All Prayers").tag(Prayer?.none)
+            ForEach(Prayer.allCases, id: \.self) { prayer in
+                Text(prayer.displayName).tag(Prayer?.some(prayer))
+            }
+        }
+        .pickerStyle(.menu)
+        .tint(.cyan)
+    }
+    
+    private var madhabbFilterCard: some View {
+        ModernCard {
+            VStack(alignment: .leading, spacing: 16) {
+                ModernTitle("Tradition")
+                madhabPicker
+            }
+            .padding()
+        }
+    }
+    
+    private var madhabPicker: some View {
+        Picker("Tradition", selection: $selectedMadhab) {
+            Text("All Traditions").tag(Madhab?.none)
+            ForEach(Madhab.allCases, id: \.self) { madhab in
+                Text(madhab.sectDisplayName).tag(Madhab?.some(madhab))
+            }
+        }
+        .pickerStyle(.menu)
+        .tint(.cyan)
+    }
+    
+    private var difficultyFilterCard: some View {
+        ModernCard {
+            VStack(alignment: .leading, spacing: 16) {
+                ModernTitle("Difficulty")
+                difficultyPicker
+            }
+            .padding()
+        }
+    }
+    
+    private var difficultyPicker: some View {
+        Picker("Difficulty", selection: $selectedDifficulty) {
+            Text("All Levels").tag(Difficulty?.none)
+            ForEach(Difficulty.allCases, id: \.self) { difficulty in
+                Text(difficulty.displayName).tag(Difficulty?.some(difficulty))
+            }
+        }
+        .pickerStyle(.menu)
+        .tint(.cyan)
     }
 }
 

@@ -91,7 +91,8 @@ public class QiblaDirectionCache: ObservableObject {
             for location in commonLocations {
                 if getCachedDirection(for: location) == nil {
                     // Calculate and cache using existing QiblaDirection model
-                    let direction = QiblaDirection.calculate(from: location.coordinate)
+                    let coord = LocationCoordinate(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+                    let direction = QiblaDirection.calculate(from: coord)
                     cacheDirection(direction, for: location)
                 }
             }

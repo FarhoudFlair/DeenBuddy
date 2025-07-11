@@ -6,11 +6,10 @@
 //
 
 import SwiftUI
-import DeenAssistUI
 
 @main
 struct DeenBuddyApp: App {
-    private let dependencyContainer = DependencyContainer.shared
+    private let dependencyContainer = AppDependencyContainer.shared
 
     var body: some Scene {
         WindowGroup {

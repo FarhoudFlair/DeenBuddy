@@ -7,6 +7,14 @@
 
 import SwiftUI
 import Charts
+import CoreLocation
+
+struct PrayerGoalsView: View {
+    var journalService: PrayerJournalService
+    var body: some View {
+        Text("Prayer Goals View (stub)")
+    }
+}
 
 struct PrayerJournalView: View {
     @StateObject private var journalService: PrayerJournalService
@@ -15,8 +23,9 @@ struct PrayerJournalView: View {
     @State private var showingGoals = false
     @State private var selectedTimeRange: TimeRange = .week
     
-    init(journalService: PrayerJournalService = PrayerJournalService(prayerTimeService: PrayerTimeService())) {
-        _journalService = StateObject(wrappedValue: journalService)
+    init(prayerTimeService: (any PrayerTimeServiceProtocol)? = nil) {
+        let service = prayerTimeService ?? MockPrayerTimeService()
+        _journalService = StateObject(wrappedValue: PrayerJournalService(prayerTimeService: service))
     }
     
     var body: some View {
@@ -246,7 +255,7 @@ struct PrayerJournalView: View {
                         Text("\(journalService.bestStreak)")
                             .font(.title)
                             .fontWeight(.bold)
-                            .foregroundColor(.gold)
+                            .foregroundColor(.islamicAccentGold)
                         
                         Text("days")
                             .font(.caption)
@@ -811,9 +820,7 @@ struct EmptyJournalView: View {
     }
 }
 
-extension Color {
-    static let gold = Color(red: 1.0, green: 0.8, blue: 0.0)
-}
+// Use Color.islamicAccentGold from the main Colors.swift file instead
 
 extension Prayer {
     var shortName: String {

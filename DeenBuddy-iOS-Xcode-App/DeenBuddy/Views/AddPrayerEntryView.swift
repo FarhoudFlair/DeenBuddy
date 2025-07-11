@@ -466,5 +466,5 @@ struct ModernTextFieldStyle: TextFieldStyle {
 }
 
 #Preview {
-    AddPrayerEntryView(journalService: PrayerJournalService(prayerTimeService: PrayerTimeService()))
+    AddPrayerEntryView(journalService: PrayerJournalService(prayerTimeService: MockPrayerTimeService()))
 }

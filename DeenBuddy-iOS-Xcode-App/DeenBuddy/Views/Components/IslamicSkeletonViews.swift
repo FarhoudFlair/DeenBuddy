@@ -253,8 +253,7 @@ struct IslamicLoadingIndicator: View {
 // MARK: - Color Extensions
 
 extension Color {
-    static let islamicGreen = Color(red: 0.0, green: 0.5, blue: 0.3) // Traditional Islamic green
-    static let islamicAccentGold = Color(red: 0.8, green: 0.6, blue: 0.2) // Complementary gold
+    static let islamicGreen = Color.islamicPrimaryGreen // Use the main color from Colors.swift
 }
 
 // MARK: - Preview

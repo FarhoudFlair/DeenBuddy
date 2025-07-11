@@ -26,13 +26,15 @@ struct PrayerTimesView: View {
                 // Display prayer times
                 Text("Prayer Times")
                     .font(.largeTitle)
-                ForEach(prayerTimes.times, id: \.name) { prayerTime in
-                    Text("\(prayerTime.name): \(prayerTime.time)")
+                ForEach(prayerTimes.allPrayers, id: \.0) { prayerType, prayerTime in
+                    Text("\(prayerType.displayName): \(prayerTime.formatted(date: .omitted, time: .shortened))")
                 }
             }
         }
         .onAppear {
-            viewModel.fetchPrayerTimes()
+            Task {
+                await viewModel.fetchPrayerTimes()
+            }
         }
     }
 }
@@ -46,79 +48,11 @@ struct PrayerTimesSettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Calculation Method") {
-                    Picker("Method", selection: $viewModel.settings.calculationMethod) {
-                        ForEach(CalculationMethod.allCases) { method in
-                            VStack(alignment: .leading) {
-                                Text(method.displayName)
-                                    .font(.body)
-                                Text(method.description)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(method)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-                }
-                
-                Section("School of Jurisprudence") {
-                    Picker("Madhab", selection: $viewModel.settings.madhab) {
-                        ForEach(Madhab.allCases) { madhab in
-                            VStack(alignment: .leading) {
-                                Text(madhab.displayName)
-                                    .font(.body)
-                                Text(madhab.description)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(madhab)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-                }
-                
-                Section("Time Format") {
-                    Picker("Format", selection: $viewModel.settings.timeFormat) {
-                        ForEach(TimeFormat.allCases) { format in
-                            HStack {
-                                Text(format.displayName)
-                                Spacer()
-                                Text(format.example)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(format)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                Section("Recommendations") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Recommended for your location:")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        ForEach(viewModel.getRecommendedCalculationMethods(), id: \.self) { method in
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.caption)
-                                
-                                Text(method.displayName)
-                                    .font(.caption)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                
-                Section {
-                    Button("Reset to Defaults") {
-                        viewModel.updateSettings(PrayerTimeSettings())
-                    }
-                    .foregroundColor(.red)
-                }
+                calculationMethodSection
+                madhabSection
+                timeFormatSection
+                recommendationsSection
+                resetSection
             }
             .navigationTitle("Prayer Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -129,6 +63,93 @@ struct PrayerTimesSettingsView: View {
                     }
                 }
             }
+        }
+    }
+    
+    private var calculationMethodSection: some View {
+        Section("Calculation Method") {
+            calculationMethodPicker
+        }
+    }
+    
+    private var calculationMethodPicker: some View {
+        Picker("Method", selection: $viewModel.settingsService.calculationMethod) {
+            ForEach(CalculationMethod.allCases) { method in
+                VStack(alignment: .leading) {
+                    Text(method.displayName)
+                        .font(.body)
+                    Text(method.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .tag(method)
+            }
+        }
+        .pickerStyle(.navigationLink)
+    }
+    
+    private var madhabSection: some View {
+        Section("School of Jurisprudence") {
+            madhabPicker
+        }
+    }
+    
+    private var madhabPicker: some View {
+        Picker("Madhab", selection: $viewModel.settingsService.madhab) {
+            ForEach(Madhab.allCases) { madhab in
+                VStack(alignment: .leading) {
+                    Text(madhab.displayName)
+                        .font(.body)
+                    Text(madhab.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .tag(madhab)
+            }
+        }
+        .pickerStyle(.navigationLink)
+    }
+    
+    private var timeFormatSection: some View {
+        Section("Time Format") {
+            timeFormatPicker
+        }
+    }
+    
+    private var timeFormatPicker: some View {
+        Picker("Format", selection: $viewModel.settingsService.timeFormat) {
+            ForEach(TimeFormat.allCases) { format in
+                HStack {
+                    Text(format.displayName)
+                    Spacer()
+                    Text(format.example)
+                        .foregroundColor(.secondary)
+                }
+                .tag(format)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+    
+    private var recommendationsSection: some View {
+        Section("Recommendations") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Most calculation methods work globally. For best accuracy, choose based on your region's Islamic authority.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    private var resetSection: some View {
+        Section {
+            Button("Reset to Defaults") {
+                Task {
+                    try? await viewModel.settingsService.resetToDefaults()
+                }
+            }
+            .foregroundColor(.red)
         }
     }
 }
@@ -200,7 +221,7 @@ struct ModernPrayerTimeRow: View {
             Spacer()
 
             // Prayer time
-            Text(prayerTime.formattedTime(format: timeFormat))
+            Text(prayerTime.time.formatted(date: .omitted, time: .shortened))
                 .font(.body)
                 .fontWeight(.medium)
                 .foregroundColor(isNext ? .cyan : .white)
@@ -250,5 +271,12 @@ extension Color {
 // MARK: - Preview
 
 #Preview {
-    PrayerTimesView()
+    PrayerTimesView(container: DependencyContainer(
+        locationService: MockLocationService(),
+        apiClient: MockAPIClient(),
+        notificationService: MockNotificationService(),
+        prayerTimeService: MockPrayerTimeService(),
+        settingsService: MockSettingsService(),
+        isTestEnvironment: true
+    ))
 }
