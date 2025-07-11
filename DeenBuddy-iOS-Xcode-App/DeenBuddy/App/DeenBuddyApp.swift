@@ -9,12 +9,11 @@ import SwiftUI
 
 @main
 struct DeenBuddyApp: App {
-    private let dependencyContainer = AppDependencyContainer.shared
+    private let appCoordinator = AppCoordinator.production()
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(dependencyContainer)
+            DeenAssistApp(coordinator: appCoordinator)
         }
     }
 }

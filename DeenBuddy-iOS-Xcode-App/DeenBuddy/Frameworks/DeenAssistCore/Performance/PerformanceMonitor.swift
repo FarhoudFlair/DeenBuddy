@@ -409,13 +409,22 @@ public struct PerformanceMetrics: Codable {
 }
 
 public struct PerformanceIssue: Codable, Identifiable {
-    public let id = UUID()
+    public let id: UUID
     public let type: IssueType
     public let description: String
     public let severity: Severity
     public let timestamp: Date
     public let metadata: [String: Any]
-    
+
+    public init(id: UUID = UUID(), type: IssueType, description: String, severity: Severity, timestamp: Date = Date(), metadata: [String: Any] = [:]) {
+        self.id = id
+        self.type = type
+        self.description = description
+        self.severity = severity
+        self.timestamp = timestamp
+        self.metadata = metadata
+    }
+
     public enum IssueType: String, Codable, CaseIterable {
         case highCPUUsage = "high_cpu_usage"
         case highMemoryUsage = "high_memory_usage"
