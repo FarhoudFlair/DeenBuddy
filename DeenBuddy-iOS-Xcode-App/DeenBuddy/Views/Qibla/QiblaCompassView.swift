@@ -335,11 +335,12 @@ struct QiblaCompassView: View {
         locationService.requestLocationPermission()
         locationService.startUpdatingLocation()
         
-        // Use async approach with proper timing
+        // Use proper async location handling instead of arbitrary delay
         Task {
-            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-            
-            if let location = locationService.currentLocation {
+            do {
+                // Request location with proper timeout handling
+                let location = try await locationService.requestLocation()
+                
                 // Check cache again with fresh location
                 if let cached = self.qiblaCache.getCachedDirection(for: location) {
                     await MainActor.run {
@@ -362,7 +363,7 @@ struct QiblaCompassView: View {
                         self.isUpdatingInBackground = false
                     }
                 }
-            } else {
+            } catch {
                 // Handle location error
                 await MainActor.run {
                     if self.optimisticDirection == nil {
