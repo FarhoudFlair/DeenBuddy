@@ -419,6 +419,38 @@ private enum JSONValue: Codable {
     case array([JSONValue])
     case object([String: Any])
     
+    // Helper function to convert any numeric type to Double
+    private static func convertToDouble(_ value: Any) -> Double? {
+        if let double = value as? Double {
+            return double
+        } else if let int = value as? Int {
+            return Double(int)
+        } else if let float = value as? Float {
+            return Double(float)
+        } else if let cgFloat = value as? CGFloat {
+            return Double(cgFloat)
+        } else if let int8 = value as? Int8 {
+            return Double(int8)
+        } else if let int16 = value as? Int16 {
+            return Double(int16)
+        } else if let int32 = value as? Int32 {
+            return Double(int32)
+        } else if let int64 = value as? Int64 {
+            return Double(int64)
+        } else if let uint = value as? UInt {
+            return Double(uint)
+        } else if let uint8 = value as? UInt8 {
+            return Double(uint8)
+        } else if let uint16 = value as? UInt16 {
+            return Double(uint16)
+        } else if let uint32 = value as? UInt32 {
+            return Double(uint32)
+        } else if let uint64 = value as? UInt64 {
+            return Double(uint64)
+        }
+        return nil
+    }
+    
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         
@@ -469,8 +501,8 @@ private enum JSONValue: Codable {
             let jsonObject = dict.mapValues { value -> JSONValue in
                 if let string = value as? String {
                     return .string(string)
-                } else if let number = value as? Double {
-                    return .number(number)
+                } else if let double = Self.convertToDouble(value) {
+                    return .number(double)
                 } else if let bool = value as? Bool {
                     return .bool(bool)
                 } else if value is NSNull {
@@ -501,8 +533,8 @@ private enum JSONValue: Codable {
     static func fromAny(_ value: Any) -> JSONValue {
         if let string = value as? String {
             return .string(string)
-        } else if let number = value as? Double {
-            return .number(number)
+        } else if let double = convertToDouble(value) {
+            return .number(double)
         } else if let bool = value as? Bool {
             return .bool(bool)
         } else if value is NSNull {
