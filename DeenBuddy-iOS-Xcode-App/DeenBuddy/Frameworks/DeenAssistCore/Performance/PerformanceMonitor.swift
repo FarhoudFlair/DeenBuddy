@@ -499,11 +499,12 @@ extension PerformanceIssue {
     
     /// Checks if a value is JSON-serializable
     private func isJSONSerializable(_ value: Any) -> Bool {
-        return isJSONSerializable(value, visited: Set<ObjectIdentifier>())
+        var visited = Set<ObjectIdentifier>()
+        return isJSONSerializable(value, visited: &visited)
     }
     
     /// Checks if a value is JSON-serializable with cycle detection
-    private func isJSONSerializable(_ value: Any, visited: Set<ObjectIdentifier>) -> Bool {
+    private func isJSONSerializable(_ value: Any, visited: inout Set<ObjectIdentifier>) -> Bool {
         switch value {
         case is String, is NSNumber, is Bool, is NSNull:
             return true
@@ -512,20 +513,27 @@ extension PerformanceIssue {
              is Float, is Double:
             return true
         case let array as [Any]:
-            return array.allSatisfy { isJSONSerializable($0, visited: visited) }
+            return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let dict as [String: Any]:
-            return dict.values.allSatisfy { isJSONSerializable($0, visited: visited) }
+            return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let object as AnyObject:
             // Check for circular references
             let objectId = ObjectIdentifier(object)
             if visited.contains(objectId) {
                 return false // Circular reference detected
             }
-            var newVisited = visited
-            newVisited.insert(objectId)
+            visited.insert(objectId)
             
             // For objects, we'll be conservative and only allow if they can be converted to JSON
-            return false
+            // Check if the object is a dictionary or array that can be serialized
+            if let dict = object as? [String: Any] {
+                return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            } else if let array = object as? [Any] {
+                return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            } else {
+                // For other objects, check if they can be converted to a basic type
+                return object is String || object is NSNumber || object is Bool || object is NSNull
+            }
         default:
             return false
         }
