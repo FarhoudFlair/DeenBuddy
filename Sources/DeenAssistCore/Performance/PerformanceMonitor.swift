@@ -517,26 +517,23 @@ extension PerformanceIssue {
             // NSData and NSDate are not directly JSON-serializable
             return false
         case let array as NSArray:
-            // Use the pointer to the array's storage for cycle detection
-            return array.withUnsafeBufferPointer { buffer in
-                let ptr = UnsafeRawPointer(buffer.baseAddress)
-                if let ptr = ptr, visited.contains(ptr) { return false }
-                if let ptr = ptr { visited.insert(ptr) }
-                defer { if let ptr = ptr { visited.remove(ptr) } }
-                return (array as! [Any]).allSatisfy { isJSONSerializable($0, visited: &visited) }
-            }
+            // Use ObjectIdentifier for reference tracking
+            let id = ObjectIdentifier(array)
+            if let ptr = UnsafeRawPointer(bitPattern: id.hashValue), visited.contains(ptr) { return false }
+            if let ptr = UnsafeRawPointer(bitPattern: id.hashValue) { visited.insert(ptr) }
+            defer { if let ptr = UnsafeRawPointer(bitPattern: id.hashValue) { visited.remove(ptr) } }
+            return (array as! [Any]).allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let dict as NSDictionary:
-            // Use the pointer to the dict's storage for cycle detection
-            return withUnsafePointer(to: dict) { ptr in
-                let rawPtr = UnsafeRawPointer(ptr)
-                if visited.contains(rawPtr) { return false }
-                visited.insert(rawPtr)
-                defer { visited.remove(rawPtr) }
-                guard let dictCast = dict as? [AnyHashable: Any] else { return false }
-                return dictCast.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
-            }
+            // Use ObjectIdentifier for reference tracking
+            let id = ObjectIdentifier(dict)
+            if let ptr = UnsafeRawPointer(bitPattern: id.hashValue), visited.contains(ptr) { return false }
+            if let ptr = UnsafeRawPointer(bitPattern: id.hashValue) { visited.insert(ptr) }
+            defer { if let ptr = UnsafeRawPointer(bitPattern: id.hashValue) { visited.remove(ptr) } }
+            guard let dictCast = dict as? [AnyHashable: Any] else { return false }
+            return dictCast.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let array as [Any]:
-            // Use the pointer to the array's storage for cycle detection
+            // Use ObjectIdentifier for reference tracking (arrays are value types, but for cycle detection, treat as reference if needed)
+            // Not strictly necessary for Swift arrays, but keep for symmetry
             return array.withUnsafeBufferPointer { buffer in
                 let ptr = UnsafeRawPointer(buffer.baseAddress)
                 if let ptr = ptr, visited.contains(ptr) { return false }
@@ -545,14 +542,12 @@ extension PerformanceIssue {
                 return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
             }
         case let dict as [String: Any]:
-            // Use the pointer to the dict's storage for cycle detection
-            return withUnsafePointer(to: dict) { ptr in
-                let rawPtr = UnsafeRawPointer(ptr)
-                if visited.contains(rawPtr) { return false }
-                visited.insert(rawPtr)
-                defer { visited.remove(rawPtr) }
-                return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
-            }
+            // Use ObjectIdentifier for reference tracking
+            let id = ObjectIdentifier(dict as NSDictionary)
+            if let ptr = UnsafeRawPointer(bitPattern: id.hashValue), visited.contains(ptr) { return false }
+            if let ptr = UnsafeRawPointer(bitPattern: id.hashValue) { visited.insert(ptr) }
+            defer { if let ptr = UnsafeRawPointer(bitPattern: id.hashValue) { visited.remove(ptr) } }
+            return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let object as AnyObject:
             // Only composite Foundation types should be tracked; basic types are handled above
             if object is NSString || object is NSNumber || object is NSNull {
