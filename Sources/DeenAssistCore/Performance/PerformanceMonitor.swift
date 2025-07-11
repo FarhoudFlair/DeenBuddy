@@ -500,12 +500,12 @@ extension PerformanceIssue {
     
     /// Checks if a value is JSON-serializable
     private func isJSONSerializable(_ value: Any) -> Bool {
-        var visited = Set<ObjectIdentifier>()
+        var visited = Set<UnsafeRawPointer>()
         return isJSONSerializable(value, visited: &visited)
     }
     
     /// Checks if a value is JSON-serializable with cycle detection
-    private func isJSONSerializable(_ value: Any, visited: inout Set<ObjectIdentifier>) -> Bool {
+    private func isJSONSerializable(_ value: Any, visited: inout Set<UnsafeRawPointer>) -> Bool {
         // Handle all basic types (including Foundation bridged types)
         switch value {
         case is String, is NSNumber, is Bool, is NSNull,
@@ -517,35 +517,42 @@ extension PerformanceIssue {
             // NSData and NSDate are not directly JSON-serializable
             return false
         case let array as NSArray:
-            let objectId = ObjectIdentifier(array)
-            if visited.contains(objectId) { return false }
-            visited.insert(objectId)
-            defer { visited.remove(objectId) }
-            return (array as! [Any]).allSatisfy { isJSONSerializable($0, visited: &visited) }
+            // Use the pointer to the array's storage for cycle detection
+            return array.withUnsafeBufferPointer { buffer in
+                let ptr = UnsafeRawPointer(buffer.baseAddress)
+                if let ptr = ptr, visited.contains(ptr) { return false }
+                if let ptr = ptr { visited.insert(ptr) }
+                defer { if let ptr = ptr { visited.remove(ptr) } }
+                return (array as! [Any]).allSatisfy { isJSONSerializable($0, visited: &visited) }
+            }
         case let dict as NSDictionary:
-            let objectId = ObjectIdentifier(dict)
-            if visited.contains(objectId) { return false }
-            visited.insert(objectId)
-            defer { visited.remove(objectId) }
-            return (dict as! [AnyHashable: Any]).values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            // Use the pointer to the dict's storage for cycle detection
+            return withUnsafePointer(to: dict) { ptr in
+                let rawPtr = UnsafeRawPointer(ptr)
+                if visited.contains(rawPtr) { return false }
+                visited.insert(rawPtr)
+                defer { visited.remove(rawPtr) }
+                guard let dictCast = dict as? [AnyHashable: Any] else { return false }
+                return dictCast.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            }
         case let array as [Any]:
-            // Box Swift array in a reference wrapper for stable identity
-            class ArrayBox { let array: [Any]; init(_ a: [Any]) { array = a } }
-            let box = ArrayBox(array)
-            let objectId = ObjectIdentifier(box)
-            if visited.contains(objectId) { return false }
-            visited.insert(objectId)
-            defer { visited.remove(objectId) }
-            return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            // Use the pointer to the array's storage for cycle detection
+            return array.withUnsafeBufferPointer { buffer in
+                let ptr = UnsafeRawPointer(buffer.baseAddress)
+                if let ptr = ptr, visited.contains(ptr) { return false }
+                if let ptr = ptr { visited.insert(ptr) }
+                defer { if let ptr = ptr { visited.remove(ptr) } }
+                return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            }
         case let dict as [String: Any]:
-            // Box Swift dictionary in a reference wrapper for stable identity
-            class DictBox { let dict: [String: Any]; init(_ d: [String: Any]) { dict = d } }
-            let box = DictBox(dict)
-            let objectId = ObjectIdentifier(box)
-            if visited.contains(objectId) { return false }
-            visited.insert(objectId)
-            defer { visited.remove(objectId) }
-            return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            // Use the pointer to the dict's storage for cycle detection
+            return withUnsafePointer(to: dict) { ptr in
+                let rawPtr = UnsafeRawPointer(ptr)
+                if visited.contains(rawPtr) { return false }
+                visited.insert(rawPtr)
+                defer { visited.remove(rawPtr) }
+                return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            }
         case let object as AnyObject:
             // Only composite Foundation types should be tracked; basic types are handled above
             if object is NSString || object is NSNumber || object is NSNull {
@@ -555,7 +562,7 @@ extension PerformanceIssue {
             if object is NSData || object is NSDate {
                 return false
             }
-            let objectId = ObjectIdentifier(object)
+            let objectId = UnsafeRawPointer(Unmanaged.passUnretained(object).toOpaque())
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
