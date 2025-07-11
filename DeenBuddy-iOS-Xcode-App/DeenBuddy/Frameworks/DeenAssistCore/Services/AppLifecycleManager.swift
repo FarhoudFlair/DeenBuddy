@@ -52,24 +52,21 @@ public class AppLifecycleManager: ObservableObject {
     
     deinit {
         // Ensure UIKit cleanup is always performed on the main thread
-        if Thread.isMainThread {
-            backgroundTimer?.invalidate()
-            backgroundTimer = nil
+        let cleanup: () -> Void = { [weak self] in
+            guard let self = self else { return }
+            self.backgroundTimer?.invalidate()
+            self.backgroundTimer = nil
 
-            if backgroundTask != .invalid {
-                UIApplication.shared.endBackgroundTask(backgroundTask)
-                print("⏹️ Ended background task from deinit: \(backgroundTask.rawValue)")
-                backgroundTask = .invalid
+            if self.backgroundTask != .invalid {
+                UIApplication.shared.endBackgroundTask(self.backgroundTask)
+                print("⏹️ Ended background task from deinit: \(self.backgroundTask.rawValue)")
+                self.backgroundTask = .invalid
             }
+        }
+        if Thread.isMainThread {
+            cleanup()
         } else {
-            DispatchQueue.main.async { [backgroundTimer, backgroundTask] in
-                backgroundTimer?.invalidate()
-                // backgroundTimer is a local copy, so we can't nil the instance var here
-                if backgroundTask != .invalid {
-                    UIApplication.shared.endBackgroundTask(backgroundTask)
-                    print("⏹️ Ended background task from deinit: \(backgroundTask.rawValue)")
-                }
-            }
+            DispatchQueue.main.async(execute: cleanup)
         }
     }
     
