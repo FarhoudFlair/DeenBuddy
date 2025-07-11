@@ -427,7 +427,7 @@ private enum JSONValue: Codable {
         } else if let int = value as? Int {
             // Check if the value can be safely converted to Double without precision loss
             // Double can safely represent integers up to 2^53
-            let maxSafeInteger: Int = 1 << 53
+            let maxSafeInteger: Int = 9007199254740992 // 2^53
             if int >= -maxSafeInteger && int <= maxSafeInteger {
                 return Double(int)
             }
@@ -446,7 +446,7 @@ private enum JSONValue: Codable {
         } else if let int64 = value as? Int64 {
             // Check if the value can be safely converted to Double without precision loss
             // Double can safely represent integers up to 2^53
-            let maxSafeInteger: Int64 = 1 << 53
+            let maxSafeInteger: Int64 = 9007199254740992 // 2^53
             if int64 >= -maxSafeInteger && int64 <= maxSafeInteger {
                 return Double(int64)
             }
@@ -455,7 +455,7 @@ private enum JSONValue: Codable {
         } else if let uint = value as? UInt {
             // Check if the value can be safely converted to Double without precision loss
             // Double can safely represent integers up to 2^53
-            let maxSafeInteger: UInt = 1 << 53
+            let maxSafeInteger: UInt = 9007199254740992 // 2^53
             if uint <= maxSafeInteger {
                 return Double(uint)
             }
@@ -470,7 +470,7 @@ private enum JSONValue: Codable {
         } else if let uint64 = value as? UInt64 {
             // Check if the value can be safely converted to Double without precision loss
             // Double can safely represent integers up to 2^53
-            let maxSafeInteger: UInt64 = 1 << 53
+            let maxSafeInteger: UInt64 = 9007199254740992 // 2^53
             if uint64 <= maxSafeInteger {
                 return Double(uint64)
             }
