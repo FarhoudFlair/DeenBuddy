@@ -29,11 +29,11 @@ public class MockNotificationService: NotificationServiceProtocol {
         print("Mock: Scheduled notifications for \(prayerTimes.count) prayers")
     }
     
-    public func cancelAllNotifications() {
+    public func cancelAllNotifications() async {
         print("Mock: Cancelled all notifications")
     }
     
-    public func cancelNotifications(for prayer: Prayer) {
+    public func cancelNotifications(for prayer: Prayer) async {
         print("Mock: Cancelled notifications for \(prayer.displayName)")
     }
 }

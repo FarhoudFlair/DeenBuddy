@@ -157,10 +157,10 @@ public class DependencyContainer: ObservableObject {
     }
     
     @MainActor
-    public func tearDown() {
+    public func tearDown() async {
         // Clean up services
         locationService.stopUpdatingLocation()
-        notificationService.cancelAllNotifications()
+        await notificationService.cancelAllNotifications()
     }
 }
 
