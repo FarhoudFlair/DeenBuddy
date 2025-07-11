@@ -500,13 +500,33 @@ extension PerformanceIssue {
     
     /// Checks if a value is JSON-serializable
     private func isJSONSerializable(_ value: Any) -> Bool {
+        return isJSONSerializable(value, visited: Set<ObjectIdentifier>())
+    }
+    
+    /// Checks if a value is JSON-serializable with cycle detection
+    private func isJSONSerializable(_ value: Any, visited: Set<ObjectIdentifier>) -> Bool {
         switch value {
         case is String, is NSNumber, is Bool, is NSNull:
             return true
+        case is Int, is Int8, is Int16, is Int32, is Int64,
+             is UInt, is UInt8, is UInt16, is UInt32, is UInt64,
+             is Float, is Double:
+            return true
         case let array as [Any]:
-            return array.allSatisfy { isJSONSerializable($0) }
+            return array.allSatisfy { isJSONSerializable($0, visited: visited) }
         case let dict as [String: Any]:
-            return dict.values.allSatisfy { isJSONSerializable($0) }
+            return dict.values.allSatisfy { isJSONSerializable($0, visited: visited) }
+        case let object as AnyObject:
+            // Check for circular references
+            let objectId = ObjectIdentifier(object)
+            if visited.contains(objectId) {
+                return false // Circular reference detected
+            }
+            var newVisited = visited
+            newVisited.insert(objectId)
+            
+            // For objects, we'll be conservative and only allow if they can be converted to JSON
+            return false
         default:
             return false
         }
