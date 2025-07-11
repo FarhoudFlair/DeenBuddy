@@ -68,7 +68,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             self.setupSettingsService()
         }
         loadCachedLocation()
-        updatePermissionStatus()
+        // Don't call updatePermissionStatus() directly - wait for delegate callback
     }
     
     // MARK: - Protocol Implementation
@@ -77,8 +77,19 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         guard authorizationStatus == .notDetermined else {
             return
         }
-        
+
         locationManager.requestWhenInUseAuthorization()
+    }
+
+    public func requestLocationPermissionAsync() async -> CLAuthorizationStatus {
+        guard authorizationStatus == .notDetermined else {
+            return authorizationStatus
+        }
+
+        return await withCheckedContinuation { continuation in
+            permissionContinuation = continuation
+            locationManager.requestWhenInUseAuthorization()
+        }
     }
     
     public func requestLocation() async throws -> CLLocation {
@@ -297,24 +308,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         }
     }
     
-    private func updatePermissionStatus() {
-        let status: CLAuthorizationStatus
-        
-        switch locationManager.authorizationStatus {
-        case .notDetermined:
-            status = .notDetermined
-        case .denied:
-            status = .denied
-        case .restricted:
-            status = .restricted
-        case .authorizedWhenInUse:
-            status = .authorizedWhenInUse
-        case .authorizedAlways:
-            status = .authorizedAlways
-        @unknown default:
-            status = .notDetermined
-        }
-        
+    private func updatePermissionStatus(with status: CLAuthorizationStatus) {
         authorizationStatus = status
         permissionSubject.send(status)
     }
@@ -439,10 +433,10 @@ extension LocationService: @preconcurrency CLLocationManagerDelegate {
     }
     
     public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        updatePermissionStatus()
-        
+        updatePermissionStatus(with: status)
+
         // Complete pending permission request
-        permissionContinuation?.resume(returning: authorizationStatus)
+        permissionContinuation?.resume(returning: status)
         permissionContinuation = nil
     }
 }

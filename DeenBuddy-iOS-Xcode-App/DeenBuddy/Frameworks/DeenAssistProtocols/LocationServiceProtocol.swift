@@ -25,7 +25,10 @@ public protocol LocationServiceProtocol: ObservableObject {
     
     /// Request location permission from user
     func requestLocationPermission()
-    
+
+    /// Request location permission from user and wait for result
+    func requestLocationPermissionAsync() async -> CLAuthorizationStatus
+
     /// Request current location once
     func requestLocation() async throws -> CLLocation
     

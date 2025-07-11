@@ -235,15 +235,15 @@ struct VideoPlayerView: View {
         addPlayerObservers()
         
         // Check if video is ready
-        player.currentItem?.asset.loadValuesAsynchronously(forKeys: ["duration"]) { [weak self, weak player] in
+        player.currentItem?.asset.loadValuesAsynchronously(forKeys: ["duration"]) { [weak player] in
             DispatchQueue.main.async {
-                guard let self = self, let player = player else { return }
-                
-                if let duration = player.currentItem?.asset.duration,
-                   duration.isValid && !duration.isIndefinite {
-                    self.duration = CMTimeGetSeconds(duration)
+                guard let player = player else { return }
+
+                if let assetDuration = player.currentItem?.asset.duration,
+                   assetDuration.isValid && !assetDuration.isIndefinite {
+                    self.duration = CMTimeGetSeconds(assetDuration)
                 }
-                
+
                 self.isLoading = false
             }
         }
@@ -256,25 +256,25 @@ struct VideoPlayerView: View {
         let timeScale = CMTimeScale(NSEC_PER_SEC)
         let time = CMTime(seconds: 0.1, preferredTimescale: timeScale)
         
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { [weak self] time in
-            self?.currentTime = CMTimeGetSeconds(time)
+        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { time in
+            self.currentTime = CMTimeGetSeconds(time)
         }
         
         // Playback state observer
         player.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                self?.isPlaying = status == .playing
+            .sink { status in
+                self.isPlaying = status == .playing
             }
             .store(in: &cancellables)
         
         // Error observer
         player.publisher(for: \.error)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] error in
-                if let error = error {
-                    self?.error = error
-                    self?.isLoading = false
+            .sink { playerError in
+                if playerError != nil {
+                    self.error = playerError
+                    self.isLoading = false
                 }
             }
             .store(in: &cancellables)
