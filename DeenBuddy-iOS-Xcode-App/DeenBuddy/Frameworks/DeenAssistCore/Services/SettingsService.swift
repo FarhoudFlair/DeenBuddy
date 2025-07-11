@@ -77,7 +77,6 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         static let notificationOffset = "DeenAssist.Settings.NotificationOffset"
         static let overrideBatteryOptimization = "DeenAssist.Settings.OverrideBatteryOptimization"
         static let hasCompletedOnboarding = "DeenAssist.Settings.HasCompletedOnboarding"
-        static let overrideBatteryOptimization = "DeenAssist.Settings.OverrideBatteryOptimization"
         static let lastSyncDate = "DeenAssist.Settings.LastSyncDate"
         static let settingsVersion = "DeenAssist.Settings.Version"
     }
@@ -124,9 +123,6 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
             // Save onboarding status
             userDefaults.set(hasCompletedOnboarding, forKey: SettingsKeys.hasCompletedOnboarding)
-            
-            // Save battery optimization override
-            userDefaults.set(overrideBatteryOptimization, forKey: SettingsKeys.overrideBatteryOptimization)
             
             // Save metadata
             userDefaults.set(Date(), forKey: SettingsKeys.lastSyncDate)
@@ -193,9 +189,6 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             // Load onboarding status
             hasCompletedOnboarding = userDefaults.bool(forKey: SettingsKeys.hasCompletedOnboarding)
             
-            // Load battery optimization override
-            overrideBatteryOptimization = userDefaults.bool(forKey: SettingsKeys.overrideBatteryOptimization)
-            
             print("Settings loaded successfully")
             
         } catch {
@@ -214,7 +207,6 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             notificationOffset = 300 // 5 minutes
             overrideBatteryOptimization = false
             hasCompletedOnboarding = false
-            overrideBatteryOptimization = false
             
             // Save the defaults
             try await saveSettings()
