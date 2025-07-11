@@ -51,19 +51,21 @@ public class AppLifecycleManager: ObservableObject {
     }
     
     deinit {
-        // Capture the background task identifier
-        let task = self.backgroundTask
-        
-        // Schedule cleanup on the main thread
-        DispatchQueue.main.async { [weak self] in
-            // Invalidate the timer on the main thread
-            self?.backgroundTimer?.invalidate()
-            
-            // End the background task if it's still valid
-            if task != .invalid {
-                UIApplication.shared.endBackgroundTask(task)
-                print("⏹️ Ended background task from deinit: \(task.rawValue)")
+        // Capture resources locally to ensure cleanup even if self is deallocated before async block runs
+        let backgroundTask = self.backgroundTask
+        let backgroundTimer = self.backgroundTimer
+
+        let cleanup: () -> Void = {
+            backgroundTimer?.invalidate()
+            if backgroundTask != .invalid {
+                UIApplication.shared.endBackgroundTask(backgroundTask)
+                print("⏹️ Ended background task from deinit: \(backgroundTask.rawValue)")
             }
+        }
+        if Thread.isMainThread {
+            cleanup()
+        } else {
+            DispatchQueue.main.async(execute: cleanup)
         }
     }
     
