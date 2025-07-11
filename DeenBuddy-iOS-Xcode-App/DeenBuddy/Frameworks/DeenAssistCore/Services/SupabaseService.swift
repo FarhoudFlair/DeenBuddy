@@ -38,11 +38,34 @@ public class SupabaseService: ObservableObject {
     }
 
     // MARK: - Public Methods
+    
+    /// Check if Supabase service is properly configured
+    public var isConfigured: Bool {
+        guard let supabaseConfig = configurationManager.getSupabaseConfiguration() else {
+            return false
+        }
+        return !supabaseConfig.url.isEmpty && !supabaseConfig.anonKey.isEmpty
+    }
 
     /// Fetch prayer guides from Supabase with offline support
     public func fetchPrayerGuides(forceRefresh: Bool = false) async {
         isLoading = true
         errorMessage = nil
+
+        // Check configuration first
+        guard isConfigured else {
+            await MainActor.run {
+                self.errorMessage = "Supabase configuration is missing or invalid"
+                self.isLoading = false
+            }
+            
+            // Try to load from cache if available
+            if let cachedGuides = await offlineService.getCachedGuides() {
+                self.prayerGuides = cachedGuides
+                self.isOffline = true
+            }
+            return
+        }
 
         // Try offline first if not forcing refresh
         if !forceRefresh, let cachedGuides = await offlineService.getCachedGuides() {
@@ -61,7 +84,18 @@ public class SupabaseService: ObservableObject {
 
     /// Fetch prayer guides from Supabase REST API
     private func fetchFromSupabase() async {
-        guard let url = URL(string: "\(supabaseUrl)/rest/v1/prayer_guides") else {
+        // Validate Supabase configuration first
+        guard let supabaseConfig = configurationManager.getSupabaseConfiguration(),
+              !supabaseConfig.url.isEmpty,
+              !supabaseConfig.anonKey.isEmpty else {
+            await MainActor.run {
+                self.errorMessage = "Supabase configuration is missing or invalid"
+                self.isLoading = false
+            }
+            return
+        }
+        
+        guard let url = URL(string: "\(supabaseConfig.url)/rest/v1/prayer_guides") else {
             await MainActor.run {
                 self.errorMessage = "Invalid URL"
                 self.isLoading = false
@@ -70,8 +104,8 @@ public class SupabaseService: ObservableObject {
         }
 
         var request = URLRequest(url: url)
-        request.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
-        request.setValue(anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(supabaseConfig.anonKey)", forHTTPHeaderField: "Authorization")
+        request.setValue(supabaseConfig.anonKey, forHTTPHeaderField: "apikey")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         // Add query parameters for the data we need
@@ -146,7 +180,7 @@ public class SupabaseService: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isConnected in
                 self?.isOffline = !isConnected
-                if isConnected {
+                if isConnected && self?.isConfigured == true {
                     Task {
                         await self?.syncIfNeeded()
                     }
@@ -159,8 +193,9 @@ public class SupabaseService: ObservableObject {
         // iOS background app refresh handling
         NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
             .sink { [weak self] _ in
+                guard let self = self, self.isConfigured else { return }
                 Task {
-                    await self?.syncIfNeeded()
+                    await self.syncIfNeeded()
                 }
             }
             .store(in: &cancellables)
@@ -168,6 +203,7 @@ public class SupabaseService: ObservableObject {
 
     private func syncIfNeeded() async {
         guard !isOffline else { return }
+        guard isConfigured else { return }
 
         let lastSync = UserDefaults.standard.object(forKey: "lastSyncDate") as? Date
         let shouldSync = lastSync == nil || Date().timeIntervalSince(lastSync!) > 3600 // 1 hour
