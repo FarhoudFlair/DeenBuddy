@@ -116,13 +116,13 @@ public struct QiblaCompassScreen: View {
                 // Compass markings
                 compassMarkings
                 
-                // Qibla needle
+                // North reference needle (red arrow pointing to magnetic North)
+                deviceHeadingIndicator
+
+                // Qibla direction indicator (green arrow pointing to Qibla)
                 if let qiblaDirection = qiblaDirection {
                     qiblaNeedle(direction: qiblaDirection)
                 }
-                
-                // Device heading indicator
-                deviceHeadingIndicator
                 
                 // Center dot
                 Circle()
@@ -195,25 +195,32 @@ public struct QiblaCompassScreen: View {
     @ViewBuilder
     private func qiblaNeedle(direction: QiblaDirection) -> some View {
         VStack(spacing: 0) {
-            // Needle tip
+            // Enhanced GREEN Qibla arrow tip
             Triangle()
-                .fill(ColorPalette.accent)
+                .fill(Color.green)
                 .frame(width: 16, height: 24)
-            
-            // Needle body
+
+            // Thick green needle body
             Rectangle()
-                .fill(ColorPalette.accent)
-                .frame(width: 4, height: 100)
-            
-            // Kaaba symbol
-            Image(systemName: "house.fill")
-                .font(.title2)
-                .foregroundColor(ColorPalette.accent)
-                .background(
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 32, height: 32)
-                )
+                .fill(Color.green)
+                .frame(width: 5, height: 100)
+
+            // Qibla label and Kaaba symbol
+            VStack(spacing: 2) {
+                Text("QIBLA")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.green)
+
+                Image(systemName: "house.fill")
+                    .font(.title2)
+                    .foregroundColor(.green)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.7))
+                    .frame(width: 50, height: 40)
+            )
         }
         .offset(y: -50)
         .rotationEffect(.degrees(direction.direction - compassManager.heading))
@@ -222,14 +229,26 @@ public struct QiblaCompassScreen: View {
     
     @ViewBuilder
     private var deviceHeadingIndicator: some View {
+        // Enhanced North reference needle (red arrow pointing to magnetic North)
         VStack(spacing: 0) {
             Triangle()
-                .fill(ColorPalette.primary)
+                .fill(Color.red)
                 .frame(width: 12, height: 16)
-            
+
             Rectangle()
-                .fill(ColorPalette.primary)
-                .frame(width: 2, height: 30)
+                .fill(Color.red)
+                .frame(width: 3, height: 70)
+
+            // North label for accuracy verification
+            Text("N")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(.red)
+                .background(
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 20, height: 20)
+                )
         }
         .offset(y: -135)
     }
@@ -267,10 +286,17 @@ public struct QiblaCompassScreen: View {
                     .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
             )
             
-            Text("Point your device towards the green arrow to face Qibla")
-                .bodySmall()
-                .foregroundColor(ColorPalette.textSecondary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: 8) {
+                Text("Point your device towards the GREEN arrow to face Qibla")
+                    .bodySmall()
+                    .foregroundColor(ColorPalette.textSecondary)
+                    .multilineTextAlignment(.center)
+
+                Text("RED needle points to North for accuracy verification")
+                    .caption()
+                    .foregroundColor(ColorPalette.textSecondary.opacity(0.8))
+                    .multilineTextAlignment(.center)
+            }
         }
     }
     

@@ -118,13 +118,13 @@ struct QiblaCompassView: View {
             // Cardinal direction labels
             cardinalDirections
 
-            // Qibla needle (green arrow)
+            // North reference needle (red arrow pointing to magnetic North)
+            northReferenceNeedle
+
+            // Qibla direction indicator (green arrow pointing to Qibla)
             if let qiblaDirection = qiblaDirection {
                 qiblaNeedle(direction: qiblaDirection)
             }
-
-            // Device heading indicator (red needle)
-            deviceHeadingIndicator
 
             // Yellow Kaaba icon
             kaabaIcon
@@ -233,22 +233,61 @@ struct QiblaCompassView: View {
     
     @ViewBuilder
     private func qiblaNeedle(direction: QiblaDirection) -> some View {
-        // Green arrow pointing to Qibla
-        Rectangle()
-            .fill(Color.green)
-            .frame(width: 3, height: 80)
-            .offset(y: -40)
-            .rotationEffect(.degrees(direction.direction - compassManager.heading))
-            .animation(.easeInOut(duration: 0.3), value: compassManager.heading)
+        // Enhanced GREEN Qibla direction indicator
+        VStack(spacing: 0) {
+            // Arrow tip pointing to Qibla
+            Triangle()
+                .fill(Color.green)
+                .frame(width: 12, height: 16)
+
+            // Thick green line body
+            Rectangle()
+                .fill(Color.green)
+                .frame(width: 4, height: 90)
+
+            // Qibla label
+            Text("QIBLA")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(.green)
+                .background(
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.black.opacity(0.7))
+                        .frame(width: 40, height: 16)
+                )
+        }
+        .offset(y: -45)
+        .rotationEffect(.degrees(direction.direction - compassManager.heading))
+        .animation(.easeInOut(duration: 0.3), value: compassManager.heading)
     }
 
     @ViewBuilder
-    private var deviceHeadingIndicator: some View {
-        // Red needle showing device heading (North)
-        Rectangle()
-            .fill(Color.red)
-            .frame(width: 2, height: 60)
-            .offset(y: -30)
+    private var northReferenceNeedle: some View {
+        // Enhanced North reference needle (red arrow pointing to magnetic North)
+        VStack(spacing: 0) {
+            // Arrow tip pointing to North
+            Triangle()
+                .fill(Color.red)
+                .frame(width: 10, height: 14)
+
+            // Red needle body
+            Rectangle()
+                .fill(Color.red)
+                .frame(width: 3, height: 70)
+
+            // North label
+            Text("N")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(.red)
+                .background(
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 20, height: 20)
+                )
+        }
+        .offset(y: -35)
+        // North needle always points up (0 degrees) relative to device orientation
     }
 
     @ViewBuilder
@@ -469,5 +508,17 @@ extension CompassManager: @preconcurrency CLLocationManagerDelegate {
 }
 
 // MARK: - Supporting Types
+
+/// Triangle shape for compass needles
+private struct Triangle: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
 
 // CompassAccuracy and QiblaDirectionCache are now imported from their proper locations

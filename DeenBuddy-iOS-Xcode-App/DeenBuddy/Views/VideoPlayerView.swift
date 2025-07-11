@@ -238,12 +238,12 @@ struct VideoPlayerView: View {
         player.currentItem?.asset.loadValuesAsynchronously(forKeys: ["duration"]) { [weak player] in
             DispatchQueue.main.async {
                 guard let player = player else { return }
-                
-                if let duration = player.currentItem?.asset.duration,
-                   duration.isValid && !duration.isIndefinite {
-                    self.duration = CMTimeGetSeconds(duration)
+
+                if let assetDuration = player.currentItem?.asset.duration,
+                   assetDuration.isValid && !assetDuration.isIndefinite {
+                    self.duration = CMTimeGetSeconds(assetDuration)
                 }
-                
+
                 self.isLoading = false
             }
         }
@@ -271,9 +271,9 @@ struct VideoPlayerView: View {
         // Error observer
         player.publisher(for: \.error)
             .receive(on: DispatchQueue.main)
-            .sink { error in
-                if let error = error {
-                    self.error = error
+            .sink { playerError in
+                if playerError != nil {
+                    self.error = playerError
                     self.isLoading = false
                 }
             }

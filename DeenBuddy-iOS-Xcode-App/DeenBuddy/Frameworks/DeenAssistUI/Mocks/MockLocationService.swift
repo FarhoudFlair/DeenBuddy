@@ -32,6 +32,13 @@ public class MockLocationService: LocationServiceProtocol {
             self.authorizationStatus = .authorizedWhenInUse
         }
     }
+
+    public func requestLocationPermissionAsync() async -> CLAuthorizationStatus {
+        // Simulate permission request
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        authorizationStatus = .authorizedWhenInUse
+        return authorizationStatus
+    }
     
     public func requestLocation() async throws -> CLLocation {
         // Simulate getting location

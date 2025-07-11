@@ -44,6 +44,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         self.networkMonitor = networkMonitor
         loadSettings()
         setupLocationObserver()
+        setupSettingsObservers()
         startTimer()
     }
     
@@ -75,8 +76,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             let coordinates = Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
             let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: date)
 
-            // Use Adhan.CalculationMethod and its params property
-            let adhanMethod = Adhan.CalculationMethod(rawValue: calculationMethod.rawValue) ?? .muslimWorldLeague
+            // Convert app's CalculationMethod to Adhan.CalculationMethod
+            let adhanMethod = calculationMethod.toAdhanMethod()
             var params = adhanMethod.params
             params.madhab = madhab.adhanMadhab()
             // Use Adhan.PrayerTimes to avoid collision with app's PrayerTimes
@@ -210,6 +211,32 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             )
             .store(in: &cancellables)
     }
+
+    private func setupSettingsObservers() {
+        // Observe calculation method changes
+        $calculationMethod
+            .dropFirst() // Skip initial value
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.saveSettings()
+                Task {
+                    await self?.refreshPrayerTimes()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Observe madhab changes
+        $madhab
+            .dropFirst() // Skip initial value
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.saveSettings()
+                Task {
+                    await self?.refreshPrayerTimes()
+                }
+            }
+            .store(in: &cancellables)
+    }
     
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
@@ -283,6 +310,34 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
 }
 
 // MARK: - Extensions
+
+extension CalculationMethod {
+    /// Converts app's CalculationMethod to Adhan library's CalculationMethod
+    func toAdhanMethod() -> Adhan.CalculationMethod {
+        switch self {
+        case .muslimWorldLeague:
+            return .muslimWorldLeague
+        case .egyptian:
+            return .egyptian
+        case .karachi:
+            return .karachi
+        case .ummAlQura:
+            return .ummAlQura
+        case .dubai:
+            return .dubai
+        case .moonsightingCommittee:
+            return .moonsightingCommittee
+        case .northAmerica:
+            return .northAmerica
+        case .kuwait:
+            return .kuwait
+        case .qatar:
+            return .qatar
+        case .singapore:
+            return .singapore
+        }
+    }
+}
 
 extension Madhab {
     func adhanMadhab() -> Adhan.Madhab {
