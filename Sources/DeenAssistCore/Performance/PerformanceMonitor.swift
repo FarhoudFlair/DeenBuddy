@@ -459,12 +459,24 @@ extension PerformanceIssue {
         severity = try container.decode(Severity.self, forKey: .severity)
         timestamp = try container.decode(Date.self, forKey: .timestamp)
         
-        // Decode metadata as JSON and convert to [String: Any]
-        let metadataData = try container.decode(Data.self, forKey: .metadata)
-        if let metadataDict = try? JSONSerialization.jsonObject(with: metadataData) as? [String: Any] {
+        // Handle backward compatibility: metadata can be either JSON Data (new format) or direct dictionary (old format)
+        if let metadataData = try? container.decode(Data.self, forKey: .metadata) {
+            // New format: metadata is JSON Data
+            if let metadataDict = try? JSONSerialization.jsonObject(with: metadataData) as? [String: Any] {
+                metadata = metadataDict
+            } else {
+                metadata = [:]
+            }
+        } else if let metadataDict = try? container.decode([String: Any].self, forKey: .metadata) {
+            // Old format: metadata is direct dictionary
             metadata = metadataDict
         } else {
-            metadata = [:]
+            // Fallback: try to decode as [String: Double] for maximum compatibility
+            if let metadataDoubleDict = try? container.decode([String: Double].self, forKey: .metadata) {
+                metadata = metadataDoubleDict.mapValues { $0 as Any }
+            } else {
+                metadata = [:]
+            }
         }
     }
     
