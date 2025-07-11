@@ -22,12 +22,12 @@ public class SupabaseService: ObservableObject {
     private let offlineService = OfflineService()
     private var cancellables = Set<AnyCancellable>()
 
-    private var supabaseUrl: String {
-        return configurationManager.getSupabaseConfiguration()?.url ?? ""
+    private var supabaseUrl: String? {
+        return configurationManager.getSupabaseConfiguration()?.url
     }
 
-    private var anonKey: String {
-        return configurationManager.getSupabaseConfiguration()?.anonKey ?? ""
+    private var anonKey: String? {
+        return configurationManager.getSupabaseConfiguration()?.anonKey
     }
 
     // MARK: - Initialization
@@ -38,11 +38,35 @@ public class SupabaseService: ObservableObject {
     }
 
     // MARK: - Public Methods
+    
+    /// Check if Supabase service is properly configured
+    public var isConfigured: Bool {
+        guard let supabaseUrl = supabaseUrl, !supabaseUrl.isEmpty,
+              let anonKey = anonKey, !anonKey.isEmpty else {
+            return false
+        }
+        return true
+    }
 
     /// Fetch prayer guides from Supabase with offline support
     public func fetchPrayerGuides(forceRefresh: Bool = false) async {
         isLoading = true
         errorMessage = nil
+
+        // Check if service is configured
+        guard isConfigured else {
+            await MainActor.run {
+                self.errorMessage = "Supabase service is not properly configured"
+                self.isLoading = false
+            }
+            
+            // Try to load from cache as fallback
+            if let cachedGuides = await offlineService.getCachedGuides() {
+                self.prayerGuides = cachedGuides
+                self.isOffline = true
+            }
+            return
+        }
 
         // Try offline first if not forcing refresh
         if !forceRefresh, let cachedGuides = await offlineService.getCachedGuides() {
@@ -61,9 +85,26 @@ public class SupabaseService: ObservableObject {
 
     /// Fetch prayer guides from Supabase REST API
     private func fetchFromSupabase() async {
+        // Validate configuration is available
+        guard let supabaseUrl = supabaseUrl, !supabaseUrl.isEmpty else {
+            await MainActor.run {
+                self.errorMessage = "Supabase configuration is missing or invalid"
+                self.isLoading = false
+            }
+            return
+        }
+        
+        guard let anonKey = anonKey, !anonKey.isEmpty else {
+            await MainActor.run {
+                self.errorMessage = "Supabase authentication key is missing or invalid"
+                self.isLoading = false
+            }
+            return
+        }
+        
         guard let url = URL(string: "\(supabaseUrl)/rest/v1/prayer_guides") else {
             await MainActor.run {
-                self.errorMessage = "Invalid URL"
+                self.errorMessage = "Invalid Supabase URL"
                 self.isLoading = false
             }
             return
@@ -193,6 +234,19 @@ extension SupabaseService {
 
     public func refreshData() async {
         await fetchPrayerGuides(forceRefresh: true)
+    }
+    
+    /// Reload configuration and retry connection
+    public func reloadConfiguration() async {
+        configurationManager.loadConfiguration()
+        
+        if isConfigured {
+            await fetchPrayerGuides(forceRefresh: true)
+        } else {
+            await MainActor.run {
+                self.errorMessage = "Failed to reload configuration"
+            }
+        }
     }
 }
 
