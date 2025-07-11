@@ -420,6 +420,7 @@ private enum JSONValue: Codable {
     case object([String: Any])
     
     // Helper function to convert any numeric type to Double
+    // For large integers (Int64, UInt64), we preserve them as strings to avoid precision loss
     private static func convertToDouble(_ value: Any) -> Double? {
         if let double = value as? Double {
             return double
@@ -436,7 +437,14 @@ private enum JSONValue: Codable {
         } else if let int32 = value as? Int32 {
             return Double(int32)
         } else if let int64 = value as? Int64 {
-            return Double(int64)
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: Int64 = 1 << 53
+            if int64 >= -maxSafeInteger && int64 <= maxSafeInteger {
+                return Double(int64)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
         } else if let uint = value as? UInt {
             return Double(uint)
         } else if let uint8 = value as? UInt8 {
@@ -446,7 +454,14 @@ private enum JSONValue: Codable {
         } else if let uint32 = value as? UInt32 {
             return Double(uint32)
         } else if let uint64 = value as? UInt64 {
-            return Double(uint64)
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: UInt64 = 1 << 53
+            if uint64 <= maxSafeInteger {
+                return Double(uint64)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
         }
         return nil
     }
@@ -535,6 +550,12 @@ private enum JSONValue: Codable {
             return .string(string)
         } else if let double = convertToDouble(value) {
             return .number(double)
+        } else if let int64 = value as? Int64 {
+            // Large Int64 values that couldn't be converted to Double are preserved as strings
+            return .string(String(int64))
+        } else if let uint64 = value as? UInt64 {
+            // Large UInt64 values that couldn't be converted to Double are preserved as strings
+            return .string(String(uint64))
         } else if let bool = value as? Bool {
             return .bool(bool)
         } else if value is NSNull {
