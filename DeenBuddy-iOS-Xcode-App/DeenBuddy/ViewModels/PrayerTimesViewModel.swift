@@ -153,6 +153,7 @@ private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var timeFormat: TimeFormat = .twelveHour
     @Published var notificationOffset: TimeInterval = 300
     @Published var hasCompletedOnboarding: Bool = false
+    @Published var overrideBatteryOptimization: Bool = false
     
     var enableNotifications: Bool {
         get { notificationsEnabled }

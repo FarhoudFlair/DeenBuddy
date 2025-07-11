@@ -36,6 +36,28 @@ struct PrayerTimesView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
                     
+                    // Show battery optimization warning if applicable
+                    if ProcessInfo.processInfo.isLowPowerModeEnabled {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Image(systemName: "battery.25")
+                                    .foregroundColor(.orange)
+                                Text("Low Power Mode Active")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                            
+                            Text("Location services are restricted due to Low Power Mode. Try disabling Low Power Mode or use the override setting.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        .padding(.vertical, 8)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    
                     Button("Try Again") {
                         Task {
                             await viewModel.fetchPrayerTimes()
@@ -100,6 +122,7 @@ struct PrayerTimesSettingsView: View {
                 calculationMethodSection
                 madhabSection
                 timeFormatSection
+                batteryOptimizationSection
                 recommendationsSection
                 resetSection
             }
@@ -185,6 +208,19 @@ struct PrayerTimesSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Most calculation methods work globally. For best accuracy, choose based on your region's Islamic authority.")
                     .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    private var batteryOptimizationSection: some View {
+        Section("Battery Optimization") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Override Battery Optimization", isOn: $viewModel.settingsService.overrideBatteryOptimization)
+                
+                Text("When enabled, location services will work even when your device is in Low Power Mode. This may impact battery life.")
+                    .font(.caption)
                     .foregroundColor(.secondary)
             }
             .padding(.vertical, 4)

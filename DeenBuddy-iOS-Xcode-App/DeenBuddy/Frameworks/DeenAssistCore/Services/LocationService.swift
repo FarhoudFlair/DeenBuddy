@@ -42,12 +42,14 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     private var permissionContinuation: CheckedContinuation<CLAuthorizationStatus, Never>?
     private var cachedLocation: CLLocation?
     private let userDefaults = UserDefaults.standard
+    private var settingsService: (any SettingsServiceProtocol)?
     
     // MARK: - Configuration
     
     private let locationTimeout: TimeInterval = 30.0
     private let minimumAccuracy: Double = 100.0 // meters
     private let cacheExpirationTime: TimeInterval = 300.0 // 5 minutes
+    private let extendedCacheExpirationTime: TimeInterval = 1800.0 // 30 minutes when battery optimized
     
     // MARK: - Cache Keys
     
@@ -63,6 +65,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         Task { @MainActor in
             self.setupLocationManager()
             self.setupBatteryOptimization()
+            self.setupSettingsService()
         }
         loadCachedLocation()
         updatePermissionStatus()
@@ -94,6 +97,22 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // Return cached location if recent and accurate
         if let cached = getCachedLocation(), isLocationRecent(cached) && cached.horizontalAccuracy < minimumAccuracy {
             return cached
+        }
+        
+        // Check if user has overridden battery optimization
+        let userOverride = await MainActor.run {
+            settingsService?.overrideBatteryOptimization ?? false
+        }
+        
+        // Check if we should perform location update
+        let shouldUpdate = await batteryOptimizer.shouldPerformLocationUpdate(userOverride: userOverride)
+        
+        if !shouldUpdate {
+            // If we can't update but have cached location, return it even if not recent
+            if let cached = getCachedLocation(), cached.horizontalAccuracy < minimumAccuracy * 2 {
+                return cached
+            }
+            throw LocationError.locationUnavailable
         }
         
         return try await withCheckedThrowingContinuation { continuation in
@@ -242,8 +261,25 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
         print("🔋 Battery optimization enabled for location services")
     }
+    
+    @MainActor private func setupSettingsService() {
+        // Get settings service from shared container
+        settingsService = DependencyContainer.shared.settingsService
+    }
 
     private func refreshLocationIfNeeded() async {
+        // Check if user has overridden battery optimization
+        let userOverride = await MainActor.run {
+            settingsService?.overrideBatteryOptimization ?? false
+        }
+        
+        // Check if we should perform location update
+        let shouldUpdate = await batteryOptimizer.shouldPerformLocationUpdate(userOverride: userOverride)
+        
+        if !shouldUpdate {
+            return
+        }
+        
         if let cached = cachedLocation {
             let interval = await batteryOptimizer.getOptimizedUpdateInterval()
             if Date().timeIntervalSince(cached.timestamp) < interval {
@@ -368,7 +404,18 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     }
     
     private func isLocationRecent(_ location: CLLocation) -> Bool {
-        return Date().timeIntervalSince(location.timestamp) < cacheExpirationTime
+        // Use extended cache time when battery optimization is active
+        let userOverride = settingsService?.overrideBatteryOptimization ?? false
+        let expirationTime = userOverride ? cacheExpirationTime : getEffectiveCacheExpirationTime()
+        return Date().timeIntervalSince(location.timestamp) < expirationTime
+    }
+    
+    private func getEffectiveCacheExpirationTime() -> TimeInterval {
+        // Use extended cache time when battery optimization is active
+        if batteryOptimizer.optimizationLevel == .extreme || batteryOptimizer.isLowPowerModeEnabled {
+            return extendedCacheExpirationTime
+        }
+        return cacheExpirationTime
     }
 }
 

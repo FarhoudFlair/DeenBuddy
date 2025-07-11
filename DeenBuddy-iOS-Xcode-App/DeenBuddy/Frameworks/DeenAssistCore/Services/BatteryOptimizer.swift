@@ -253,7 +253,12 @@ public class BatteryOptimizer: ObservableObject {
         }
     }
     
-    private func shouldPerformLocationUpdate() -> Bool {
+    func shouldPerformLocationUpdate(userOverride: Bool = false) -> Bool {
+        // User override bypasses all battery optimization
+        if userOverride {
+            return true
+        }
+        
         // Don't update too frequently
         let timeSinceLastUpdate = Date().timeIntervalSince(lastLocationUpdate)
         let minInterval = getOptimizedUpdateInterval() * 0.8 // 80% of interval
@@ -279,6 +284,7 @@ public class BatteryOptimizer: ObservableObject {
         
         return true
     }
+    
 }
 
 // MARK: - Optimization Level

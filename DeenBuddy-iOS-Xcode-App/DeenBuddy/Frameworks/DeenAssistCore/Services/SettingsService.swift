@@ -49,6 +49,12 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
     }
     
+    @Published public var overrideBatteryOptimization: Bool = false {
+        didSet {
+            saveSettingsAsync()
+        }
+    }
+    
     // Alias for enableNotifications
     public var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -70,6 +76,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         static let timeFormat = "DeenAssist.Settings.TimeFormat"
         static let notificationOffset = "DeenAssist.Settings.NotificationOffset"
         static let hasCompletedOnboarding = "DeenAssist.Settings.HasCompletedOnboarding"
+        static let overrideBatteryOptimization = "DeenAssist.Settings.OverrideBatteryOptimization"
         static let lastSyncDate = "DeenAssist.Settings.LastSyncDate"
         static let settingsVersion = "DeenAssist.Settings.Version"
     }
@@ -113,6 +120,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             // Save onboarding status
             userDefaults.set(hasCompletedOnboarding, forKey: SettingsKeys.hasCompletedOnboarding)
+            
+            // Save battery optimization override
+            userDefaults.set(overrideBatteryOptimization, forKey: SettingsKeys.overrideBatteryOptimization)
             
             // Save metadata
             userDefaults.set(Date(), forKey: SettingsKeys.lastSyncDate)
@@ -176,6 +186,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             // Load onboarding status
             hasCompletedOnboarding = userDefaults.bool(forKey: SettingsKeys.hasCompletedOnboarding)
             
+            // Load battery optimization override
+            overrideBatteryOptimization = userDefaults.bool(forKey: SettingsKeys.overrideBatteryOptimization)
+            
             print("Settings loaded successfully")
             
         } catch {
@@ -193,6 +206,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             timeFormat = .twelveHour
             notificationOffset = 300 // 5 minutes
             hasCompletedOnboarding = false
+            overrideBatteryOptimization = false
             
             // Save the defaults
             try await saveSettings()
