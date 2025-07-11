@@ -530,6 +530,10 @@ extension PerformanceIssue {
             if visited.contains(id) { return false }
             visited.insert(id)
             defer { visited.remove(id) }
+            // Ensure all keys are strings
+            for key in dict.allKeys {
+                if !(key is String) { return false }
+            }
             for value in dict.allValues {
                 if !isJSONSerializable(value, visited: &visited) { return false }
             }

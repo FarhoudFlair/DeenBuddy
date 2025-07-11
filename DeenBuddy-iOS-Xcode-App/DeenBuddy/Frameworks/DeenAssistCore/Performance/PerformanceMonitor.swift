@@ -516,40 +516,39 @@ extension PerformanceIssue {
             // NSData and NSDate are not directly JSON-serializable
             return false
         case let array as NSArray:
-            // Use ObjectIdentifier for reference cycle detection
             let objectId = ObjectIdentifier(array)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            if let swiftArray = array as? [Any] {
-                return swiftArray.allSatisfy { isJSONSerializable($0, visited: &visited) }
-            } else {
-                return false
+            for element in array {
+                if !isJSONSerializable(element, visited: &visited) { return false }
             }
+            return true
         case let dict as NSDictionary:
             let objectId = ObjectIdentifier(dict)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            if let swiftDict = dict as? [AnyHashable: Any] {
-                return swiftDict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
-            } else {
-                return false
+            for key in dict.allKeys {
+                // JSON requires string keys
+                if !(key is String) { return false }
             }
+            for value in dict.allValues {
+                if !isJSONSerializable(value, visited: &visited) { return false }
+            }
+            return true
         case let array as [Any]:
-            // For Swift arrays (value types), cycles are not possible unless bridged
-            // But if the array is bridged to NSArray, it will be caught above
             return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let dict as [String: Any]:
-            // For Swift dictionaries (value types), cycles are not possible unless bridged
-            // If bridged, NSDictionary case above will handle it
             return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
+        case let dict as [AnyHashable: Any]:
+            // Only allow if all keys are String
+            return dict.keys.allSatisfy { $0 is String } && dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let object as AnyObject:
             // Only composite Foundation types should be tracked; basic types are handled above
             if object is NSString || object is NSNumber || object is NSNull {
                 return true
             }
-            // NSData and NSDate are not JSON-serializable
             if object is NSData || object is NSDate {
                 return false
             }
@@ -557,11 +556,19 @@ extension PerformanceIssue {
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            // Try to handle as dictionary or array if possible
-            if let dict = object as? [String: Any] {
-                return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
-            } else if let array = object as? [Any] {
-                return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
+            if let dict = object as? NSDictionary {
+                for key in dict.allKeys {
+                    if !(key is String) { return false }
+                }
+                for value in dict.allValues {
+                    if !isJSONSerializable(value, visited: &visited) { return false }
+                }
+                return true
+            } else if let array = object as? NSArray {
+                for element in array {
+                    if !isJSONSerializable(element, visited: &visited) { return false }
+                }
+                return true
             } else {
                 return false // Non-serializable custom object
             }
