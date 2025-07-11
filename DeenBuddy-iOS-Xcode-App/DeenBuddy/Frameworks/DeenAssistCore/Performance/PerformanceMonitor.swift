@@ -505,34 +505,55 @@ extension PerformanceIssue {
     
     /// Checks if a value is JSON-serializable with cycle detection
     private func isJSONSerializable(_ value: Any, visited: inout Set<ObjectIdentifier>) -> Bool {
+        // Handle all basic types (including Foundation bridged types)
         switch value {
-        case is String, is NSNumber, is Bool, is NSNull:
-            return true
-        case is Int, is Int8, is Int16, is Int32, is Int64,
+        case is String, is NSNumber, is Bool, is NSNull,
+             is Int, is Int8, is Int16, is Int32, is Int64,
              is UInt, is UInt8, is UInt16, is UInt32, is UInt64,
              is Float, is Double:
             return true
+        case let array as NSArray:
+            let objectId = ObjectIdentifier(array)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
+            // NSArray may contain non-JSON-serializable elements
+            return (array as! [Any]).allSatisfy { isJSONSerializable($0, visited: &visited) }
+        case let dict as NSDictionary:
+            let objectId = ObjectIdentifier(dict)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
+            // NSDictionary may contain non-JSON-serializable values
+            return (dict as! [AnyHashable: Any]).values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let array as [Any]:
+            let objectId = ObjectIdentifier(array as AnyObject)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
             return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let dict as [String: Any]:
+            let objectId = ObjectIdentifier(dict as AnyObject)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
             return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let object as AnyObject:
-            // Check for circular references
-            let objectId = ObjectIdentifier(object)
-            if visited.contains(objectId) {
-                return false // Circular reference detected
+            // Only composite Foundation types should be tracked; basic types are handled above
+            if object is NSString || object is NSNumber || object is NSNull || object is NSData || object is NSDate {
+                return true
             }
+            let objectId = ObjectIdentifier(object)
+            if visited.contains(objectId) { return false }
             visited.insert(objectId)
-            
-            // For objects, we'll be conservative and only allow if they can be converted to JSON
-            // Check if the object is a dictionary or array that can be serialized
+            defer { visited.remove(objectId) }
+            // Try to treat as dictionary or array
             if let dict = object as? [String: Any] {
                 return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
             } else if let array = object as? [Any] {
                 return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
             } else {
-                // For other objects, check if they can be converted to a basic type
-                return object is String || object is NSNumber || object is Bool || object is NSNull
+                return false // Non-serializable custom object
             }
         default:
             return false
