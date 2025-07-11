@@ -152,6 +152,7 @@ private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var theme: ThemeMode = .dark
     @Published var timeFormat: TimeFormat = .twelveHour
     @Published var notificationOffset: TimeInterval = 300
+    @Published var overrideBatteryOptimization: Bool = false
     @Published var hasCompletedOnboarding: Bool = false
     @Published var overrideBatteryOptimization: Bool = false
     
