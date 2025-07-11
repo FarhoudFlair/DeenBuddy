@@ -516,6 +516,7 @@ extension PerformanceIssue {
             // NSData and NSDate are not directly JSON-serializable
             return false
         case let array as NSArray:
+            // Use ObjectIdentifier for reference cycle detection
             let objectId = ObjectIdentifier(array)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
@@ -528,22 +529,12 @@ extension PerformanceIssue {
             defer { visited.remove(objectId) }
             return (dict as! [AnyHashable: Any]).values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let array as [Any]:
-            // Box Swift array in a reference wrapper for stable identity
-            class ArrayBox { let array: [Any]; init(_ a: [Any]) { array = a } }
-            let box = ArrayBox(array)
-            let objectId = ObjectIdentifier(box)
-            if visited.contains(objectId) { return false }
-            visited.insert(objectId)
-            defer { visited.remove(objectId) }
+            // For Swift arrays (value types), cycles are not possible unless bridged
+            // But if the array is bridged to NSArray, it will be caught above
             return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let dict as [String: Any]:
-            // Box Swift dictionary in a reference wrapper for stable identity
-            class DictBox { let dict: [String: Any]; init(_ d: [String: Any]) { dict = d } }
-            let box = DictBox(dict)
-            let objectId = ObjectIdentifier(box)
-            if visited.contains(objectId) { return false }
-            visited.insert(objectId)
-            defer { visited.remove(objectId) }
+            // For Swift dictionaries (value types), cycles are not possible unless bridged
+            // If bridged, NSDictionary case above will handle it
             return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let object as AnyObject:
             // Only composite Foundation types should be tracked; basic types are handled above
@@ -558,6 +549,7 @@ extension PerformanceIssue {
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
+            // Try to handle as dictionary or array if possible
             if let dict = object as? [String: Any] {
                 return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
             } else if let array = object as? [Any] {
