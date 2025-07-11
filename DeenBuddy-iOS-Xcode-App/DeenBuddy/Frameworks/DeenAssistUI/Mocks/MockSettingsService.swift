@@ -11,7 +11,8 @@ public class MockSettingsService: SettingsServiceProtocol {
     @Published public var timeFormat: TimeFormat = .twelveHour
     @Published public var notificationOffset: TimeInterval = 300
     @Published public var hasCompletedOnboarding: Bool = false
-    
+    @Published public var overrideBatteryOptimization: Bool = false
+
     public var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
@@ -31,6 +32,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         print("- Time Format: \(timeFormat.displayName)")
         print("- Notification Offset: \(notificationOffset)")
         print("- Onboarding Complete: \(hasCompletedOnboarding)")
+        print("- Override Battery Optimization: \(overrideBatteryOptimization)")
     }
     
     public func loadSettings() async throws {
@@ -45,6 +47,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         timeFormat = .twelveHour
         notificationOffset = 300
         hasCompletedOnboarding = false
+        overrideBatteryOptimization = false
         
         print("Mock: Settings loaded")
     }
@@ -60,6 +63,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         timeFormat = .twelveHour
         notificationOffset = 300
         hasCompletedOnboarding = false
+        overrideBatteryOptimization = false
         
         print("Mock: Settings reset to defaults")
     }

@@ -408,6 +408,187 @@ public struct PerformanceMetrics: Codable {
     }
 }
 
+// MARK: - JSONValue for Mixed Type Support
+
+private enum JSONValue: Codable {
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case null
+    case array([JSONValue])
+    case object([String: Any])
+    
+    // Helper function to convert any numeric type to Double
+    // For large integers (Int64, UInt64), we preserve them as strings to avoid precision loss
+    private static func convertToDouble(_ value: Any) -> Double? {
+        if let double = value as? Double {
+            return double
+        } else if let int = value as? Int {
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: Int = 9007199254740992 // 2^53
+            if int >= -maxSafeInteger && int <= maxSafeInteger {
+                return Double(int)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
+        } else if let float = value as? Float {
+            return Double(float)
+        } else if let cgFloat = value as? CGFloat {
+            return Double(cgFloat)
+        } else if let int8 = value as? Int8 {
+            return Double(int8)
+        } else if let int16 = value as? Int16 {
+            return Double(int16)
+        } else if let int32 = value as? Int32 {
+            return Double(int32)
+        } else if let int64 = value as? Int64 {
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: Int64 = 9007199254740992 // 2^53
+            if int64 >= -maxSafeInteger && int64 <= maxSafeInteger {
+                return Double(int64)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
+        } else if let uint = value as? UInt {
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: UInt = 9007199254740992 // 2^53
+            if uint <= maxSafeInteger {
+                return Double(uint)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
+        } else if let uint8 = value as? UInt8 {
+            return Double(uint8)
+        } else if let uint16 = value as? UInt16 {
+            return Double(uint16)
+        } else if let uint32 = value as? UInt32 {
+            return Double(uint32)
+        } else if let uint64 = value as? UInt64 {
+            // Check if the value can be safely converted to Double without precision loss
+            // Double can safely represent integers up to 2^53
+            let maxSafeInteger: UInt64 = 9007199254740992 // 2^53
+            if uint64 <= maxSafeInteger {
+                return Double(uint64)
+            }
+            // For large values, return nil to indicate they should be handled as strings
+            return nil
+        }
+        return nil
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        
+        if container.decodeNil() {
+            self = .null
+        } else if let bool = try? container.decode(Bool.self) {
+            self = .bool(bool)
+        } else if let number = try? container.decode(Double.self) {
+            self = .number(number)
+        } else if let string = try? container.decode(String.self) {
+            self = .string(string)
+        } else if let array = try? container.decode([JSONValue].self) {
+            self = .array(array)
+        } else if let object = try? container.decode([String: JSONValue].self) {
+            // Convert JSONValue objects to Any
+            let anyObject = object.mapValues { jsonValue -> Any in
+                switch jsonValue {
+                case .string(let value): return value
+                case .number(let value): return value
+                case .bool(let value): return value
+                case .null: return NSNull()
+                case .array(let values): return values.map { $0.toAny() }
+                case .object(let dict): return dict
+                }
+            }
+            self = .object(anyObject)
+        } else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid JSON value")
+        }
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        
+        switch self {
+        case .string(let value):
+            try container.encode(value)
+        case .number(let value):
+            try container.encode(value)
+        case .bool(let value):
+            try container.encode(value)
+        case .null:
+            try container.encodeNil()
+        case .array(let values):
+            try container.encode(values)
+        case .object(let dict):
+            // Convert Any values back to JSONValue for encoding
+            let jsonObject = dict.mapValues { value -> JSONValue in
+                if let string = value as? String {
+                    return .string(string)
+                } else if let double = Self.convertToDouble(value) {
+                    return .number(double)
+                } else if let bool = value as? Bool {
+                    return .bool(bool)
+                } else if value is NSNull {
+                    return .null
+                } else if let array = value as? [Any] {
+                    return .array(array.map { JSONValue.fromAny($0) })
+                } else if let dict = value as? [String: Any] {
+                    return .object(dict)
+                } else {
+                    return .string(String(describing: value))
+                }
+            }
+            try container.encode(jsonObject)
+        }
+    }
+    
+    func toAny() -> Any {
+        switch self {
+        case .string(let value): return value
+        case .number(let value): return value
+        case .bool(let value): return value
+        case .null: return NSNull()
+        case .array(let values): return values.map { $0.toAny() }
+        case .object(let dict): return dict
+        }
+    }
+    
+    static func fromAny(_ value: Any) -> JSONValue {
+        if let string = value as? String {
+            return .string(string)
+        } else if let double = convertToDouble(value) {
+            return .number(double)
+        } else if let int = value as? Int {
+            // Large Int values that couldn't be converted to Double are preserved as strings
+            return .string(String(int))
+        } else if let uint = value as? UInt {
+            // Large UInt values that couldn't be converted to Double are preserved as strings
+            return .string(String(uint))
+        } else if let int64 = value as? Int64 {
+            // Large Int64 values that couldn't be converted to Double are preserved as strings
+            return .string(String(int64))
+        } else if let uint64 = value as? UInt64 {
+            // Large UInt64 values that couldn't be converted to Double are preserved as strings
+            return .string(String(uint64))
+        } else if let bool = value as? Bool {
+            return .bool(bool)
+        } else if value is NSNull {
+            return .null
+        } else if let array = value as? [Any] {
+            return .array(array.map { fromAny($0) })
+        } else if let dict = value as? [String: Any] {
+            return .object(dict)
+        } else {
+            return .string(String(describing: value))
+        }
+    }
+}
+
 public struct PerformanceIssue: Codable, Identifiable {
     public let id = UUID()
     public let type: IssueType
@@ -466,15 +647,22 @@ extension PerformanceIssue {
             } else {
                 metadata = [:]
             }
-        } else if let metadataDict = try? container.decode([String: Any].self, forKey: .metadata) {
-            // Old format: metadata is direct dictionary
-            metadata = metadataDict
         } else {
-            // Fallback: try to decode as [String: Double] for maximum compatibility
-            if let metadataDoubleDict = try? container.decode([String: Double].self, forKey: .metadata) {
-                metadata = metadataDoubleDict.mapValues { $0 as Any }
-            } else {
-                metadata = [:]
+            // Old format: try to decode as JSON value first, then convert to dictionary
+            do {
+                let jsonValue = try container.decode(JSONValue.self, forKey: .metadata)
+                if case .object(let dict) = jsonValue {
+                    metadata = dict
+                } else {
+                    metadata = [:]
+                }
+            } catch {
+                // Fallback: try to decode as [String: Double] for maximum compatibility
+                if let metadataDoubleDict = try? container.decode([String: Double].self, forKey: .metadata) {
+                    metadata = metadataDoubleDict.mapValues { $0 as Any }
+                } else {
+                    metadata = [:]
+                }
             }
         }
     }
