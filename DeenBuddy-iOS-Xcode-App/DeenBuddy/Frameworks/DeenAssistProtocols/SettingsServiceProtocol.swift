@@ -27,6 +27,9 @@ public protocol SettingsServiceProtocol: ObservableObject {
     /// Whether onboarding has been completed
     var hasCompletedOnboarding: Bool { get set }
     
+    /// Override battery optimization for prayer times
+    var overrideBatteryOptimization: Bool { get set }
+    
     /// Save current settings
     func saveSettings() async throws
     

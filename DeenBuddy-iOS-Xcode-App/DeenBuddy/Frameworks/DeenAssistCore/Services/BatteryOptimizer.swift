@@ -262,13 +262,18 @@ public class BatteryOptimizer: ObservableObject {
             return false
         }
         
-        // Don't update if battery is critically low
+        // Don't update if battery is critically low (below 5%)
         if batteryLevel < 0.05 {
             return false
         }
         
+        // Allow location updates when charging, even in extreme mode
+        if batteryState == .charging || batteryState == .full {
+            return true
+        }
+        
         // Don't update if in extreme optimization mode and not charging
-        if optimizationLevel == .extreme && batteryState != .charging {
+        if optimizationLevel == .extreme {
             return false
         }
         
