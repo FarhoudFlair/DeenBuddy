@@ -512,42 +512,52 @@ extension PerformanceIssue {
              is UInt, is UInt8, is UInt16, is UInt32, is UInt64,
              is Float, is Double:
             return true
+        case is NSData, is NSDate:
+            // NSData and NSDate are not directly JSON-serializable
+            return false
         case let array as NSArray:
             let objectId = ObjectIdentifier(array)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            // NSArray may contain non-JSON-serializable elements
             return (array as! [Any]).allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let dict as NSDictionary:
             let objectId = ObjectIdentifier(dict)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            // NSDictionary may contain non-JSON-serializable values
             return (dict as! [AnyHashable: Any]).values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let array as [Any]:
-            let objectId = ObjectIdentifier(array as AnyObject)
+            // Box Swift array in a reference wrapper for stable identity
+            class ArrayBox { let array: [Any]; init(_ a: [Any]) { array = a } }
+            let box = ArrayBox(array)
+            let objectId = ObjectIdentifier(box)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
             return array.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let dict as [String: Any]:
-            let objectId = ObjectIdentifier(dict as AnyObject)
+            // Box Swift dictionary in a reference wrapper for stable identity
+            class DictBox { let dict: [String: Any]; init(_ d: [String: Any]) { dict = d } }
+            let box = DictBox(dict)
+            let objectId = ObjectIdentifier(box)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
             return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
         case let object as AnyObject:
             // Only composite Foundation types should be tracked; basic types are handled above
-            if object is NSString || object is NSNumber || object is NSNull || object is NSData || object is NSDate {
+            if object is NSString || object is NSNumber || object is NSNull {
                 return true
+            }
+            // NSData and NSDate are not JSON-serializable
+            if object is NSData || object is NSDate {
+                return false
             }
             let objectId = ObjectIdentifier(object)
             if visited.contains(objectId) { return false }
             visited.insert(objectId)
             defer { visited.remove(objectId) }
-            // Try to treat as dictionary or array
             if let dict = object as? [String: Any] {
                 return dict.values.allSatisfy { isJSONSerializable($0, visited: &visited) }
             } else if let array = object as? [Any] {
