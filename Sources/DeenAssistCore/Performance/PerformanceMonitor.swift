@@ -476,9 +476,40 @@ extension PerformanceIssue {
         try container.encode(severity, forKey: .severity)
         try container.encode(timestamp, forKey: .timestamp)
         
-        // Encode metadata as JSON data
-        let metadataData = try JSONSerialization.data(withJSONObject: metadata)
+        // Safely encode metadata by filtering out non-JSON-serializable values
+        let safeMetadata = filterJSONSerializableValues(from: metadata)
+        let metadataData = try JSONSerialization.data(withJSONObject: safeMetadata)
         try container.encode(metadataData, forKey: .metadata)
+    }
+    
+    /// Filters out non-JSON-serializable values from the metadata dictionary
+    private func filterJSONSerializableValues(from dict: [String: Any]) -> [String: Any] {
+        var safeDict: [String: Any] = [:]
+        
+        for (key, value) in dict {
+            if isJSONSerializable(value) {
+                safeDict[key] = value
+            } else {
+                // Replace non-serializable values with a string representation
+                safeDict[key] = "\(value)"
+            }
+        }
+        
+        return safeDict
+    }
+    
+    /// Checks if a value is JSON-serializable
+    private func isJSONSerializable(_ value: Any) -> Bool {
+        switch value {
+        case is String, is NSNumber, is Bool, is NSNull:
+            return true
+        case let array as [Any]:
+            return array.allSatisfy { isJSONSerializable($0) }
+        case let dict as [String: Any]:
+            return dict.values.allSatisfy { isJSONSerializable($0) }
+        default:
+            return false
+        }
     }
 }
 
