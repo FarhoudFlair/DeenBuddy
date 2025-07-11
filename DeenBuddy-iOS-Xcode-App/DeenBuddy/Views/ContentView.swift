@@ -13,7 +13,7 @@ struct ContentView: View {
     @EnvironmentObject var appContainer: AppDependencyContainer
     
     var body: some View {
-        PrayerTimesView(container: DependencyContainer.shared)
+        PrayerTimesView(container: appContainer.getCoreContainer())
     }
 }
 
