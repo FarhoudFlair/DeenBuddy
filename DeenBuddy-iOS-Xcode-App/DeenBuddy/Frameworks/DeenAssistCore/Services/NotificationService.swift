@@ -43,30 +43,11 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     
     // MARK: - Protocol Implementation
     
-    public func requestNotificationPermission() async throws -> Bool {
-        do {
-            let granted = try await notificationCenter.requestAuthorization(options: [.alert, .sound, .badge])
-            
-            let status: UNAuthorizationStatus = granted ? .authorized : .denied
-            
-            await MainActor.run {
-                authorizationStatus = status
-                permissionSubject.send(status)
-            }
-            
-            return granted
-            
-        } catch {
-            await MainActor.run {
-                authorizationStatus = .denied
-                permissionSubject.send(.denied)
-            }
-            
-            throw error
-        }
-    }
-    
-    public func schedulePrayerNotifications(for prayerTimes: [PrayerTime]) async throws {
+    /// Schedules prayer notifications for the given prayer times. If the array is empty, cancels notifications only for the relevant date.
+    /// - Parameters:
+    ///   - prayerTimes: Array of PrayerTime objects for a specific date. If empty, only cancels notifications for the date provided.
+    ///   - date: The date for which to cancel notifications if prayerTimes is empty. If nil, does nothing.
+    public func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date? = nil) async throws {
         guard authorizationStatus == .authorized else {
             throw NotificationError.permissionDenied
         }
@@ -75,20 +56,18 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             return
         }
         
-        // Always cancel existing notifications for this date, regardless of prayerTimes array
         if let firstPrayerTime = prayerTimes.first {
             await cancelNotificationsForDate(firstPrayerTime.time)
+        } else if let date = date {
+            await cancelNotificationsForDate(date)
         } else {
-            // If prayerTimes is empty, cancel all existing notifications
-            await cancelAllNotifications()
+            // No date provided, do nothing
+            return
         }
         
         // Schedule new notifications for each prayer
         for prayerTime in prayerTimes {
-            // Use user-configurable reminder minutes instead of hardcoded 10 minutes
             let notificationTime = Calendar.current.date(byAdding: .minute, value: -notificationSettings.reminderMinutes, to: prayerTime.time) ?? prayerTime.time
-            
-            // Only schedule future notifications
             if notificationTime > Date() {
                 try await scheduleNotification(
                     for: prayerTime.prayer,
