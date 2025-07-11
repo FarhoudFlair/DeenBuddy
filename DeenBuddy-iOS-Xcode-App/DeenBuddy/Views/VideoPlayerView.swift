@@ -235,9 +235,9 @@ struct VideoPlayerView: View {
         addPlayerObservers()
         
         // Check if video is ready
-        player.currentItem?.asset.loadValuesAsynchronously(forKeys: ["duration"]) { [weak player] in
+        player.currentItem?.asset.loadValuesAsynchronously(forKeys: ["duration"]) { [weak self, weak player] in
             DispatchQueue.main.async {
-                guard let player = player else { return }
+                guard let self = self, let player = player else { return }
                 
                 if let duration = player.currentItem?.asset.duration,
                    duration.isValid && !duration.isIndefinite {
@@ -256,25 +256,25 @@ struct VideoPlayerView: View {
         let timeScale = CMTimeScale(NSEC_PER_SEC)
         let time = CMTime(seconds: 0.1, preferredTimescale: timeScale)
         
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { time in
-            self.currentTime = CMTimeGetSeconds(time)
+        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { [weak self] time in
+            self?.currentTime = CMTimeGetSeconds(time)
         }
         
         // Playback state observer
         player.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
-            .sink { status in
-                self.isPlaying = status == .playing
+            .sink { [weak self] status in
+                self?.isPlaying = status == .playing
             }
             .store(in: &cancellables)
         
         // Error observer
         player.publisher(for: \.error)
             .receive(on: DispatchQueue.main)
-            .sink { error in
+            .sink { [weak self] error in
                 if let error = error {
-                    self.error = error
-                    self.isLoading = false
+                    self?.error = error
+                    self?.isLoading = false
                 }
             }
             .store(in: &cancellables)
