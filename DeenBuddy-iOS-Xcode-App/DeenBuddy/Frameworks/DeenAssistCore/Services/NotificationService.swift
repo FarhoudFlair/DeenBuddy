@@ -75,14 +75,18 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             return
         }
         
-        // Cancel existing notifications for this date
+        // Always cancel existing notifications for this date, regardless of prayerTimes array
         if let firstPrayerTime = prayerTimes.first {
             await cancelNotificationsForDate(firstPrayerTime.time)
+        } else {
+            // If prayerTimes is empty, cancel all existing notifications
+            await cancelAllNotifications()
         }
         
         // Schedule new notifications for each prayer
         for prayerTime in prayerTimes {
-            let notificationTime = Calendar.current.date(byAdding: .minute, value: -10, to: prayerTime.time) ?? prayerTime.time
+            // Use user-configurable reminder minutes instead of hardcoded 10 minutes
+            let notificationTime = Calendar.current.date(byAdding: .minute, value: -notificationSettings.reminderMinutes, to: prayerTime.time) ?? prayerTime.time
             
             // Only schedule future notifications
             if notificationTime > Date() {
@@ -143,26 +147,24 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         }
     }
     
-    public func cancelAllNotifications() {
+    public func cancelAllNotifications() async {
         notificationCenter.removeAllPendingNotificationRequests()
         print("Cancelled all prayer notifications")
     }
     
-    public func cancelNotifications(for prayer: Prayer) {
-        Task {
-            let requests = await notificationCenter.pendingNotificationRequests()
-            let identifiersToCancel = requests.compactMap { request -> String? in
-                guard let prayerString = request.content.userInfo["prayer"] as? String,
-                      prayerString == prayer.rawValue else {
-                    return nil
-                }
-                return request.identifier
+    public func cancelNotifications(for prayer: Prayer) async {
+        let requests = await notificationCenter.pendingNotificationRequests()
+        let identifiersToCancel = requests.compactMap { request -> String? in
+            guard let prayerString = request.content.userInfo["prayer"] as? String,
+                  prayerString == prayer.rawValue else {
+                return nil
             }
-            
-            if !identifiersToCancel.isEmpty {
-                notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
-                print("Cancelled \(identifiersToCancel.count) notifications for \(prayer.displayName)")
-            }
+            return request.identifier
+        }
+        
+        if !identifiersToCancel.isEmpty {
+            notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+            print("Cancelled \(identifiersToCancel.count) notifications for \(prayer.displayName)")
         }
     }
     

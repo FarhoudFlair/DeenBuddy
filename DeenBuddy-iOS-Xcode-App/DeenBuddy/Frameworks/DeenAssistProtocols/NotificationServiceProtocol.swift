@@ -17,10 +17,10 @@ public protocol NotificationServiceProtocol: ObservableObject {
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime]) async throws
     
     /// Cancel all scheduled notifications
-    func cancelAllNotifications()
+    func cancelAllNotifications() async
     
     /// Cancel specific prayer notifications
-    func cancelNotifications(for prayer: Prayer)
+    func cancelNotifications(for prayer: Prayer) async
 }
 
 /// Prayer time data structure for notifications
