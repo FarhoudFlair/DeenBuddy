@@ -6,14 +6,13 @@
 //
 
 import SwiftUI
-import DeenAssistCore
 
 struct LanguageSettingsView: View {
     @StateObject private var localizationService = LocalizationService()
     @State private var selectedLanguage: AppLanguage
     @State private var showingLanguageDetail = false
     @State private var searchText = ""
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss: DismissAction
     
     init() {
         _selectedLanguage = State(initialValue: AppLanguage.systemPreferredLanguage)

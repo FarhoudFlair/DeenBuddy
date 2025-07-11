@@ -36,8 +36,8 @@ struct PrayerStepView: View {
                 Spacer()
                 
                 // Duration
-                if step.duration > 0 {
-                    Text(formatDuration(step.duration))
+                if let duration = step.duration, duration > 0 {
+                    Text(formatDuration(duration))
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 8)
@@ -54,9 +54,9 @@ struct PrayerStepView: View {
                 .fixedSize(horizontal: false, vertical: true)
             
             // Media buttons if available
-            if step.videoURL != nil || step.audioURL != nil {
+            if step.videoUrl != nil || step.audioUrl != nil {
                 HStack(spacing: 12) {
-                    if step.videoURL != nil {
+                    if step.videoUrl != nil {
                         Button(action: {
                             // TODO: Handle video playback
                         }) {
@@ -69,7 +69,7 @@ struct PrayerStepView: View {
                         }
                     }
                     
-                    if step.audioURL != nil {
+                    if step.audioUrl != nil {
                         Button(action: {
                             // TODO: Handle audio playback
                         }) {
@@ -107,9 +107,9 @@ struct PrayerStepView: View {
             id: "step1",
             title: "Preparation",
             description: "Perform Wudu (ablution) and face the Qibla. Make sure you are in a clean place and wearing clean clothes.",
-            duration: 60,
-            videoURL: "https://example.com/video",
-            audioURL: nil
+            stepNumber: 1,
+            videoUrl: "https://example.com/video",
+            duration: 60
         ),
         stepNumber: 1
     )

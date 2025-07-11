@@ -18,8 +18,8 @@ struct IslamicKnowledgeSearchView: View {
     @State private var selectedResult: IslamicKnowledgeResult?
     @State private var showingDetail = false
     
-    init(knowledgeService: IslamicKnowledgeService = IslamicKnowledgeService(apiClient: APIClient())) {
-        _knowledgeService = StateObject(wrappedValue: knowledgeService)
+    init() {
+        _knowledgeService = StateObject(wrappedValue: IslamicKnowledgeService(apiClient: APIClient()))
     }
     
     var body: some View {

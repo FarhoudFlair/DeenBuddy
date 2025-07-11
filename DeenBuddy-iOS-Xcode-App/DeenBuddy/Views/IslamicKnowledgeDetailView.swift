@@ -147,7 +147,7 @@ struct IslamicKnowledgeDetailView: View {
                     
                     Text(transliteration)
                         .font(.subheadline)
-                        .fontStyle(.italic)
+                        //.fontStyle(.italic)
                         .foregroundColor(.white.opacity(0.8))
                 }
             }
@@ -307,7 +307,9 @@ struct IslamicKnowledgeDetailView: View {
                         .multilineTextAlignment(.leading)
                 } else if !isLoadingExplanation {
                     Button("Get AI Explanation") {
-                        loadDetailedExplanation()
+                        Task {
+                            await loadDetailedExplanation()
+                        }
                     }
                     .buttonStyle(SecondaryModernButtonStyle())
                 }

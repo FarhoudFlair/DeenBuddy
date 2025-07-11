@@ -20,11 +20,7 @@ struct BookmarksView: View {
         NavigationStack {
             Group {
                 if bookmarkedGuides.isEmpty {
-                    EmptyStateView(
-                        title: "No Bookmarks",
-                        message: "Bookmark your favorite prayer guides to access them quickly",
-                        systemImage: "bookmark"
-                    )
+                    EmptyStateView(state: .noSearchResults)
                 } else {
                     List {
                         Section("Bookmarked Guides (\(bookmarkedGuides.count))") {

@@ -30,17 +30,8 @@ public class PrayerGuideViewModel: ObservableObject {
     // MARK: - Initialization
     
     public init() {
-        // Initialize services with Supabase configuration
-        // Using the same production keys from the DeenAssist framework
-        let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
-
-        let config = SupabaseConfiguration(
-            url: ProcessInfo.processInfo.environment["SUPABASE_URL"] ?? supabaseUrl,
-            anonKey: ProcessInfo.processInfo.environment["SUPABASE_ANON_KEY"] ?? anonKey
-        )
-        
-        self.supabaseService = SupabaseService(configuration: config)
+        // Initialize services
+        self.supabaseService = SupabaseService()
         self.contentService = ContentService()
         
         setupBindings()
@@ -55,9 +46,9 @@ public class PrayerGuideViewModel: ObservableObject {
         
         do {
             // Try to fetch from Supabase first
-            let guides = try await supabaseService.syncPrayerGuides()
-            self.prayerGuides = guides
-            print("Fetched \(guides.count) prayer guides from Supabase")
+            await supabaseService.fetchPrayerGuides()
+            self.prayerGuides = supabaseService.prayerGuides
+            print("Fetched \(prayerGuides.count) prayer guides from Supabase")
         } catch {
             // Fall back to local content if Supabase fails
             print("Supabase fetch failed, using local content: \(error)")
@@ -65,7 +56,6 @@ public class PrayerGuideViewModel: ObservableObject {
             self.isOffline = true
             
             // Use ContentService for mock data
-            await contentService.loadContent()
             self.prayerGuides = contentService.availableGuides
         }
         
@@ -99,25 +89,15 @@ public class PrayerGuideViewModel: ObservableObject {
         // Bind to SupabaseService state
         supabaseService.$isLoading
             .receive(on: DispatchQueue.main)
-            .assign(to: \.isLoading, on: self)
-            .store(in: &cancellables)
+            .assign(to: &self.$isLoading)
         
-        supabaseService.$error
+        supabaseService.$errorMessage
             .receive(on: DispatchQueue.main)
-            .map { error in
-                if let error = error {
-                    return "Connection error: \(error.localizedDescription)"
-                }
-                return nil
-            }
-            .assign(to: \.errorMessage, on: self)
-            .store(in: &cancellables)
-        
-        supabaseService.$isConnected
+            .assign(to: &self.$errorMessage)
+
+        supabaseService.$isOffline
             .receive(on: DispatchQueue.main)
-            .map { !$0 }
-            .assign(to: \.isOffline, on: self)
-            .store(in: &cancellables)
+            .assign(to: &self.$isOffline)
     }
 }
 

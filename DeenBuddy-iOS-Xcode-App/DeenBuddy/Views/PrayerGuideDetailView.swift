@@ -20,7 +20,7 @@ struct PrayerGuideDetailView: View {
                 headerSection
                 
                 // Prayer steps
-                if !guide.steps.isEmpty {
+                if !(guide.textContent?.steps ?? []).isEmpty {
                     stepsSection
                 }
                 
@@ -65,7 +65,7 @@ struct PrayerGuideDetailView: View {
                         .font(.headline)
                         .foregroundColor(.secondary)
                     
-                    Text("\(guide.steps.count) Steps")
+                    Text("\(guide.textContent?.steps.count ?? 0) Steps")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -137,7 +137,7 @@ struct PrayerGuideDetailView: View {
                 .fontWeight(.bold)
             
             LazyVStack(alignment: .leading, spacing: 16) {
-                ForEach(Array(guide.steps.enumerated()), id: \.element.id) { index, step in
+                ForEach(Array((guide.textContent?.steps ?? []).enumerated()), id: \.element.id) { index, step in
                     PrayerStepView(step: step, stepNumber: index + 1)
                         .onTapGesture {
                             currentStepIndex = index
@@ -181,7 +181,7 @@ struct PrayerGuideDetailView: View {
                 
                 InfoRowView(
                     title: "Steps",
-                    value: "\(guide.steps.count)",
+                    value: "\(guide.textContent?.steps.count ?? 0)",
                     icon: "list.number"
                 )
             }
@@ -243,40 +243,46 @@ struct InfoRowView: View {
         PrayerGuideDetailView(
             guide: PrayerGuide(
                 id: "fajr_shafi",
+                contentId: "fajr_shafi_guide",
                 title: "Fajr Prayer Guide (Sunni)",
-                prayer: .fajr,
-                madhab: .shafi,
-                difficulty: .beginner,
-                duration: 300,
-                description: "Complete guide for performing Fajr prayer according to Sunni tradition with detailed step-by-step instructions.",
-                steps: [
+                prayerName: "fajr",
+                sect: "shafi",
+                rakahCount: 2,
+                textContent: PrayerContent(steps: [
                     PrayerStep(
                         id: "step1",
                         title: "Preparation",
                         description: "Perform Wudu (ablution) and face the Qibla. Make sure you are in a clean place and wearing clean clothes.",
+                        stepNumber: 1,
                         duration: 60
                     ),
                     PrayerStep(
                         id: "step2",
                         title: "Intention (Niyyah)",
                         description: "Make the intention to pray Fajr prayer for the sake of Allah.",
+                        stepNumber: 2,
                         duration: 30
                     ),
                     PrayerStep(
                         id: "step3",
                         title: "First Rakah",
                         description: "Perform the first rakah of Fajr prayer with proper recitation.",
+                        stepNumber: 3,
                         duration: 120
                     ),
                     PrayerStep(
                         id: "step4",
                         title: "Second Rakah",
                         description: "Perform the second rakah and complete the prayer with Tasleem.",
+                        stepNumber: 4,
                         duration: 90
                     )
-                ],
+                ]),
                 isAvailableOffline: true,
-                isCompleted: false
+                difficulty: .beginner,
+                duration: 300,
+                description: "Complete guide for performing Fajr prayer according to Sunni tradition with detailed step-by-step instructions."
+                
             )
         )
     }

@@ -16,23 +16,96 @@ struct PrayerTimesView: View {
     }
     
     var body: some View {
-        VStack {
+        VStack(spacing: 20) {
             if viewModel.isLoading {
                 ProgressView("Loading prayer times...")
+                    .padding()
             } else if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .foregroundColor(.red)
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundColor(.orange)
+                    
+                    Text("Prayer Times Unavailable")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text(errorMessage)
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    // Show battery optimization warning if applicable
+                    if ProcessInfo.processInfo.isLowPowerModeEnabled {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Image(systemName: "battery.25")
+                                    .foregroundColor(.orange)
+                                Text("Low Power Mode Active")
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                            }
+                            
+                            Text("Location services are restricted due to Low Power Mode. Try disabling Low Power Mode or use the override setting.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal)
+                        }
+                        .padding(.vertical, 8)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    
+                    Button("Try Again") {
+                        Task {
+                            await viewModel.fetchPrayerTimes()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    
+                    Button("Use Mock Data") {
+                        viewModel.loadMockData()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding()
             } else if let prayerTimes = viewModel.prayerTimes {
                 // Display prayer times
-                Text("Prayer Times")
-                    .font(.largeTitle)
-                ForEach(prayerTimes.times, id: \.name) { prayerTime in
-                    Text("\(prayerTime.name): \(prayerTime.time)")
+                VStack(spacing: 16) {
+                    Text("Prayer Times")
+                        .font(.largeTitle)
+                        .bold()
+                    
+                    Text("Today - \(prayerTimes.date.formatted(date: .abbreviated, time: .omitted))")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    VStack(spacing: 12) {
+                        ForEach(prayerTimes.allPrayers, id: \.0) { prayerType, prayerTime in
+                            HStack {
+                                Text(prayerType.displayName)
+                                    .font(.headline)
+                                Spacer()
+                                Text(prayerTime.formatted(date: .omitted, time: .shortened))
+                                    .font(.body)
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
                 }
+                .padding()
+            } else {
+                Text("No prayer times available")
+                    .foregroundColor(.secondary)
             }
         }
         .onAppear {
-            viewModel.fetchPrayerTimes()
+            Task {
+                await viewModel.fetchPrayerTimes()
+            }
         }
     }
 }
@@ -46,79 +119,12 @@ struct PrayerTimesSettingsView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Calculation Method") {
-                    Picker("Method", selection: $viewModel.settings.calculationMethod) {
-                        ForEach(CalculationMethod.allCases) { method in
-                            VStack(alignment: .leading) {
-                                Text(method.displayName)
-                                    .font(.body)
-                                Text(method.description)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(method)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-                }
-                
-                Section("School of Jurisprudence") {
-                    Picker("Madhab", selection: $viewModel.settings.madhab) {
-                        ForEach(Madhab.allCases) { madhab in
-                            VStack(alignment: .leading) {
-                                Text(madhab.displayName)
-                                    .font(.body)
-                                Text(madhab.description)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(madhab)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-                }
-                
-                Section("Time Format") {
-                    Picker("Format", selection: $viewModel.settings.timeFormat) {
-                        ForEach(TimeFormat.allCases) { format in
-                            HStack {
-                                Text(format.displayName)
-                                Spacer()
-                                Text(format.example)
-                                    .foregroundColor(.secondary)
-                            }
-                            .tag(format)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-                
-                Section("Recommendations") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Recommended for your location:")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        ForEach(viewModel.getRecommendedCalculationMethods(), id: \.self) { method in
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.caption)
-                                
-                                Text(method.displayName)
-                                    .font(.caption)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-                
-                Section {
-                    Button("Reset to Defaults") {
-                        viewModel.updateSettings(PrayerTimeSettings())
-                    }
-                    .foregroundColor(.red)
-                }
+                calculationMethodSection
+                madhabSection
+                timeFormatSection
+                batteryOptimizationSection
+                recommendationsSection
+                resetSection
             }
             .navigationTitle("Prayer Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -129,6 +135,106 @@ struct PrayerTimesSettingsView: View {
                     }
                 }
             }
+        }
+    }
+    
+    private var calculationMethodSection: some View {
+        Section("Calculation Method") {
+            calculationMethodPicker
+        }
+    }
+    
+    private var calculationMethodPicker: some View {
+        Picker("Method", selection: $viewModel.settingsService.calculationMethod) {
+            ForEach(CalculationMethod.allCases) { method in
+                VStack(alignment: .leading) {
+                    Text(method.displayName)
+                        .font(.body)
+                    Text(method.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .tag(method)
+            }
+        }
+        .pickerStyle(.navigationLink)
+    }
+    
+    private var madhabSection: some View {
+        Section("School of Jurisprudence") {
+            madhabPicker
+        }
+    }
+    
+    private var madhabPicker: some View {
+        Picker("Madhab", selection: $viewModel.settingsService.madhab) {
+            ForEach(Madhab.allCases) { madhab in
+                VStack(alignment: .leading) {
+                    Text(madhab.displayName)
+                        .font(.body)
+                    Text(madhab.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .tag(madhab)
+            }
+        }
+        .pickerStyle(.navigationLink)
+    }
+    
+    private var timeFormatSection: some View {
+        Section("Time Format") {
+            timeFormatPicker
+        }
+    }
+    
+    private var timeFormatPicker: some View {
+        Picker("Format", selection: $viewModel.settingsService.timeFormat) {
+            ForEach(TimeFormat.allCases) { format in
+                HStack {
+                    Text(format.displayName)
+                    Spacer()
+                    Text(format.example)
+                        .foregroundColor(.secondary)
+                }
+                .tag(format)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+    
+    private var recommendationsSection: some View {
+        Section("Recommendations") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Most calculation methods work globally. For best accuracy, choose based on your region's Islamic authority.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    private var batteryOptimizationSection: some View {
+        Section("Battery Optimization") {
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Override Battery Optimization", isOn: $viewModel.settingsService.overrideBatteryOptimization)
+                
+                Text("When enabled, location services will work even when your device is in Low Power Mode. This may impact battery life.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    private var resetSection: some View {
+        Section {
+            Button("Reset to Defaults") {
+                Task {
+                    try? await viewModel.settingsService.resetToDefaults()
+                }
+            }
+            .foregroundColor(.red)
         }
     }
 }
@@ -200,7 +306,7 @@ struct ModernPrayerTimeRow: View {
             Spacer()
 
             // Prayer time
-            Text(prayerTime.formattedTime(format: timeFormat))
+            Text(prayerTime.time.formatted(date: .omitted, time: .shortened))
                 .font(.body)
                 .fontWeight(.medium)
                 .foregroundColor(isNext ? .cyan : .white)
@@ -250,5 +356,12 @@ extension Color {
 // MARK: - Preview
 
 #Preview {
-    PrayerTimesView()
+    PrayerTimesView(container: DependencyContainer(
+        locationService: MockLocationService(),
+        apiClient: MockAPIClient(),
+        notificationService: MockNotificationService(),
+        prayerTimeService: MockPrayerTimeService(),
+        settingsService: MockSettingsService(),
+        isTestEnvironment: true
+    ))
 }

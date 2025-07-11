@@ -18,7 +18,7 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     // MARK: - Properties
     
     private let prayerTimeService: PrayerTimeService
-    private let locationManager: LocationManager
+    private let locationService: LocationService
     private var refreshTimer: Timer?
     
     @Published public var lastRefreshTime: Date?
@@ -28,9 +28,9 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     
     // MARK: - Initialization
     
-    public init(prayerTimeService: PrayerTimeService, locationManager: LocationManager) {
+    public init(prayerTimeService: PrayerTimeService, locationService: LocationService) {
         self.prayerTimeService = prayerTimeService
-        self.locationManager = locationManager
+        self.locationService = locationService
         
         setupBackgroundRefresh()
         scheduleNextRefresh()
@@ -66,7 +66,7 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     
     /// Preload prayer times for upcoming days
     public func preloadUpcomingPrayerTimes(days: Int = 7) async {
-        guard let location = locationManager.currentLocation else {
+        guard let location = locationService.currentLocation else {
             print("⚠️ Cannot preload prayer times - location unavailable")
             return
         }
@@ -84,8 +84,8 @@ public class BackgroundPrayerRefreshService: ObservableObject {
             
             do {
                 let schedule = try await prayerTimeService.calculatePrayerTimes(
-                    for: targetDate,
-                    location: location
+                    for: location,
+                    date: targetDate
                 )
                 
                 // Cache is handled automatically by PrayerTimeService
@@ -118,8 +118,8 @@ public class BackgroundPrayerRefreshService: ObservableObject {
             
             do {
                 _ = try await prayerTimeService.calculatePrayerTimes(
-                    for: targetDate,
-                    location: newLocation
+                    for: newLocation,
+                    date: targetDate
                 )
             } catch {
                 print("❌ Failed to preload for location change: \(error)")
@@ -218,12 +218,12 @@ public class PrayerDataPrefetcher: ObservableObject {
         // 2. Preload current day prayer times (50% progress)
         if let location = await getCurrentLocation() {
             do {
-                _ = try await prayerTimeService.calculatePrayerTimes(for: Date(), location: location)
+                _ = try await prayerTimeService.calculatePrayerTimes(for: location, date: Date())
                 prefetchProgress = 0.5
                 
                 // 3. Preload next day prayer times (75% progress)
                 let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-                _ = try await prayerTimeService.calculatePrayerTimes(for: tomorrow, location: location)
+                _ = try await prayerTimeService.calculatePrayerTimes(for: location, date: tomorrow)
                 prefetchProgress = 0.75
                 
             } catch {
@@ -244,7 +244,8 @@ public class PrayerDataPrefetcher: ObservableObject {
         case "qibla":
             // Prefetch Qibla direction for current location
             if let location = await getCurrentLocation() {
-                let direction = QiblaDirection.calculate(from: location.coordinate)
+                let coordinate = LocationCoordinate(from: location.coordinate)
+                let direction = QiblaDirection.calculate(from: coordinate)
                 qiblaCache.cacheDirection(direction, for: location)
             }
             
@@ -254,7 +255,7 @@ public class PrayerDataPrefetcher: ObservableObject {
                 for dayOffset in 0..<7 {
                     let targetDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: Date()) ?? Date()
                     do {
-                        _ = try await prayerTimeService.calculatePrayerTimes(for: targetDate, location: location)
+                        _ = try await prayerTimeService.calculatePrayerTimes(for: location, date: targetDate)
                     } catch {
                         print("❌ Failed to prefetch prayer times for route: \(error)")
                     }
@@ -269,20 +270,6 @@ public class PrayerDataPrefetcher: ObservableObject {
     // MARK: - Private Methods
     
     private func getCurrentLocation() async -> CLLocation? {
-        return await withCheckedContinuation { continuation in
-            if let currentLocation = prayerTimeService.locationManager.currentLocation {
-                continuation.resume(returning: currentLocation)
-            } else {
-                // Try to get location
-                Task {
-                    do {
-                        let location = try await prayerTimeService.getCurrentLocation()
-                        continuation.resume(returning: location)
-                    } catch {
-                        continuation.resume(returning: nil)
-                    }
-                }
-            }
-        }
+        try? await prayerTimeService.getCurrentLocation()
     }
 }

@@ -6,11 +6,15 @@
 //
 
 import SwiftUI
-import DeenAssistCore
 
 struct LocalizedPrayerTimesView: View {
     @StateObject private var localizationService = LocalizationService()
-    @StateObject private var prayerTimeService = PrayerTimeService()
+    @StateObject private var prayerTimeService = PrayerTimeService(
+        locationService: LocationService(),
+        errorHandler: ErrorHandler(crashReporter: CrashReporter()),
+        retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
+        networkMonitor: NetworkMonitor.shared
+    )
     @State private var showingLanguageSettings = false
     
     var body: some View {
@@ -24,14 +28,14 @@ struct LocalizedPrayerTimesView: View {
                         languageLocationHeader
                         
                         // Current prayer status
-                        if let schedule = prayerTimeService.currentSchedule {
-                            currentPrayerCard(schedule: schedule)
+                        if !prayerTimeService.todaysPrayerTimes.isEmpty {
+                            currentPrayerCard()
                             
                             // Prayer times list
-                            prayerTimesList(schedule: schedule)
+                            prayerTimesList()
                             
                             // Location info
-                            locationInfoCard(schedule: schedule)
+                            locationInfoCard()
                         } else {
                             loadingOrErrorView
                         }
@@ -102,50 +106,17 @@ struct LocalizedPrayerTimesView: View {
                     }
                 }
                 
-                if let location = prayerTimeService.currentSchedule?.location {
-                    Divider()
-                        .background(Color.white.opacity(0.2))
-                    
-                    HStack {
-                        Image(systemName: "location")
-                            .foregroundColor(.cyan)
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            if let city = location.city {
-                                Text(city)
-                                    .font(.subheadline)
-                                    .foregroundColor(.white)
-                                    .localizedFrameAlignment(localizationService)
-                            }
-                            
-                            if let country = location.country {
-                                Text(country)
-                                    .font(.caption)
-                                    .foregroundColor(.white.opacity(0.8))
-                                    .localizedFrameAlignment(localizationService)
-                            }
-                        }
-                        .localizedFrameAlignment(localizationService)
-                        
-                        Spacer()
-                        
-                        Button(localizationService.localizedString(for: "settings.language")) {
-                            showingLanguageSettings = true
-                        }
-                        .font(.caption)
-                        .foregroundColor(.cyan)
-                    }
-                }
+                // Location info section temporarily disabled - no currentSchedule available
             }
             .padding()
         }
     }
     
-    private func currentPrayerCard(schedule: PrayerSchedule) -> some View {
+    private func currentPrayerCard() -> some View {
         ModernCard {
             VStack(spacing: 16) {
-                if let currentPrayer = prayerTimeService.currentPrayer {
-                    currentPrayerInfo(currentPrayer)
+                if let nextPrayer = prayerTimeService.nextPrayer {
+                    nextPrayerInfo(nextPrayer)
                 } else if let nextPrayer = prayerTimeService.nextPrayer {
                     nextPrayerInfo(nextPrayer)
                 } else {
@@ -210,7 +181,7 @@ struct LocalizedPrayerTimesView: View {
         .localizedFrameAlignment(localizationService)
     }
     
-    private func prayerTimesList(schedule: PrayerSchedule) -> some View {
+    private func prayerTimesList() -> some View {
         ModernCard {
             VStack(spacing: 0) {
                 HStack {
@@ -222,19 +193,19 @@ struct LocalizedPrayerTimesView: View {
                     
                     Spacer()
                     
-                    Text(localizationService.localizedDate(schedule.date))
+                    Text(localizationService.localizedDate(Date()))
                         .font(.subheadline)
                         .foregroundColor(.cyan)
                 }
                 .padding(.bottom, 16)
                 
-                ForEach(Array(schedule.prayerTimes.enumerated()), id: \.element.prayer) { index, prayerTime in
+                ForEach(Array(prayerTimeService.todaysPrayerTimes.enumerated()), id: \.element.prayer) { index, prayerTime in
                     LocalizedPrayerTimeRow(
                         prayerTime: prayerTime,
                         localizationService: localizationService
                     )
                     
-                    if index < schedule.prayerTimes.count - 1 {
+                    if index < prayerTimeService.todaysPrayerTimes.count - 1 {
                         Divider()
                             .background(Color.white.opacity(0.1))
                             .padding(.vertical, 8)
@@ -245,7 +216,7 @@ struct LocalizedPrayerTimesView: View {
         }
     }
     
-    private func locationInfoCard(schedule: PrayerSchedule) -> some View {
+    private func locationInfoCard() -> some View {
         ModernCard {
             VStack(alignment: .leading, spacing: 12) {
                 Text(localizationService.localizedString(for: .settingsLocation))
@@ -263,13 +234,13 @@ struct LocalizedPrayerTimesView: View {
                     
                     LocationInfoRow(
                         title: localizationService.localizedString(for: "settings.madhab"),
-                        value: schedule.madhab.sectDisplayName,
+                        value: prayerTimeService.madhab.sectDisplayName,
                         localizationService: localizationService
                     )
                     
                     LocationInfoRow(
                         title: localizationService.localizedString(for: "calculation.method"),
-                        value: schedule.calculationMethod.displayName,
+                        value: prayerTimeService.calculationMethod.displayName,
                         localizationService: localizationService
                     )
                 }
@@ -373,21 +344,37 @@ struct LocalizedPrayerTimeRow: View {
     }
     
     private var statusText: String {
-        switch prayerTime.status {
-        case .current:
+        switch calculateStatus(for: prayerTime) {
+        case .active:
             return localizationService.localizedString(for: .prayerStateCurrent)
         case .upcoming:
             return localizationService.localizedString(for: .prayerStateUpcoming)
         case .passed:
             return localizationService.localizedString(for: .prayerStatePassed)
+        case .completed:
+            return ""
+        }
+    }
+    
+    private func calculateStatus(for prayerTime: PrayerTime) -> PrayerStatus {
+        let now = Date()
+        let timeDiff = prayerTime.time.timeIntervalSince(now)
+        
+        if abs(timeDiff) < 30 * 60 { // Within 30 minutes
+            return .active
+        } else if timeDiff > 0 {
+            return .upcoming
+        } else {
+            return .passed
         }
     }
     
     private var statusColor: Color {
-        switch prayerTime.status {
-        case .current: return .cyan
+        switch calculateStatus(for: prayerTime) {
+        case .active: return .cyan
         case .upcoming: return .orange
         case .passed: return .white.opacity(0.5)
+        case .completed: return .green
         }
     }
     
@@ -400,13 +387,13 @@ struct LocalizedPrayerTimeRow: View {
         let hours = Int(timeInterval) / 3600
         let minutes = Int(timeInterval) % 3600 / 60
         
-        if prayerTime.status == .upcoming && timeInterval > 0 {
+        if calculateStatus(for: prayerTime) == .upcoming && timeInterval > 0 {
             if hours > 0 {
                 return "in \(localizationService.localizedNumber(hours))h \(localizationService.localizedNumber(minutes))m"
             } else {
                 return "in \(localizationService.localizedNumber(minutes))m"
             }
-        } else if prayerTime.status == .passed && timeInterval > 0 {
+        } else if calculateStatus(for: prayerTime) == .passed && timeInterval > 0 {
             if hours > 0 {
                 return "\(localizationService.localizedNumber(hours))h \(localizationService.localizedNumber(minutes))m ago"
             } else {

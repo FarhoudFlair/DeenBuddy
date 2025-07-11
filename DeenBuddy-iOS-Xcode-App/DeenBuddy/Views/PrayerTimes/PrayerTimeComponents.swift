@@ -116,13 +116,22 @@ struct PrayerTimesList: View {
     
     var body: some View {
         LazyVStack(spacing: 12) {
-            ForEach(Array(prayerTimes.enumerated()), id: \.element.id) { index, prayerTime in
+            ForEach(prayerTimes.indices, id: \.self) { index in
                 PrayerTimeCard(
-                    prayerTime: prayerTime,
-                    timeFormat: timeFormat,
-                    isHighlighted: nextPrayerIndex == index
+                    prayer: prayerTimes[index],
+                    status: determineStatus(for: prayerTimes[index]),
+                    isNext: nextPrayerIndex == index
                 )
             }
+        }
+    }
+    
+    private func determineStatus(for prayerTime: PrayerTime) -> PrayerStatus {
+        let now = Date()
+        if prayerTime.time < now {
+            return .passed
+        } else {
+            return .upcoming
         }
     }
 }

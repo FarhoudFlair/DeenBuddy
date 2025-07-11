@@ -602,6 +602,6 @@ struct EditPrayerEntryView: View {
             isOnTime: true,
             congregation: .individual
         ),
-        journalService: PrayerJournalService(prayerTimeService: PrayerTimeService())
+        journalService: PrayerJournalService(prayerTimeService: MockPrayerTimeService())
     )
 }
