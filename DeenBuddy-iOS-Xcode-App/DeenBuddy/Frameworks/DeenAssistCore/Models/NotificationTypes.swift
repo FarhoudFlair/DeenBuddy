@@ -80,6 +80,7 @@ public enum NotificationError: Error, LocalizedError {
     case permissionDenied
     case schedulingFailed
     case invalidDate
+    case invalidParameters
     
     public var errorDescription: String? {
         switch self {
@@ -89,6 +90,8 @@ public enum NotificationError: Error, LocalizedError {
             return "Failed to schedule notification"
         case .invalidDate:
             return "Invalid notification date"
+        case .invalidParameters:
+            return "Invalid parameters: prayerTimes is empty and date is nil."
         }
     }
 }

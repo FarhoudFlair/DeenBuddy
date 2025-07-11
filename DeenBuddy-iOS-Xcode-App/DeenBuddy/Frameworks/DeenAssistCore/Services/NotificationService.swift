@@ -48,7 +48,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     ///   - prayerTimes: Array of PrayerTime objects for a specific date. If empty, only cancels notifications for the date provided.
     ///   - date: The date for which to cancel notifications if prayerTimes is empty. If nil, does nothing.
     public func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date? = nil) async throws {
-        guard authorizationStatus == .authorized else {
+        guard authorizationStatus == .authorized || authorizationStatus == .provisional else {
             throw NotificationError.permissionDenied
         }
         
@@ -61,8 +61,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         } else if let date = date {
             await cancelNotificationsForDate(date)
         } else {
-            // No date provided, do nothing
-            return
+            throw NotificationError.invalidParameters
         }
         
         // Schedule new notifications for each prayer
@@ -85,7 +84,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         title: String?,
         body: String?
     ) async throws {
-        guard authorizationStatus == .authorized else {
+        guard authorizationStatus == .authorized || authorizationStatus == .provisional else {
             throw NotificationError.permissionDenied
         }
         
