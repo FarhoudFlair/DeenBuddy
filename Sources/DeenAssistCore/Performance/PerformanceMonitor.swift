@@ -500,13 +500,81 @@ extension PerformanceIssue {
     
     /// Checks if a value is JSON-serializable
     private func isJSONSerializable(_ value: Any) -> Bool {
+        var visited = Set<ObjectIdentifier>()
+        return isJSONSerializable(value, visited: &visited)
+    }
+    
+    /// Checks if a value is JSON-serializable with cycle detection for reference types only
+    private func isJSONSerializable(_ value: Any, visited: inout Set<ObjectIdentifier>) -> Bool {
+        // Handle all basic types (including Foundation bridged types)
         switch value {
-        case is String, is NSNumber, is Bool, is NSNull:
+        case is String, is NSNumber, is Bool, is NSNull,
+             is Int, is Int8, is Int16, is Int32, is Int64,
+             is UInt, is UInt8, is UInt16, is UInt32, is UInt64,
+             is Float, is Double:
+            return true
+        case is NSData, is NSDate:
+            // NSData and NSDate are not directly JSON-serializable
+            return false
+        case let array as NSArray:
+            let id = ObjectIdentifier(array)
+            if visited.contains(id) { return false }
+            visited.insert(id)
+            defer { visited.remove(id) }
+            for element in array {
+                if !isJSONSerializable(element, visited: &visited) { return false }
+            }
+            return true
+        case let dict as NSDictionary:
+            let id = ObjectIdentifier(dict)
+            if visited.contains(id) { return false }
+            visited.insert(id)
+            defer { visited.remove(id) }
+            // Ensure all keys are strings
+            for key in dict.allKeys {
+                if !(key is String) { return false }
+            }
+            for value in dict.allValues {
+                if !isJSONSerializable(value, visited: &visited) { return false }
+            }
             return true
         case let array as [Any]:
-            return array.allSatisfy { isJSONSerializable($0) }
+            // Swift arrays are value types; no cycle detection needed
+            for element in array {
+                if !isJSONSerializable(element, visited: &visited) { return false }
+            }
+            return true
         case let dict as [String: Any]:
-            return dict.values.allSatisfy { isJSONSerializable($0) }
+            // Swift dictionaries are value types; no cycle detection needed
+            for value in dict.values {
+                if !isJSONSerializable(value, visited: &visited) { return false }
+            }
+            return true
+        case let object as AnyObject:
+            // Only composite Foundation types should be tracked; basic types are handled above
+            if object is NSString || object is NSNumber || object is NSNull {
+                return true
+            }
+            if object is NSData || object is NSDate {
+                return false
+            }
+            let objectId = ObjectIdentifier(object)
+            if visited.contains(objectId) { return false }
+            visited.insert(objectId)
+            defer { visited.remove(objectId) }
+            if let dict = object as? [String: Any] {
+                for value in dict.values {
+                    if !isJSONSerializable(value, visited: &visited) { return false }
+                }
+                return true
+            } else if let array = object as? [Any] {
+                for element in array {
+                    if !isJSONSerializable(element, visited: &visited) { return false }
+                }
+                return true
+            } else {
+                return false // Non-serializable custom object
+            }
         default:
             return false
         }
