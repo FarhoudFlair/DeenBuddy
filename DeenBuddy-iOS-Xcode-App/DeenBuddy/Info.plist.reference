@@ -45,6 +45,14 @@
 		<string>background-processing</string>
 	</array>
 	
+	<!-- Background Task Identifiers -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.deenbuddy.prayer-refresh</string>
+		<string>com.deenbuddy.app.refresh</string>
+		<string>com.deenbuddy.app.prayer-update</string>
+	</array>
+	
 	<!-- App Transport Security -->
 	<key>NSAppTransportSecurity</key>
 	<dict>

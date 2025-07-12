@@ -59,8 +59,8 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
         }
         
         // Generate or return cached mock prayer times
-        let cacheKey = prayerTimesCacheKey(date: date, location: location, method: calculationMethod)
-        
+        let cacheKey = prayerTimesCacheKey(date: date, location: location, method: calculationMethod, madhab: madhab)
+
         if let cached = mockPrayerTimesCache[cacheKey] {
             return cached
         }
@@ -119,6 +119,11 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
     public func getRateLimitStatus() -> APIRateLimitStatus {
         return rateLimitStatus
     }
+
+    public func clearPrayerTimeCache() {
+        mockPrayerTimesCache.removeAll()
+        print("🗑️ MockAPIClient: Cleared prayer time cache")
+    }
     
     // MARK: - Mock Configuration Methods
     
@@ -156,7 +161,8 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
         let cacheKey = prayerTimesCacheKey(
             date: prayerTimes.date,
             location: prayerTimes.location,
-            method: CalculationMethod(rawValue: prayerTimes.calculationMethod) ?? .muslimWorldLeague
+            method: CalculationMethod(rawValue: prayerTimes.calculationMethod) ?? .muslimWorldLeague,
+            madhab: .shafi // Default madhab for mock data
         )
         mockPrayerTimesCache[cacheKey] = prayerTimes
     }
@@ -186,10 +192,10 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
         )
     }
     
-    private func prayerTimesCacheKey(date: Date, location: LocationCoordinate, method: CalculationMethod) -> String {
+    private func prayerTimesCacheKey(date: Date, location: LocationCoordinate, method: CalculationMethod, madhab: Madhab) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
-        return "\(formatter.string(from: date))_\(location.latitude)_\(location.longitude)_\(method.rawValue)"
+        return "\(formatter.string(from: date))_\(location.latitude)_\(location.longitude)_\(method.rawValue)_\(madhab.rawValue)"
     }
     
     private func qiblaCacheKey(location: LocationCoordinate) -> String {

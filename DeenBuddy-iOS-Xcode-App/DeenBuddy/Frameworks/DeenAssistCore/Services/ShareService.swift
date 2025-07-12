@@ -115,6 +115,7 @@ public class ShareService: ObservableObject {
         Download it and join me in strengthening our faith together! 🤲
         """
         
+        // TODO: Replace with actual App Store URL when app is published
         // Add App Store URL when available
         if let appStoreURL = URL(string: "https://apps.apple.com/app/deenbuddy") {
             return [shareText, appStoreURL]

@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import BackgroundTasks
 
 // MARK: - Dependency Container
 
@@ -11,6 +12,11 @@ public class DependencyContainer: ObservableObject {
     @Published public private(set) var notificationService: any NotificationServiceProtocol
     @Published public private(set) var prayerTimeService: any PrayerTimeServiceProtocol
     @Published public private(set) var settingsService: any SettingsServiceProtocol
+    @Published public private(set) var prayerTrackingService: any PrayerTrackingServiceProtocol
+    @Published public private(set) var tasbihService: any TasbihServiceProtocol
+    @Published public private(set) var islamicCalendarService: any IslamicCalendarServiceProtocol
+    @Published public private(set) var backgroundTaskManager: BackgroundTaskManager
+    @Published public private(set) var backgroundPrayerRefreshService: BackgroundPrayerRefreshService
     
     // MARK: - Configuration
     
@@ -26,6 +32,11 @@ public class DependencyContainer: ObservableObject {
         notificationService: any NotificationServiceProtocol,
         prayerTimeService: any PrayerTimeServiceProtocol,
         settingsService: any SettingsServiceProtocol,
+        prayerTrackingService: any PrayerTrackingServiceProtocol,
+        tasbihService: any TasbihServiceProtocol,
+        islamicCalendarService: any IslamicCalendarServiceProtocol,
+        backgroundTaskManager: BackgroundTaskManager,
+        backgroundPrayerRefreshService: BackgroundPrayerRefreshService,
         apiConfiguration: APIConfiguration = .default,
         isTestEnvironment: Bool = true
     ) {
@@ -34,6 +45,11 @@ public class DependencyContainer: ObservableObject {
         self.notificationService = notificationService
         self.prayerTimeService = prayerTimeService
         self.settingsService = settingsService
+        self.prayerTrackingService = prayerTrackingService
+        self.tasbihService = tasbihService
+        self.islamicCalendarService = islamicCalendarService
+        self.backgroundTaskManager = backgroundTaskManager
+        self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
         self.apiConfiguration = apiConfiguration
         self.isTestEnvironment = isTestEnvironment
     }
@@ -79,17 +95,48 @@ public class DependencyContainer: ObservableObject {
         } else {
             resolvedPrayerTimeService = await MainActor.run { PrayerTimeService(
                 locationService: resolvedLocationService,
+                settingsService: resolvedSettingsService,
+                apiClient: resolvedApiClient,
                 errorHandler: resolvedErrorHandler,
                 retryMechanism: resolvedRetryMechanism,
                 networkMonitor: NetworkMonitor.shared
             ) }
         }
+
+        // Create background services with proper dependencies
+        let resolvedBackgroundTaskManager = await MainActor.run { BackgroundTaskManager(
+            prayerTimeService: resolvedPrayerTimeService,
+            notificationService: resolvedNotificationService,
+            locationService: resolvedLocationService
+        ) }
+
+        let resolvedBackgroundPrayerRefreshService = await MainActor.run { BackgroundPrayerRefreshService(
+            prayerTimeService: resolvedPrayerTimeService,
+            locationService: resolvedLocationService
+        ) }
+
+        // Create additional services
+        let resolvedPrayerTrackingService = await MainActor.run { PrayerTrackingService(
+            prayerTimeService: resolvedPrayerTimeService,
+            settingsService: resolvedSettingsService,
+            locationService: resolvedLocationService
+        ) }
+
+        let resolvedTasbihService = await MainActor.run { TasbihService() }
+
+        let resolvedIslamicCalendarService = await MainActor.run { IslamicCalendarService() }
+
         let container = DependencyContainer(
             locationService: resolvedLocationService,
             apiClient: resolvedApiClient,
             notificationService: resolvedNotificationService,
             prayerTimeService: resolvedPrayerTimeService,
             settingsService: resolvedSettingsService,
+            prayerTrackingService: resolvedPrayerTrackingService,
+            tasbihService: resolvedTasbihService,
+            islamicCalendarService: resolvedIslamicCalendarService,
+            backgroundTaskManager: resolvedBackgroundTaskManager,
+            backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             apiConfiguration: apiConfiguration,
             isTestEnvironment: isTestEnvironment
         )
@@ -121,6 +168,18 @@ public class DependencyContainer: ObservableObject {
             if let settingsService = service as? any SettingsServiceProtocol {
                 self.settingsService = settingsService
             }
+        case is any PrayerTrackingServiceProtocol.Type:
+            if let prayerTrackingService = service as? any PrayerTrackingServiceProtocol {
+                self.prayerTrackingService = prayerTrackingService
+            }
+        case is any TasbihServiceProtocol.Type:
+            if let tasbihService = service as? any TasbihServiceProtocol {
+                self.tasbihService = tasbihService
+            }
+        case is any IslamicCalendarServiceProtocol.Type:
+            if let islamicCalendarService = service as? any IslamicCalendarServiceProtocol {
+                self.islamicCalendarService = islamicCalendarService
+            }
         default:
             break
         }
@@ -140,6 +199,12 @@ public class DependencyContainer: ObservableObject {
             return prayerTimeService as? T
         case is any SettingsServiceProtocol.Type:
             return settingsService as? T
+        case is any PrayerTrackingServiceProtocol.Type:
+            return prayerTrackingService as? T
+        case is any TasbihServiceProtocol.Type:
+            return tasbihService as? T
+        case is any IslamicCalendarServiceProtocol.Type:
+            return islamicCalendarService as? T
         default:
             return nil
         }
@@ -153,6 +218,12 @@ public class DependencyContainer: ObservableObject {
             // Request permissions if needed
             await locationService.requestLocationPermission()
             _ = try? await notificationService.requestNotificationPermission()
+
+            // Register and start background services
+            await backgroundTaskManager.registerBackgroundTasks()
+            await backgroundPrayerRefreshService.startBackgroundRefresh()
+
+            print("🔄 Background services initialized and started")
         }
     }
     
@@ -161,6 +232,11 @@ public class DependencyContainer: ObservableObject {
         // Clean up services
         locationService.stopUpdatingLocation()
         await notificationService.cancelAllNotifications()
+
+        // Stop background services
+        backgroundPrayerRefreshService.stopBackgroundRefresh()
+
+        print("🔄 Background services stopped and cleaned up")
     }
 }
 
@@ -186,12 +262,16 @@ public class ServiceFactory {
     @MainActor
     public static func createPrayerTimeService(
         locationService: any LocationServiceProtocol,
+        settingsService: any SettingsServiceProtocol,
+        apiClient: any APIClientProtocol,
         errorHandler: ErrorHandler,
         retryMechanism: RetryMechanism,
         networkMonitor: NetworkMonitor
     ) -> any PrayerTimeServiceProtocol {
         return PrayerTimeService(
             locationService: locationService,
+            settingsService: settingsService,
+            apiClient: apiClient,
             errorHandler: errorHandler,
             retryMechanism: retryMechanism,
             networkMonitor: networkMonitor
@@ -217,16 +297,46 @@ public extension DependencyContainer {
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = PrayerTimeService(
             locationService: resolvedLocationService,
+            settingsService: resolvedSettingsService,
+            apiClient: resolvedApiClient,
             errorHandler: resolvedErrorHandler,
             retryMechanism: resolvedRetryMechanism,
             networkMonitor: NetworkMonitor.shared
         )
+
+        let resolvedPrayerTrackingService: any PrayerTrackingServiceProtocol = PrayerTrackingService(
+            prayerTimeService: resolvedPrayerTimeService,
+            settingsService: resolvedSettingsService,
+            locationService: resolvedLocationService
+        )
+
+        let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
+
+        let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
+
+        // Create background services with proper dependencies
+        let resolvedBackgroundTaskManager = BackgroundTaskManager(
+            prayerTimeService: resolvedPrayerTimeService,
+            notificationService: resolvedNotificationService,
+            locationService: resolvedLocationService
+        )
+
+        let resolvedBackgroundPrayerRefreshService = BackgroundPrayerRefreshService(
+            prayerTimeService: resolvedPrayerTimeService,
+            locationService: resolvedLocationService
+        )
+
         return DependencyContainer(
             locationService: resolvedLocationService,
             apiClient: resolvedApiClient,
             notificationService: resolvedNotificationService,
             prayerTimeService: resolvedPrayerTimeService,
             settingsService: resolvedSettingsService,
+            prayerTrackingService: resolvedPrayerTrackingService,
+            tasbihService: resolvedTasbihService,
+            islamicCalendarService: resolvedIslamicCalendarService,
+            backgroundTaskManager: resolvedBackgroundTaskManager,
+            backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             apiConfiguration: .default,
             isTestEnvironment: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         )
@@ -248,16 +358,47 @@ public extension DependencyContainer {
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = prayerTimeService ?? PrayerTimeService(
             locationService: resolvedLocationService,
+            settingsService: resolvedSettingsService,
+            apiClient: resolvedApiClient,
             errorHandler: resolvedErrorHandler,
             retryMechanism: resolvedRetryMechanism,
             networkMonitor: NetworkMonitor.shared
         )
+
+        // Create mock background services for testing
+        let resolvedBackgroundTaskManager = BackgroundTaskManager(
+            prayerTimeService: resolvedPrayerTimeService,
+            notificationService: resolvedNotificationService,
+            locationService: resolvedLocationService
+        )
+
+        let resolvedBackgroundPrayerRefreshService = BackgroundPrayerRefreshService(
+            prayerTimeService: resolvedPrayerTimeService,
+            locationService: resolvedLocationService
+        )
+
+        // Create additional services for testing
+        let resolvedPrayerTrackingService: any PrayerTrackingServiceProtocol = PrayerTrackingService(
+            prayerTimeService: resolvedPrayerTimeService,
+            settingsService: resolvedSettingsService,
+            locationService: resolvedLocationService
+        )
+
+        let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
+
+        let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
+
         return DependencyContainer(
             locationService: resolvedLocationService,
             apiClient: resolvedApiClient,
             notificationService: resolvedNotificationService,
             prayerTimeService: resolvedPrayerTimeService,
             settingsService: resolvedSettingsService,
+            prayerTrackingService: resolvedPrayerTrackingService,
+            tasbihService: resolvedTasbihService,
+            islamicCalendarService: resolvedIslamicCalendarService,
+            backgroundTaskManager: resolvedBackgroundTaskManager,
+            backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             apiConfiguration: .default,
             isTestEnvironment: true
         )

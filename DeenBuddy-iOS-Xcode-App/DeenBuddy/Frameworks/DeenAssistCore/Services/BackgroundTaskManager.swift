@@ -107,7 +107,9 @@ public class BackgroundTaskManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.checkBackgroundRefreshStatus()
+            Task { @MainActor in
+                self?.checkBackgroundRefreshStatus()
+            }
         }
     }
     
@@ -207,7 +209,7 @@ public class BackgroundTaskManager: ObservableObject {
                 // Schedule notifications for tomorrow's prayers
                 if let notificationService = notificationService {
                     // Pass [PrayerTime] to schedulePrayerNotifications
-                    try await notificationService.schedulePrayerNotifications(for: tomorrowTimes)
+                    try await notificationService.schedulePrayerNotifications(for: tomorrowTimes, date: tomorrow)
                 }
                 
                 print("🕌 Prayer times updated for today and tomorrow")

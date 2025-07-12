@@ -13,11 +13,11 @@ public protocol PrayerTimeServiceProtocol: ObservableObject {
     /// Time remaining until next prayer
     var timeUntilNextPrayer: TimeInterval? { get }
     
-    /// Current calculation method
-    var calculationMethod: CalculationMethod { get set }
-    
-    /// Current madhab for Asr calculation
-    var madhab: Madhab { get set }
+    /// Current calculation method (read-only, sourced from SettingsService)
+    var calculationMethod: CalculationMethod { get }
+
+    /// Current madhab for Asr calculation (read-only, sourced from SettingsService)
+    var madhab: Madhab { get }
     
     /// Whether prayer times are currently loading
     var isLoading: Bool { get }
@@ -36,4 +36,7 @@ public protocol PrayerTimeServiceProtocol: ObservableObject {
     
     /// Get prayer times for a date range
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]]
+
+    /// Get current location (for background services)
+    func getCurrentLocation() async throws -> CLLocation
 }

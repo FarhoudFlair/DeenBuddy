@@ -61,8 +61,8 @@ public class APIClient: APIClientProtocol, ObservableObject {
         calculationMethod: CalculationMethod,
         madhab: Madhab
     ) async throws -> PrayerTimes {
-        // Check cache first
-        if let cached = cache.getCachedPrayerTimes(for: date, location: location) {
+        // Check cache first with method-specific key
+        if let cached = cache.getCachedPrayerTimes(for: date, location: location, calculationMethod: calculationMethod, madhab: madhab) {
             return cached
         }
         
@@ -98,8 +98,8 @@ public class APIClient: APIClientProtocol, ObservableObject {
             calculationMethod: calculationMethod
         )
         
-        // Cache the result
-        cache.cachePrayerTimes(prayerTimes, for: date, location: location)
+        // Cache the result with method-specific key
+        cache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: calculationMethod, madhab: madhab)
         
         return prayerTimes
     }
@@ -162,6 +162,10 @@ public class APIClient: APIClientProtocol, ObservableObject {
     
     public func getRateLimitStatus() -> APIRateLimitStatus {
         return rateLimitTracker.getCurrentStatus()
+    }
+
+    public func clearPrayerTimeCache() {
+        cache.clearPrayerTimeCache()
     }
     
     // MARK: - Private Methods
@@ -340,7 +344,7 @@ public class APIClient: APIClientProtocol, ObservableObject {
 
 // MARK: - Rate Limit Tracker
 
-private class RateLimitTracker {
+private class RateLimitTracker: @unchecked Sendable {
     private let limitPerMinute: Int
     private var requestTimes: [Date] = []
     private let queue = DispatchQueue(label: "RateLimitTracker", attributes: .concurrent)

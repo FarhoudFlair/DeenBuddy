@@ -98,127 +98,13 @@ public struct PrayerJournalEntry: Codable, Identifiable, Equatable {
     }
 }
 
-/// Prayer completion mood/feeling
-public enum PrayerMood: String, Codable, CaseIterable {
-    case peaceful = "peaceful"
-    case grateful = "grateful"
-    case focused = "focused"
-    case distracted = "distracted"
-    case rushed = "rushed"
-    case contemplative = "contemplative"
-    case joyful = "joyful"
-    case seeking = "seeking"
-    
-    public var displayName: String {
-        switch self {
-        case .peaceful: return "Peaceful"
-        case .grateful: return "Grateful"
-        case .focused: return "Focused"
-        case .distracted: return "Distracted"
-        case .rushed: return "Rushed"
-        case .contemplative: return "Contemplative"
-        case .joyful: return "Joyful"
-        case .seeking: return "Seeking"
-        }
-    }
-    
-    public var emoji: String {
-        switch self {
-        case .peaceful: return "😌"
-        case .grateful: return "🙏"
-        case .focused: return "🎯"
-        case .distracted: return "😵‍💫"
-        case .rushed: return "⏰"
-        case .contemplative: return "🤔"
-        case .joyful: return "😊"
-        case .seeking: return "🔍"
-        }
-    }
-    
-    public var color: String {
-        switch self {
-        case .peaceful: return "blue"
-        case .grateful: return "green"
-        case .focused: return "purple"
-        case .distracted: return "orange"
-        case .rushed: return "red"
-        case .contemplative: return "indigo"
-        case .joyful: return "yellow"
-        case .seeking: return "cyan"
-        }
-    }
-}
+// NOTE: PrayerMood enum is defined in PrayerTracking.swift to avoid duplication
 
-/// How the prayer was performed
-public enum PrayerMethod: String, Codable, CaseIterable {
-    case individual = "individual"
-    case congregation = "congregation"
-    case family = "family"
-    case travel = "travel"
-    case shortening = "shortening" // Qasr
-    case combining = "combining" // Jam'
-    
-    public var displayName: String {
-        switch self {
-        case .individual: return "Individual"
-        case .congregation: return "Congregation"
-        case .family: return "Family"
-        case .travel: return "Travel"
-        case .shortening: return "Shortened (Qasr)"
-        case .combining: return "Combined (Jam')"
-        }
-    }
-}
+// NOTE: PrayerMethod enum is defined in PrayerTracking.swift to avoid duplication
 
-/// Type of congregation
-public enum CongregationType: String, Codable, CaseIterable {
-    case individual = "individual"
-    case smallGroup = "small_group"
-    case mosque = "mosque"
-    case family = "family"
-    case workplace = "workplace"
-    case travel = "travel"
-    
-    public var displayName: String {
-        switch self {
-        case .individual: return "Individual"
-        case .smallGroup: return "Small Group"
-        case .mosque: return "Mosque"
-        case .family: return "Family"
-        case .workplace: return "Workplace"
-        case .travel: return "Travel"
-        }
-    }
-}
+// NOTE: CongregationType enum is defined in PrayerTracking.swift to avoid duplication
 
-/// Difficulty level experienced during prayer
-public enum PrayerDifficulty: String, Codable, CaseIterable {
-    case veryEasy = "very_easy"
-    case easy = "easy"
-    case moderate = "moderate"
-    case challenging = "challenging"
-    case veryDifficult = "very_difficult"
-    
-    public var displayName: String {
-        switch self {
-        case .veryEasy: return "Very Easy"
-        case .easy: return "Easy"
-        case .moderate: return "Moderate"
-        case .challenging: return "Challenging"
-        case .veryDifficult: return "Very Difficult"
-        }
-    }
-    
-    public var color: String {
-        switch self {
-        case .veryEasy: return "green"
-        case .easy: return "blue"
-        case .moderate: return "yellow"
-        case .challenging: return "orange"
-        case .veryDifficult: return "red"
-        }
-    }
-}
+// NOTE: PrayerDifficulty enum is defined in PrayerTracking.swift to avoid duplication
 
 // MARK: - Prayer Statistics
 

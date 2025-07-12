@@ -32,6 +32,14 @@ class AppDependencyContainer: ObservableObject {
     func resolveSettingsService() -> (any SettingsServiceProtocol)? {
         return coreContainer.settingsService
     }
+
+    func resolveBackgroundTaskManager() -> BackgroundTaskManager? {
+        return coreContainer.backgroundTaskManager
+    }
+
+    func resolveBackgroundPrayerRefreshService() -> BackgroundPrayerRefreshService? {
+        return coreContainer.backgroundPrayerRefreshService
+    }
     
     // Generic resolver for compatibility
     func resolve<Service>(_ serviceType: Service.Type) -> Service? {

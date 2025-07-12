@@ -11,6 +11,8 @@ struct LocalizedPrayerTimesView: View {
     @StateObject private var localizationService = LocalizationService()
     @StateObject private var prayerTimeService = PrayerTimeService(
         locationService: LocationService(),
+        settingsService: SettingsService(),
+        apiClient: APIClient(),
         errorHandler: ErrorHandler(crashReporter: CrashReporter()),
         retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
         networkMonitor: NetworkMonitor.shared
@@ -199,7 +201,7 @@ struct LocalizedPrayerTimesView: View {
                 }
                 .padding(.bottom, 16)
                 
-                ForEach(Array(prayerTimeService.todaysPrayerTimes.enumerated()), id: \.element.prayer) { index, prayerTime in
+                ForEach(Array(prayerTimeService.todaysPrayerTimes.enumerated()), id: \.1.prayer) { index, prayerTime in
                     LocalizedPrayerTimeRow(
                         prayerTime: prayerTime,
                         localizationService: localizationService
@@ -317,11 +319,24 @@ struct LocalizedPrayerTimeRow: View {
                     .font(.headline)
                     .foregroundColor(.white)
                     .localizedFrameAlignment(localizationService)
-                
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundColor(statusColor)
-                    .localizedFrameAlignment(localizationService)
+
+                HStack(spacing: 8) {
+                    Text("\(prayerTime.prayer.defaultRakahCount) rakahs")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                        .localizedFrameAlignment(localizationService)
+
+                    if !statusText.isEmpty {
+                        Text("•")
+                            .font(.caption)
+                            .foregroundColor(.white.opacity(0.4))
+
+                        Text(statusText)
+                            .font(.caption)
+                            .foregroundColor(statusColor)
+                            .localizedFrameAlignment(localizationService)
+                    }
+                }
             }
             .localizedFrameAlignment(localizationService)
             

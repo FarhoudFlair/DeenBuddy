@@ -592,15 +592,15 @@ struct EditPrayerEntryView: View {
 #Preview {
     PrayerEntryCard(
         entry: PrayerJournalEntry(
-            prayer: .fajr,
+            prayer: Prayer.fajr,
             completedAt: Date(),
             location: "Home",
             notes: "Peaceful morning prayer with deep reflection",
-            mood: .peaceful,
-            method: .individual,
+            mood: PrayerMood.good,
+            method: PrayerMethod.individual,
             duration: 420,
             isOnTime: true,
-            congregation: .individual
+            congregation: CongregationType.individual
         ),
         journalService: PrayerJournalService(prayerTimeService: MockPrayerTimeService())
     )

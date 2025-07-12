@@ -17,9 +17,15 @@ public struct PrayerTimeCard: View {
             // Prayer name and status indicator
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(prayer.prayer.displayName)
-                        .titleMedium()
-                        .foregroundColor(ColorPalette.textPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(prayer.prayer.displayName)
+                            .titleMedium()
+                            .foregroundColor(ColorPalette.textPrimary)
+
+                        Text("\(prayer.prayer.defaultRakahCount) rakahs")
+                            .caption()
+                            .foregroundColor(ColorPalette.textTertiary)
+                    }
 
                     if isNext {
                         Text("NEXT")
@@ -72,7 +78,7 @@ public struct PrayerTimeCard: View {
         .scaleEffect(isNext ? 1.02 : 1.0)
         .appAnimation(AppAnimations.smoothSpring, value: isNext)
         .prayerTimeAccessibility(
-            prayer: prayer.prayer.displayName,
+            prayer: "\(prayer.prayer.displayName), \(prayer.prayer.defaultRakahCount) rakahs",
             time: timeString,
             status: status.description,
             isNext: isNext

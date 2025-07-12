@@ -6,10 +6,10 @@ import Combine
 public protocol APIClientProtocol: ObservableObject {
     /// Network reachability status
     var isNetworkAvailable: Bool { get }
-    
+
     /// Publisher for network status changes
     var networkStatusPublisher: AnyPublisher<Bool, Never> { get }
-    
+
     /// Get prayer times for a specific date and location
     func getPrayerTimes(
         for date: Date,
@@ -17,15 +17,18 @@ public protocol APIClientProtocol: ObservableObject {
         calculationMethod: CalculationMethod,
         madhab: Madhab
     ) async throws -> PrayerTimes
-    
+
     /// Get qibla direction for a location
     func getQiblaDirection(for location: LocationCoordinate) async throws -> QiblaDirection
-    
+
     /// Check API health and connectivity
     func checkAPIHealth() async throws -> Bool
-    
+
     /// Get current API rate limit status
     func getRateLimitStatus() -> APIRateLimitStatus
+
+    /// Clear prayer time cache (for settings changes)
+    func clearPrayerTimeCache()
 }
 
 // MARK: - Rate Limiting
@@ -110,24 +113,27 @@ public enum APIEndpoint {
 // MARK: - Cache Protocol
 
 public protocol APICacheProtocol {
-    /// Cache prayer times for a specific date and location
-    func cachePrayerTimes(_ prayerTimes: PrayerTimes, for date: Date, location: LocationCoordinate)
-    
-    /// Get cached prayer times for a specific date and location
-    func getCachedPrayerTimes(for date: Date, location: LocationCoordinate) -> PrayerTimes?
-    
+    /// Cache prayer times for a specific date, location, and calculation settings
+    func cachePrayerTimes(_ prayerTimes: PrayerTimes, for date: Date, location: LocationCoordinate, calculationMethod: CalculationMethod, madhab: Madhab)
+
+    /// Get cached prayer times for a specific date, location, and calculation settings
+    func getCachedPrayerTimes(for date: Date, location: LocationCoordinate, calculationMethod: CalculationMethod, madhab: Madhab) -> PrayerTimes?
+
     /// Cache qibla direction for a location
     func cacheQiblaDirection(_ direction: QiblaDirection, for location: LocationCoordinate)
-    
+
     /// Get cached qibla direction for a location
     func getCachedQiblaDirection(for location: LocationCoordinate) -> QiblaDirection?
-    
+
     /// Clear expired cache entries
     func clearExpiredCache()
-    
+
     /// Clear all cache
     func clearAllCache()
-    
+
+    /// Clear only prayer time cache entries (for settings changes)
+    func clearPrayerTimeCache()
+
     /// Get cache size in bytes
     func getCacheSize() -> Int64
 }

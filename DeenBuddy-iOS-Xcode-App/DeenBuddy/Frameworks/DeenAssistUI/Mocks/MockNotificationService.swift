@@ -21,7 +21,7 @@ public class MockNotificationService: NotificationServiceProtocol {
         return true
     }
     
-    public func schedulePrayerNotifications(for prayerTimes: [PrayerTime]) async throws {
+    public func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {
         // Simulate scheduling delay
         try await Task.sleep(nanoseconds: 500_000_000)
         

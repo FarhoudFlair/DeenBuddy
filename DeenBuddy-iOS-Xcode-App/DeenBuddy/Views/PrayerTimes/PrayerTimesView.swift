@@ -65,10 +65,6 @@ struct PrayerTimesView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     
-                    Button("Use Mock Data") {
-                        viewModel.loadMockData()
-                    }
-                    .buttonStyle(.bordered)
                 }
                 .padding()
             } else if let prayerTimes = viewModel.prayerTimes {
@@ -85,8 +81,15 @@ struct PrayerTimesView: View {
                     VStack(spacing: 12) {
                         ForEach(prayerTimes.allPrayers, id: \.0) { prayerType, prayerTime in
                             HStack {
-                                Text(prayerType.displayName)
-                                    .font(.headline)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(prayerType.displayName)
+                                        .font(.headline)
+                                    if let prayer = Prayer(rawValue: prayerType.rawValue.lowercased()) {
+                                        Text("\(prayer.defaultRakahCount) rakahs")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
                                 Spacer()
                                 Text(prayerTime.formatted(date: .omitted, time: .shortened))
                                     .font(.body)
@@ -362,6 +365,19 @@ extension Color {
         notificationService: MockNotificationService(),
         prayerTimeService: MockPrayerTimeService(),
         settingsService: MockSettingsService(),
+        prayerTrackingService: PrayerTrackingService(
+            prayerTimeService: MockPrayerTimeService(),
+            settingsService: MockSettingsService(),
+            locationService: MockLocationService()
+        ),
+        tasbihService: TasbihService(),
+        islamicCalendarService: IslamicCalendarService(),
+        backgroundTaskManager: BackgroundTaskManager(),
+        backgroundPrayerRefreshService: BackgroundPrayerRefreshService(
+            prayerTimeService: MockPrayerTimeService(),
+            locationService: MockLocationService()
+        ),
+        apiConfiguration: .default,
         isTestEnvironment: true
     ))
 }

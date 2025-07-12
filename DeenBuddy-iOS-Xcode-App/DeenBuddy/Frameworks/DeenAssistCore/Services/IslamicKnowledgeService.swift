@@ -217,6 +217,8 @@ public class IslamicKnowledgeService: ObservableObject {
     }
     
     private func setupSampleData() {
+        // TODO: Replace with proper API calls to authentic Islamic content sources
+        // This is temporary hardcoded content for development/testing purposes
         // Sample Quran verses
         quranVerses = [
             QuranVerse(

@@ -113,6 +113,7 @@ public class ConfigurationManager: ObservableObject {
     }
     
     private func loadDevelopmentConfiguration() throws -> AppConfiguration {
+        // TODO: Move these credentials to environment variables or secure configuration
         // Store the actual Supabase keys securely if not already stored
         let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
         let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"

@@ -102,6 +102,8 @@ public class ContentService: ObservableObject {
     // MARK: - Private Methods
     
     private func setupMockContent() {
+        // TODO: Replace with proper content management system or API calls
+        // This is temporary hardcoded content for development/testing purposes
         // Create mock prayer guides for development
         let mockGuides = [
             // Fajr Guides

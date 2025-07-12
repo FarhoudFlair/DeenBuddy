@@ -1,6 +1,6 @@
 // MARK: - DeenAssist Core Module
 // This module provides all the core functionality for the Deen Assist iOS app
-// including location services, API integration, and notification management.
+// including location services, API integration, notification management, and Islamic feature flags.
 
 import Foundation
 
@@ -10,8 +10,17 @@ public struct DeenAssistCore {
     public static let buildNumber = "1"
     
     /// Initialize the core module with default configuration
+    @MainActor
     public static func initialize() {
         print("DeenAssist Core v\(version) (\(buildNumber)) initialized")
+
+        // Initialize feature flags
+        _ = IslamicFeatureFlags.shared
+
+        #if DEBUG
+        print("🚩 Islamic Feature Flags initialized")
+        FeatureFlag.printAllStatuses()
+        #endif
     }
     
     /// Create a dependency container for the app

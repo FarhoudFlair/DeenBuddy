@@ -40,8 +40,8 @@ class PrayerTimesViewModel: ObservableObject {
         self.settingsService = settingsService
     }
 
-    convenience init() async {
-        await self.init(container: DependencyContainer.shared)
+    convenience init() {
+        self.init(container: DependencyContainer.shared)
     }
     
     // Synchronous convenience initializer for Preview and testing
@@ -101,47 +101,29 @@ class PrayerTimesViewModel: ObservableObject {
         }
     }
     
-    @MainActor
-    func loadMockData() {
-        let now = Date()
-        let calendar = Calendar.current
-        
-        // Create mock prayer times for today
-        let fajrTime = calendar.date(bySettingHour: 5, minute: 30, second: 0, of: now) ?? now
-        let dhuhrTime = calendar.date(bySettingHour: 12, minute: 15, second: 0, of: now) ?? now
-        let asrTime = calendar.date(bySettingHour: 15, minute: 45, second: 0, of: now) ?? now
-        let maghribTime = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: now) ?? now
-        let ishaTime = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: now) ?? now
-        
-        self.prayerTimes = PrayerTimes(
-            date: now,
-            fajr: fajrTime,
-            dhuhr: dhuhrTime,
-            asr: asrTime,
-            maghrib: maghribTime,
-            isha: ishaTime,
-            calculationMethod: "Mock Data (Default)",
-            location: LocationCoordinate(latitude: 37.7749, longitude: -122.4194) // San Francisco
-        )
-        
-        self.errorMessage = nil
-        self.isLoading = false
-    }
 }
 
 // MARK: - Dummy Services for Fallback
+@MainActor
 private class DummyLocationService: LocationServiceProtocol {
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
     var currentLocation: CLLocation?
     var isUpdatingLocation: Bool = false
     var locationError: Error?
+    var currentHeading: Double = 0
+    var headingAccuracy: Double = -1
+    var isUpdatingHeading: Bool = false
     var permissionStatus: CLAuthorizationStatus { .notDetermined }
     var locationPublisher: AnyPublisher<CLLocation, Error> { Empty().eraseToAnyPublisher() }
+    var headingPublisher: AnyPublisher<CLHeading, Error> { Empty().eraseToAnyPublisher() }
     func requestLocationPermission() {}
-    func requestLocation() async throws -> CLLocation { throw LocationError.locationUnavailable }
+    func requestLocationPermissionAsync() async -> CLAuthorizationStatus { .notDetermined }
+    func requestLocation() async throws -> CLLocation { throw LocationError.locationUnavailable("Location unavailable in dummy service") }
     func startUpdatingLocation() {}
     func stopUpdatingLocation() {}
-    func geocodeCity(_ cityName: String) async throws -> CLLocation { throw LocationError.geocodingFailed }
+    func startUpdatingHeading() {}
+    func stopUpdatingHeading() {}
+    func geocodeCity(_ cityName: String) async throws -> CLLocation { throw LocationError.geocodingFailed("Geocoding failed in dummy service") }
 }
 
 @MainActor
@@ -154,7 +136,6 @@ private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var notificationOffset: TimeInterval = 300
     @Published var overrideBatteryOptimization: Bool = false
     @Published var hasCompletedOnboarding: Bool = false
-    @Published var overrideBatteryOptimization: Bool = false
     
     var enableNotifications: Bool {
         get { notificationsEnabled }

@@ -1,11 +1,12 @@
 import SwiftUI
 import CoreMotion
 import CoreLocation
+import Combine
 
 /// Qibla Compass screen with real-time direction to Kaaba
 public struct QiblaCompassScreen: View {
     private let locationService: any LocationServiceProtocol
-    @StateObject private var compassManager = CompassManager()
+    @StateObject private var compassManager: CompassManager
     
     let onDismiss: () -> Void
     
@@ -13,7 +14,6 @@ public struct QiblaCompassScreen: View {
     @State private var isLoading = true
     @State private var error: Error?
     @State private var showingCalibration = false
-    @State private var compassAccuracy: CompassAccuracy = .unknown
     
     public init(
         locationService: any LocationServiceProtocol,
@@ -21,6 +21,7 @@ public struct QiblaCompassScreen: View {
     ) {
         self.locationService = locationService
         self.onDismiss = onDismiss
+        self._compassManager = StateObject(wrappedValue: CompassManager(locationService: locationService))
     }
     
     public var body: some View {
@@ -71,7 +72,7 @@ public struct QiblaCompassScreen: View {
             }
             .sheet(isPresented: $showingCalibration) {
                 CalibrationView(
-                    accuracy: compassAccuracy,
+                    accuracy: compassManager.accuracy,
                     onDismiss: {
                         showingCalibration = false
                     }
@@ -144,14 +145,14 @@ public struct QiblaCompassScreen: View {
     private var accuracyIndicator: some View {
         HStack(spacing: 8) {
             Circle()
-                .fill(compassAccuracy.color)
+                .fill(compassManager.accuracy.color)
                 .frame(width: 12, height: 12)
             
-            Text(compassAccuracy.description)
+            Text(compassManager.accuracy.description)
                 .bodyMedium()
                 .foregroundColor(ColorPalette.textSecondary)
             
-            if compassAccuracy == .low {
+            if compassManager.accuracy == .low {
                 Button("Calibrate") {
                     showingCalibration = true
                 }
@@ -311,26 +312,42 @@ public struct QiblaCompassScreen: View {
         
         do {
             // First, check if we already have a location
-            guard let location = self.locationService.currentLocation else {
-                // If not, request permission and then actively request the location
-                _ = await self.locationService.requestLocationPermission()
-                
-                // Now actively request the location coordinates
-                let updatedLocation = try await self.locationService.requestLocation()
-                
-                // Calculate the direction with the obtained location
+            if let location = self.locationService.currentLocation {
+                // If we already had a location, calculate the direction
                 await MainActor.run {
-                    self.qiblaDirection = QiblaDirection.calculate(from: LocationCoordinate(latitude: updatedLocation.coordinate.latitude, 
-                                                                                         longitude: updatedLocation.coordinate.longitude))
+                    self.qiblaDirection = QiblaDirection.calculate(from: LocationCoordinate(latitude: location.coordinate.latitude, 
+                                                                                         longitude: location.coordinate.longitude))
                     self.isLoading = false
                 }
                 return
             }
             
-            // If we already had a location, calculate the direction
+            // Check current permission status
+            let currentPermissionStatus = self.locationService.permissionStatus
+            
+            // If permission is not determined, request it
+            if currentPermissionStatus == .notDetermined {
+                let permissionStatus = await self.locationService.requestLocationPermissionAsync()
+                
+                // Check if permission was granted
+                guard permissionStatus == .authorizedWhenInUse || permissionStatus == .authorizedAlways else {
+                    // Permission denied or restricted - throw appropriate error
+                    let permissionError = LocationError.permissionDenied("Location permission is required to determine Qibla direction. Please enable location access in Settings.")
+                    throw permissionError
+                }
+            } else if currentPermissionStatus == .denied || currentPermissionStatus == .restricted {
+                // Permission previously denied
+                let permissionError = LocationError.permissionDenied("Location permission is required to determine Qibla direction. Please enable location access in Settings.")
+                throw permissionError
+            }
+            
+            // At this point, we should have permission, so request location
+            let updatedLocation = try await self.locationService.requestLocation()
+            
+            // Calculate the direction with the obtained location
             await MainActor.run {
-                self.qiblaDirection = QiblaDirection.calculate(from: LocationCoordinate(latitude: location.coordinate.latitude, 
-                                                                                     longitude: location.coordinate.longitude))
+                self.qiblaDirection = QiblaDirection.calculate(from: LocationCoordinate(latitude: updatedLocation.coordinate.latitude, 
+                                                                                     longitude: updatedLocation.coordinate.longitude))
                 self.isLoading = false
             }
             
@@ -410,45 +427,72 @@ private struct CalibrationView: View {
 // MARK: - Compass Manager
 
 @MainActor
-private class CompassManager: NSObject, ObservableObject {
+private class CompassManager: ObservableObject {
     @Published var heading: Double = 0
     @Published var accuracy: CompassAccuracy = .unknown
     
-    private let motionManager = CMMotionManager()
-    private let locationManager = CLLocationManager()
+    private let locationService: any LocationServiceProtocol
+    private var headingCancellable: AnyCancellable?
     
-    override init() {
-        super.init()
-        locationManager.delegate = self
+    init(locationService: any LocationServiceProtocol) {
+        self.locationService = locationService
+        setupHeadingSubscription()
+    }
+    
+    private func setupHeadingSubscription() {
+        headingCancellable = locationService.headingPublisher
+            .receive(on: DispatchQueue.main)
+            .sink(
+                receiveCompletion: { completion in
+                    if case .failure(let error) = completion {
+                        print("❌ Compass: Heading update failed: \(error)")
+                    }
+                },
+                receiveValue: { [weak self] newHeading in
+                    self?.processHeading(newHeading)
+                }
+            )
+    }
+    
+    private func processHeading(_ newHeading: CLHeading) {
+        heading = newHeading.magneticHeading
+        
+        // Update accuracy based on heading accuracy
+        if newHeading.headingAccuracy < 0 {
+            accuracy = .unknown
+        } else if newHeading.headingAccuracy < 5 {
+            accuracy = .high
+        } else if newHeading.headingAccuracy < 15 {
+            accuracy = .medium
+        } else {
+            accuracy = .low
+        }
     }
     
     func startUpdating() {
-        guard CLLocationManager.headingAvailable() else { return }
+        guard CLLocationManager.headingAvailable() else { 
+            print("❌ Compass: Heading not available")
+            return 
+        }
         
-        locationManager.startUpdatingHeading()
+        // Check location authorization for compass using the shared location service
+        let authStatus = locationService.permissionStatus
+        guard authStatus == .authorizedWhenInUse || authStatus == .authorizedAlways else {
+            print("❌ Compass: Location permission required for compass functionality. Current status: \(authStatus)")
+            return
+        }
+        
+        locationService.startUpdatingHeading()
+        print("🧭 Compass: Started updating heading via LocationService")
     }
     
     func stopUpdating() {
-        locationManager.stopUpdatingHeading()
+        locationService.stopUpdatingHeading()
+        print("🧭 Compass: Stopped updating heading via LocationService")
     }
-}
-
-extension CompassManager: @preconcurrency CLLocationManagerDelegate {
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
-        Task { @MainActor in
-            heading = newHeading.magneticHeading
-            
-            // Update accuracy based on heading accuracy
-            if newHeading.headingAccuracy < 0 {
-                accuracy = .unknown
-            } else if newHeading.headingAccuracy < 5 {
-                accuracy = .high
-            } else if newHeading.headingAccuracy < 15 {
-                accuracy = .medium
-            } else {
-                accuracy = .low
-            }
-        }
+    
+    deinit {
+        headingCancellable?.cancel()
     }
 }
 

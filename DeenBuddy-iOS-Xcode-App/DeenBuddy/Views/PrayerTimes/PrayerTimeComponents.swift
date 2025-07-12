@@ -382,7 +382,7 @@ struct SecondaryButtonStyle: ButtonStyle {
 #Preview("Date Header") {
     DateHeaderView(
         dualCalendarDate: DualCalendarDate(gregorianDate: Date()),
-        todaysEvents: [.ramadanStart, .laylalQadr]
+        todaysEvents: [] // Empty for preview - events would be loaded from service
     )
     .padding()
 }

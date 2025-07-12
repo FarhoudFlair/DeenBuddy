@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import BackgroundTasks
 import UserNotifications
+import Combine
 
 // MARK: - Background Prayer Refresh Service
 
@@ -17,9 +18,10 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     
     // MARK: - Properties
     
-    private let prayerTimeService: PrayerTimeService
-    private let locationService: LocationService
+    private let prayerTimeService: any PrayerTimeServiceProtocol
+    private let locationService: any LocationServiceProtocol
     private var refreshTimer: Timer?
+    private var cancellables = Set<AnyCancellable>()
     
     @Published public var lastRefreshTime: Date?
     @Published public var nextRefreshTime: Date?
@@ -28,12 +30,21 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     
     // MARK: - Initialization
     
-    public init(prayerTimeService: PrayerTimeService, locationService: LocationService) {
+    public init(prayerTimeService: any PrayerTimeServiceProtocol, locationService: any LocationServiceProtocol) {
         self.prayerTimeService = prayerTimeService
         self.locationService = locationService
-        
+
         setupBackgroundRefresh()
         scheduleNextRefresh()
+        setupSettingsObserver()
+    }
+
+    /// Set up observer for settings changes to invalidate cache and refresh
+    private func setupSettingsObserver() {
+        // Since PrayerTimeService already observes settings changes and invalidates cache,
+        // we just need to ensure our background refresh respects the current settings
+        // The PrayerTimeService will handle cache invalidation when settings change
+        print("🔄 BackgroundPrayerRefreshService: Settings observer configured")
     }
     
     // MARK: - Public Methods

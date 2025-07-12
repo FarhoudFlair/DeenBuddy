@@ -9,6 +9,9 @@ public class MockLocationService: LocationServiceProtocol {
     @Published public var currentLocation: CLLocation? = nil
     @Published public var isUpdatingLocation: Bool = false
     @Published public var locationError: Error? = nil
+    @Published public var currentHeading: Double = 0
+    @Published public var headingAccuracy: Double = 5.0
+    @Published public var isUpdatingHeading: Bool = false
     
     // MARK: - Protocol Compliance Properties
     
@@ -19,9 +22,14 @@ public class MockLocationService: LocationServiceProtocol {
     // MARK: - Publishers
     
     private let locationSubject = PassthroughSubject<CLLocation, Error>()
+    private let headingSubject = PassthroughSubject<CLHeading, Error>()
     
     public var locationPublisher: AnyPublisher<CLLocation, Error> {
         locationSubject.eraseToAnyPublisher()
+    }
+    
+    public var headingPublisher: AnyPublisher<CLHeading, Error> {
+        headingSubject.eraseToAnyPublisher()
     }
     
     public init() {}
@@ -68,6 +76,35 @@ public class MockLocationService: LocationServiceProtocol {
         isUpdatingLocation = false
     }
     
+    public func startUpdatingHeading() {
+        isUpdatingHeading = true
+        
+        // Simulate heading updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.simulateHeadingUpdate()
+        }
+    }
+    
+    public func stopUpdatingHeading() {
+        isUpdatingHeading = false
+    }
+    
+    private func simulateHeadingUpdate() {
+        guard isUpdatingHeading else { return }
+        
+        // Simulate compass heading that slowly rotates
+        currentHeading = (currentHeading + 1).truncatingRemainder(dividingBy: 360)
+        
+        // Create a mock CLHeading
+        let mockHeading = MockCLHeading(magneticHeading: currentHeading, headingAccuracy: headingAccuracy)
+        headingSubject.send(mockHeading)
+        
+        // Schedule next update
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.simulateHeadingUpdate()
+        }
+    }
+    
     public func geocodeCity(_ cityName: String) async throws -> CLLocation {
         // Simulate network delay
         try await Task.sleep(nanoseconds: 1_000_000_000)
@@ -87,7 +124,32 @@ public class MockLocationService: LocationServiceProtocol {
         case "istanbul":
             return CLLocation(latitude: 41.0082, longitude: 28.9784)
         default:
-            throw LocationError.geocodingFailed
+            throw LocationError.geocodingFailed("Failed to find location for city: \(cityName)")
         }
+    }
+}
+
+// MARK: - Mock CLHeading
+
+private class MockCLHeading: CLHeading {
+    private let _magneticHeading: Double
+    private let _headingAccuracy: Double
+    
+    init(magneticHeading: Double, headingAccuracy: Double) {
+        self._magneticHeading = magneticHeading
+        self._headingAccuracy = headingAccuracy
+        super.init()
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override var magneticHeading: CLLocationDirection {
+        return _magneticHeading
+    }
+    
+    override var headingAccuracy: CLLocationDirection {
+        return _headingAccuracy
     }
 }

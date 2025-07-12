@@ -4,6 +4,7 @@ import Combine
 
 // MARK: - Notification Service Implementation
 
+@MainActor
 public class NotificationService: NSObject, NotificationServiceProtocol, ObservableObject {
     
     // MARK: - Published Properties
@@ -42,6 +43,26 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     }
     
     // MARK: - Protocol Implementation
+    
+    /// Request notification permission from user
+    public func requestNotificationPermission() async throws -> Bool {
+        let settings = await notificationCenter.notificationSettings()
+        
+        switch settings.authorizationStatus {
+        case .authorized, .provisional:
+            return true
+        case .denied:
+            return false
+        case .notDetermined:
+            let granted = try await notificationCenter.requestAuthorization(options: [.alert, .sound, .badge])
+            await updatePermissionStatus()
+            return granted
+        case .ephemeral:
+            return false
+        @unknown default:
+            return false
+        }
+    }
     
     /// Schedules prayer notifications for the given prayer times. If the array is empty, cancels notifications only for the relevant date.
     /// - Parameters:

@@ -144,9 +144,11 @@ public class BatteryOptimizer: ObservableObject {
         
         locationUpdateTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
             // Only update if conditions are favorable
-            if self.shouldPerformLocationUpdate() {
-                callback()
-                self.lastLocationUpdate = Date()
+            Task { @MainActor in
+                if await self.shouldPerformLocationUpdate(hasLocationPermission: false) {
+                    callback()
+                    self.lastLocationUpdate = Date()
+                }
             }
         }
         
@@ -253,13 +255,27 @@ public class BatteryOptimizer: ObservableObject {
         }
     }
     
-    func shouldPerformLocationUpdate(userOverride: Bool = false) -> Bool {
+    func shouldPerformLocationUpdate(userOverride: Bool = false, hasLocationPermission: Bool = false) async -> Bool {
         // User override bypasses all battery optimization
         if userOverride {
             return true
         }
         
-        // Don't update too frequently
+        // If user has granted location permission, prioritize their needs over battery optimization
+        // Only block if battery is critically low (below 5%)
+        if hasLocationPermission {
+            // Still respect extremely low battery levels
+            if batteryLevel < 0.05 {
+                print("🔋 Location blocked due to critically low battery: \(Int(batteryLevel * 100))%")
+                return false
+            }
+            
+            // Allow location updates when user has granted permission
+            print("📍 Location allowed due to granted permission, battery: \(Int(batteryLevel * 100))%")
+            return true
+        }
+        
+        // Don't update too frequently for background updates
         let timeSinceLastUpdate = Date().timeIntervalSince(lastLocationUpdate)
         let minInterval = getOptimizedUpdateInterval() * 0.8 // 80% of interval
         

@@ -88,15 +88,8 @@ public class AccessibilityService: ObservableObject {
     public func announceToVoiceOver(_ text: String, priority: String = "medium") {
         guard isVoiceOverEnabled else { return }
         
-        if #available(iOS 17.0, *) {
-            let mappedPriority = mapPriority(priority)
-            let userInfo: [UIAccessibility.AnnouncementKey: Any] = [
-                .priority: mappedPriority
-            ]
-            UIAccessibility.post(notification: .announcement, argument: text, userInfo: userInfo)
-        } else {
-            UIAccessibility.post(notification: .announcement, argument: text)
-        }
+        // For now, post announcement without priority due to iOS SDK limitations
+        UIAccessibility.post(notification: .announcement, argument: text)
         
         print("🔊 VoiceOver announcement: \(text) [priority: \(priority)]")
     }
@@ -173,18 +166,6 @@ public class AccessibilityService: ObservableObject {
         print("♿ Accessibility settings updated: VoiceOver=\(isVoiceOverEnabled), ReduceMotion=\(isReduceMotionEnabled)")
     }
 
-    // Map string priority to UIAccessibility.AnnouncementPriority (iOS 17+)
-    @available(iOS 17.0, *)
-    private func mapPriority(_ priority: String) -> UIAccessibility.AnnouncementPriority {
-        switch priority.lowercased() {
-        case "low":
-            return .low
-        case "high":
-            return .high
-        default:
-            return .medium
-        }
-    }
 }
 
 // MARK: - Accessibility Summary

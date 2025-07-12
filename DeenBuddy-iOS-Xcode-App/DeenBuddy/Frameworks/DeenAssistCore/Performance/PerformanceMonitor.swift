@@ -32,7 +32,7 @@ public class PerformanceMonitor: ObservableObject {
     }
     
     deinit {
-        Task { await self.stopMonitoring() }
+        Task { [weak self] in await self?.stopMonitoring() }
     }
     
     // MARK: - Public Methods

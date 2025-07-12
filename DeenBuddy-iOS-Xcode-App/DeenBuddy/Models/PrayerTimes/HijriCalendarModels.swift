@@ -9,13 +9,13 @@ import Foundation
 
 // MARK: - Hijri Date
 
-/// Represents a date in the Islamic (Hijri) calendar
-public struct HijriDate: Codable, Equatable {
+/// Represents a date in the Islamic (Hijri) calendar (Legacy)
+public struct LegacyHijriDate: Codable, Equatable {
     public let day: Int
-    public let month: HijriMonth
+    public let month: LegacyHijriMonth
     public let year: Int
-    
-    public init(day: Int, month: HijriMonth, year: Int) {
+
+    public init(day: Int, month: LegacyHijriMonth, year: Int) {
         self.day = day
         self.month = month
         self.year = year
@@ -40,7 +40,7 @@ public struct HijriDate: Codable, Equatable {
 // MARK: - Hijri Month
 
 /// Islamic calendar months
-public enum HijriMonth: Int, CaseIterable, Codable, Identifiable {
+public enum LegacyHijriMonth: Int, CaseIterable, Codable, Identifiable {
     case muharram = 1
     case safar = 2
     case rabiAlAwwal = 3
@@ -144,8 +144,8 @@ public enum HijriMonth: Int, CaseIterable, Codable, Identifiable {
 
 // MARK: - Islamic Calendar Events
 
-/// Important Islamic calendar events
-public enum IslamicEvent: String, CaseIterable, Codable, Identifiable {
+/// Important Islamic calendar events (Predefined)
+public enum PredefinedIslamicEvent: String, CaseIterable, Codable, Identifiable {
     case newYear = "new_year"
     case ashura = "ashura"
     case mawlidNabawi = "mawlid_nabawi"
@@ -213,7 +213,7 @@ public enum IslamicEvent: String, CaseIterable, Codable, Identifiable {
     }
     
     /// Month when this event typically occurs
-    public var month: HijriMonth {
+    public var month: LegacyHijriMonth {
         switch self {
         case .newYear: return .muharram
         case .ashura: return .muharram
@@ -250,22 +250,22 @@ public struct CalendarConverter {
     
     /// Convert Gregorian date to approximate Hijri date
     /// Note: This is an approximation. For precise dates, astronomical calculations are needed
-    public static func gregorianToHijri(_ gregorianDate: Date) -> HijriDate {
+    public static func gregorianToHijri(_ gregorianDate: Date) -> LegacyHijriDate {
         let calendar = Calendar(identifier: .islamicUmmAlQura)
         let components = calendar.dateComponents([.year, .month, .day], from: gregorianDate)
-        
+
         let year = components.year ?? 1445
         let monthNumber = components.month ?? 1
         let day = components.day ?? 1
-        
-        let month = HijriMonth(rawValue: monthNumber) ?? .muharram
-        
-        return HijriDate(day: day, month: month, year: year)
+
+        let month = LegacyHijriMonth(rawValue: monthNumber) ?? .muharram
+
+        return LegacyHijriDate(day: day, month: month, year: year)
     }
     
     /// Convert approximate Hijri date to Gregorian date
     /// Note: This is an approximation. For precise dates, astronomical calculations are needed
-    public static func hijriToGregorian(_ hijriDate: HijriDate) -> Date? {
+    public static func hijriToGregorian(_ hijriDate: LegacyHijriDate) -> Date? {
         let calendar = Calendar(identifier: .islamicUmmAlQura)
         let components = DateComponents(
             year: hijriDate.year,
@@ -277,16 +277,16 @@ public struct CalendarConverter {
     }
     
     /// Get current Hijri date
-    public static func currentHijriDate() -> HijriDate {
+    public static func currentHijriDate() -> LegacyHijriDate {
         return gregorianToHijri(Date())
     }
-    
+
     /// Check if a given Gregorian date corresponds to an Islamic event
-    public static func getIslamicEvents(for gregorianDate: Date) -> [IslamicEvent] {
+    public static func getIslamicEvents(for gregorianDate: Date) -> [PredefinedIslamicEvent] {
         let hijriDate = gregorianToHijri(gregorianDate)
-        var events: [IslamicEvent] = []
-        
-        for event in IslamicEvent.allCases {
+        var events: [PredefinedIslamicEvent] = []
+
+        for event in PredefinedIslamicEvent.allCases {
             if event.month == hijriDate.month,
                let eventDay = event.approximateDay,
                abs(eventDay - hijriDate.day) <= 1 { // Allow 1 day tolerance
@@ -303,8 +303,8 @@ public struct CalendarConverter {
 /// Helper for displaying both Gregorian and Hijri dates
 public struct DualCalendarDate {
     public let gregorianDate: Date
-    public let hijriDate: HijriDate
-    
+    public let hijriDate: LegacyHijriDate
+
     public init(gregorianDate: Date) {
         self.gregorianDate = gregorianDate
         self.hijriDate = CalendarConverter.gregorianToHijri(gregorianDate)
@@ -333,7 +333,7 @@ public struct DualCalendarDate {
     }
     
     /// Islamic events occurring on this date
-    public var islamicEvents: [IslamicEvent] {
+    public var islamicEvents: [PredefinedIslamicEvent] {
         return CalendarConverter.getIslamicEvents(for: gregorianDate)
     }
 }

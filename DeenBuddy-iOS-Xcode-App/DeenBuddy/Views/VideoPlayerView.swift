@@ -256,16 +256,14 @@ struct VideoPlayerView: View {
         let timeScale = CMTimeScale(NSEC_PER_SEC)
         let time = CMTime(seconds: 0.1, preferredTimescale: timeScale)
         
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { [weak self] time in
-            guard let self = self else { return }
+        timeObserverToken = player.addPeriodicTimeObserver(forInterval: time, queue: .main) { time in
             self.currentTime = CMTimeGetSeconds(time)
         }
         
         // Playback state observer
         player.publisher(for: \.timeControlStatus)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                guard let self = self else { return }
+            .sink { status in
                 self.isPlaying = status == .playing
             }
             .store(in: &cancellables)
@@ -273,8 +271,7 @@ struct VideoPlayerView: View {
         // Error observer
         player.publisher(for: \.error)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] playerError in
-                guard let self = self else { return }
+            .sink { playerError in
                 if playerError != nil {
                     self.error = playerError
                     self.isLoading = false

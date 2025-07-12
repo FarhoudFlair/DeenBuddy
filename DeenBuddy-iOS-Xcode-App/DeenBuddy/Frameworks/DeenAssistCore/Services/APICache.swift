@@ -38,28 +38,28 @@ public class APICache: APICacheProtocol {
     
     // MARK: - Protocol Implementation
     
-    public func cachePrayerTimes(_ prayerTimes: PrayerTimes, for date: Date, location: LocationCoordinate) {
+    public func cachePrayerTimes(_ prayerTimes: PrayerTimes, for date: Date, location: LocationCoordinate, calculationMethod: CalculationMethod, madhab: Madhab) {
         queue.async(flags: .barrier) {
-            let key = self.prayerTimesCacheKey(for: date, location: location)
+            let key = self.prayerTimesCacheKey(for: date, location: location, calculationMethod: calculationMethod, madhab: madhab)
             let cacheEntry = CacheEntry(
                 data: prayerTimes,
                 timestamp: Date(),
                 expirationTime: self.prayerTimesExpirationTime
             )
-            
+
             self.storeCacheEntry(cacheEntry, forKey: key)
         }
     }
-    
-    public func getCachedPrayerTimes(for date: Date, location: LocationCoordinate) -> PrayerTimes? {
+
+    public func getCachedPrayerTimes(for date: Date, location: LocationCoordinate, calculationMethod: CalculationMethod, madhab: Madhab) -> PrayerTimes? {
         return queue.sync {
-            let key = prayerTimesCacheKey(for: date, location: location)
-            
+            let key = prayerTimesCacheKey(for: date, location: location, calculationMethod: calculationMethod, madhab: madhab)
+
             guard let cacheEntry: CacheEntry<PrayerTimes> = getCacheEntry(forKey: key),
                   !cacheEntry.isExpired else {
                 return nil
             }
-            
+
             return cacheEntry.data
         }
     }
@@ -101,18 +101,58 @@ public class APICache: APICacheProtocol {
             // Clear UserDefaults cache
             let keys = self.userDefaults.dictionaryRepresentation().keys
             for key in keys {
-                if key.hasPrefix(CacheKeys.prayerTimesPrefix) || 
+                if key.hasPrefix(CacheKeys.prayerTimesPrefix) ||
                    key.hasPrefix(CacheKeys.qiblaDirectionPrefix) {
                     self.userDefaults.removeObject(forKey: key)
                 }
             }
-            
+
             // Clear file cache
             try? self.fileManager.removeItem(at: self.cacheDirectory)
             self.createCacheDirectoryIfNeeded()
-            
+
             // Clear metadata
             self.userDefaults.removeObject(forKey: CacheKeys.cacheMetadata)
+        }
+    }
+
+    public func clearPrayerTimeCache() {
+        queue.async(flags: .barrier) {
+            print("🗑️ Clearing APICache prayer time entries...")
+
+            // Clear UserDefaults prayer time cache
+            let keys = self.userDefaults.dictionaryRepresentation().keys
+            var clearedCount = 0
+
+            for key in keys {
+                if key.hasPrefix(CacheKeys.prayerTimesPrefix) {
+                    self.userDefaults.removeObject(forKey: key)
+                    clearedCount += 1
+                }
+            }
+
+            // Clear file-based prayer time cache
+            let metadata = self.getCacheMetadata()
+            var updatedMetadata = metadata
+
+            for (key, _) in metadata {
+                if key.hasPrefix(CacheKeys.prayerTimesPrefix) {
+                    // Remove from file system
+                    let fileURL = self.cacheDirectory.appendingPathComponent(key.replacingOccurrences(of: ".", with: "_"))
+                    try? self.fileManager.removeItem(at: fileURL)
+
+                    // Remove from metadata
+                    updatedMetadata.removeValue(forKey: key)
+                    clearedCount += 1
+                }
+            }
+
+            // Update metadata
+            if let data = try? JSONEncoder().encode(updatedMetadata) {
+                self.userDefaults.set(data, forKey: CacheKeys.cacheMetadata)
+            }
+
+            print("✅ APICache: Cleared \(clearedCount) prayer time cache entries")
         }
     }
     
@@ -130,12 +170,16 @@ public class APICache: APICacheProtocol {
         }
     }
     
-    private func prayerTimesCacheKey(for date: Date, location: LocationCoordinate) -> String {
+    private func prayerTimesCacheKey(for date: Date, location: LocationCoordinate, calculationMethod: CalculationMethod, madhab: Madhab) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let dateString = formatter.string(from: date)
-        
-        return "\(CacheKeys.prayerTimesPrefix)\(dateString)_\(location.latitude)_\(location.longitude)"
+
+        // Include calculation method and madhab in cache key for method-specific caching
+        let methodKey = calculationMethod.rawValue
+        let madhabKey = madhab.rawValue
+
+        return "\(CacheKeys.prayerTimesPrefix)\(dateString)_\(location.latitude)_\(location.longitude)_\(methodKey)_\(madhabKey)"
     }
     
     private func qiblaDirectionCacheKey(for location: LocationCoordinate) -> String {

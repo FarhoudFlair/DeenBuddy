@@ -55,7 +55,7 @@ public class AppLifecycleManager: ObservableObject {
         let backgroundTask = self.backgroundTask
         let backgroundTimer = self.backgroundTimer
 
-        let cleanup: () -> Void = {
+        let cleanup: @MainActor () -> Void = {
             backgroundTimer?.invalidate()
             if backgroundTask != .invalid {
                 UIApplication.shared.endBackgroundTask(backgroundTask)
@@ -63,9 +63,9 @@ public class AppLifecycleManager: ObservableObject {
             }
         }
         if Thread.isMainThread {
-            cleanup()
+            Task { @MainActor in cleanup() }
         } else {
-            DispatchQueue.main.async(execute: cleanup)
+            Task { @MainActor in cleanup() }
         }
     }
     

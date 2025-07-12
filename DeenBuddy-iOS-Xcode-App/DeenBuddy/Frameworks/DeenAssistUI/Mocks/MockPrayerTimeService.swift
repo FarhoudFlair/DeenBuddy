@@ -12,8 +12,11 @@ public class MockPrayerTimeService: PrayerTimeServiceProtocol {
     @Published public var madhab: Madhab = .shafi
     @Published public var isLoading: Bool = false
     @Published public var error: Error? = nil
-    
+
     private var timer: Timer?
+
+    // Mock location for testing (Mecca coordinates)
+    private let mockLocation = CLLocation(latitude: 21.4225, longitude: 39.8262)
     
     public init() {
         generateMockPrayerTimes()
@@ -52,16 +55,20 @@ public class MockPrayerTimeService: PrayerTimeServiceProtocol {
     
     public func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] {
         var result: [Date: [PrayerTime]] = [:]
-        
+
         let calendar = Calendar.current
         var currentDate = startDate
-        
+
         while currentDate <= endDate {
             result[currentDate] = generateMockPrayerTimes(for: currentDate)
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
         }
-        
+
         return result
+    }
+
+    public func getCurrentLocation() async throws -> CLLocation {
+        return mockLocation
     }
     
     private func generateMockPrayerTimes(for date: Date = Date()) -> [PrayerTime] {

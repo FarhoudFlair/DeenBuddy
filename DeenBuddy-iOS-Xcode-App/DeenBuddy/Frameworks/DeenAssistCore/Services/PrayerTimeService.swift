@@ -3,6 +3,11 @@ import CoreLocation
 import Combine
 import Adhan
 
+// MARK: - Notification Names
+extension Notification.Name {
+    static let settingsDidChange = Notification.Name("settingsDidChange")
+}
+
 /// Real implementation of PrayerTimeServiceProtocol using AdhanSwift
 public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
@@ -11,14 +16,22 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     @Published public var todaysPrayerTimes: [PrayerTime] = []
     @Published public var nextPrayer: PrayerTime? = nil
     @Published public var timeUntilNextPrayer: TimeInterval? = nil
-    @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague
-    @Published public var madhab: Madhab = .shafi
+    // Computed properties that reference SettingsService (single source of truth)
+    public var calculationMethod: CalculationMethod {
+        settingsService.calculationMethod
+    }
+
+    public var madhab: Madhab {
+        settingsService.madhab
+    }
     @Published public var isLoading: Bool = false
     @Published public var error: Error? = nil
     
     // MARK: - Private Properties
 
     private let locationService: any LocationServiceProtocol
+    private let settingsService: any SettingsServiceProtocol
+    private let apiClient: any APIClientProtocol
     private let errorHandler: ErrorHandler
     private let retryMechanism: RetryMechanism
     private let networkMonitor: NetworkMonitor
@@ -26,26 +39,27 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private var timer: Timer?
     private let userDefaults = UserDefaults.standard
     
-    // MARK: - Cache Keys
-    
-    private enum CacheKeys {
-        static let calculationMethod = "DeenAssist.CalculationMethod"
-        static let madhab = "DeenAssist.Madhab"
-        static let cachedPrayerTimes = "DeenAssist.CachedPrayerTimes"
-        static let cacheDate = "DeenAssist.CacheDate"
-    }
+    // MARK: - Cache Keys (Now using UnifiedSettingsKeys)
+    // Note: CacheKeys enum removed - now using UnifiedSettingsKeys for consistency
     
     // MARK: - Initialization
     
-    public init(locationService: any LocationServiceProtocol, errorHandler: ErrorHandler, retryMechanism: RetryMechanism, networkMonitor: NetworkMonitor) {
+    public init(locationService: any LocationServiceProtocol, settingsService: any SettingsServiceProtocol, apiClient: any APIClientProtocol, errorHandler: ErrorHandler, retryMechanism: RetryMechanism, networkMonitor: NetworkMonitor) {
         self.locationService = locationService
+        self.settingsService = settingsService
+        self.apiClient = apiClient
         self.errorHandler = errorHandler
         self.retryMechanism = retryMechanism
         self.networkMonitor = networkMonitor
-        loadSettings()
         setupLocationObserver()
         setupSettingsObservers()
         startTimer()
+
+        // Load any existing cached prayer times
+        if let cachedTimes = loadCachedPrayerTimes() {
+            todaysPrayerTimes = cachedTimes
+            updateNextPrayer()
+        }
     }
     
     deinit {
@@ -107,6 +121,9 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
     
     public func refreshPrayerTimes() async {
+        isLoading = true
+        defer { isLoading = false }
+
         do {
             // Check for cached data first if offline
             if await !networkMonitor.isConnected {
@@ -117,34 +134,50 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 }
             }
 
-            // Fix: Remove .clLocation property access - use currentLocation directly
-            guard let location = locationService.currentLocation else {
+            // Try to get location if not available
+            var location = locationService.currentLocation
+            if location == nil {
+                // Try to request location if we have permission
+                if locationService.authorizationStatus == .authorizedWhenInUse ||
+                   locationService.authorizationStatus == .authorizedAlways {
+                    do {
+                        location = try await locationService.requestLocation()
+                    } catch {
+                        print("Failed to get location for prayer times: \(error)")
+                    }
+                }
+            }
+
+            guard let validLocation = location else {
                 let locationError = AppError.locationUnavailable
                 error = locationError
-                await errorHandler.handleError(locationError)
+                // Don't log this as an error if permission is not granted
+                if locationService.authorizationStatus == .authorizedWhenInUse ||
+                   locationService.authorizationStatus == .authorizedAlways {
+                    await errorHandler.handleError(locationError)
+                }
                 return
             }
 
-            let prayerTimes = try await calculatePrayerTimes(for: location, date: Date())
+            let prayerTimes = try await calculatePrayerTimes(for: validLocation, date: Date())
             todaysPrayerTimes = prayerTimes
             updateNextPrayer()
+            error = nil // Clear any previous errors
         } catch {
             let appError = convertToAppError(error)
             self.error = appError
             await errorHandler.handleError(appError)
         }
     }
-    
+
     public func refreshTodaysPrayerTimes() async {
+        // Alias for refreshPrayerTimes() to satisfy BackgroundTaskManager requirements
         await refreshPrayerTimes()
     }
-    
+
     public func getCurrentLocation() async throws -> CLLocation {
-        // Fix: Remove .clLocation property access - use currentLocation directly
-        guard let location = locationService.currentLocation else {
-            throw AppError.locationUnavailable
-        }
-        return location
+        // Delegate to location service
+        return try await locationService.requestLocation()
     }
     
     public func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] {
@@ -172,27 +205,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
     // MARK: - Private Methods
     
-    private func loadSettings() {
-        if let methodRawValue = userDefaults.string(forKey: CacheKeys.calculationMethod),
-           let method = CalculationMethod(rawValue: methodRawValue) {
-            calculationMethod = method
-        }
-        
-        if let madhabRawValue = userDefaults.string(forKey: CacheKeys.madhab),
-           let madhab = Madhab(rawValue: madhabRawValue) {
-            self.madhab = madhab
-        }
-        
-        if let cachedTimes = loadCachedPrayerTimes() {
-            todaysPrayerTimes = cachedTimes
-            updateNextPrayer()
-        }
-    }
-    
-    private func saveSettings() {
-        userDefaults.set(calculationMethod.rawValue, forKey: CacheKeys.calculationMethod)
-        userDefaults.set(madhab.rawValue, forKey: CacheKeys.madhab)
-    }
+    // Note: Settings management removed - now handled by SettingsService
+    // PrayerTimeService only manages prayer time calculations and caching
     
     private func setupLocationObserver() {
         locationService.locationPublisher
@@ -213,29 +227,75 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
 
     private func setupSettingsObservers() {
-        // Observe calculation method changes
-        $calculationMethod
-            .dropFirst() // Skip initial value
+        // Use NotificationCenter to avoid the existential type ObjectWillChangePublisher issue
+        // This is a robust solution that works with protocol-typed instances
+        NotificationCenter.default.publisher(for: .settingsDidChange)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.saveSettings()
                 Task {
-                    await self?.refreshPrayerTimes()
+                    await self?.invalidateCacheAndRefresh()
                 }
             }
             .store(in: &cancellables)
+    }
 
-        // Observe madhab changes
-        $madhab
-            .dropFirst() // Skip initial value
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.saveSettings()
-                Task {
-                    await self?.refreshPrayerTimes()
-                }
+    /// Invalidates cached prayer times and triggers recalculation when settings change
+    private func invalidateCacheAndRefresh() async {
+        print("Settings changed - invalidating cache and refreshing prayer times")
+
+        // Clear all cached prayer times from all cache systems
+        await invalidateAllPrayerTimeCaches()
+
+        // Recalculate prayer times with new settings
+        await refreshPrayerTimes()
+    }
+
+    /// Comprehensive cache invalidation across all cache systems
+    private func invalidateAllPrayerTimeCaches() async {
+        print("🗑️ Starting comprehensive cache invalidation...")
+
+        // 1. Clear local UserDefaults cache (existing implementation)
+        clearLocalCachedPrayerTimes()
+
+        // 2. Clear APICache prayer times through APIClient
+        apiClient.clearPrayerTimeCache()
+
+        // 3. Clear IslamicCacheManager prayer times
+        await clearIslamicCacheManagerPrayerTimes()
+
+        print("✅ Comprehensive cache invalidation completed")
+    }
+
+    /// Clears all cached prayer times from UserDefaults (local cache)
+    private func clearLocalCachedPrayerTimes() {
+        let allKeys = userDefaults.dictionaryRepresentation().keys
+        let cachePrefix = UnifiedSettingsKeys.cachedPrayerTimes + "_"
+
+        var clearedCount = 0
+        for key in allKeys {
+            if key.hasPrefix(cachePrefix) {
+                userDefaults.removeObject(forKey: key)
+                clearedCount += 1
+                print("Cleared local cached prayer times for key: \(key)")
             }
-            .store(in: &cancellables)
+        }
+
+        userDefaults.removeObject(forKey: UnifiedSettingsKeys.cacheDate)
+        userDefaults.synchronize()
+
+        print("✅ Local cache: Cleared \(clearedCount) prayer time cache entries")
+    }
+
+    /// Clears prayer time cache from IslamicCacheManager
+    private func clearIslamicCacheManagerPrayerTimes() async {
+        // Create a temporary instance to clear cache
+        // Note: In a production app, this should be injected as a dependency
+        await MainActor.run {
+            let cacheManager = IslamicCacheManager()
+            // Clear only prayer time related cache
+            cacheManager.clearPrayerTimeCache()
+            print("IslamicCacheManager prayer times cleared")
+        }
     }
     
     private func startTimer() {
@@ -276,20 +336,30 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let dateKey = dateFormatter.string(from: date)
-        
+
+        // Include calculation method and madhab in cache key
+        let methodKey = calculationMethod.rawValue
+        let madhabKey = madhab.rawValue
+        let cacheKey = "\(UnifiedSettingsKeys.cachedPrayerTimes)_\(dateKey)_\(methodKey)_\(madhabKey)"
+
         if let data = try? JSONEncoder().encode(prayerTimes) {
-            userDefaults.set(data, forKey: "\(CacheKeys.cachedPrayerTimes)_\(dateKey)")
-            userDefaults.set(dateKey, forKey: CacheKeys.cacheDate)
+            userDefaults.set(data, forKey: cacheKey)
+            userDefaults.set(dateKey, forKey: UnifiedSettingsKeys.cacheDate)
         }
     }
-    
+
     private func loadCachedPrayerTimes() -> [PrayerTime]? {
         let today = Date()
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
         let todayKey = dateFormatter.string(from: today)
 
-        if let data = userDefaults.data(forKey: "\(CacheKeys.cachedPrayerTimes)_\(todayKey)"),
+        // Include calculation method and madhab in cache key
+        let methodKey = calculationMethod.rawValue
+        let madhabKey = madhab.rawValue
+        let cacheKey = "\(UnifiedSettingsKeys.cachedPrayerTimes)_\(todayKey)_\(methodKey)_\(madhabKey)"
+
+        if let data = userDefaults.data(forKey: cacheKey),
            let cachedPrayers = try? JSONDecoder().decode([PrayerTime].self, from: data) {
             return cachedPrayers
         }

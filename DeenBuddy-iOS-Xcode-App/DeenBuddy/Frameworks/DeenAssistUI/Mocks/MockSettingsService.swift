@@ -10,7 +10,6 @@ public class MockSettingsService: SettingsServiceProtocol {
     @Published public var theme: ThemeMode = .dark
     @Published public var timeFormat: TimeFormat = .twelveHour
     @Published public var notificationOffset: TimeInterval = 300
-    @Published public var overrideBatteryOptimization: Bool = false
     @Published public var hasCompletedOnboarding: Bool = false
     @Published public var overrideBatteryOptimization: Bool = false
 

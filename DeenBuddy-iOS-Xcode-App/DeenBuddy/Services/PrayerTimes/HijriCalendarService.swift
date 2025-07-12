@@ -24,8 +24,8 @@ public class HijriCalendarService: ObservableObject {
     
     public init() {
         self.islamicCalendar = Calendar(identifier: .islamicUmmAlQura)
-        self.currentHijriDate = CalendarConverter.currentHijriDate()
-        
+        self.currentHijriDate = HijriDate(from: Date())
+
         updateTodaysEvents()
         startDailyUpdateTimer()
     }
@@ -38,17 +38,17 @@ public class HijriCalendarService: ObservableObject {
     
     /// Convert Gregorian date to Hijri date
     public func gregorianToHijri(_ gregorianDate: Date) -> HijriDate {
-        return CalendarConverter.gregorianToHijri(gregorianDate)
+        return HijriDate(from: gregorianDate)
     }
-    
+
     /// Convert Hijri date to Gregorian date
     public func hijriToGregorian(_ hijriDate: HijriDate) -> Date? {
-        return CalendarConverter.hijriToGregorian(hijriDate)
+        return hijriDate.toGregorianDate()
     }
-    
+
     /// Get current Hijri date
     public func getCurrentHijriDate() -> HijriDate {
-        return CalendarConverter.currentHijriDate()
+        return HijriDate(from: Date())
     }
     
     /// Get dual calendar date for a given Gregorian date
@@ -58,7 +58,12 @@ public class HijriCalendarService: ObservableObject {
     
     /// Get Islamic events for a specific date
     public func getIslamicEvents(for gregorianDate: Date) -> [IslamicEvent] {
-        return CalendarConverter.getIslamicEvents(for: gregorianDate)
+        let hijriDate = HijriDate(from: gregorianDate)
+        return IslamicEvent.allCases.filter { event in
+            // Check if the event occurs on this date (allowing for year differences)
+            event.hijriDate.month == hijriDate.month &&
+            abs(event.hijriDate.day - hijriDate.day) <= 1 // Allow 1 day tolerance
+        }
     }
     
     /// Get Islamic events for current date
@@ -173,7 +178,7 @@ public class HijriCalendarService: ObservableObject {
             isSacred: month.isSacred,
             isRamadan: month.isRamadan,
             isHajjMonth: month.isHajjMonth,
-            events: IslamicEvent.allCases.filter { $0.month == month }
+            events: IslamicEvent.allCases.filter { $0.hijriDate.month == month }
         )
     }
     
@@ -214,7 +219,7 @@ public class HijriCalendarService: ObservableObject {
     }
     
     private func updateCurrentDate() {
-        currentHijriDate = CalendarConverter.currentHijriDate()
+        currentHijriDate = HijriDate(from: Date())
         updateTodaysEvents()
     }
     
@@ -271,25 +276,27 @@ extension HijriCalendarService {
     
     /// Get notification text for Islamic events
     public func getEventNotificationText(for event: IslamicEvent) -> String {
-        switch event {
-        case .newYear:
+        switch event.name {
+        case IslamicEvent.newYear.name:
             return "Happy Islamic New Year! May this year bring peace and blessings."
-        case .ashura:
+        case IslamicEvent.ashura.name:
             return "Today is the Day of Ashura, a day of fasting and remembrance."
-        case .mawlidNabawi:
+        case IslamicEvent.mawlidNabawi.name:
             return "Today marks the birth of Prophet Muhammad (peace be upon him)."
-        case .israMiraj:
+        case IslamicEvent.israMiraj.name:
             return "Today commemorates the Prophet's night journey and ascension."
-        case .ramadanStart:
+        case IslamicEvent.ramadanStart.name:
             return "Ramadan Mubarak! The holy month of fasting has begun."
-        case .laylalQadr:
+        case IslamicEvent.laylalQadr.name:
             return "Tonight is Laylat al-Qadr, the Night of Power. Increase your prayers and remembrance."
-        case .eidAlFitr:
+        case IslamicEvent.eidAlFitr.name:
             return "Eid Mubarak! Celebrating the end of Ramadan with joy and gratitude."
-        case .eidAlAdha:
+        case IslamicEvent.eidAlAdha.name:
             return "Eid Mubarak! Celebrating the Festival of Sacrifice."
-        case .hajj:
+        case IslamicEvent.hajj.name:
             return "The Hajj pilgrimage is taking place. Prayers for all pilgrims."
+        default:
+            return "Today is \(event.name). \(event.description)"
         }
     }
     

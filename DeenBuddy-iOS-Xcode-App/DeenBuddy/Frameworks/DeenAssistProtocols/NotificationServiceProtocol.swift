@@ -14,7 +14,7 @@ public protocol NotificationServiceProtocol: ObservableObject {
     func requestNotificationPermission() async throws -> Bool
     
     /// Schedule prayer notifications
-    func schedulePrayerNotifications(for prayerTimes: [PrayerTime]) async throws
+    func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws
     
     /// Cancel all scheduled notifications
     func cancelAllNotifications() async

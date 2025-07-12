@@ -12,6 +12,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     @Published public var currentLocation: CLLocation?
     @Published public var isUpdatingLocation: Bool = false
     @Published public var locationError: Error?
+    @Published public var currentHeading: Double = 0
+    @Published public var headingAccuracy: Double = -1
+    @Published public var isUpdatingHeading: Bool = false
     
     // MARK: - Protocol Compliance Properties
     
@@ -23,6 +26,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     private let locationSubject = PassthroughSubject<CLLocation, Error>()
     private let permissionSubject = PassthroughSubject<CLAuthorizationStatus, Never>()
+    private let headingSubject = PassthroughSubject<CLHeading, Error>()
     
     public var locationPublisher: AnyPublisher<CLLocation, Error> {
         locationSubject.eraseToAnyPublisher()
@@ -30,6 +34,10 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public var permissionPublisher: AnyPublisher<CLAuthorizationStatus, Never> {
         permissionSubject.eraseToAnyPublisher()
+    }
+    
+    public var headingPublisher: AnyPublisher<CLHeading, Error> {
+        headingSubject.eraseToAnyPublisher()
     }
     
     // MARK: - Private Properties
@@ -62,33 +70,54 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public override init() {
         super.init()
+        setupLocationManagerSync()
+        loadCachedLocation()
+
         Task { @MainActor in
-            self.setupLocationManager()
             self.setupBatteryOptimization()
             self.setupSettingsService()
+            // Update permission status after setup
+            self.updatePermissionStatus(with: self.locationManager.authorizationStatus)
         }
-        loadCachedLocation()
-        // Don't call updatePermissionStatus() directly - wait for delegate callback
     }
     
     // MARK: - Protocol Implementation
     
     public func requestLocationPermission() {
-        guard authorizationStatus == .notDetermined else {
-            return
-        }
+        Task { @MainActor in
+            guard authorizationStatus == .notDetermined else {
+                print("📍 Location permission already determined: \(authorizationStatus)")
+                return
+            }
 
-        locationManager.requestWhenInUseAuthorization()
+            print("📍 Requesting location permission...")
+            locationManager.requestWhenInUseAuthorization()
+        }
     }
 
     public func requestLocationPermissionAsync() async -> CLAuthorizationStatus {
-        guard authorizationStatus == .notDetermined else {
-            return authorizationStatus
+        let currentAuthStatus = await MainActor.run { authorizationStatus }
+        
+        // If permission is already authorized, return immediately
+        if currentAuthStatus == .authorizedWhenInUse || currentAuthStatus == .authorizedAlways {
+            return currentAuthStatus
+        }
+        
+        // If permission is denied or restricted, return current status (can't request again)
+        if currentAuthStatus == .denied || currentAuthStatus == .restricted {
+            return currentAuthStatus
+        }
+        
+        // Only request permission if status is not determined
+        guard currentAuthStatus == .notDetermined else {
+            return currentAuthStatus
         }
 
         return await withCheckedContinuation { continuation in
             permissionContinuation = continuation
-            locationManager.requestWhenInUseAuthorization()
+            DispatchQueue.main.async { [weak self] in
+                self?.locationManager.requestWhenInUseAuthorization()
+            }
         }
     }
     
@@ -97,16 +126,21 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     }
     
     public func getCurrentLocation() async throws -> CLLocation {
-        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
-            throw LocationError.permissionDenied
+        // Check authorization on main thread to avoid threading issues
+        let currentAuthStatus = await MainActor.run { authorizationStatus }
+        print("📍 Getting current location, authorization status: \(currentAuthStatus)")
+        
+        guard currentAuthStatus == .authorizedWhenInUse || currentAuthStatus == .authorizedAlways else {
+            throw LocationError.permissionDenied("Location permission is required. Please enable location access in Settings.")
         }
         
         guard isLocationServicesAvailable() else {
-            throw LocationError.locationUnavailable
+            throw LocationError.locationUnavailable("Location services are not available. Please enable location services in Settings.")
         }
         
         // Return cached location if recent and accurate
         if let cached = getCachedLocation(), isLocationRecent(cached) && cached.horizontalAccuracy < minimumAccuracy {
+            print("📍 Returning cached location from \(cached.timestamp)")
             return cached
         }
         
@@ -115,15 +149,28 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             settingsService?.overrideBatteryOptimization ?? false
         }
         
-        // Check if we should perform location update
-        let shouldUpdate = await batteryOptimizer.shouldPerformLocationUpdate(userOverride: userOverride)
+        // For location permission requests, temporarily disable battery optimization interference
+        let isPermissionRequest = currentAuthStatus == .notDetermined
+        let hasLocationPermission = currentAuthStatus == .authorizedWhenInUse || currentAuthStatus == .authorizedAlways
+        let shouldUpdate: Bool
+        if isPermissionRequest {
+            shouldUpdate = true
+        } else {
+            shouldUpdate = await batteryOptimizer.shouldPerformLocationUpdate(userOverride: userOverride, hasLocationPermission: hasLocationPermission)
+        }
         
         if !shouldUpdate {
             // If we can't update but have cached location, return it even if not recent
             if let cached = getCachedLocation(), cached.horizontalAccuracy < minimumAccuracy * 2 {
+                print("📍 Returning less accurate cached location due to battery optimization")
                 return cached
             }
-            throw LocationError.locationUnavailable
+            
+            // Provide helpful error message with guidance
+            let errorMessage = hasLocationPermission ? 
+                "Location access is restricted due to battery optimization. You can enable 'Override Battery Optimization' in Settings to always allow location access." :
+                "Unable to get current location due to battery optimization. Please try again."
+            throw LocationError.locationUnavailable(errorMessage)
         }
         
         return try await withCheckedThrowingContinuation { continuation in
@@ -132,12 +179,16 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             // Set timeout
             DispatchQueue.main.asyncAfter(deadline: .now() + locationTimeout) { [weak self] in
                 if self?.locationContinuation != nil {
-                    self?.locationContinuation?.resume(throwing: LocationError.locationUnavailable)
+                    self?.locationContinuation?.resume(throwing: LocationError.locationUnavailable("Location request timed out. Please try again."))
                     self?.locationContinuation = nil
                 }
             }
             
-            locationManager.requestLocation()
+            print("📍 Requesting location from CLLocationManager")
+            // Ensure location request is called on main thread (required for CLLocationManager)
+            DispatchQueue.main.async { [weak self] in
+                self?.locationManager.requestLocation()
+            }
         }
     }
     
@@ -154,21 +205,43 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         locationManager.stopUpdatingLocation()
     }
     
+    public func startUpdatingHeading() {
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            print("❌ Heading: Location permission required for compass functionality. Current status: \(authorizationStatus)")
+            return
+        }
+        
+        guard CLLocationManager.headingAvailable() else {
+            print("❌ Heading: Heading not available on this device")
+            return
+        }
+        
+        isUpdatingHeading = true
+        locationManager.startUpdatingHeading()
+        print("🧭 LocationService: Started updating heading")
+    }
+    
+    public func stopUpdatingHeading() {
+        isUpdatingHeading = false
+        locationManager.stopUpdatingHeading()
+        print("🧭 LocationService: Stopped updating heading")
+    }
+    
     public func geocodeCity(_ cityName: String) async throws -> CLLocation {
         guard !cityName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw LocationError.geocodingFailed
+            throw LocationError.geocodingFailed("Failed to find location for the specified city.")
         }
         
         return try await withCheckedThrowingContinuation { continuation in
             geocoder.geocodeAddressString(cityName) { placemarks, error in
                 if let error = error {
-                    continuation.resume(throwing: LocationError.networkError)
+                    continuation.resume(throwing: LocationError.networkError("Network error occurred while searching for location."))
                     return
                 }
                 
                 guard let placemarks = placemarks, !placemarks.isEmpty,
                       let location = placemarks.first?.location else {
-                    continuation.resume(throwing: LocationError.geocodingFailed)
+                    continuation.resume(throwing: LocationError.geocodingFailed("Failed to find location for the specified city."))
                     return
                 }
                 
@@ -179,18 +252,18 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public func searchCity(_ cityName: String) async throws -> [LocationInfo] {
         guard !cityName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw LocationError.geocodingFailed
+            throw LocationError.geocodingFailed("Failed to find location for the specified city.")
         }
         
         return try await withCheckedThrowingContinuation { continuation in
             geocoder.geocodeAddressString(cityName) { placemarks, error in
                 if let error = error {
-                    continuation.resume(throwing: LocationError.networkError)
+                    continuation.resume(throwing: LocationError.networkError("Network error occurred while searching for location."))
                     return
                 }
                 
                 guard let placemarks = placemarks, !placemarks.isEmpty else {
-                    continuation.resume(throwing: LocationError.geocodingFailed)
+                    continuation.resume(throwing: LocationError.geocodingFailed("Failed to find location for the specified city."))
                     return
                 }
                 
@@ -216,12 +289,12 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         return try await withCheckedThrowingContinuation { continuation in
             geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
                 if let error = error {
-                    continuation.resume(throwing: LocationError.networkError)
+                    continuation.resume(throwing: LocationError.networkError("Network error occurred while searching for location."))
                     return
                 }
                 
                 guard let placemark = placemarks?.first else {
-                    continuation.resume(throwing: LocationError.geocodingFailed)
+                    continuation.resume(throwing: LocationError.geocodingFailed("Failed to find location for the specified city."))
                     return
                 }
                 
@@ -253,16 +326,21 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     // MARK: - Private Methods
     
-    @MainActor private func setupLocationManager() {
+    private func setupLocationManagerSync() {
         locationManager.delegate = self
+        print("📍 Location manager delegate set")
+    }
 
+    @MainActor private func setupLocationManager() {
         // Apply battery optimizations
         batteryOptimizer.applyOptimizations(to: locationManager)
-
         print("📍 Location manager configured with battery optimization")
     }
 
     @MainActor private func setupBatteryOptimization() {
+        // Complete location manager setup with battery optimizations
+        setupLocationManager()
+
         // Start intelligent location updates
         batteryOptimizer.scheduleIntelligentLocationUpdate { [weak self] in
             Task { @MainActor in
@@ -285,14 +363,15 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         }
         
         // Check if we should perform location update
-        let shouldUpdate = await batteryOptimizer.shouldPerformLocationUpdate(userOverride: userOverride)
+        let hasLocationPermission = authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
+        let shouldUpdate = await batteryOptimizer.shouldPerformLocationUpdate(userOverride: userOverride, hasLocationPermission: hasLocationPermission)
         
         if !shouldUpdate {
             return
         }
         
         if let cached = cachedLocation {
-            let interval = await batteryOptimizer.getOptimizedUpdateInterval()
+            let interval = batteryOptimizer.getOptimizedUpdateInterval()
             if Date().timeIntervalSince(cached.timestamp) < interval {
                 return
             }
@@ -334,16 +413,16 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         if let clError = error as? CLError {
             switch clError.code {
             case .denied:
-                locationError = .permissionDenied
+                locationError = .permissionDenied("Location permission denied")
             case .locationUnknown:
-                locationError = .locationUnavailable
+                locationError = .locationUnavailable("Location unknown")
             case .network:
-                locationError = .networkError
+                locationError = .networkError("Network error while getting location")
             default:
-                locationError = .locationUnavailable
+                locationError = .locationUnavailable("Location unavailable")
             }
         } else {
-            locationError = .locationUnavailable
+            locationError = .locationUnavailable("Location service error")
         }
         
         locationSubject.send(completion: .failure(locationError))
@@ -420,8 +499,11 @@ extension LocationService: @preconcurrency CLLocationManagerDelegate {
     public func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         
+        print("📍 Location manager received location: \(location.coordinate.latitude), \(location.coordinate.longitude) with accuracy: \(location.horizontalAccuracy)")
+        
         // Filter out inaccurate locations
         guard location.horizontalAccuracy < minimumAccuracy && location.horizontalAccuracy > 0 else {
+            print("📍 Location filtered out due to poor accuracy: \(location.horizontalAccuracy)")
             return
         }
         
@@ -429,14 +511,27 @@ extension LocationService: @preconcurrency CLLocationManagerDelegate {
     }
     
     public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("📍 Location manager failed with error: \(error)")
         handleLocationError(error)
     }
     
     public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
+        print("📍 Location authorization changed to: \(status)")
         updatePermissionStatus(with: status)
 
         // Complete pending permission request
         permissionContinuation?.resume(returning: status)
         permissionContinuation = nil
+    }
+    
+    public func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        print("🧭 LocationService received heading: \(newHeading.magneticHeading)° with accuracy: \(newHeading.headingAccuracy)")
+        
+        // Update published properties
+        currentHeading = newHeading.magneticHeading
+        headingAccuracy = newHeading.headingAccuracy
+        
+        // Notify subscribers
+        headingSubject.send(newHeading)
     }
 }

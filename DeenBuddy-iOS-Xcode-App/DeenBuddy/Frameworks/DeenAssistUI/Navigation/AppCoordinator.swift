@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import BackgroundTasks
 
 /// Main app coordinator that manages navigation and app state
 @MainActor
@@ -11,6 +12,7 @@ public class AppCoordinator: ObservableObject {
     @Published public var showingSettings = false
     @Published public var showingCompass = false
     @Published public var showingGuides = false
+    @Published public var showingQuranSearch = false
     @Published public var showingError = false
     @Published public var currentError: ErrorType?
     @Published public var isLoading = false
@@ -23,6 +25,8 @@ public class AppCoordinator: ObservableObject {
     public let prayerTimeService: any PrayerTimeServiceProtocol
     public let settingsService: any SettingsServiceProtocol
     public let themeManager: ThemeManager
+    private let backgroundTaskManager: BackgroundTaskManager
+    private let backgroundPrayerRefreshService: BackgroundPrayerRefreshService
 
     // MARK: - Enhanced Services
 
@@ -39,13 +43,17 @@ public class AppCoordinator: ObservableObject {
         notificationService: any NotificationServiceProtocol,
         prayerTimeService: any PrayerTimeServiceProtocol,
         settingsService: any SettingsServiceProtocol,
-        themeManager: ThemeManager
+        themeManager: ThemeManager,
+        backgroundTaskManager: BackgroundTaskManager,
+        backgroundPrayerRefreshService: BackgroundPrayerRefreshService
     ) {
         self.locationService = locationService
         self.notificationService = notificationService
         self.prayerTimeService = prayerTimeService
         self.settingsService = settingsService
         self.themeManager = themeManager
+        self.backgroundTaskManager = backgroundTaskManager
+        self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
 
         setupInitialState()
         setupEnhancedServices()
@@ -96,6 +104,14 @@ public class AppCoordinator: ObservableObject {
 
     public func dismissGuides() {
         showingGuides = false
+    }
+
+    public func showQuranSearch() {
+        showingQuranSearch = true
+    }
+
+    public func dismissQuranSearch() {
+        showingQuranSearch = false
     }
 
     public func showError(_ error: ErrorType) {
@@ -172,7 +188,22 @@ public class AppCoordinator: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Initialize background services
+        Task {
+            await initializeBackgroundServices()
+        }
+
         print("🚀 Enhanced services initialized")
+    }
+
+    private func initializeBackgroundServices() async {
+        // Register background tasks
+        backgroundTaskManager.registerBackgroundTasks()
+
+        // Start background prayer refresh
+        backgroundPrayerRefreshService.startBackgroundRefresh()
+
+        print("🔄 Background services started successfully")
     }
     
     private func loadSettings() async {
@@ -187,11 +218,37 @@ public class AppCoordinator: ObservableObject {
         // Simulate loading time
         try? await Task.sleep(nanoseconds: 1_000_000_000)
         
-        if settingsService.hasCompletedOnboarding {
-            currentScreen = .home
-        } else {
+        print("🚀 Determining initial screen...")
+        print("📋 Onboarding completed: \(settingsService.hasCompletedOnboarding)")
+        print("📍 Location status: \(locationService.authorizationStatus)")
+        
+        // Check if onboarding is completed
+        if !settingsService.hasCompletedOnboarding {
+            print("📋 Showing onboarding welcome screen")
             currentScreen = .onboarding(.welcome)
+            return
         }
+        
+        // Check location permission
+        let locationStatus = locationService.authorizationStatus
+        if locationStatus == .notDetermined {
+            // If location permission not determined, show location permission onboarding
+            print("📍 Location permission not determined, showing location permission screen")
+            currentScreen = .onboarding(.locationPermission)
+            return
+        }
+        
+        if locationStatus == .denied || locationStatus == .restricted {
+            // If location permission denied, we can still show home but with error message
+            // The prayer times view will handle displaying an appropriate error
+            print("📍 Location permission denied/restricted, showing home with error handling")
+            currentScreen = .home
+            return
+        }
+        
+        // All good, show home
+        print("✅ All permissions good, showing home screen")
+        currentScreen = .home
     }
 }
 
@@ -317,6 +374,9 @@ private struct MainAppView: View {
                 onGuidesTapped: {
                     coordinator.showGuides()
                 },
+                onQuranSearchTapped: {
+                    coordinator.showQuranSearch()
+                },
                 onSettingsTapped: {
                     coordinator.showSettings()
                 }
@@ -351,6 +411,9 @@ private struct MainAppView: View {
                     coordinator.dismissGuides()
                 }
             )
+        }
+        .sheet(isPresented: $coordinator.showingQuranSearch) {
+            QuranSearchView()
         }
         .errorAlert()
         .themed(with: coordinator.themeManager)
@@ -470,7 +533,9 @@ public extension AppCoordinator {
             notificationService: container.notificationService,
             prayerTimeService: container.prayerTimeService,
             settingsService: container.settingsService,
-            themeManager: themeManager
+            themeManager: themeManager,
+            backgroundTaskManager: container.backgroundTaskManager,
+            backgroundPrayerRefreshService: container.backgroundPrayerRefreshService
         )
     }
 
@@ -484,7 +549,9 @@ public extension AppCoordinator {
             notificationService: container.notificationService,
             prayerTimeService: container.prayerTimeService,
             settingsService: container.settingsService,
-            themeManager: themeManager
+            themeManager: themeManager,
+            backgroundTaskManager: container.backgroundTaskManager,
+            backgroundPrayerRefreshService: container.backgroundPrayerRefreshService
         )
     }
 }

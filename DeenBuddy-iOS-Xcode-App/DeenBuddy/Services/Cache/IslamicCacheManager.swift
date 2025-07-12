@@ -54,21 +54,21 @@ public class IslamicCacheManager: ObservableObject {
     // MARK: - Public Methods
     
     /// Cache prayer schedule with Islamic calendar awareness
-    public func cachePrayerSchedule(_ schedule: PrayerSchedule, for date: Date, location: CLLocation) {
-        let key = createPrayerCacheKey(for: date, location: location)
+    public func cachePrayerSchedule(_ schedule: PrayerSchedule, for date: Date, location: CLLocation, calculationMethod: CalculationMethod, madhab: Madhab) {
+        let key = createPrayerCacheKey(for: date, location: location, calculationMethod: calculationMethod, madhab: madhab)
         let expirationDate = getNextPrayerCalculationUpdate(for: date)
-        
+
         cacheObject(schedule, key: key, type: .prayerTimes, expirationDate: expirationDate)
         updateCacheStats(type: .prayerTimes, operation: .write)
     }
-    
+
     /// Get cached prayer schedule with stale-while-revalidate
-    public func getCachedPrayerSchedule(for date: Date, location: CLLocation?) -> (schedule: PrayerSchedule?, isStale: Bool) {
+    public func getCachedPrayerSchedule(for date: Date, location: CLLocation?, calculationMethod: CalculationMethod, madhab: Madhab) -> (schedule: PrayerSchedule?, isStale: Bool) {
         guard let location = location else { return (nil, false) }
-        
-        let key = createPrayerCacheKey(for: date, location: location)
+
+        let key = createPrayerCacheKey(for: date, location: location, calculationMethod: calculationMethod, madhab: madhab)
         let result = getCachedObject(PrayerSchedule.self, key: key, type: .prayerTimes)
-        
+
         updateCacheStats(type: .prayerTimes, operation: .read)
         return (result.content, result.isStale)
     }
@@ -162,6 +162,26 @@ public class IslamicCacheManager: ObservableObject {
         cacheStats = CacheStatistics()
         print("🗑️ All Islamic cache data cleared")
     }
+
+    /// Clear only prayer time cache entries (for settings changes)
+    public func clearPrayerTimeCache() {
+        print("🗑️ Clearing IslamicCacheManager prayer time entries...")
+
+        let cacheFiles = getAllCacheFiles()
+        var clearedCount = 0
+
+        for file in cacheFiles {
+            let fileName = file.lastPathComponent
+            // Check if this is a prayer time cache file
+            if fileName.hasPrefix("prayerTimes_") {
+                try? fileManager.removeItem(at: file)
+                clearedCount += 1
+            }
+        }
+
+        updateCacheStatistics()
+        print("✅ IslamicCacheManager: Cleared \(clearedCount) prayer time cache entries")
+    }
     
     // MARK: - Private Methods
     
@@ -206,11 +226,13 @@ public class IslamicCacheManager: ObservableObject {
         return entry
     }
     
-    private func createPrayerCacheKey(for date: Date, location: CLLocation) -> String {
+    private func createPrayerCacheKey(for date: Date, location: CLLocation, calculationMethod: CalculationMethod, madhab: Madhab) -> String {
         let dateString = DateFormatter.cacheKeyFormatter.string(from: date)
         let lat = round(location.coordinate.latitude * 1000) / 1000
         let lon = round(location.coordinate.longitude * 1000) / 1000
-        return "prayer_\(dateString)_\(lat)_\(lon)"
+        let methodKey = calculationMethod.rawValue
+        let madhabKey = madhab.rawValue
+        return "prayer_\(dateString)_\(lat)_\(lon)_\(methodKey)_\(madhabKey)"
     }
     
     private func createQiblaCacheKey(for location: CLLocation) -> String {
