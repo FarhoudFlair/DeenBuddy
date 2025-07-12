@@ -96,15 +96,45 @@ public struct QiblaCompassScreen: View {
             // Compass accuracy indicator
             accuracyIndicator
             
-            // Main compass
+            // Enhanced Main compass with premium styling
             ZStack {
-                // Compass background
+                // Outer compass ring with Islamic aesthetic
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.white.opacity(0.9),
-                                ColorPalette.surface.opacity(0.8)
+                                ColorPalette.primary.opacity(0.1),
+                                ColorPalette.secondary.opacity(0.05)
+                            ],
+                            center: .center,
+                            startRadius: 140,
+                            endRadius: 160
+                        )
+                    )
+                    .frame(width: 320, height: 320)
+                    .overlay(
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [
+                                        ColorPalette.primary.opacity(0.3),
+                                        ColorPalette.accent.opacity(0.2)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2
+                            )
+                    )
+                
+                // Main compass background with enhanced gradients
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.98),
+                                Color.white.opacity(0.92),
+                                ColorPalette.surface.opacity(0.85)
                             ],
                             center: .center,
                             startRadius: 0,
@@ -112,7 +142,11 @@ public struct QiblaCompassScreen: View {
                         )
                     )
                     .frame(width: 300, height: 300)
-                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                    .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+                    .overlay(
+                        Circle()
+                            .stroke(ColorPalette.primary.opacity(0.1), lineWidth: 1)
+                    )
                 
                 // Compass markings
                 compassMarkings
@@ -125,10 +159,27 @@ public struct QiblaCompassScreen: View {
                     qiblaNeedle(direction: qiblaDirection)
                 }
                 
-                // Center dot
-                Circle()
-                    .fill(ColorPalette.primary)
-                    .frame(width: 12, height: 12)
+                // Enhanced center dot with Islamic styling
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    ColorPalette.accent,
+                                    ColorPalette.primary
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 8
+                            )
+                        )
+                        .frame(width: 16, height: 16)
+                        .shadow(color: ColorPalette.primary.opacity(0.3), radius: 2, x: 0, y: 1)
+                    
+                    Circle()
+                        .fill(Color.white.opacity(0.9))
+                        .frame(width: 6, height: 6)
+                }
             }
             
             // Direction info
@@ -166,92 +217,198 @@ public struct QiblaCompassScreen: View {
     private var compassMarkings: some View {
         ForEach(0..<360, id: \.self) { degree in
             if degree % 30 == 0 {
-                // Major markings (every 30 degrees)
+                // Enhanced major markings (every 30 degrees)
                 Rectangle()
-                    .fill(ColorPalette.textSecondary)
-                    .frame(width: 2, height: degree % 90 == 0 ? 20 : 15)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                ColorPalette.primary.opacity(0.8),
+                                ColorPalette.textSecondary.opacity(0.6)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: degree % 90 == 0 ? 3 : 2, height: degree % 90 == 0 ? 25 : 18)
                     .offset(y: -140)
                     .rotationEffect(.degrees(Double(degree)))
             } else if degree % 10 == 0 {
-                // Minor markings (every 10 degrees)
+                // Refined minor markings (every 10 degrees)
                 Rectangle()
-                    .fill(ColorPalette.textSecondary.opacity(0.5))
-                    .frame(width: 1, height: 10)
+                    .fill(ColorPalette.textSecondary.opacity(0.4))
+                    .frame(width: 1, height: 12)
+                    .offset(y: -140)
+                    .rotationEffect(.degrees(Double(degree)))
+            } else if degree % 5 == 0 {
+                // Fine markings (every 5 degrees)
+                Rectangle()
+                    .fill(ColorPalette.textSecondary.opacity(0.2))
+                    .frame(width: 0.5, height: 8)
                     .offset(y: -140)
                     .rotationEffect(.degrees(Double(degree)))
             }
         }
         
-        // Cardinal directions
+        // Enhanced cardinal directions with Islamic styling
         ForEach(["N", "E", "S", "W"], id: \.self) { direction in
-            Text(direction)
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(ColorPalette.textPrimary)
-                .offset(y: -120)
-                .rotationEffect(.degrees(Double(["N": 0, "E": 90, "S": 180, "W": 270][direction] ?? 0)))
+            VStack(spacing: 2) {
+                Text(direction)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(direction == "N" ? Color.red.opacity(0.8) : ColorPalette.textPrimary)
+                
+                // Directional indicators in Arabic
+                Text(["N": "ش", "E": "ق", "S": "ج", "W": "غ"][direction] ?? "")
+                    .font(.caption2)
+                    .foregroundColor(ColorPalette.textSecondary.opacity(0.7))
+            }
+            .background(
+                Circle()
+                    .fill(Color.white.opacity(0.9))
+                    .frame(width: 32, height: 32)
+                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+            )
+            .offset(y: -115)
+            .rotationEffect(.degrees(Double(["N": 0, "E": 90, "S": 180, "W": 270][direction] ?? 0)))
         }
     }
     
     @ViewBuilder
     private func qiblaNeedle(direction: QiblaDirection) -> some View {
         VStack(spacing: 0) {
-            // Enhanced GREEN Qibla arrow tip
+            // Premium Qibla arrow tip with gradient and shadow
             Triangle()
-                .fill(Color.green)
-                .frame(width: 16, height: 24)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            ColorPalette.primary,
+                            ColorPalette.primary.opacity(0.8)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 20, height: 28)
+                .shadow(color: ColorPalette.primary.opacity(0.3), radius: 3, x: 0, y: 2)
 
-            // Thick green needle body
+            // Prominent needle body with gradient
             Rectangle()
-                .fill(Color.green)
-                .frame(width: 5, height: 100)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            ColorPalette.primary,
+                            ColorPalette.secondary
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 6, height: 110)
+                .shadow(color: ColorPalette.primary.opacity(0.2), radius: 2, x: 0, y: 1)
 
-            // Qibla label and Kaaba symbol
-            VStack(spacing: 2) {
-                Text("QIBLA")
+            // Enhanced Qibla indicator with Islamic symbolism
+            VStack(spacing: 4) {
+                // Kaaba symbol with Islamic styling
+                ZStack {
+                    // Background for Kaaba symbol
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.black)
+                        .frame(width: 16, height: 12)
+                    
+                    // Golden accent for Kaaba
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(ColorPalette.accent.opacity(0.8))
+                        .frame(width: 14, height: 10)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.black)
+                                .frame(width: 10, height: 6)
+                        )
+                }
+                
+                Text("قِبْلَة")
                     .font(.caption2)
                     .fontWeight(.bold)
-                    .foregroundColor(.green)
-
-                Image(systemName: "house.fill")
-                    .font(.title2)
-                    .foregroundColor(.green)
+                    .foregroundColor(ColorPalette.primary)
+                
+                Text("QIBLA")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorPalette.textSecondary)
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.black.opacity(0.7))
-                    .frame(width: 50, height: 40)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.95),
+                                Color.white.opacity(0.85)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(ColorPalette.primary.opacity(0.3), lineWidth: 1.5)
+                    )
             )
         }
-        .offset(y: -50)
+        .offset(y: -40)
         .rotationEffect(.degrees(direction.direction - compassManager.heading))
-        .animation(.easeInOut(duration: 0.3), value: compassManager.heading)
+        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: compassManager.heading)
+        .accessibilityLabel("Qibla Direction Indicator")
+        .accessibilityValue("Pointing \(Int(direction.direction)) degrees toward Mecca")
+        .accessibilityHint("Align your device with this indicator to face the Qibla")
     }
     
     @ViewBuilder
     private var deviceHeadingIndicator: some View {
-        // Enhanced North reference needle (red arrow pointing to magnetic North)
+        // Subtle North reference needle for accuracy verification
         VStack(spacing: 0) {
+            // Refined north arrow tip - smaller and more subtle
             Triangle()
-                .fill(Color.red)
-                .frame(width: 12, height: 16)
+                .fill(Color.red.opacity(0.7))
+                .frame(width: 8, height: 12)
 
+            // Thinner needle body
             Rectangle()
-                .fill(Color.red)
-                .frame(width: 3, height: 70)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.red.opacity(0.7),
+                            Color.red.opacity(0.5)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 2, height: 60)
 
-            // North label for accuracy verification
+            // Refined North label with better contrast
             Text("N")
                 .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.red)
+                .fontWeight(.semibold)
+                .foregroundColor(.red.opacity(0.8))
                 .background(
                     Circle()
-                        .fill(Color.white)
-                        .frame(width: 20, height: 20)
+                        .fill(Color.white.opacity(0.9))
+                        .frame(width: 18, height: 18)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                        )
                 )
         }
         .offset(y: -135)
+        .opacity(0.8) // Make the entire north indicator more subtle
+        .animation(.easeInOut(duration: 0.2), value: compassManager.heading)
+        .accessibilityLabel("North Reference Needle")
+        .accessibilityValue("Pointing toward magnetic north")
+        .accessibilityHint("Use this red needle to verify compass accuracy")
     }
     
     @ViewBuilder
@@ -287,16 +444,77 @@ public struct QiblaCompassScreen: View {
                     .shadow(color: .black.opacity(0.05), radius: 5, x: 0, y: 2)
             )
             
-            VStack(spacing: 8) {
-                Text("Point your device towards the GREEN arrow to face Qibla")
-                    .bodySmall()
-                    .foregroundColor(ColorPalette.textSecondary)
-                    .multilineTextAlignment(.center)
+            VStack(spacing: 12) {
+                // Primary instruction with Islamic context
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .foregroundColor(ColorPalette.primary)
+                        .font(.title3)
+                    
+                    Text("Align your device with the **Qibla indicator** to face Mecca")
+                        .bodySmall()
+                        .foregroundColor(ColorPalette.textPrimary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(ColorPalette.primary.opacity(0.1))
+                )
 
-                Text("RED needle points to North for accuracy verification")
-                    .caption()
-                    .foregroundColor(ColorPalette.textSecondary.opacity(0.8))
-                    .multilineTextAlignment(.center)
+                // Dual indicator explanation
+                VStack(spacing: 6) {
+                    HStack(spacing: 12) {
+                        // Qibla indicator legend
+                        HStack(spacing: 4) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(ColorPalette.primary)
+                                .frame(width: 16, height: 8)
+                            Text("Qibla Direction")
+                                .caption()
+                                .foregroundColor(ColorPalette.textSecondary)
+                        }
+                        
+                        Spacer()
+                        
+                        // North indicator legend
+                        HStack(spacing: 4) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(Color.red.opacity(0.7))
+                                .frame(width: 16, height: 8)
+                            Text("North Reference")
+                                .caption()
+                                .foregroundColor(ColorPalette.textSecondary)
+                        }
+                    }
+                    
+                    Text("Use the red north needle to verify compass accuracy")
+                        .caption()
+                        .foregroundColor(ColorPalette.textSecondary.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 8)
+                
+                // Accuracy tip
+                if compassManager.accuracy != .high {
+                    HStack(spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(ColorPalette.warning)
+                            .font(.caption)
+                        
+                        Text("For best accuracy, calibrate your compass and move away from magnetic interference")
+                            .caption()
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(ColorPalette.warning.opacity(0.1))
+                    )
+                }
             }
         }
     }
