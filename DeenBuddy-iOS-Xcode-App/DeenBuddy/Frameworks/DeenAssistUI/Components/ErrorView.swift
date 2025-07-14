@@ -163,7 +163,7 @@ public enum ErrorType {
         case .calculationError:
             return "Try refreshing or changing your calculation method."
         case .notificationError:
-            return "Check Settings > Notifications > Deen Assist."
+            return "Check Settings > Notifications > DeenBuddy."
         case .unknownError:
             return "Please try again or contact support."
         }

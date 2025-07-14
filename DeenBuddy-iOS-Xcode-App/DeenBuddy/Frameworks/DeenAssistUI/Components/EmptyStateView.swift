@@ -115,7 +115,7 @@ public enum EmptyState {
         case .noSearchResults:
             return "No Results Found"
         case .firstLaunch:
-            return "Welcome to Deen Assist"
+            return "Welcome to DeenBuddy"
         case .maintenance:
             return "Under Maintenance"
         }

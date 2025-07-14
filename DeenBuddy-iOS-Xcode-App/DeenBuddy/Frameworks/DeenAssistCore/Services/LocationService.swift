@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Combine
+import UIKit
 
 // MARK: - Location Service Implementation
 
@@ -45,12 +46,131 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     private let locationManager = CLLocationManager()
     private let geocoder = CLGeocoder()
     private let batteryOptimizer = BatteryOptimizer.shared
+    private let timerManager = BatteryAwareTimerManager.shared
     private let errorHandler = SharedInstances.errorHandler
     private var locationContinuation: CheckedContinuation<CLLocation, Error>?
     private var permissionContinuation: CheckedContinuation<CLAuthorizationStatus, Never>?
+    private var locationRequestInProgress = false
+    private var permissionRequestInProgress = false
+    private let continuationQueue = DispatchQueue(label: "LocationService.continuation", attributes: .concurrent)
     private var cachedLocation: CLLocation?
     private let userDefaults = UserDefaults.standard
     private var settingsService: (any SettingsServiceProtocol)?
+    
+    // MARK: - Location Services Availability Cache
+    
+    @Published private var cachedLocationServicesEnabled: Bool = true
+    private var locationServicesAvailabilityLastChecked: Date = Date.distantPast
+    private var isUpdatingAvailability: Bool = false
+    
+    // MARK: - Observer Management
+
+    private var appLifecycleObserver: NSObjectProtocol?
+
+    // MARK: - Instance Monitoring
+
+    private static var instanceCount: Int = 0
+    private static let instanceCountQueue = DispatchQueue(label: "LocationService.instanceCount", attributes: .concurrent)
+    private let instanceId: UUID = UUID()
+
+    /// Returns the current number of LocationService instances for debugging
+    public static func getCurrentInstanceCount() -> Int {
+        return instanceCountQueue.sync {
+            return instanceCount
+        }
+    }
+
+    // MARK: - Resource Monitoring
+
+    private var activeTaskCount: Int = 0
+    private let activeTaskCountQueue = DispatchQueue(label: "LocationService.activeTaskCount", attributes: .concurrent)
+    private var observerCount: Int = 0
+    private let maxConcurrentTasks: Int = 5
+    private let maxObservers: Int = 10
+
+    /// Increments active task count with safety checks
+    private func incrementTaskCount() -> Bool {
+        return activeTaskCountQueue.sync(flags: .barrier) {
+            guard activeTaskCount < maxConcurrentTasks else {
+                print("⚠️ LocationService: Maximum concurrent tasks (\(maxConcurrentTasks)) reached, rejecting new task")
+                return false
+            }
+            activeTaskCount += 1
+            print("📊 LocationService: Active tasks: \(activeTaskCount)/\(maxConcurrentTasks)")
+            return true
+        }
+    }
+
+    /// Decrements active task count
+    private func decrementTaskCount() {
+        activeTaskCountQueue.async(flags: .barrier) {
+            self.activeTaskCount = max(0, self.activeTaskCount - 1)
+            print("📊 LocationService: Active tasks: \(self.activeTaskCount)/\(self.maxConcurrentTasks)")
+        }
+    }
+
+    /// Increments observer count with safety checks
+    private func incrementObserverCount() -> Bool {
+        guard observerCount < maxObservers else {
+            print("⚠️ LocationService: Maximum observers (\(maxObservers)) reached, rejecting new observer")
+            return false
+        }
+        observerCount += 1
+        print("👁️ LocationService: Active observers: \(observerCount)/\(maxObservers)")
+        return true
+    }
+
+    /// Decrements observer count
+    private func decrementObserverCount() {
+        observerCount = max(0, observerCount - 1)
+        print("👁️ LocationService: Active observers: \(observerCount)/\(maxObservers)")
+    }
+    
+    /// Remove all observers and clean up
+    private func cleanupObservers() {
+        if let observer = appLifecycleObserver {
+            NotificationCenter.default.removeObserver(observer)
+            appLifecycleObserver = nil
+            observerCount = max(0, observerCount - 1)
+        }
+        
+        // Remove any remaining observers as fallback
+        NotificationCenter.default.removeObserver(self)
+        
+        print("🧹 All observers cleaned up")
+    }
+
+    /// Returns current resource usage for debugging
+    public func getResourceUsage() -> (activeTasks: Int, observers: Int, instances: Int) {
+        let tasks = activeTaskCountQueue.sync { activeTaskCount }
+        return (activeTasks: tasks, observers: observerCount, instances: Self.getCurrentInstanceCount())
+    }
+    
+    /// Manual cleanup method for testing or emergency cleanup
+    public func manualCleanup() {
+        print("🧹 Manual cleanup requested")
+        timerManager.cancelTimer(id: "location-update")
+        performCleanup()
+    }
+    
+    /// Check for potential memory leaks
+    public func checkForMemoryLeaks() -> Bool {
+        let resourceUsage = getResourceUsage()
+        
+        let hasExcessiveInstances = resourceUsage.instances > 1
+        let hasExcessiveObservers = resourceUsage.observers > 1
+        let hasExcessiveTasks = resourceUsage.activeTasks > 3
+        
+        if hasExcessiveInstances || hasExcessiveObservers || hasExcessiveTasks {
+            print("⚠️ Potential memory leak detected:")
+            print("   Instances: \(resourceUsage.instances)")
+            print("   Observers: \(resourceUsage.observers)")
+            print("   Active Tasks: \(resourceUsage.activeTasks)")
+            return true
+        }
+        
+        return false
+    }
     
     // MARK: - Configuration
     
@@ -58,6 +178,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     private let minimumAccuracy: Double = 100.0 // meters
     private let cacheExpirationTime: TimeInterval = 300.0 // 5 minutes
     private let extendedCacheExpirationTime: TimeInterval = 1800.0 // 30 minutes when battery optimized
+    private let availabilityCacheExpirationTime: TimeInterval = 60.0 // 1 minute for services availability
     
     // MARK: - Cache Keys
     
@@ -70,6 +191,18 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public override init() {
         super.init()
+
+        // Track instance creation for monitoring
+        Self.instanceCountQueue.async(flags: .barrier) {
+            Self.instanceCount += 1
+            DispatchQueue.main.async {
+                print("🏗️ LocationService instance created - ID: \(self.instanceId.uuidString.prefix(8)), Total instances: \(Self.instanceCount)")
+                if Self.instanceCount > 1 {
+                    print("⚠️ WARNING: Multiple LocationService instances detected! This may cause resource leaks.")
+                }
+            }
+        }
+
         setupLocationManagerSync()
         loadCachedLocation()
 
@@ -78,7 +211,70 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             self.setupSettingsService()
             // Update permission status after setup
             self.updatePermissionStatus(with: self.locationManager.authorizationStatus)
+            // Initialize location services availability cache
+            await self.updateLocationServicesAvailability()
         }
+    }
+    
+    deinit {
+        // Cleanup all resources to prevent memory leaks
+        performCleanup()
+        
+        // Track instance destruction for monitoring
+        Self.instanceCountQueue.async(flags: .barrier) {
+            Self.instanceCount -= 1
+            DispatchQueue.main.async {
+                print("🧹 LocationService instance destroyed - ID: \(self.instanceId.uuidString.prefix(8)), Remaining instances: \(Self.instanceCount)")
+            }
+        }
+
+        print("🧹 LocationService deinitialized - all resources cleaned up")
+    }
+    
+    /// Comprehensive cleanup of all resources
+    private func performCleanup() {
+        // Stop location updates
+        locationManager.stopUpdatingLocation()
+        locationManager.stopUpdatingHeading()
+        locationManager.delegate = nil
+        
+        // Clear pending continuations with proper error handling
+        continuationQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
+            
+            if let continuation = self.locationContinuation {
+                continuation.resume(throwing: LocationError.locationUnavailable("LocationService is being deallocated"))
+                self.locationContinuation = nil
+            }
+            
+            if let continuation = self.permissionContinuation {
+                continuation.resume(returning: .denied)
+                self.permissionContinuation = nil
+            }
+            
+            self.locationRequestInProgress = false
+            self.permissionRequestInProgress = false
+        }
+        
+        // Remove specific observer to prevent memory leak
+        if let observer = appLifecycleObserver {
+            NotificationCenter.default.removeObserver(observer)
+            appLifecycleObserver = nil
+            // Decrement observer count synchronously in deinit
+            observerCount = max(0, observerCount - 1)
+            print("👁️ LocationService: Removed app lifecycle observer")
+        }
+
+        // Remove any remaining observers as fallback
+        NotificationCenter.default.removeObserver(self)
+        
+        // Cancel location timers
+        timerManager.cancelTimer(id: "location-update")
+        
+        // Clear cached data to prevent memory retention
+        cachedLocation = nil
+        
+        print("🧹 LocationService cleanup completed")
     }
     
     // MARK: - Protocol Implementation
@@ -114,9 +310,24 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         }
 
         return await withCheckedContinuation { continuation in
-            permissionContinuation = continuation
-            DispatchQueue.main.async { [weak self] in
-                self?.locationManager.requestWhenInUseAuthorization()
+            continuationQueue.async(flags: .barrier) { [weak self] in
+                guard let self = self else {
+                    continuation.resume(returning: .denied)
+                    return
+                }
+                
+                // Check if there's already a pending permission request
+                if self.permissionRequestInProgress {
+                    continuation.resume(returning: currentAuthStatus)
+                    return
+                }
+                
+                self.permissionRequestInProgress = true
+                self.permissionContinuation = continuation
+                
+                DispatchQueue.main.async { [weak self] in
+                    self?.locationManager.requestWhenInUseAuthorization()
+                }
             }
         }
     }
@@ -126,6 +337,17 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     }
     
     public func getCurrentLocation() async throws -> CLLocation {
+        // Check for concurrent requests
+        return try await continuationQueue.sync {
+            guard !locationRequestInProgress else {
+                throw LocationError.locationUnavailable("Location request already in progress. Please wait for current request to complete.")
+            }
+            
+            return try await performLocationRequest()
+        }
+    }
+    
+    private func performLocationRequest() async throws -> CLLocation {
         // Check authorization on main thread to avoid threading issues
         let currentAuthStatus = await MainActor.run { authorizationStatus }
         print("📍 Getting current location, authorization status: \(currentAuthStatus)")
@@ -174,20 +396,38 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         }
         
         return try await withCheckedThrowingContinuation { continuation in
-            locationContinuation = continuation
-            
-            // Set timeout
-            DispatchQueue.main.asyncAfter(deadline: .now() + locationTimeout) { [weak self] in
-                if self?.locationContinuation != nil {
-                    self?.locationContinuation?.resume(throwing: LocationError.locationUnavailable("Location request timed out. Please try again."))
-                    self?.locationContinuation = nil
+            continuationQueue.async(flags: .barrier) { [weak self] in
+                guard let self = self else {
+                    continuation.resume(throwing: LocationError.locationUnavailable("LocationService deallocated"))
+                    return
                 }
-            }
-            
-            print("📍 Requesting location from CLLocationManager")
-            // Ensure location request is called on main thread (required for CLLocationManager)
-            DispatchQueue.main.async { [weak self] in
-                self?.locationManager.requestLocation()
+                
+                // Check if there's already a pending continuation
+                if self.locationContinuation != nil {
+                    continuation.resume(throwing: LocationError.locationUnavailable("Location request already in progress"))
+                    return
+                }
+                
+                self.locationRequestInProgress = true
+                self.locationContinuation = continuation
+                
+                // Set timeout with proper cleanup
+                DispatchQueue.main.asyncAfter(deadline: .now() + self.locationTimeout) { [weak self] in
+                    self?.continuationQueue.async(flags: .barrier) {
+                        guard let self = self,
+                              let continuation = self.locationContinuation else { return }
+                        
+                        self.locationContinuation = nil
+                        self.locationRequestInProgress = false
+                        continuation.resume(throwing: LocationError.locationUnavailable("Location request timed out. Please try again."))
+                    }
+                }
+                
+                print("📍 Requesting location from CLLocationManager")
+                // Ensure location request is called on main thread (required for CLLocationManager)
+                DispatchQueue.main.async { [weak self] in
+                    self?.locationManager.requestLocation()
+                }
             }
         }
     }
@@ -311,7 +551,16 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     }
     
     public func isLocationServicesAvailable() -> Bool {
-        return CLLocationManager.locationServicesEnabled()
+        // Use cached value to avoid main thread blocking
+        // Update cache in background if it's stale and not already updating
+        let now = Date()
+        if now.timeIntervalSince(locationServicesAvailabilityLastChecked) > availabilityCacheExpirationTime && !isUpdatingAvailability {
+            Task {
+                await updateLocationServicesAvailability()
+            }
+        }
+
+        return cachedLocationServicesEnabled
     }
     
     public func getCachedLocation() -> CLLocation? {
@@ -325,6 +574,46 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     }
     
     // MARK: - Private Methods
+    
+    /// Updates the location services availability cache on a background thread to avoid main thread blocking
+    private func updateLocationServicesAvailability() async {
+        // Prevent task proliferation with deduplication guard
+        guard !isUpdatingAvailability else {
+            print("📍 Location services availability update already in progress, skipping")
+            return
+        }
+
+        // Check task limits before proceeding
+        guard incrementTaskCount() else {
+            print("❌ Failed to update location services availability: task limit reached")
+            return
+        }
+
+        // Set flag and ensure cleanup on exit
+        await MainActor.run {
+            self.isUpdatingAvailability = true
+        }
+
+        defer {
+            decrementTaskCount()
+            Task { @MainActor in
+                self.isUpdatingAvailability = false
+            }
+        }
+
+        let availability = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let isEnabled = CLLocationManager.locationServicesEnabled()
+                continuation.resume(returning: isEnabled)
+            }
+        }
+
+        await MainActor.run {
+            self.cachedLocationServicesEnabled = availability
+            self.locationServicesAvailabilityLastChecked = Date()
+            print("📍 Location services availability updated: \(availability)")
+        }
+    }
     
     private func setupLocationManagerSync() {
         locationManager.delegate = self
@@ -341,14 +630,46 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // Complete location manager setup with battery optimizations
         setupLocationManager()
 
-        // Start intelligent location updates
-        batteryOptimizer.scheduleIntelligentLocationUpdate { [weak self] in
+        // Start intelligent location updates using battery-aware timer
+        timerManager.scheduleTimer(id: "location-update", type: .locationUpdate) { [weak self] in
             Task { @MainActor in
                 await self?.refreshLocationIfNeeded()
             }
         }
+        
+        // Setup app lifecycle monitoring for location services availability
+        setupAppLifecycleObservers()
 
         print("🔋 Battery optimization enabled for location services")
+    }
+    
+    /// Sets up app lifecycle observers to refresh location services availability cache
+    @MainActor private func setupAppLifecycleObservers() {
+        // Check observer limits before adding new observer
+        guard incrementObserverCount() else {
+            print("❌ Failed to setup app lifecycle observer: observer limit reached")
+            return
+        }
+        
+        // Clean up existing observer before setting up new one
+        if let existingObserver = appLifecycleObserver {
+            NotificationCenter.default.removeObserver(existingObserver)
+            appLifecycleObserver = nil
+            observerCount = max(0, observerCount - 1)
+        }
+
+        // Store observer token to prevent memory leak
+        appLifecycleObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            Task {
+                await self?.updateLocationServicesAvailability()
+            }
+        }
+
+        print("📍 App lifecycle observers setup for location services availability")
     }
     
     @MainActor private func setupSettingsService() {
@@ -402,9 +723,15 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // Notify subscribers
         locationSubject.send(clLocation)
         
-        // Complete pending location request
-        locationContinuation?.resume(returning: clLocation)
-        locationContinuation = nil
+        // Complete pending location request with thread safety
+        continuationQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self,
+                  let continuation = self.locationContinuation else { return }
+            
+            self.locationContinuation = nil
+            self.locationRequestInProgress = false
+            continuation.resume(returning: clLocation)
+        }
     }
     
     private func handleLocationError(_ error: Error) {
@@ -426,8 +753,16 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         }
         
         locationSubject.send(completion: .failure(locationError))
-        locationContinuation?.resume(throwing: locationError)
-        locationContinuation = nil
+        
+        // Complete pending location request with thread safety
+        continuationQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self,
+                  let continuation = self.locationContinuation else { return }
+            
+            self.locationContinuation = nil
+            self.locationRequestInProgress = false
+            continuation.resume(throwing: locationError)
+        }
     }
     
     private func cacheLocation(_ location: CLLocation) {
@@ -519,9 +854,20 @@ extension LocationService: @preconcurrency CLLocationManagerDelegate {
         print("📍 Location authorization changed to: \(status)")
         updatePermissionStatus(with: status)
 
-        // Complete pending permission request
-        permissionContinuation?.resume(returning: status)
-        permissionContinuation = nil
+        // Complete pending permission request with thread safety
+        continuationQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self,
+                  let continuation = self.permissionContinuation else { return }
+            
+            self.permissionContinuation = nil
+            self.permissionRequestInProgress = false
+            continuation.resume(returning: status)
+        }
+        
+        // Update location services availability cache when authorization changes
+        Task {
+            await updateLocationServicesAvailability()
+        }
     }
     
     public func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {

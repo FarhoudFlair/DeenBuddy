@@ -27,6 +27,9 @@ public protocol SettingsServiceProtocol: ObservableObject {
     /// Whether onboarding has been completed
     var hasCompletedOnboarding: Bool { get set }
     
+    /// User's preferred name for personalized greetings
+    var userName: String { get set }
+    
     /// Override battery optimization for prayer times
     var overrideBatteryOptimization: Bool { get set }
     

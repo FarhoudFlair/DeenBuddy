@@ -54,7 +54,7 @@ public struct AppIcon {
             iconView(size: iconSize)
             
             VStack(spacing: 4) {
-                Text("Deen Assist")
+                Text("DeenBuddy")
                     .font(.system(size: iconSize * 0.3, weight: .bold, design: .default))
                     .foregroundColor(ColorPalette.textPrimary)
                 
@@ -97,7 +97,7 @@ public struct LaunchScreen: View {
                 // App name with animation
                 if showText {
                     VStack(spacing: 8) {
-                        Text("Deen Assist")
+                        Text("DeenBuddy")
                             .font(.system(size: 32, weight: .bold, design: .default))
                             .foregroundColor(ColorPalette.textPrimary)
                         
@@ -261,7 +261,7 @@ public struct AppStoreAssets {
                 AppIcon.iconView(size: 200)
                 
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("Deen Assist")
+                    Text("DeenBuddy")
                         .font(.system(size: 64, weight: .bold))
                         .foregroundColor(.white)
                     

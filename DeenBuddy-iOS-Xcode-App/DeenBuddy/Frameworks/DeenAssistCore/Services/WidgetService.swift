@@ -63,15 +63,15 @@ public class WidgetService: ObservableObject {
     
     public func updateWidgetData() async {
         guard isWidgetAvailable else { return }
-        
+
         do {
             let widgetData = try await createWidgetData()
-            saveWidgetData(widgetData)
+            WidgetDataManager.shared.saveWidgetData(widgetData)
             reloadAllWidgets()
-            
+
             lastWidgetUpdate = Date()
             print("📱 Widget data updated successfully")
-            
+
         } catch {
             print("❌ Failed to update widget data: \(error)")
         }
@@ -79,8 +79,9 @@ public class WidgetService: ObservableObject {
     
     public func reloadAllWidgets() {
         guard isWidgetAvailable else { return }
-        
+
         WidgetCenter.shared.reloadAllTimelines()
+        WidgetBackgroundRefreshManager.shared.refreshAllWidgets()
         print("🔄 Reloaded all widget timelines")
     }
     
@@ -161,11 +162,19 @@ public class WidgetService: ObservableObject {
             }
         }
         
+        // Get Hijri date
+        let hijriDate = HijriDate(from: Date())
+
+        // Get calculation method
+        let calculationMethod = prayerTimeService.calculationMethod
+
         return WidgetData(
             nextPrayer: nextPrayer,
             timeUntilNextPrayer: timeUntilNextPrayer,
             todaysPrayerTimes: todaysPrayerTimes,
-            location: locationName
+            hijriDate: hijriDate,
+            location: locationName ?? "Unknown Location",
+            calculationMethod: calculationMethod
         )
     }
     

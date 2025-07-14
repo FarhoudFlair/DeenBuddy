@@ -6,28 +6,37 @@ import UIKit
 public struct HomeScreen: View {
     private let prayerTimeService: any PrayerTimeServiceProtocol
     private let locationService: any LocationServiceProtocol
-    
+    private let settingsService: any SettingsServiceProtocol
+    private let notificationService: (any NotificationServiceProtocol)?
+
     let onCompassTapped: () -> Void
     let onGuidesTapped: () -> Void
     let onQuranSearchTapped: () -> Void
     let onSettingsTapped: () -> Void
-    
+    let onNotificationsTapped: (() -> Void)?
+
     @State private var isRefreshing = false
-    
+
     public init(
         prayerTimeService: any PrayerTimeServiceProtocol,
         locationService: any LocationServiceProtocol,
+        settingsService: any SettingsServiceProtocol,
+        notificationService: (any NotificationServiceProtocol)? = nil,
         onCompassTapped: @escaping () -> Void,
         onGuidesTapped: @escaping () -> Void,
         onQuranSearchTapped: @escaping () -> Void,
-        onSettingsTapped: @escaping () -> Void
+        onSettingsTapped: @escaping () -> Void,
+        onNotificationsTapped: (() -> Void)? = nil
     ) {
         self.prayerTimeService = prayerTimeService
         self.locationService = locationService
+        self.settingsService = settingsService
+        self.notificationService = notificationService
         self.onCompassTapped = onCompassTapped
         self.onGuidesTapped = onGuidesTapped
         self.onQuranSearchTapped = onQuranSearchTapped
         self.onSettingsTapped = onSettingsTapped
+        self.onNotificationsTapped = onNotificationsTapped
     }
     
     public var body: some View {
@@ -55,14 +64,39 @@ public struct HomeScreen: View {
                 .padding(.vertical, 16)
             }
             .background(ColorPalette.backgroundPrimary)
-            .navigationTitle("Deen Assist")
+            .navigationTitle("DeenBuddy")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    // Notification bell icon
+                    if let notificationService = notificationService,
+                       let onNotificationsTapped = onNotificationsTapped {
+                        Button(action: onNotificationsTapped) {
+                            ZStack {
+                                Image(systemName: notificationIconName)
+                                    .foregroundColor(notificationIconColor)
+                                    .font(.title3)
+
+                                // Show badge if notifications are disabled
+                                if !notificationService.notificationsEnabled {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 8, height: 8)
+                                        .offset(x: 8, y: -8)
+                                }
+                            }
+                        }
+                        .accessibilityLabel("Notification Settings")
+                        .accessibilityHint("Configure prayer notification preferences")
+                    }
+
+                    // Settings gear icon
                     Button(action: onSettingsTapped) {
                         Image(systemName: "gear")
                             .foregroundColor(ColorPalette.textPrimary)
+                            .font(.title3)
                     }
+                    .accessibilityLabel("Settings")
                 }
             }
             .refreshable {
@@ -84,6 +118,18 @@ public struct HomeScreen: View {
     @ViewBuilder
     private var headerView: some View {
         VStack(spacing: 8) {
+            // Personalized greeting
+            if !settingsService.userName.isEmpty {
+                HStack {
+                    Text("Salam Alaykum, \(settingsService.userName)")
+                        .titleLarge()
+                        .foregroundColor(ColorPalette.textPrimary)
+                    
+                    Spacer()
+                }
+                .padding(.bottom, 4)
+            }
+            
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(currentDateString)
@@ -419,6 +465,46 @@ private struct EmptyPrayerTimesView: View {
             return "Retry"
         }
     }
+
+    // MARK: - Notification Icon Helpers
+
+    private var notificationIconName: String {
+        guard let notificationService = notificationService else {
+            return "bell"
+        }
+
+        switch notificationService.authorizationStatus {
+        case .authorized, .provisional:
+            return notificationService.notificationsEnabled ? "bell.fill" : "bell.slash.fill"
+        case .denied:
+            return "bell.slash.fill"
+        case .notDetermined:
+            return "bell"
+        case .ephemeral:
+            return "bell.badge"
+        @unknown default:
+            return "bell"
+        }
+    }
+
+    private var notificationIconColor: Color {
+        guard let notificationService = notificationService else {
+            return ColorPalette.textPrimary
+        }
+
+        switch notificationService.authorizationStatus {
+        case .authorized, .provisional:
+            return notificationService.notificationsEnabled ? .green : .orange
+        case .denied:
+            return .red
+        case .notDetermined:
+            return .blue
+        case .ephemeral:
+            return .blue
+        @unknown default:
+            return ColorPalette.textPrimary
+        }
+    }
 }
 
 // MARK: - Preview
@@ -427,6 +513,7 @@ private struct EmptyPrayerTimesView: View {
     HomeScreen(
         prayerTimeService: MockPrayerTimeService(),
         locationService: MockLocationService(),
+        settingsService: MockSettingsService(),
         onCompassTapped: { print("Compass tapped") },
         onGuidesTapped: { print("Guides tapped") },
         onQuranSearchTapped: { print("Quran search tapped") },

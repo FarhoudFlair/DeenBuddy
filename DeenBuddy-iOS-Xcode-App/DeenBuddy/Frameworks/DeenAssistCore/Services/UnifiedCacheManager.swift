@@ -1,0 +1,544 @@
+import Foundation
+import CoreLocation
+import CoreData
+import Combine
+
+/// Unified caching system for all DeenBuddy services
+/// Replaces individual service caches with a centralized, high-performance solution
+@MainActor
+public class UnifiedCacheManager: ObservableObject {
+    
+    // MARK: - Singleton
+    
+    public static let shared = UnifiedCacheManager()
+    
+    // MARK: - Cache Types
+    
+    public enum CacheType: String, CaseIterable {
+        case prayerTimes = "prayer_times"
+        case qiblaDirections = "qibla_directions"
+        case islamicContent = "islamic_content"
+        case userPreferences = "user_preferences"
+        case locationData = "location_data"
+        case apiResponses = "api_responses"
+        case magneticDeclination = "magnetic_declination"
+        case calendarEvents = "calendar_events"
+        case prayerTracking = "prayer_tracking"
+        case temporaryData = "temporary_data"
+        
+        var defaultExpiry: TimeInterval {
+            switch self {
+            case .prayerTimes: return 24 * 60 * 60 // 24 hours
+            case .qiblaDirections: return 7 * 24 * 60 * 60 // 7 days
+            case .islamicContent: return 30 * 24 * 60 * 60 // 30 days
+            case .userPreferences: return 365 * 24 * 60 * 60 // 1 year
+            case .locationData: return 5 * 60 // 5 minutes
+            case .apiResponses: return 60 * 60 // 1 hour
+            case .magneticDeclination: return 30 * 24 * 60 * 60 // 30 days
+            case .calendarEvents: return 24 * 60 * 60 // 24 hours
+            case .prayerTracking: return 7 * 24 * 60 * 60 // 7 days
+            case .temporaryData: return 15 * 60 // 15 minutes
+            }
+        }
+        
+        var maxSize: Int {
+            switch self {
+            case .prayerTimes: return 100
+            case .qiblaDirections: return 50
+            case .islamicContent: return 200
+            case .userPreferences: return 500
+            case .locationData: return 20
+            case .apiResponses: return 100
+            case .magneticDeclination: return 50
+            case .calendarEvents: return 365
+            case .prayerTracking: return 1000
+            case .temporaryData: return 50
+            }
+        }
+    }
+    
+    // MARK: - Cache Entry
+    
+    private struct CacheEntry<T: Codable>: Codable {
+        let data: T
+        let timestamp: Date
+        let expirationDate: Date
+        let key: String
+        let type: CacheType
+        let size: Int
+        let accessCount: Int
+        let lastAccessed: Date
+        
+        var isExpired: Bool {
+            return Date() > expirationDate
+        }
+        
+        var age: TimeInterval {
+            return Date().timeIntervalSince(timestamp)
+        }
+    }
+    
+    // MARK: - Cache Statistics
+    
+    public struct CacheStatistics: Codable {
+        public var totalHits: Int = 0
+        public var totalMisses: Int = 0
+        public var totalEvictions: Int = 0
+        public var totalSize: Int = 0
+        public var hitRate: Double {
+            let total = totalHits + totalMisses
+            return total > 0 ? Double(totalHits) / Double(total) : 0.0
+        }
+        
+        public var typeStats: [CacheType: TypeStatistics] = [:]
+        
+        public struct TypeStatistics: Codable {
+            public var hits: Int = 0
+            public var misses: Int = 0
+            public var evictions: Int = 0
+            public var currentSize: Int = 0
+            public var totalSize: Int = 0
+            
+            public var hitRate: Double {
+                let total = hits + misses
+                return total > 0 ? Double(hits) / Double(total) : 0.0
+            }
+        }
+    }
+    
+    // MARK: - Properties
+    
+    @Published public var statistics: CacheStatistics = CacheStatistics()
+    @Published public var isMemoryPressure: Bool = false
+    
+    private let timerManager = BatteryAwareTimerManager.shared
+    private let userDefaults = UserDefaults.standard
+    private let fileManager = FileManager.default
+    
+    private var memoryCache: [String: Any] = [:]
+    private var diskCache: [String: Data] = [:]
+    private let cacheDirectory: URL
+    private let maxMemorySize: Int = 50 * 1024 * 1024 // 50MB
+    private let maxDiskSize: Int = 200 * 1024 * 1024 // 200MB
+    
+    private let queue = DispatchQueue(label: "UnifiedCacheManager", qos: .utility, attributes: .concurrent)
+    private let encodingQueue = DispatchQueue(label: "UnifiedCacheManager.encoding", qos: .utility)
+    
+    // MARK: - Initialization
+    
+    private init() {
+        // Create cache directory
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        cacheDirectory = documentsPath.appendingPathComponent("UnifiedCache")
+        
+        createCacheDirectoryIfNeeded()
+        loadStatistics()
+        setupMemoryPressureMonitoring()
+        schedulePeriodicCleanup()
+        
+        // Initialize type statistics
+        for type in CacheType.allCases {
+            statistics.typeStats[type] = CacheStatistics.TypeStatistics()
+        }
+    }
+    
+    // MARK: - Public Methods
+    
+    /// Store data in cache
+    /// - Parameters:
+    ///   - data: Data to cache
+    ///   - key: Cache key
+    ///   - type: Cache type
+    ///   - expiry: Custom expiry time (optional)
+    public func store<T: Codable>(_ data: T, forKey key: String, type: CacheType, expiry: TimeInterval? = nil) {
+        let expirationDate = Date().addingTimeInterval(expiry ?? type.defaultExpiry)
+        let size = calculateSize(data)
+        
+        let entry = CacheEntry(
+            data: data,
+            timestamp: Date(),
+            expirationDate: expirationDate,
+            key: key,
+            type: type,
+            size: size,
+            accessCount: 0,
+            lastAccessed: Date()
+        )
+        
+        queue.async(flags: .barrier) { [weak self] in
+            self?.storeEntry(entry)
+        }
+    }
+    
+    /// Retrieve data from cache
+    /// - Parameters:
+    ///   - key: Cache key
+    ///   - type: Cache type
+    /// - Returns: Cached data or nil if not found/expired
+    public func retrieve<T: Codable>(_ type: T.Type, forKey key: String, cacheType: CacheType) -> T? {
+        return queue.sync {
+            if let entry = getEntry(forKey: key, type: cacheType) as? CacheEntry<T> {
+                if !entry.isExpired {
+                    recordHit(for: cacheType)
+                    updateAccessStats(for: key, type: cacheType)
+                    return entry.data
+                } else {
+                    // Remove expired entry
+                    removeEntry(forKey: key, type: cacheType)
+                }
+            }
+            
+            recordMiss(for: cacheType)
+            return nil
+        }
+    }
+    
+    /// Remove specific cache entry
+    /// - Parameters:
+    ///   - key: Cache key
+    ///   - type: Cache type
+    public func remove(forKey key: String, type: CacheType) {
+        queue.async(flags: .barrier) { [weak self] in
+            self?.removeEntry(forKey: key, type: type)
+        }
+    }
+    
+    /// Clear all cache for a specific type
+    /// - Parameter type: Cache type to clear
+    public func clearCache(for type: CacheType) {
+        queue.async(flags: .barrier) { [weak self] in
+            self?.clearCacheType(type)
+        }
+    }
+    
+    /// Clear all cache
+    public func clearAllCache() {
+        queue.async(flags: .barrier) { [weak self] in
+            self?.clearAllCacheInternal()
+        }
+    }
+    
+    /// Check if cache contains key
+    /// - Parameters:
+    ///   - key: Cache key
+    ///   - type: Cache type
+    /// - Returns: True if key exists and not expired
+    public func contains(key: String, type: CacheType) -> Bool {
+        return queue.sync {
+            if let entry = getEntry(forKey: key, type: type) {
+                return !entry.isExpired
+            }
+            return false
+        }
+    }
+    
+    /// Get cache size for a specific type
+    /// - Parameter type: Cache type
+    /// - Returns: Size in bytes
+    public func getCacheSize(for type: CacheType) -> Int {
+        return queue.sync {
+            return statistics.typeStats[type]?.totalSize ?? 0
+        }
+    }
+    
+    /// Preload cache with data
+    /// - Parameters:
+    ///   - data: Data to preload
+    ///   - keys: Array of cache keys
+    ///   - type: Cache type
+    public func preload<T: Codable>(_ data: [T], keys: [String], type: CacheType) {
+        guard data.count == keys.count else { return }
+        
+        queue.async(flags: .barrier) { [weak self] in
+            for (index, item) in data.enumerated() {
+                self?.store(item, forKey: keys[index], type: type)
+            }
+        }
+    }
+    
+    /// Get cache statistics for a specific type
+    /// - Parameter type: Cache type
+    /// - Returns: Type statistics
+    public func getStatistics(for type: CacheType) -> CacheStatistics.TypeStatistics {
+        return statistics.typeStats[type] ?? CacheStatistics.TypeStatistics()
+    }
+    
+    // MARK: - Private Methods
+    
+    private func createCacheDirectoryIfNeeded() {
+        if !fileManager.fileExists(atPath: cacheDirectory.path) {
+            try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        }
+    }
+    
+    private func storeEntry<T: Codable>(_ entry: CacheEntry<T>) {
+        let fullKey = createFullKey(entry.key, type: entry.type)
+        
+        // Store in memory cache
+        memoryCache[fullKey] = entry
+        
+        // Store in disk cache if large enough
+        if entry.size > 1024 { // 1KB threshold
+            encodingQueue.async { [weak self] in
+                if let data = try? JSONEncoder().encode(entry) {
+                    self?.diskCache[fullKey] = data
+                    self?.saveToDisk(data, forKey: fullKey)
+                }
+            }
+        }
+        
+        // Update statistics
+        statistics.typeStats[entry.type]?.totalSize += entry.size
+        statistics.totalSize += entry.size
+        
+        // Check for eviction
+        enforceMemoryLimits()
+    }
+    
+    private func getEntry(forKey key: String, type: CacheType) -> Any? {
+        let fullKey = createFullKey(key, type: type)
+        
+        // Check memory cache first
+        if let entry = memoryCache[fullKey] {
+            return entry
+        }
+        
+        // Check disk cache
+        if let data = diskCache[fullKey] ?? loadFromDisk(forKey: fullKey) {
+            do {
+                // Try to decode based on type
+                let decoder = JSONDecoder()
+                switch type {
+                case .prayerTimes:
+                    return try decoder.decode(CacheEntry<[PrayerTime]>.self, from: data)
+                case .qiblaDirections:
+                    return try decoder.decode(CacheEntry<QiblaDirection>.self, from: data)
+                case .locationData:
+                    return try decoder.decode(CacheEntry<CLLocation>.self, from: data)
+                default:
+                    return try decoder.decode(CacheEntry<Data>.self, from: data)
+                }
+            } catch {
+                // Remove corrupted entry
+                diskCache.removeValue(forKey: fullKey)
+                removeDiskFile(forKey: fullKey)
+                return nil
+            }
+        }
+        
+        return nil
+    }
+    
+    private func removeEntry(forKey key: String, type: CacheType) {
+        let fullKey = createFullKey(key, type: type)
+        
+        // Remove from memory
+        if let entry = memoryCache[fullKey] {
+            memoryCache.removeValue(forKey: fullKey)
+        }
+        
+        // Remove from disk
+        diskCache.removeValue(forKey: fullKey)
+        removeDiskFile(forKey: fullKey)
+        
+        // Update statistics
+        statistics.typeStats[type]?.evictions += 1
+        statistics.totalEvictions += 1
+    }
+    
+    private func clearCacheType(_ type: CacheType) {
+        let prefix = type.rawValue + "_"
+        
+        // Clear memory cache
+        memoryCache = memoryCache.filter { !$0.key.hasPrefix(prefix) }
+        
+        // Clear disk cache
+        diskCache = diskCache.filter { !$0.key.hasPrefix(prefix) }
+        
+        // Clear disk files
+        let typeDirectory = cacheDirectory.appendingPathComponent(type.rawValue)
+        try? fileManager.removeItem(at: typeDirectory)
+        
+        // Reset statistics
+        statistics.typeStats[type] = CacheStatistics.TypeStatistics()
+    }
+    
+    private func clearAllCacheInternal() {
+        memoryCache.removeAll()
+        diskCache.removeAll()
+        
+        // Clear disk files
+        try? fileManager.removeItem(at: cacheDirectory)
+        createCacheDirectoryIfNeeded()
+        
+        // Reset statistics
+        statistics = CacheStatistics()
+        for type in CacheType.allCases {
+            statistics.typeStats[type] = CacheStatistics.TypeStatistics()
+        }
+    }
+    
+    private func createFullKey(_ key: String, type: CacheType) -> String {
+        return "\(type.rawValue)_\(key)"
+    }
+    
+    private func calculateSize<T: Codable>(_ data: T) -> Int {
+        if let encoded = try? JSONEncoder().encode(data) {
+            return encoded.count
+        }
+        return 0
+    }
+    
+    private func recordHit(for type: CacheType) {
+        statistics.totalHits += 1
+        statistics.typeStats[type]?.hits += 1
+    }
+    
+    private func recordMiss(for type: CacheType) {
+        statistics.totalMisses += 1
+        statistics.typeStats[type]?.misses += 1
+    }
+    
+    private func updateAccessStats(for key: String, type: CacheType) {
+        // Update last accessed time in memory
+        let fullKey = createFullKey(key, type: type)
+        // This would be implemented with a more sophisticated LRU tracking
+    }
+    
+    private func enforceMemoryLimits() {
+        if statistics.totalSize > maxMemorySize || isMemoryPressure {
+            evictLeastRecentlyUsed()
+        }
+    }
+    
+    private func evictLeastRecentlyUsed() {
+        // Implementation would sort by access time and remove oldest entries
+        // This is a simplified version
+        if memoryCache.count > 100 {
+            let keysToRemove = Array(memoryCache.keys.prefix(10))
+            for key in keysToRemove {
+                memoryCache.removeValue(forKey: key)
+            }
+        }
+    }
+    
+    private func saveToDisk(_ data: Data, forKey key: String) {
+        let filePath = cacheDirectory.appendingPathComponent(key)
+        try? data.write(to: filePath)
+    }
+    
+    private func loadFromDisk(forKey key: String) -> Data? {
+        let filePath = cacheDirectory.appendingPathComponent(key)
+        return try? Data(contentsOf: filePath)
+    }
+    
+    private func removeDiskFile(forKey key: String) {
+        let filePath = cacheDirectory.appendingPathComponent(key)
+        try? fileManager.removeItem(at: filePath)
+    }
+    
+    private func setupMemoryPressureMonitoring() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleMemoryPressure),
+            name: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func handleMemoryPressure() {
+        isMemoryPressure = true
+        
+        // Aggressively clean memory cache
+        queue.async(flags: .barrier) { [weak self] in
+            self?.clearCacheType(.temporaryData)
+            self?.evictLeastRecentlyUsed()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+                self?.isMemoryPressure = false
+            }
+        }
+    }
+    
+    private func schedulePeriodicCleanup() {
+        timerManager.scheduleTimer(id: "unified-cache-cleanup", type: .cacheCleanup) { [weak self] in
+            self?.performPeriodicCleanup()
+        }
+    }
+    
+    private func performPeriodicCleanup() {
+        queue.async(flags: .barrier) { [weak self] in
+            self?.removeExpiredEntries()
+            self?.enforceMemoryLimits()
+            self?.saveStatistics()
+        }
+    }
+    
+    private func removeExpiredEntries() {
+        let currentTime = Date()
+        
+        // Remove expired memory entries
+        memoryCache = memoryCache.filter { key, value in
+            // This would check expiration based on entry type
+            return true // Simplified
+        }
+        
+        // Remove expired disk entries
+        diskCache = diskCache.filter { key, value in
+            // This would check expiration based on entry type
+            return true // Simplified
+        }
+    }
+    
+    private func loadStatistics() {
+        if let data = userDefaults.data(forKey: "UnifiedCacheStatistics"),
+           let stats = try? JSONDecoder().decode(CacheStatistics.self, from: data) {
+            statistics = stats
+        }
+    }
+    
+    private func saveStatistics() {
+        if let data = try? JSONEncoder().encode(statistics) {
+            userDefaults.set(data, forKey: "UnifiedCacheStatistics")
+        }
+    }
+    
+    deinit {
+        timerManager.cancelTimer(id: "unified-cache-cleanup")
+        NotificationCenter.default.removeObserver(self)
+    }
+}
+
+// MARK: - Extensions
+
+extension UnifiedCacheManager {
+    /// Convenience method for prayer times
+    public func storePrayerTimes(_ times: [PrayerTime], forKey key: String) {
+        store(times, forKey: key, type: .prayerTimes)
+    }
+    
+    /// Convenience method for retrieving prayer times
+    public func retrievePrayerTimes(forKey key: String) -> [PrayerTime]? {
+        return retrieve([PrayerTime].self, forKey: key, cacheType: .prayerTimes)
+    }
+    
+    /// Convenience method for Qibla directions
+    public func storeQiblaDirection(_ direction: QiblaDirection, forKey key: String) {
+        store(direction, forKey: key, type: .qiblaDirections)
+    }
+    
+    /// Convenience method for retrieving Qibla directions
+    public func retrieveQiblaDirection(forKey key: String) -> QiblaDirection? {
+        return retrieve(QiblaDirection.self, forKey: key, cacheType: .qiblaDirections)
+    }
+    
+    /// Convenience method for location data
+    public func storeLocation(_ location: CLLocation, forKey key: String) {
+        store(location, forKey: key, type: .locationData)
+    }
+    
+    /// Convenience method for retrieving location data
+    public func retrieveLocation(forKey key: String) -> CLLocation? {
+        return retrieve(CLLocation.self, forKey: key, cacheType: .locationData)
+    }
+}

@@ -33,7 +33,7 @@ public struct WelcomeScreen: View {
                 
                 // App name and tagline
                 VStack(spacing: 12) {
-                    Text("Deen Assist")
+                    Text("DeenBuddy")
                         .displayMedium()
                         .foregroundColor(ColorPalette.textPrimary)
                         .fontWeight(.bold)

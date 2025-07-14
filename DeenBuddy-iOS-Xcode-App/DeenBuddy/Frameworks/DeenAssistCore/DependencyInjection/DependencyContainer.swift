@@ -243,9 +243,22 @@ public class DependencyContainer: ObservableObject {
 // MARK: - Service Factory
 
 public class ServiceFactory {
+    // Singleton instances to prevent service multiplication
+    @MainActor
+    private static var _locationServiceInstance: LocationService?
+
     @MainActor
     public static func createLocationService() -> any LocationServiceProtocol {
-        return LocationService()
+        // Use singleton pattern to prevent multiple instances
+        if let existingInstance = _locationServiceInstance {
+            print("🔄 Reusing existing LocationService instance")
+            return existingInstance
+        }
+
+        let newInstance = LocationService()
+        _locationServiceInstance = newInstance
+        print("🏗️ Created new LocationService singleton instance")
+        return newInstance
     }
 
     public static func createAPIClient(

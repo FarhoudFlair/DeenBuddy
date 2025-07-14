@@ -9,13 +9,14 @@ public struct EnhancedOnboardingFlow: View {
     let onComplete: () -> Void
     
     @State private var currentStep = 0
+    @State private var userName: String = ""
     @State private var selectedCalculationMethod: CalculationMethod = .muslimWorldLeague
     @State private var selectedMadhab: Madhab = .sunni
     @State private var locationPermissionGranted = false
     @State private var notificationPermissionGranted = false
     @State private var isLoading = false
     
-    private let totalSteps = 5
+    private let totalSteps = 6
     private let analyticsService = AnalyticsService.shared
     private let accessibilityService = AccessibilityService.shared
     private let localizationService = SharedInstances.localizationService
@@ -41,20 +42,23 @@ public struct EnhancedOnboardingFlow: View {
                 // Content
                 TabView(selection: $currentStep) {
                     WelcomeStepView().tag(0)
+                    NameCollectionStepView(
+                        userName: $userName
+                    ).tag(1)
                     CalculationMethodStepView(
                         selectedMethod: $selectedCalculationMethod
-                    ).tag(1)
+                    ).tag(2)
                     MadhabStepView(
                         selectedMadhab: $selectedMadhab
-                    ).tag(2)
+                    ).tag(3)
                     LocationPermissionStepView(
                         permissionGranted: $locationPermissionGranted,
                         locationService: locationService
-                    ).tag(3)
+                    ).tag(4)
                     NotificationPermissionStepView(
                         permissionGranted: $notificationPermissionGranted,
                         notificationService: notificationService
-                    ).tag(4)
+                    ).tag(5)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .animation(.easeInOut(duration: accessibilityService.getAnimationDuration(0.3)), value: currentStep)
@@ -74,14 +78,14 @@ public struct EnhancedOnboardingFlow: View {
         }
         .onAppear {
             analyticsService.trackScreenView("onboarding_start")
-            accessibilityService.announceToVoiceOver("Welcome to Deen Assist onboarding")
+            accessibilityService.announceToVoiceOver("Welcome to DeenBuddy onboarding")
         }
     }
     
     private var canProceed: Bool {
         switch currentStep {
-        case 3: return locationPermissionGranted
-        case 4: return true // Notification permission is optional
+        case 4: return locationPermissionGranted
+        case 5: return true // Notification permission is optional
         default: return true
         }
     }
@@ -117,6 +121,8 @@ public struct EnhancedOnboardingFlow: View {
                 settingsService.calculationMethod = selectedCalculationMethod
                 settingsService.madhab = selectedMadhab
                 settingsService.hasCompletedOnboarding = true
+                // Save user name (can be empty if user didn't provide one)
+                UserDefaults.standard.set(userName.trimmingCharacters(in: .whitespacesAndNewlines), forKey: UnifiedSettingsKeys.userName)
             }
             
             try? await settingsService.saveSettings()
@@ -131,7 +137,7 @@ public struct EnhancedOnboardingFlow: View {
             
             await MainActor.run {
                 isLoading = false
-                accessibilityService.announceToVoiceOver("Onboarding completed. Welcome to Deen Assist!")
+                accessibilityService.announceToVoiceOver("Onboarding completed. Welcome to DeenBuddy!")
                 onComplete()
             }
         }
@@ -225,7 +231,7 @@ public struct EnhancedOnboardingFlow: View {
 //        }
 //        .padding()
 //        .accessibilityElement(children: .combine)
-//        .accessibilityLabel("Welcome to Deen Assist. Your Islamic Prayer Companion with accurate prayer times, Qibla compass, prayer guides, and notifications.")
+//        .accessibilityLabel("Welcome to DeenBuddy. Your Islamic Prayer Companion with accurate prayer times, Qibla compass, prayer guides, and notifications.")
 //    }
 //}
 //
@@ -378,6 +384,60 @@ private struct NotificationPermissionStepView: View {
                 await MainActor.run {
                     permissionGranted = false
                 }
+            }
+        }
+    }
+}
+
+private struct NameCollectionStepView: View {
+    @Binding var userName: String
+    @FocusState private var isTextFieldFocused: Bool
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            OnboardingStepHeader(
+                icon: "person.circle.fill",
+                title: "What's your name?",
+                description: "Help us personalize your experience with a warm Islamic greeting."
+            )
+            
+            VStack(spacing: 16) {
+                TextField("Enter your name (optional)", text: $userName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .font(.body)
+                    .focused($isTextFieldFocused)
+                    .submitLabel(.continue)
+                    .autocorrectionDisabled()
+                    .textContentType(.givenName)
+                    .accessibilityLabel("Your name")
+                    .accessibilityHint("Enter your preferred name for personalized greetings")
+                
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                        
+                        Text("Your name stays private on your device")
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                    }
+                    
+                    Text("We'll greet you with \"Salam Alaykum\" followed by your name")
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 8)
+            }
+            .padding(.horizontal)
+            
+            Spacer()
+        }
+        .onAppear {
+            // Auto-focus the text field for better UX
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                isTextFieldFocused = true
             }
         }
     }

@@ -39,6 +39,12 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
     }
     
+    @Published public var userName: String = "" {
+        didSet {
+            saveSettingsAsync()
+        }
+    }
+    
     @Published public var timeFormat: TimeFormat = .twelveHour {
         didSet {
             saveSettingsAsync()
@@ -120,6 +126,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
             // Save onboarding status
             userDefaults.set(hasCompletedOnboarding, forKey: UnifiedSettingsKeys.hasCompletedOnboarding)
+            
+            // Save user name
+            userDefaults.set(userName, forKey: UnifiedSettingsKeys.userName)
 
             // Save metadata
             userDefaults.set(Date(), forKey: UnifiedSettingsKeys.lastSyncDate)
@@ -205,6 +214,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
         // Load onboarding status
         hasCompletedOnboarding = userDefaults.bool(forKey: UnifiedSettingsKeys.hasCompletedOnboarding)
+        
+        // Load user name
+        userName = userDefaults.string(forKey: UnifiedSettingsKeys.userName) ?? ""
 
         // Perform comprehensive validation
         try validateSettingsConsistency()

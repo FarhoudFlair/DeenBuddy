@@ -9,6 +9,7 @@ public struct QiblaCompassScreen: View {
     @StateObject private var compassManager: CompassManager
     
     let onDismiss: () -> Void
+    let onShowAR: (() -> Void)?
     
     @State private var qiblaDirection: QiblaDirection?
     @State private var isLoading = true
@@ -17,10 +18,12 @@ public struct QiblaCompassScreen: View {
     
     public init(
         locationService: any LocationServiceProtocol,
-        onDismiss: @escaping () -> Void
+        onDismiss: @escaping () -> Void,
+        onShowAR: (() -> Void)? = nil
     ) {
         self.locationService = locationService
         self.onDismiss = onDismiss
+        self.onShowAR = onShowAR
         self._compassManager = StateObject(wrappedValue: CompassManager(locationService: locationService))
     }
     
@@ -62,7 +65,21 @@ public struct QiblaCompassScreen: View {
                     }
                 }
                 
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    if let onShowAR = onShowAR {
+                        Button(action: onShowAR) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arkit")
+                                Text("AR")
+                            }
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        .tint(ColorPalette.primary)
+                    }
+                    
                     Button(action: {
                         showingCalibration = true
                     }) {
@@ -217,19 +234,26 @@ public struct QiblaCompassScreen: View {
     private var compassMarkings: some View {
         ForEach(0..<360, id: \.self) { degree in
             if degree % 30 == 0 {
-                // Enhanced major markings (every 30 degrees)
+                // Enhanced major markings (every 30 degrees) - more prominent for key directions
                 Rectangle()
                     .fill(
                         LinearGradient(
                             colors: [
-                                ColorPalette.primary.opacity(0.8),
-                                ColorPalette.textSecondary.opacity(0.6)
+                                ColorPalette.primary.opacity(degree % 90 == 0 ? 0.9 : 0.7),
+                                ColorPalette.textSecondary.opacity(degree % 90 == 0 ? 0.7 : 0.5)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
-                    .frame(width: degree % 90 == 0 ? 3 : 2, height: degree % 90 == 0 ? 25 : 18)
+                    .frame(width: degree % 90 == 0 ? 4 : 2.5, height: degree % 90 == 0 ? 30 : 22)
+                    .offset(y: -140)
+                    .rotationEffect(.degrees(Double(degree)))
+            } else if degree % 15 == 0 {
+                // Medium markings (every 15 degrees) - added for better orientation
+                Rectangle()
+                    .fill(ColorPalette.textSecondary.opacity(0.5))
+                    .frame(width: 1.5, height: 16)
                     .offset(y: -140)
                     .rotationEffect(.degrees(Double(degree)))
             } else if degree % 10 == 0 {
@@ -249,27 +273,41 @@ public struct QiblaCompassScreen: View {
             }
         }
         
-        // Enhanced cardinal directions with Islamic styling
-        ForEach(["N", "E", "S", "W"], id: \.self) { direction in
-            VStack(spacing: 2) {
-                Text(direction)
-                    .font(.headline)
+        // Enhanced degree markings for orientation (without cardinal direction labels)
+        // Primary degree markers (every 90 degrees)
+        ForEach([0, 90, 180, 270], id: \.self) { degree in
+            VStack(spacing: 1) {
+                Text("\(degree)°")
+                    .font(.caption)
                     .fontWeight(.bold)
-                    .foregroundColor(direction == "N" ? Color.red.opacity(0.8) : ColorPalette.textPrimary)
-                
-                // Directional indicators in Arabic
-                Text(["N": "ش", "E": "ق", "S": "ج", "W": "غ"][direction] ?? "")
-                    .font(.caption2)
-                    .foregroundColor(ColorPalette.textSecondary.opacity(0.7))
+                    .foregroundColor(ColorPalette.textPrimary.opacity(0.8))
             }
             .background(
                 Circle()
                     .fill(Color.white.opacity(0.9))
                     .frame(width: 32, height: 32)
-                    .shadow(color: .black.opacity(0.1), radius: 2, x: 0, y: 1)
+                    .shadow(color: .black.opacity(0.08), radius: 2, x: 0, y: 1)
             )
             .offset(y: -115)
-            .rotationEffect(.degrees(Double(["N": 0, "E": 90, "S": 180, "W": 270][direction] ?? 0)))
+            .rotationEffect(.degrees(Double(degree)))
+        }
+
+        // Secondary degree markers (every 45 degrees) for better orientation
+        ForEach([45, 135, 225, 315], id: \.self) { degree in
+            VStack(spacing: 1) {
+                Text("\(degree)°")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundColor(ColorPalette.textSecondary.opacity(0.7))
+            }
+            .background(
+                Circle()
+                    .fill(Color.white.opacity(0.6))
+                    .frame(width: 24, height: 24)
+                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 0.5)
+            )
+            .offset(y: -110)
+            .rotationEffect(.degrees(Double(degree)))
         }
     }
     

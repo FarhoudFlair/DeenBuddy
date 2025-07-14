@@ -1,0 +1,37 @@
+### General Information:
+- **Codebase Path**: `/Users/farhoudtalebi/Repositories/DeenBuddy`
+- **Total Swift Files**: 181
+- **Total Lines of Swift Code**: 54,141
+
+### Key Directories & Files:
+- **Primary Xcode Project**: `DeenBuddy-iOS-Xcode-App/DeenBuddy.xcodeproj`
+- **Swift Package**: `Package.swift`
+- **Main App Entry**: `DeenAssistApp.swift`
+- **Assets**: JSON files in Resources/Assets
+
+### Project Features:
+- **Core Features**: Prayer Times, Qibla Compass, Prayer Guides
+- **Architecture**: Modular, protocol-first with SwiftUI and Combine
+- **Active Development**: Focused on adding core and advanced features
+
+### Development Files:
+- README: Overview of app capabilities and setup
+- SwiftLints, Plists, and configuration files for setting up development environments.
+
+INDEXED CODEBASE INFORMATION
+============================
+
+This file contains information about the indexed codebase available in Warp Terminal's Agent Mode.
+
+Indexed Codebase:
+- Name: DeenBuddy
+- Path: /Users/farhoudtalebi/Repositories/DeenBuddy
+- Current Working Directory: /Users/farhoudtalebi/Repositories/DeenBuddy/DeenBuddy-iOS-Xcode-App
+
+Notes:
+- The indexing allows for semantic searches across the codebase
+- The index is maintained internally by the AI system
+- The current working directory is within the indexed codebase
+- This enables code understanding and search capabilities when using the search_codebase tool
+
+Generated on: 2025-07-14T18:09:05Z

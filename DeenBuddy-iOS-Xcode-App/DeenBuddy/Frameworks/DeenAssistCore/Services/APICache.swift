@@ -10,6 +10,7 @@ public class APICache: APICacheProtocol {
     private let fileManager = FileManager.default
     private let cacheDirectory: URL
     private let queue = DispatchQueue(label: "APICache", attributes: .concurrent)
+    private let timerManager = BatteryAwareTimerManager.shared
     
     // MARK: - Cache Configuration
     
@@ -34,6 +35,10 @@ public class APICache: APICacheProtocol {
         
         createCacheDirectoryIfNeeded()
         schedulePeriodicCleanup()
+    }
+    
+    deinit {
+        timerManager.cancelTimer(id: "api-cache-cleanup")
     }
     
     // MARK: - Protocol Implementation
@@ -306,8 +311,8 @@ public class APICache: APICacheProtocol {
     }
     
     private func schedulePeriodicCleanup() {
-        // Schedule cleanup every hour
-        Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+        // Schedule cleanup using battery-aware timer
+        timerManager.scheduleTimer(id: "api-cache-cleanup", type: .cacheCleanup) { [weak self] in
             self?.clearExpiredCache()
         }
     }

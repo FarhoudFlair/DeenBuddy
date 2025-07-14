@@ -15,58 +15,61 @@ public enum UnifiedSettingsKeys {
     // MARK: - Core Prayer Settings (Shared between SettingsService and PrayerTimeService)
     
     /// Calculation method for prayer times (Muslim World League, Egyptian, etc.)
-    public static let calculationMethod = "DeenAssist.Settings.CalculationMethod"
+    public static let calculationMethod = "DeenBuddy.Settings.CalculationMethod"
     
     /// Madhab for Asr prayer calculation (Shafi, Hanafi)
-    public static let madhab = "DeenAssist.Settings.Madhab"
+    public static let madhab = "DeenBuddy.Settings.Madhab"
     
     // MARK: - App Settings (SettingsService)
     
     /// Whether prayer notifications are enabled
-    public static let notificationsEnabled = "DeenAssist.Settings.NotificationsEnabled"
+    public static let notificationsEnabled = "DeenBuddy.Settings.NotificationsEnabled"
     
     /// App theme mode (light, dark, system)
-    public static let theme = "DeenAssist.Settings.Theme"
+    public static let theme = "DeenBuddy.Settings.Theme"
     
     /// Time format preference (12-hour, 24-hour)
-    public static let timeFormat = "DeenAssist.Settings.TimeFormat"
+    public static let timeFormat = "DeenBuddy.Settings.TimeFormat"
     
     /// Notification offset in seconds before prayer time
-    public static let notificationOffset = "DeenAssist.Settings.NotificationOffset"
+    public static let notificationOffset = "DeenBuddy.Settings.NotificationOffset"
     
     /// Whether to override battery optimization
-    public static let overrideBatteryOptimization = "DeenAssist.Settings.OverrideBatteryOptimization"
+    public static let overrideBatteryOptimization = "DeenBuddy.Settings.OverrideBatteryOptimization"
     
     /// Whether user has completed onboarding
-    public static let hasCompletedOnboarding = "DeenAssist.Settings.HasCompletedOnboarding"
+    public static let hasCompletedOnboarding = "DeenBuddy.Settings.HasCompletedOnboarding"
+    
+    /// User's preferred name for personalized greetings
+    public static let userName = "DeenBuddy.Settings.UserName"
     
     /// Last settings synchronization date
-    public static let lastSyncDate = "DeenAssist.Settings.LastSyncDate"
+    public static let lastSyncDate = "DeenBuddy.Settings.LastSyncDate"
     
     /// Settings schema version for migration
-    public static let settingsVersion = "DeenAssist.Settings.Version"
+    public static let settingsVersion = "DeenBuddy.Settings.Version"
     
     // MARK: - Cache Keys (PrayerTimeService)
     
     /// Cached prayer times data (with date suffix)
-    public static let cachedPrayerTimes = "DeenAssist.Cache.PrayerTimes"
+    public static let cachedPrayerTimes = "DeenBuddy.Cache.PrayerTimes"
     
     /// Cache validity date
-    public static let cacheDate = "DeenAssist.Cache.Date"
+    public static let cacheDate = "DeenBuddy.Cache.Date"
     
     // MARK: - Legacy Keys (For Migration)
     
     /// Legacy calculation method key from PrayerTimeService
-    public static let legacyCalculationMethod = "DeenAssist.CalculationMethod"
+    public static let legacyCalculationMethod = "DeenBuddy.CalculationMethod"
     
     /// Legacy madhab key from PrayerTimeService
-    public static let legacyMadhab = "DeenAssist.Madhab"
+    public static let legacyMadhab = "DeenBuddy.Madhab"
     
     /// Legacy cached prayer times key from PrayerTimeService
-    public static let legacyCachedPrayerTimes = "DeenAssist.CachedPrayerTimes"
+    public static let legacyCachedPrayerTimes = "DeenBuddy.CachedPrayerTimes"
     
     /// Legacy cache date key from PrayerTimeService
-    public static let legacyCacheDate = "DeenAssist.CacheDate"
+    public static let legacyCacheDate = "DeenBuddy.CacheDate"
 }
 
 // MARK: - Migration Helper
@@ -84,66 +87,163 @@ public class SettingsMigration {
     /// This ensures no user data is lost during the synchronization fix
     public func migrateLegacySettings() {
         print("Starting settings migration from legacy keys...")
-        
-        // Migrate calculation method
+
+        // Resource monitoring safeguards
+        let startTime = Date()
+        let maxMigrationTime: TimeInterval = 30.0 // 30 seconds max
+        var migratedKeysCount = 0
+        let maxKeysToMigrate = 100 // Prevent excessive migration
+
+        defer {
+            let duration = Date().timeIntervalSince(startTime)
+            print("Settings migration completed in \(String(format: "%.2f", duration))s, migrated \(migratedKeysCount) keys")
+
+            if duration > maxMigrationTime {
+                print("⚠️ WARNING: Settings migration took longer than expected (\(duration)s)")
+            }
+        }
+
+        // First migrate old DeenAssist keys to DeenBuddy keys (rebrand migration)
+        migrateRebrandKeys()
+
+        // Then migrate legacy calculation method with safeguards
         if let legacyMethod = userDefaults.string(forKey: UnifiedSettingsKeys.legacyCalculationMethod),
-           userDefaults.string(forKey: UnifiedSettingsKeys.calculationMethod) == nil {
+           userDefaults.string(forKey: UnifiedSettingsKeys.calculationMethod) == nil,
+           migratedKeysCount < maxKeysToMigrate {
             userDefaults.set(legacyMethod, forKey: UnifiedSettingsKeys.calculationMethod)
+            migratedKeysCount += 1
             print("Migrated calculation method: \(legacyMethod)")
         }
         
-        // Migrate madhab
+        // Migrate madhab with safeguards
         if let legacyMadhab = userDefaults.string(forKey: UnifiedSettingsKeys.legacyMadhab),
-           userDefaults.string(forKey: UnifiedSettingsKeys.madhab) == nil {
+           userDefaults.string(forKey: UnifiedSettingsKeys.madhab) == nil,
+           migratedKeysCount < maxKeysToMigrate {
             userDefaults.set(legacyMadhab, forKey: UnifiedSettingsKeys.madhab)
+            migratedKeysCount += 1
             print("Migrated madhab: \(legacyMadhab)")
         }
-        
-        // Migrate cache date
+
+        // Migrate cache date with safeguards
         if let legacyCacheDate = userDefaults.string(forKey: UnifiedSettingsKeys.legacyCacheDate),
-           userDefaults.string(forKey: UnifiedSettingsKeys.cacheDate) == nil {
+           userDefaults.string(forKey: UnifiedSettingsKeys.cacheDate) == nil,
+           migratedKeysCount < maxKeysToMigrate {
             userDefaults.set(legacyCacheDate, forKey: UnifiedSettingsKeys.cacheDate)
+            migratedKeysCount += 1
             print("Migrated cache date: \(legacyCacheDate)")
         }
-        
-        // Migrate cached prayer times (date-specific entries)
-        migrateCachedPrayerTimes()
-        
+
+        // Migrate cached prayer times (date-specific entries) with safeguards
+        if migratedKeysCount < maxKeysToMigrate {
+            let additionalMigrated = migrateCachedPrayerTimes(maxKeys: maxKeysToMigrate - migratedKeysCount)
+            migratedKeysCount += additionalMigrated
+        }
+
+        // Check for timeout
+        if Date().timeIntervalSince(startTime) > maxMigrationTime {
+            print("⚠️ Settings migration timeout reached, stopping early")
+            return
+        }
+
         // Mark migration as completed
-        userDefaults.set(true, forKey: "DeenAssist.Migration.LegacyKeysCompleted")
+        userDefaults.set(true, forKey: "DeenBuddy.Migration.LegacyKeysCompleted")
         userDefaults.synchronize()
-        
+
         print("Settings migration completed successfully")
     }
     
-    /// Migrates date-specific cached prayer times
-    private func migrateCachedPrayerTimes() {
-        // Get all UserDefaults keys
-        let allKeys = userDefaults.dictionaryRepresentation().keys
+    /// Migrates settings from old "DeenAssist" keys to new "DeenBuddy" keys
+    private func migrateRebrandKeys() {
+        print("Starting rebrand migration from DeenAssist to DeenBuddy...")
         
-        // Find legacy cached prayer time entries (format: "DeenAssist.CachedPrayerTimes_YYYY-MM-DD")
-        let legacyCachePrefix = UnifiedSettingsKeys.legacyCachedPrayerTimes + "_"
-        let newCachePrefix = UnifiedSettingsKeys.cachedPrayerTimes + "_"
+        let oldToNewMappings = [
+            "DeenAssist.Settings.CalculationMethod": UnifiedSettingsKeys.calculationMethod,
+            "DeenAssist.Settings.Madhab": UnifiedSettingsKeys.madhab,
+            "DeenAssist.Settings.NotificationsEnabled": UnifiedSettingsKeys.notificationsEnabled,
+            "DeenAssist.Settings.Theme": UnifiedSettingsKeys.theme,
+            "DeenAssist.Settings.TimeFormat": UnifiedSettingsKeys.timeFormat,
+            "DeenAssist.Settings.NotificationOffset": UnifiedSettingsKeys.notificationOffset,
+            "DeenAssist.Settings.OverrideBatteryOptimization": UnifiedSettingsKeys.overrideBatteryOptimization,
+            "DeenAssist.Settings.HasCompletedOnboarding": UnifiedSettingsKeys.hasCompletedOnboarding,
+            "DeenAssist.Settings.LastSyncDate": UnifiedSettingsKeys.lastSyncDate,
+            "DeenAssist.Settings.Version": UnifiedSettingsKeys.settingsVersion,
+            "DeenAssist.Cache.PrayerTimes": UnifiedSettingsKeys.cachedPrayerTimes,
+            "DeenAssist.Cache.Date": UnifiedSettingsKeys.cacheDate
+        ]
+        
+        for (oldKey, newKey) in oldToNewMappings {
+            if let oldValue = userDefaults.object(forKey: oldKey),
+               userDefaults.object(forKey: newKey) == nil {
+                userDefaults.set(oldValue, forKey: newKey)
+                print("Migrated rebrand key: \(oldKey) -> \(newKey)")
+            }
+        }
+        
+        // Migrate date-specific cached prayer times from DeenAssist to DeenBuddy
+        migrateRebrandCachedPrayerTimes()
+        
+        print("Rebrand migration completed")
+    }
+    
+    /// Migrates date-specific cached prayer times from DeenAssist to DeenBuddy
+    private func migrateRebrandCachedPrayerTimes() {
+        let allKeys = userDefaults.dictionaryRepresentation().keys
+        let oldCachePrefix = "DeenAssist.Cache.PrayerTimes_"
+        let newCachePrefix = "DeenBuddy.Cache.PrayerTimes_"
         
         for key in allKeys {
-            if key.hasPrefix(legacyCachePrefix) {
-                // Extract date suffix
-                let dateSuffix = String(key.dropFirst(legacyCachePrefix.count))
+            if key.hasPrefix(oldCachePrefix) {
+                let dateSuffix = String(key.dropFirst(oldCachePrefix.count))
                 let newKey = newCachePrefix + dateSuffix
                 
-                // Migrate if new key doesn't exist
                 if let cachedData = userDefaults.data(forKey: key),
                    userDefaults.data(forKey: newKey) == nil {
                     userDefaults.set(cachedData, forKey: newKey)
-                    print("Migrated cached prayer times for date: \(dateSuffix)")
+                    print("Migrated rebrand cached prayer times for date: \(dateSuffix)")
                 }
             }
         }
     }
     
+    /// Migrates date-specific cached prayer times with resource safeguards
+    private func migrateCachedPrayerTimes(maxKeys: Int = 50) -> Int {
+        // Get all UserDefaults keys
+        let allKeys = userDefaults.dictionaryRepresentation().keys
+
+        // Find legacy cached prayer time entries (format: "DeenBuddy.CachedPrayerTimes_YYYY-MM-DD")
+        let legacyCachePrefix = UnifiedSettingsKeys.legacyCachedPrayerTimes + "_"
+        let newCachePrefix = UnifiedSettingsKeys.cachedPrayerTimes + "_"
+
+        var migratedCount = 0
+
+        for key in allKeys {
+            // Check limits to prevent resource exhaustion
+            guard migratedCount < maxKeys else {
+                print("⚠️ Cached prayer times migration limit reached (\(maxKeys)), stopping")
+                break
+            }
+
+            if key.hasPrefix(legacyCachePrefix) {
+                // Extract date suffix
+                let dateSuffix = String(key.dropFirst(legacyCachePrefix.count))
+                let newKey = newCachePrefix + dateSuffix
+
+                // Migrate if new key doesn't exist
+                if let cachedData = userDefaults.data(forKey: key),
+                   userDefaults.data(forKey: newKey) == nil {
+                    userDefaults.set(cachedData, forKey: newKey)
+                    migratedCount += 1
+                    print("Migrated cached prayer times for date: \(dateSuffix)")
+                }
+            }
+        }
+
+        return migratedCount
+    }
+    
     /// Checks if migration has been completed
     public var isMigrationCompleted: Bool {
-        return userDefaults.bool(forKey: "DeenAssist.Migration.LegacyKeysCompleted")
+        return userDefaults.bool(forKey: "DeenBuddy.Migration.LegacyKeysCompleted")
     }
     
     /// Cleans up legacy keys after successful migration (optional)

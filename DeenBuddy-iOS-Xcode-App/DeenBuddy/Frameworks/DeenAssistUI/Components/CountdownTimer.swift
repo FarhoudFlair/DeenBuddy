@@ -6,8 +6,7 @@ public struct CountdownTimer: View {
     let timeRemaining: TimeInterval?
     
     @State private var currentTime = Date()
-    
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @StateObject private var timerManager = CountdownTimerManager()
     
     public init(nextPrayer: PrayerTime?, timeRemaining: TimeInterval?) {
         self.nextPrayer = nextPrayer
@@ -77,8 +76,14 @@ public struct CountdownTimer: View {
                 .fill(ColorPalette.surfacePrimary)
                 .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
         )
-        .onReceive(timer) { _ in
-            currentTime = Date()
+        .onReceive(timerManager.$currentTime) { time in
+            currentTime = time
+        }
+        .onAppear {
+            timerManager.startTimer()
+        }
+        .onDisappear {
+            timerManager.stopTimer()
         }
     }
     
@@ -108,6 +113,32 @@ public struct CountdownTimer: View {
         } else {
             return String(format: "%02d:%02d", minutes, seconds)
         }
+    }
+}
+
+// MARK: - Timer Manager
+
+@MainActor
+private class CountdownTimerManager: ObservableObject {
+    @Published var currentTime = Date()
+    
+    private let timerManager = BatteryAwareTimerManager.shared
+    private let timerID = "countdown-timer-\(UUID().uuidString)"
+    
+    func startTimer() {
+        timerManager.scheduleTimer(id: timerID, type: .countdownUI) { [weak self] in
+            Task { @MainActor in
+                self?.currentTime = Date()
+            }
+        }
+    }
+    
+    func stopTimer() {
+        timerManager.cancelTimer(id: timerID)
+    }
+    
+    deinit {
+        timerManager.cancelTimer(id: timerID)
     }
 }
 

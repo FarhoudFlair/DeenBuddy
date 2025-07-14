@@ -81,7 +81,7 @@ public struct SettingsScreen: View {
                 Section("About") {
                     SettingsRow(
                         icon: "info.circle.fill",
-                        title: "About Deen Assist",
+                        title: "About DeenBuddy",
                         value: "",
                         action: { showingAbout = true }
                     )

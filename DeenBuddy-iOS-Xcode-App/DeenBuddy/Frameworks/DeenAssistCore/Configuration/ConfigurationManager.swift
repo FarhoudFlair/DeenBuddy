@@ -73,6 +73,52 @@ public class ConfigurationManager: ObservableObject {
         try keychain.store(value: value, for: key)
     }
     
+    /// Store initial configuration credentials (for development setup only)
+    public func storeInitialCredentials(supabaseUrl: String, anonKey: String, environment: AppEnvironment) throws {
+        let urlKey = "SUPABASE_URL_\(environment.rawValue.uppercased())"
+        let keyKey = "SUPABASE_ANON_KEY_\(environment.rawValue.uppercased())"
+        
+        // Validate credentials before storing
+        try validateCredentials(url: supabaseUrl, key: anonKey)
+        
+        try storeSecureValue(supabaseUrl, for: urlKey)
+        try storeSecureValue(anonKey, for: keyKey)
+        
+        print("✅ Stored credentials for \(environment.rawValue) environment")
+    }
+    
+    /// Delete stored credentials for an environment
+    public func deleteCredentials(for environment: AppEnvironment) throws {
+        let urlKey = "SUPABASE_URL_\(environment.rawValue.uppercased())"
+        let keyKey = "SUPABASE_ANON_KEY_\(environment.rawValue.uppercased())"
+        
+        try keychain.delete(for: urlKey)
+        try keychain.delete(for: keyKey)
+        
+        print("🗑️ Deleted credentials for \(environment.rawValue) environment")
+    }
+    
+    /// Check if credentials exist for an environment
+    public func hasCredentials(for environment: AppEnvironment) -> Bool {
+        let urlKey = "SUPABASE_URL_\(environment.rawValue.uppercased())"
+        let keyKey = "SUPABASE_ANON_KEY_\(environment.rawValue.uppercased())"
+        
+        return keychain.exists(for: urlKey) && keychain.exists(for: keyKey)
+    }
+    
+    /// Validate credential format
+    private func validateCredentials(url: String, key: String) throws {
+        // Basic URL validation
+        guard url.hasPrefix("https://") && url.contains("supabase") else {
+            throw ConfigurationError.credentialValidationFailed
+        }
+        
+        // Basic JWT token validation (should start with eyJ)
+        guard key.hasPrefix("eyJ") && key.split(separator: ".").count == 3 else {
+            throw ConfigurationError.credentialValidationFailed
+        }
+    }
+    
     /// Retrieve sensitive configuration from keychain
     public func getSecureValue(for key: String) -> String? {
         return keychain.retrieve(for: key)
@@ -83,6 +129,25 @@ public class ConfigurationManager: ObservableObject {
         self.configuration = config
         self.currentEnvironment = .testing
         self.isConfigured = true
+    }
+    
+    /// Force reload configuration (useful after credential updates)
+    public func reloadConfiguration() {
+        loadConfiguration()
+    }
+    
+    /// Get configuration status for debugging
+    public func getConfigurationStatus() -> String {
+        var status = "Configuration Status:\n"
+        status += "Environment: \(currentEnvironment.rawValue)\n"
+        status += "Configured: \(isConfigured)\n"
+        
+        for env in AppEnvironment.allCases {
+            let hasCredentials = hasCredentials(for: env)
+            status += "\(env.rawValue): \(hasCredentials ? "✅" : "❌")\n"
+        }
+        
+        return status
     }
     
     // MARK: - Private Methods
@@ -113,24 +178,18 @@ public class ConfigurationManager: ObservableObject {
     }
     
     private func loadDevelopmentConfiguration() throws -> AppConfiguration {
-        // TODO: Move these credentials to environment variables or secure configuration
-        // Store the actual Supabase keys securely if not already stored
-        let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
-
-        // Store in keychain if not already present
-        if getSecureValue(for: "SUPABASE_URL_DEV") == nil {
-            try? storeSecureValue(supabaseUrl, for: "SUPABASE_URL_DEV")
-        }
-        if getSecureValue(for: "SUPABASE_ANON_KEY_DEV") == nil {
-            try? storeSecureValue(anonKey, for: "SUPABASE_ANON_KEY_DEV")
+        // SECURITY: Credentials must be stored in keychain before first run
+        // Use environment variables or secure configuration during development
+        guard let supabaseUrl = getSecureValue(for: "SUPABASE_URL_DEV"),
+              let anonKey = getSecureValue(for: "SUPABASE_ANON_KEY_DEV") else {
+            throw ConfigurationError.missingRequiredKeys
         }
 
         return AppConfiguration(
             environment: .development,
             supabase: SupabaseConfiguration(
-                url: getSecureValue(for: "SUPABASE_URL_DEV") ?? supabaseUrl,
-                anonKey: getSecureValue(for: "SUPABASE_ANON_KEY_DEV") ?? anonKey
+                url: supabaseUrl,
+                anonKey: anonKey
             ),
             api: APIConfiguration(
                 baseURL: "https://api.aladhan.com/v1",
@@ -180,26 +239,18 @@ public class ConfigurationManager: ObservableObject {
     }
     
     private func loadProductionConfiguration() throws -> AppConfiguration {
-        // Use the same Supabase keys for production (they're already production keys)
-        let supabaseUrl = "https://hjgwbkcjjclwqamtmhsa.supabase.co"
-        let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ3dia2NqamNsd3FhbXRtaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1NzQwOTYsImV4cCI6MjA2NzE1MDA5Nn0.pipfeKNNDclXlfOimWQnhkf_VY-YTsV3_vZaoEbWSGM"
-
-        // Store in keychain if not already present
-        if getSecureValue(for: "SUPABASE_URL_PROD") == nil {
-            try? storeSecureValue(supabaseUrl, for: "SUPABASE_URL_PROD")
+        // SECURITY: Production credentials must be stored in keychain before deployment
+        // Never include production credentials in source code
+        guard let supabaseUrl = getSecureValue(for: "SUPABASE_URL_PROD"),
+              let anonKey = getSecureValue(for: "SUPABASE_ANON_KEY_PROD") else {
+            throw ConfigurationError.missingRequiredKeys
         }
-        if getSecureValue(for: "SUPABASE_ANON_KEY_PROD") == nil {
-            try? storeSecureValue(anonKey, for: "SUPABASE_ANON_KEY_PROD")
-        }
-
-        let supabaseURL = getSecureValue(for: "SUPABASE_URL_PROD") ?? supabaseUrl
-        let supabaseKey = getSecureValue(for: "SUPABASE_ANON_KEY_PROD") ?? anonKey
         
         return AppConfiguration(
             environment: .production,
             supabase: SupabaseConfiguration(
-                url: supabaseURL,
-                anonKey: supabaseKey
+                url: supabaseUrl,
+                anonKey: anonKey
             ),
             api: APIConfiguration(
                 baseURL: "https://api.aladhan.com/v1",
@@ -332,24 +383,35 @@ private class KeychainManager {
     private let service = "com.deenassist.app"
     
     func store(value: String, for key: String) throws {
-        let data = value.data(using: .utf8)!
+        guard let data = value.data(using: .utf8) else {
+            throw ConfigurationError.invalidConfiguration
+        }
         
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
-            kSecValueData as String: data
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         ]
         
-        // Delete existing item
-        SecItemDelete(query as CFDictionary)
+        // Delete existing item first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
         
         // Add new item
         let status = SecItemAdd(query as CFDictionary, nil)
         
         guard status == errSecSuccess else {
+            print("❌ Keychain store failed for key '\(key)' with status: \(status)")
             throw ConfigurationError.keychainError(status)
         }
+        
+        print("✅ Securely stored credential in keychain for key: \(key)")
     }
     
     func retrieve(for key: String) -> String? {
@@ -364,13 +426,47 @@ private class KeychainManager {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
         
-        guard status == errSecSuccess,
-              let data = result as? Data,
+        guard status == errSecSuccess else {
+            if status != errSecItemNotFound {
+                print("❌ Keychain retrieve failed for key '\(key)' with status: \(status)")
+            }
+            return nil
+        }
+        
+        guard let data = result as? Data,
               let string = String(data: data, encoding: .utf8) else {
+            print("❌ Keychain data corruption for key '\(key)'")
             return nil
         }
         
         return string
+    }
+    
+    func delete(for key: String) throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        
+        let status = SecItemDelete(query as CFDictionary)
+        
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw ConfigurationError.keychainError(status)
+        }
+        
+        print("🗑️ Deleted credential from keychain for key: \(key)")
+    }
+    
+    func exists(for key: String) -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        
+        let status = SecItemCopyMatching(query as CFDictionary, nil)
+        return status == errSecSuccess
     }
 }
 
@@ -381,17 +477,65 @@ public enum ConfigurationError: LocalizedError {
     case invalidConfiguration
     case keychainError(OSStatus)
     case environmentNotSupported
+    case credentialValidationFailed
     
     public var errorDescription: String? {
         switch self {
         case .missingRequiredKeys:
-            return "Required configuration keys are missing"
+            return "Required configuration keys are missing from keychain. Please run initial setup."
         case .invalidConfiguration:
-            return "Configuration is invalid"
+            return "Configuration data is invalid or corrupted."
         case .keychainError(let status):
-            return "Keychain error: \(status)"
+            return "Keychain error: \(status) - \(keychainErrorDescription(status))"
         case .environmentNotSupported:
-            return "Environment is not supported"
+            return "Current environment is not supported for this operation."
+        case .credentialValidationFailed:
+            return "Credential validation failed. Please check your configuration."
+        }
+    }
+    
+    private func keychainErrorDescription(_ status: OSStatus) -> String {
+        switch status {
+        case errSecItemNotFound:
+            return "Item not found in keychain"
+        case errSecDuplicateItem:
+            return "Duplicate item in keychain"
+        case errSecAuthFailed:
+            return "Authentication failed"
+        case errSecNotAvailable:
+            return "Keychain not available"
+        case errSecParam:
+            return "Invalid parameter"
+        case errSecAllocate:
+            return "Memory allocation failed"
+        case errSecUserCanceled:
+            return "User canceled operation"
+        case errSecBadReq:
+            return "Bad request"
+        case errSecInternalError:
+            return "Internal keychain error"
+        case errSecNoDefaultKeychain:
+            return "No default keychain available"
+        case errSecReadOnlyAttr:
+            return "Read-only attribute"
+        case errSecWrongSecVersion:
+            return "Wrong security version"
+        case errSecKeySizeNotAllowed:
+            return "Key size not allowed"
+        case errSecNoStorageModule:
+            return "No storage module available"
+        case errSecNoCertificateModule:
+            return "No certificate module available"
+        case errSecNoPolicyModule:
+            return "No policy module available"
+        case errSecInteractionNotAllowed:
+            return "Interaction not allowed"
+        case errSecDataNotAvailable:
+            return "Data not available"
+        case errSecDataNotModifiable:
+            return "Data not modifiable"
+        default:
+            return "Unknown keychain error"
         }
     }
 }

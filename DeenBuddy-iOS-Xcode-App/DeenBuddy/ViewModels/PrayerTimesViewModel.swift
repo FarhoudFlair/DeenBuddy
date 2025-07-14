@@ -136,6 +136,7 @@ private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var notificationOffset: TimeInterval = 300
     @Published var overrideBatteryOptimization: Bool = false
     @Published var hasCompletedOnboarding: Bool = false
+    @Published var userName: String = ""
     
     var enableNotifications: Bool {
         get { notificationsEnabled }

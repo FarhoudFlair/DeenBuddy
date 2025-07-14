@@ -1,13 +1,13 @@
 import Foundation
 
-/// Localization support for the Deen Assist app
+/// Localization support for the DeenBuddy app
 public struct LocalizedStrings {
     
     // MARK: - App Name and Branding
     
     public static let appName = NSLocalizedString(
         "app.name",
-        value: "Deen Assist",
+        value: "DeenBuddy",
         comment: "The name of the app"
     )
     
@@ -21,7 +21,7 @@ public struct LocalizedStrings {
     
     public static let welcomeTitle = NSLocalizedString(
         "onboarding.welcome.title",
-        value: "Welcome to Deen Assist",
+        value: "Welcome to DeenBuddy",
         comment: "Title for welcome screen"
     )
     

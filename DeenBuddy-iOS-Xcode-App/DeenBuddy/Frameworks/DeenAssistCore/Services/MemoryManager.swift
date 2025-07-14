@@ -15,7 +15,7 @@ public class MemoryManager: ObservableObject {
     // MARK: - Private Properties
     
     private var cancellables = Set<AnyCancellable>()
-    private var memoryTimer: Timer?
+    private let timerManager = BatteryAwareTimerManager.shared
     private let memoryThresholds = MemoryThresholds()
     
     // MARK: - Singleton
@@ -28,14 +28,14 @@ public class MemoryManager: ObservableObject {
     }
     
     deinit {
-        memoryTimer?.invalidate()
+        timerManager.cancelTimer(id: "memory-monitoring")
     }
     
     // MARK: - Public Methods
     
     /// Start memory monitoring
     public func startMonitoring() {
-        memoryTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+        timerManager.scheduleTimer(id: "memory-monitoring", type: .memoryMonitoring) { [weak self] in
             Task { @MainActor in
                 self?.updateMemoryUsage()
             }
@@ -47,7 +47,7 @@ public class MemoryManager: ObservableObject {
     
     /// Stop memory monitoring
     public func stopMonitoring() {
-        memoryTimer?.invalidate()
+        timerManager.cancelTimer(id: "memory-monitoring")
         memoryTimer = nil
         print("📊 Memory monitoring stopped")
     }

@@ -24,11 +24,13 @@ public class QiblaCalculator {
     public static func calculateQibla(from location: CLLocationCoordinate2D) -> QiblaResult {
         let direction = calculateBearing(from: location, to: kaabaCoordinate)
         let distance = calculateDistance(from: location, to: kaabaCoordinate)
+        let magneticDeclination = getMagneticDeclination(for: location)
         
         return QiblaResult(
             direction: direction,
             distance: distance,
             fromLocation: location,
+            magneticDeclination: magneticDeclination,
             calculatedAt: Date()
         )
     }
@@ -86,9 +88,7 @@ public class QiblaCalculator {
                correctedBearing >= 360 ? correctedBearing - 360 : correctedBearing
     }
     
-    /// Get magnetic declination for a given location and date
-    /// Note: This is a simplified calculation. For production use, consider using
-    /// the World Magnetic Model (WMM) or an external service
+    /// Get magnetic declination for a given location and date using the World Magnetic Model
     /// - Parameters:
     ///   - location: The location to get declination for
     ///   - date: The date for the calculation (defaults to current date)
@@ -97,16 +97,8 @@ public class QiblaCalculator {
         for location: CLLocationCoordinate2D,
         on date: Date = Date()
     ) -> Double {
-        // Simplified magnetic declination calculation
-        // In production, this should use the World Magnetic Model (WMM)
-        
-        let lat = location.latitude
-        let lon = location.longitude
-        
-        // Very basic approximation - not accurate for production use
-        let declination = -0.1 * lat + 0.05 * lon
-        
-        return max(-30, min(30, declination)) // Clamp to reasonable range
+        // Use World Magnetic Model for accurate declination calculation
+        return WorldMagneticModel.calculateMagneticDeclination(for: location, on: date)
     }
     
     /// Validate if coordinates are valid
@@ -116,6 +108,62 @@ public class QiblaCalculator {
         return CLLocationCoordinate2DIsValid(coordinate) &&
                coordinate.latitude >= -90 && coordinate.latitude <= 90 &&
                coordinate.longitude >= -180 && coordinate.longitude <= 180
+    }
+    
+    /// Calculate Qibla direction with compass heading correction
+    /// - Parameters:
+    ///   - location: User's location
+    ///   - compassHeading: Current compass heading in degrees
+    /// - Returns: QiblaResult with compass-corrected direction
+    public static func calculateQiblaWithCompass(
+        from location: CLLocationCoordinate2D,
+        compassHeading: Double
+    ) -> QiblaResult {
+        let qiblaResult = calculateQibla(from: location)
+        
+        // The compass heading is already magnetic, so we need to apply declination
+        // to get the true direction difference
+        let trueBearing = applyMagneticDeclination(
+            compassBearing: qiblaResult.direction,
+            magneticDeclination: qiblaResult.magneticDeclination
+        )
+        
+        return QiblaResult(
+            direction: trueBearing,
+            distance: qiblaResult.distance,
+            fromLocation: location,
+            magneticDeclination: qiblaResult.magneticDeclination,
+            calculatedAt: Date()
+        )
+    }
+    
+    /// Get magnetic field strength at a location
+    /// - Parameter location: Location to get field strength for
+    /// - Returns: Magnetic field strength in nanotesla
+    public static func getMagneticFieldStrength(for location: CLLocationCoordinate2D) -> Double {
+        return WorldMagneticModel.getMagneticFieldStrength(for: location)
+    }
+    
+    /// Check if the WMM model is valid for the given date
+    /// - Parameter date: Date to check
+    /// - Returns: True if date is within valid model range
+    public static func isValidModelDate(_ date: Date) -> Bool {
+        return WorldMagneticModel.isValidModelDate(date)
+    }
+    
+    /// Calculate the angular difference between two bearings
+    /// - Parameters:
+    ///   - bearing1: First bearing in degrees
+    ///   - bearing2: Second bearing in degrees
+    /// - Returns: Angular difference in degrees (-180 to 180)
+    public static func angularDifference(from bearing1: Double, to bearing2: Double) -> Double {
+        var diff = bearing2 - bearing1
+        
+        // Normalize to -180 to 180 range
+        while diff > 180 { diff -= 360 }
+        while diff < -180 { diff += 360 }
+        
+        return diff
     }
 }
 
@@ -146,8 +194,29 @@ public struct QiblaResult {
     /// The location from which Qibla was calculated
     public let fromLocation: CLLocationCoordinate2D
     
+    /// Magnetic declination at the location in degrees
+    public let magneticDeclination: Double
+    
     /// When the calculation was performed
     public let calculatedAt: Date
+    
+    /// Initialize QiblaResult with all parameters
+    public init(direction: Double, distance: Double, fromLocation: CLLocationCoordinate2D, magneticDeclination: Double, calculatedAt: Date) {
+        self.direction = direction
+        self.distance = distance
+        self.fromLocation = fromLocation
+        self.magneticDeclination = magneticDeclination
+        self.calculatedAt = calculatedAt
+    }
+    
+    /// Initialize QiblaResult with automatic magnetic declination calculation
+    public init(direction: Double, distance: Double, fromLocation: CLLocationCoordinate2D, calculatedAt: Date) {
+        self.direction = direction
+        self.distance = distance
+        self.fromLocation = fromLocation
+        self.magneticDeclination = QiblaCalculator.getMagneticDeclination(for: fromLocation)
+        self.calculatedAt = calculatedAt
+    }
     
     /// Direction formatted as a compass bearing (e.g., "NE", "SW")
     public var compassBearing: String {
@@ -171,6 +240,24 @@ public struct QiblaResult {
     /// Direction formatted as degrees with cardinal direction
     public var formattedDirection: String {
         return String(format: "%.1f° %@", direction, compassBearing)
+    }
+    
+    /// True bearing corrected for magnetic declination
+    public var trueBearing: Double {
+        return QiblaCalculator.applyMagneticDeclination(
+            compassBearing: direction,
+            magneticDeclination: magneticDeclination
+        )
+    }
+    
+    /// Formatted magnetic declination
+    public var formattedMagneticDeclination: String {
+        return WorldMagneticModel.formatDeclination(magneticDeclination)
+    }
+    
+    /// Comprehensive direction information including magnetic declination
+    public var detailedDirectionInfo: String {
+        return "True: \(formattedDirection)\nMagnetic Declination: \(formattedMagneticDeclination)\nCompass: \(String(format: "%.1f°", trueBearing))"
     }
 }
 

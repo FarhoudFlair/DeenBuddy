@@ -36,7 +36,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private let retryMechanism: RetryMechanism
     private let networkMonitor: NetworkMonitor
     private var cancellables = Set<AnyCancellable>()
-    private var timer: Timer?
+    private let timerManager = BatteryAwareTimerManager.shared
+    private var updateNextPrayerTask: Task<Void, Never>?
     private let userDefaults = UserDefaults.standard
     
     // MARK: - Cache Keys (Now using UnifiedSettingsKeys)
@@ -63,7 +64,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
     
     deinit {
-        timer?.invalidate()
+        timerManager.cancelTimer(id: "prayer-update")
+        updateNextPrayerTask?.cancel()
     }
     
     // MARK: - Protocol Implementation
@@ -231,6 +233,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // This is a robust solution that works with protocol-typed instances
         NotificationCenter.default.publisher(for: .settingsDidChange)
             .receive(on: DispatchQueue.main)
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task {
                     await self?.invalidateCacheAndRefresh()
@@ -264,6 +267,26 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         await clearIslamicCacheManagerPrayerTimes()
 
         print("✅ Comprehensive cache invalidation completed")
+    }
+    
+    /// Cancel all pending async tasks
+    private func cancelAllTasks() {
+        updateNextPrayerTask?.cancel()
+        updateNextPrayerTask = nil
+        
+        // Cancel all Combine subscriptions
+        cancellables.removeAll()
+        
+        print("🗑️ All async tasks cancelled")
+    }
+    
+    /// Manual cleanup for testing or debugging
+    public func cleanup() {
+        timerManager.cancelTimer(id: "prayer-update")
+        
+        cancelAllTasks()
+        
+        print("🧹 PrayerTimeService manually cleaned up")
     }
 
     /// Clears all cached prayer times from UserDefaults (local cache)
@@ -299,7 +322,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
     
     private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        timerManager.schedulePrayerUpdateTimer { [weak self] in
             Task { @MainActor in
                 self?.updateNextPrayer()
             }

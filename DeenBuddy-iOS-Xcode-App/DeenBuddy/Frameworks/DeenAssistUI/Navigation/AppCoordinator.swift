@@ -11,6 +11,7 @@ public class AppCoordinator: ObservableObject {
     @Published public var currentScreen: AppScreen = .loading
     @Published public var showingSettings = false
     @Published public var showingCompass = false
+    @Published public var showingARCompass = false
     @Published public var showingGuides = false
     @Published public var showingQuranSearch = false
     @Published public var showingError = false
@@ -98,6 +99,14 @@ public class AppCoordinator: ObservableObject {
         showingCompass = false
     }
 
+    public func showARCompass() {
+        showingARCompass = true
+    }
+
+    public func dismissARCompass() {
+        showingARCompass = false
+    }
+
     public func showGuides() {
         showingGuides = true
     }
@@ -176,7 +185,7 @@ public class AppCoordinator: ObservableObject {
         accessibilityService.$isVoiceOverEnabled
             .sink { [weak self] isEnabled in
                 if isEnabled {
-                    self?.accessibilityService.announceToVoiceOver("Deen Assist is ready")
+                    self?.accessibilityService.announceToVoiceOver("DeenBuddy is ready")
                 }
             }
             .store(in: &cancellables)
@@ -280,7 +289,7 @@ public struct DeenAssistApp: View {
         Group {
             switch coordinator.currentScreen {
             case .loading:
-                LoadingView.prayer(message: "Loading Deen Assist...")
+                LoadingView.prayer(message: "Loading DeenBuddy...")
                 
             case .onboarding(let step):
                 OnboardingCoordinatorView(
@@ -368,6 +377,7 @@ private struct MainAppView: View {
             HomeScreen(
                 prayerTimeService: coordinator.prayerTimeService,
                 locationService: coordinator.locationService,
+                settingsService: coordinator.settingsService,
                 onCompassTapped: {
                     coordinator.showCompass()
                 },
@@ -401,6 +411,18 @@ private struct MainAppView: View {
                 locationService: coordinator.locationService,
                 onDismiss: {
                     coordinator.dismissCompass()
+                },
+                onShowAR: {
+                    coordinator.dismissCompass()
+                    coordinator.showARCompass()
+                }
+            )
+        }
+        .fullScreenCover(isPresented: $coordinator.showingARCompass) {
+            ARQiblaCompassScreen(
+                locationService: coordinator.locationService,
+                onDismiss: {
+                    coordinator.dismissARCompass()
                 }
             )
         }

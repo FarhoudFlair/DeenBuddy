@@ -19,6 +19,7 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
     
     private let userDefaults = UserDefaults.standard
     private var cancellables = Set<AnyCancellable>()
+    private let timerManager = BatteryAwareTimerManager.shared
     private var calculationMethod: IslamicCalendarMethod = .civil
     private var eventNotificationsEnabled: Bool = true
     private var defaultReminderTime: TimeInterval = 86400 // 24 hours
@@ -41,6 +42,11 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
         loadCachedData()
         setupObservers()
         updateTodayInfo()
+    }
+    
+    deinit {
+        timerManager.cancelTimer(id: "hijri-calendar-daily")
+        timerManager.cancelTimer(id: "hijri-calendar-hourly")
     }
     
     // MARK: - Setup Methods
@@ -154,15 +160,15 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
     }
     
     private func setupObservers() {
-        // Update today's info daily
-        Timer.scheduledTimer(withTimeInterval: 86400, repeats: true) { [weak self] _ in
+        // Update today's info daily using battery-aware timer
+        timerManager.scheduleTimer(id: "hijri-calendar-daily", type: .hijriCalendar) { [weak self] in
             Task { @MainActor in
                 self?.updateTodayInfo()
             }
         }
         
-        // Update current Hijri date
-        Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+        // Update current Hijri date hourly using cache cleanup timer
+        timerManager.scheduleTimer(id: "hijri-calendar-hourly", type: .cacheCleanup) { [weak self] in
             Task { @MainActor in
                 self?.currentHijriDate = HijriDate(from: Date())
             }
