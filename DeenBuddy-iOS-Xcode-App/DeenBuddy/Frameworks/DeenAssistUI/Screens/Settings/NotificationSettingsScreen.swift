@@ -6,8 +6,8 @@ public struct NotificationSettingsScreen: View {
     
     // MARK: - Dependencies
     
-    @ObservedObject private var notificationService: any NotificationServiceProtocol
-    @ObservedObject private var settingsService: any SettingsServiceProtocol
+    private let notificationService: any NotificationServiceProtocol
+    private let settingsService: any SettingsServiceProtocol
     
     // MARK: - State
     

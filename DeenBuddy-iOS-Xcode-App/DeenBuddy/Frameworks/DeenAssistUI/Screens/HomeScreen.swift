@@ -56,9 +56,6 @@ public struct HomeScreen: View {
 
                     // Today's prayer times
                     prayerTimesSection
-
-                    // Quick actions
-                    quickActionsSection
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
@@ -289,8 +286,23 @@ public struct HomeScreen: View {
     }
     
     private func locationString(for location: CLLocation) -> String {
-        // In a real app, this would reverse geocode to get city name
-        return String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
+        let coordinates = String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
+        
+        // Add cache indicator if location is from cache
+        if locationService.isCurrentLocationFromCache() {
+            if let age = locationService.getLocationAge() {
+                let minutes = Int(age / 60)
+                if minutes < 1 {
+                    return "\(coordinates) • cached"
+                } else {
+                    return "\(coordinates) • cached \(minutes)m ago"
+                }
+            } else {
+                return "\(coordinates) • cached"
+            }
+        }
+        
+        return coordinates
     }
     
     private func getPrayerStatus(for prayerTime: PrayerTime) -> PrayerStatus {
@@ -320,19 +332,60 @@ public struct HomeScreen: View {
             }
         }
 
-        // If we have permission but no current location, try to get it
-        if locationService.currentLocation == nil &&
-           (locationService.authorizationStatus == .authorizedWhenInUse ||
-            locationService.authorizationStatus == .authorizedAlways) {
+        // If we have permission, get location (preferring cached if valid)
+        if locationService.authorizationStatus == .authorizedWhenInUse ||
+           locationService.authorizationStatus == .authorizedAlways {
             do {
-                _ = try await locationService.requestLocation()
+                _ = try await locationService.getLocationPreferCached()
+                print("Successfully obtained location (cached or fresh)")
             } catch {
                 print("Failed to get location: \(error)")
+                // Continue anyway in case we have some cached location that can be used
             }
         }
 
         // Refresh prayer times (this will use the location if available)
         await prayerTimeService.refreshPrayerTimes()
+    }
+    
+    // MARK: - Notification Icon Helpers
+    
+    private var notificationIconName: String {
+        guard let notificationService = notificationService else {
+            return "bell"
+        }
+
+        switch notificationService.authorizationStatus {
+        case .authorized, .provisional:
+            return notificationService.notificationsEnabled ? "bell.fill" : "bell.slash.fill"
+        case .denied:
+            return "bell.slash.fill"
+        case .notDetermined:
+            return "bell"
+        case .ephemeral:
+            return "bell.badge"
+        @unknown default:
+            return "bell"
+        }
+    }
+
+    private var notificationIconColor: Color {
+        guard let notificationService = notificationService else {
+            return ColorPalette.textPrimary
+        }
+
+        switch notificationService.authorizationStatus {
+        case .authorized, .provisional:
+            return notificationService.notificationsEnabled ? .green : .orange
+        case .denied:
+            return .red
+        case .notDetermined:
+            return .blue
+        case .ephemeral:
+            return .blue
+        @unknown default:
+            return ColorPalette.textPrimary
+        }
     }
 }
 
@@ -463,46 +516,6 @@ private struct EmptyPrayerTimesView: View {
             return "Open Settings"
         default:
             return "Retry"
-        }
-    }
-
-    // MARK: - Notification Icon Helpers
-
-    private var notificationIconName: String {
-        guard let notificationService = notificationService else {
-            return "bell"
-        }
-
-        switch notificationService.authorizationStatus {
-        case .authorized, .provisional:
-            return notificationService.notificationsEnabled ? "bell.fill" : "bell.slash.fill"
-        case .denied:
-            return "bell.slash.fill"
-        case .notDetermined:
-            return "bell"
-        case .ephemeral:
-            return "bell.badge"
-        @unknown default:
-            return "bell"
-        }
-    }
-
-    private var notificationIconColor: Color {
-        guard let notificationService = notificationService else {
-            return ColorPalette.textPrimary
-        }
-
-        switch notificationService.authorizationStatus {
-        case .authorized, .provisional:
-            return notificationService.notificationsEnabled ? .green : .orange
-        case .denied:
-            return .red
-        case .notDetermined:
-            return .blue
-        case .ephemeral:
-            return .blue
-        @unknown default:
-            return ColorPalette.textPrimary
         }
     }
 }

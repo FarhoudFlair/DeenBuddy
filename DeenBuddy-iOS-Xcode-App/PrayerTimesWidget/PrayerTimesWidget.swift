@@ -23,7 +23,7 @@ struct NextPrayerWidget: Widget {
         }
         .configurationDisplayName("Next Prayer")
         .description("Shows the next upcoming prayer time with countdown")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
 
@@ -39,7 +39,7 @@ struct TodaysPrayerTimesWidget: Widget {
         }
         .configurationDisplayName("Today's Prayer Times")
         .description("Shows all prayer times for today")
-        .supportedFamilies([.systemMedium, .systemLarge])
+        .supportedFamilies([.systemMedium, .systemLarge, .accessoryRectangular])
     }
 }
 
@@ -55,7 +55,7 @@ struct PrayerCountdownWidget: Widget {
         }
         .configurationDisplayName("Prayer Countdown")
         .description("Shows countdown to next prayer")
-        .supportedFamilies([.systemSmall])
+        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline])
     }
 }
 
@@ -176,46 +176,70 @@ struct PrayerTimeProvider: TimelineProvider {
 
 // MARK: - Widget Views
 
-/// View for Next Prayer Widget (Small/Medium)
+/// View for Next Prayer Widget (Small/Medium/Lock Screen)
 struct NextPrayerWidgetView: View {
     let entry: PrayerWidgetEntry
+    @Environment(\.widgetFamily) var widgetFamily
     
     var body: some View {
-        GeometryReader { geometry in
-            if geometry.size.width < 200 {
-                // Small widget
-                NextPrayerSmallView(entry: entry)
-            } else {
-                // Medium widget
-                NextPrayerMediumView(entry: entry)
+        switch widgetFamily {
+        case .accessoryCircular:
+            NextPrayerCircularView(entry: entry)
+        case .accessoryRectangular:
+            NextPrayerRectangularView(entry: entry)
+        case .accessoryInline:
+            NextPrayerInlineView(entry: entry)
+        default:
+            GeometryReader { geometry in
+                if geometry.size.width < 200 {
+                    // Small widget
+                    NextPrayerSmallView(entry: entry)
+                } else {
+                    // Medium widget
+                    NextPrayerMediumView(entry: entry)
+                }
             }
         }
     }
 }
 
-/// View for Today's Prayer Times Widget (Medium/Large)
+/// View for Today's Prayer Times Widget (Medium/Large/Lock Screen)
 struct TodaysPrayerTimesWidgetView: View {
     let entry: PrayerWidgetEntry
+    @Environment(\.widgetFamily) var widgetFamily
     
     var body: some View {
-        GeometryReader { geometry in
-            if geometry.size.height > 300 {
-                // Large widget
-                TodaysPrayerTimesLargeView(entry: entry)
-            } else {
-                // Medium widget
-                TodaysPrayerTimesMediumView(entry: entry)
+        switch widgetFamily {
+        case .accessoryRectangular:
+            TodaysPrayerTimesRectangularView(entry: entry)
+        default:
+            GeometryReader { geometry in
+                if geometry.size.height > 300 {
+                    // Large widget
+                    TodaysPrayerTimesLargeView(entry: entry)
+                } else {
+                    // Medium widget
+                    TodaysPrayerTimesMediumView(entry: entry)
+                }
             }
         }
     }
 }
 
-/// View for Prayer Countdown Widget (Small)
+/// View for Prayer Countdown Widget (Small/Lock Screen)
 struct PrayerCountdownWidgetView: View {
     let entry: PrayerWidgetEntry
+    @Environment(\.widgetFamily) var widgetFamily
     
     var body: some View {
-        PrayerCountdownSmallView(entry: entry)
+        switch widgetFamily {
+        case .accessoryCircular:
+            PrayerCountdownCircularView(entry: entry)
+        case .accessoryInline:
+            PrayerCountdownInlineView(entry: entry)
+        default:
+            PrayerCountdownSmallView(entry: entry)
+        }
     }
 }
 
@@ -225,6 +249,7 @@ struct PrayerCountdownWidgetView: View {
 struct PrayerTimesWidget_Previews: PreviewProvider {
     static var previews: some View {
         Group {
+            // Home Screen Widgets
             NextPrayerWidgetView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .systemSmall))
                 .previewDisplayName("Next Prayer - Small")
@@ -236,6 +261,31 @@ struct PrayerTimesWidget_Previews: PreviewProvider {
             TodaysPrayerTimesWidgetView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .systemLarge))
                 .previewDisplayName("Today's Prayers - Large")
+            
+            // Lock Screen Widgets
+            NextPrayerWidgetView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryCircular))
+                .previewDisplayName("Next Prayer - Lock Screen Circular")
+            
+            NextPrayerWidgetView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
+                .previewDisplayName("Next Prayer - Lock Screen Rectangular")
+            
+            NextPrayerWidgetView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryInline))
+                .previewDisplayName("Next Prayer - Lock Screen Inline")
+            
+            TodaysPrayerTimesWidgetView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
+                .previewDisplayName("Today's Prayers - Lock Screen Rectangular")
+            
+            PrayerCountdownWidgetView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryCircular))
+                .previewDisplayName("Prayer Countdown - Lock Screen Circular")
+            
+            PrayerCountdownWidgetView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryInline))
+                .previewDisplayName("Prayer Countdown - Lock Screen Inline")
         }
     }
 }

@@ -38,7 +38,9 @@ public class APICache: APICacheProtocol {
     }
     
     deinit {
-        timerManager.cancelTimer(id: "api-cache-cleanup")
+        MainActor.assumeIsolated {
+            timerManager.cancelTimer(id: "api-cache-cleanup")
+        }
     }
     
     // MARK: - Protocol Implementation
@@ -312,8 +314,10 @@ public class APICache: APICacheProtocol {
     
     private func schedulePeriodicCleanup() {
         // Schedule cleanup using battery-aware timer
-        timerManager.scheduleTimer(id: "api-cache-cleanup", type: .cacheCleanup) { [weak self] in
-            self?.clearExpiredCache()
+        MainActor.assumeIsolated {
+            timerManager.scheduleTimer(id: "api-cache-cleanup", type: .cacheCleanup) { [weak self] in
+                self?.clearExpiredCache()
+            }
         }
     }
 }

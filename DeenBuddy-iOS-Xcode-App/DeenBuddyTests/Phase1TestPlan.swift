@@ -285,9 +285,16 @@ class MockLocationService: LocationServiceProtocol {
     }
     func startUpdatingLocation() { isUpdatingLocation = true }
     func stopUpdatingLocation() { isUpdatingLocation = false }
+    func startBackgroundLocationUpdates() { isUpdatingLocation = true }
+    func stopBackgroundLocationUpdates() { isUpdatingLocation = false }
     func startUpdatingHeading() { isUpdatingHeading = true }
     func stopUpdatingHeading() { isUpdatingHeading = false }
-    func geocodeCity(_ cityName: String) async throws -> CLLocation { 
+    func geocodeCity(_ cityName: String) async throws -> CLLocation {
         return CLLocation(latitude: 0, longitude: 0)
     }
+    func getCachedLocation() -> CLLocation? { return currentLocation }
+    func isCachedLocationValid() -> Bool { return currentLocation != nil }
+    func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
+    func isCurrentLocationFromCache() -> Bool { return false }
+    func getLocationAge() -> TimeInterval? { return 30.0 }
 }

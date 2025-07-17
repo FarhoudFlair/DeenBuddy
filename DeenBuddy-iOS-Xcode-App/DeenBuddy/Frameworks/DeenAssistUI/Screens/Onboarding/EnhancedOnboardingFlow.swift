@@ -121,8 +121,8 @@ public struct EnhancedOnboardingFlow: View {
                 settingsService.calculationMethod = selectedCalculationMethod
                 settingsService.madhab = selectedMadhab
                 settingsService.hasCompletedOnboarding = true
-                // Save user name (can be empty if user didn't provide one)
-                UserDefaults.standard.set(userName.trimmingCharacters(in: .whitespacesAndNewlines), forKey: UnifiedSettingsKeys.userName)
+                // Save user name through SettingsService to ensure proper synchronization
+                settingsService.userName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
             }
             
             try? await settingsService.saveSettings()
@@ -132,7 +132,8 @@ public struct EnhancedOnboardingFlow: View {
                 "calculation_method": selectedCalculationMethod.rawValue,
                 "madhab": selectedMadhab.rawValue,
                 "location_permission": locationPermissionGranted,
-                "notification_permission": notificationPermissionGranted
+                "notification_permission": notificationPermissionGranted,
+                "has_user_name": !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ])
             
             await MainActor.run {
@@ -330,6 +331,8 @@ private struct LocationPermissionStepView: View {
     @Binding var permissionGranted: Bool
     let locationService: any LocationServiceProtocol
     
+    @State private var isRequestingPermission = false
+    
     var body: some View {
         OnboardingPermissionView(
             icon: "location.fill",
@@ -343,13 +346,63 @@ private struct LocationPermissionStepView: View {
             permissionGranted: permissionGranted,
             onRequestPermission: requestLocationPermission
         )
+        .onAppear {
+            // Check initial permission status
+            updatePermissionStatus()
+            
+            // Set up periodic permission monitoring
+            Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
+                Task { @MainActor in
+                    let newStatus = locationService.authorizationStatus
+                    if newStatus != .notDetermined {
+                        updatePermissionStatus()
+                        if permissionGranted {
+                            timer.invalidate()
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updatePermissionStatus() {
+        let status = locationService.authorizationStatus
+        let wasGranted = permissionGranted
+        permissionGranted = status == .authorizedWhenInUse || status == .authorizedAlways
+        
+        // If permission was just granted, try to get location immediately
+        if !wasGranted && permissionGranted && !isRequestingPermission {
+            captureLocationImmediately()
+        }
     }
     
     private func requestLocationPermission() {
-        locationService.requestLocationPermission()
-        // Permission status will be updated through the published property
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            permissionGranted = locationService.authorizationStatus == .authorizedWhenInUse || locationService.authorizationStatus == .authorizedAlways
+        guard !isRequestingPermission else { return }
+        isRequestingPermission = true
+        
+        Task {
+            let status = await locationService.requestLocationPermissionAsync()
+            await MainActor.run {
+                permissionGranted = status == .authorizedWhenInUse || status == .authorizedAlways
+                isRequestingPermission = false
+                
+                // If permission granted, immediately capture location for "Allow Once" case
+                if permissionGranted {
+                    captureLocationImmediately()
+                }
+            }
+        }
+    }
+    
+    private func captureLocationImmediately() {
+        // Capture location immediately for "Allow Once" users
+        Task {
+            do {
+                let location = try await locationService.requestLocation()
+                print("📍 Successfully captured location during onboarding: \(location)")
+            } catch {
+                print("📍 Failed to capture location during onboarding: \(error)")
+            }
         }
     }
 }

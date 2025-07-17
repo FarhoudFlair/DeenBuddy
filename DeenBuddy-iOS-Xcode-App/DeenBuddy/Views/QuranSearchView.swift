@@ -9,6 +9,7 @@ struct QuranSearchView: View {
     @State private var selectedVerse: QuranVerse?
     @State private var showingVerseDetail = false
     @State private var showingHistory = false
+    @State private var showingQueryExpansion = false
     
     var body: some View {
         NavigationStack {
@@ -23,8 +24,8 @@ struct QuranSearchView: View {
                     // Main content
                     if searchService.isLoading {
                         loadingView
-                    } else if !searchService.searchResults.isEmpty {
-                        searchResultsView
+                    } else if !searchService.enhancedSearchResults.isEmpty {
+                        enhancedSearchResultsView
                     } else if !searchService.lastQuery.isEmpty {
                         emptyResultsView
                     } else {
@@ -37,6 +38,12 @@ struct QuranSearchView: View {
             .searchable(text: $searchText, prompt: "Search verses, themes, or references...")
             .onSubmit(of: .search) {
                 performSearch()
+            }
+            .onChange(of: searchText) { newValue in
+                // Generate real-time suggestions as user types
+                if !newValue.isEmpty {
+                    searchService.generateSearchSuggestions(for: newValue)
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -149,6 +156,38 @@ struct QuranSearchView: View {
                         },
                         onBookmark: {
                             searchService.toggleBookmark(for: result.verse)
+                        }
+                    )
+                }
+            }
+            .padding()
+        }
+    }
+    
+    @ViewBuilder
+    private var enhancedSearchResultsView: some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                // Query expansion info
+                if let expansion = searchService.queryExpansion {
+                    QueryExpansionCard(expansion: expansion)
+                }
+                
+                // Search results
+                ForEach(searchService.enhancedSearchResults) { result in
+                    EnhancedVerseResultCard(
+                        result: result,
+                        isBookmarked: searchService.isBookmarked(result.verse),
+                        onTap: {
+                            selectedVerse = result.verse
+                            showingVerseDetail = true
+                        },
+                        onBookmark: {
+                            searchService.toggleBookmark(for: result.verse)
+                        },
+                        onRelatedTap: { relatedVerse in
+                            selectedVerse = relatedVerse
+                            showingVerseDetail = true
                         }
                     )
                 }

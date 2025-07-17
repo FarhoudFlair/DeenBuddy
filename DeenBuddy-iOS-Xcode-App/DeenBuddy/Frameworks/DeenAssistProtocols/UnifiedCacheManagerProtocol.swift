@@ -70,7 +70,7 @@ public protocol UnifiedCacheConvenienceProtocol: UnifiedCacheManagerProtocol {
     
     /// Store location data
     func storeLocation(_ location: CLLocation, forKey key: String)
-    
+
     /// Retrieve location data
     func retrieveLocation(forKey key: String) -> CLLocation?
 }
@@ -135,10 +135,49 @@ public class MockUnifiedCacheManager: UnifiedCacheConvenienceProtocol {
     }
     
     public func storeLocation(_ location: CLLocation, forKey key: String) {
-        store(location, forKey: key, type: .locationData)
+        let codableLocation = CodableCLLocation(from: location)
+        store(codableLocation, forKey: key, type: .locationData)
     }
-    
+
     public func retrieveLocation(forKey key: String) -> CLLocation? {
-        return retrieve(CLLocation.self, forKey: key, cacheType: .locationData)
+        guard let codableLocation = retrieve(CodableCLLocation.self, forKey: key, cacheType: .locationData) else {
+            return nil
+        }
+        return codableLocation.toCLLocation()
     }
 }
+
+// MARK: - Codable CLLocation Wrapper
+
+/// A Codable wrapper for CLLocation to enable caching
+public struct CodableCLLocation: Codable {
+    public let latitude: Double
+    public let longitude: Double
+    public let altitude: Double
+    public let horizontalAccuracy: Double
+    public let verticalAccuracy: Double
+    public let timestamp: TimeInterval
+
+    public init(from location: CLLocation) {
+        self.latitude = location.coordinate.latitude
+        self.longitude = location.coordinate.longitude
+        self.altitude = location.altitude
+        self.horizontalAccuracy = location.horizontalAccuracy
+        self.verticalAccuracy = location.verticalAccuracy
+        self.timestamp = location.timestamp.timeIntervalSince1970
+    }
+
+    public func toCLLocation() -> CLLocation {
+        let coordinate = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+        let date = Date(timeIntervalSince1970: timestamp)
+
+        return CLLocation(
+            coordinate: coordinate,
+            altitude: altitude,
+            horizontalAccuracy: horizontalAccuracy,
+            verticalAccuracy: verticalAccuracy,
+            timestamp: date
+        )
+    }
+}
+

@@ -91,8 +91,9 @@ public struct ARCompassView: UIViewRepresentable {
             
         case .notDetermined:
             print("🎯 ARCompassView: Camera permission not determined, requesting access")
-            AVCaptureDevice.requestAccess(for: .video) { granted in
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 DispatchQueue.main.async {
+                    guard let self = self else { return }
                     print("🎯 ARCompassView: Camera permission request result: \(granted)")
                     if granted {
                         self.startARSession(arView: arView)

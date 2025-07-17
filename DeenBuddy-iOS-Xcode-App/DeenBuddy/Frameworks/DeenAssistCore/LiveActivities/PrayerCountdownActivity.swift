@@ -1,6 +1,7 @@
 import Foundation
 import ActivityKit
 import SwiftUI
+import WidgetKit
 
 // MARK: - Prayer Countdown Live Activity
 
@@ -193,7 +194,8 @@ public class PrayerLiveActivityManager: ObservableObject {
         )
         
         do {
-            await activity.end(using: completedState, dismissalPolicy: .after(.seconds(30)))
+            // Keep the activity visible for 5 minutes after prayer time for better visibility
+            await activity.end(using: completedState, dismissalPolicy: .after(Date().addingTimeInterval(300)))
             
             await MainActor.run {
                 self.currentActivity = nil
@@ -222,15 +224,28 @@ public class PrayerLiveActivityManager: ObservableObject {
     
     private func scheduleActivityUpdates(for activity: Activity<PrayerCountdownActivity>, prayerTime: Date) {
         Task {
-            let updateInterval: TimeInterval = 60 // Update every minute
             let endTime = prayerTime
             
             while Date() < endTime && currentActivity?.id == activity.id {
+                let timeRemaining = endTime.timeIntervalSince(Date())
+                
+                // Dynamic update interval based on time remaining for better responsiveness
+                let updateInterval: TimeInterval
+                if timeRemaining <= 60 { // Last minute
+                    updateInterval = 5 // Every 5 seconds
+                } else if timeRemaining <= 300 { // Last 5 minutes
+                    updateInterval = 15 // Every 15 seconds
+                } else if timeRemaining <= 1800 { // Last 30 minutes
+                    updateInterval = 30 // Every 30 seconds
+                } else {
+                    updateInterval = 60 // Every minute
+                }
+                
                 try await Task.sleep(nanoseconds: UInt64(updateInterval * 1_000_000_000))
                 
-                let timeRemaining = endTime.timeIntervalSince(Date())
-                if timeRemaining > 0 {
-                    await updatePrayerCountdown(timeRemaining: timeRemaining)
+                let newTimeRemaining = endTime.timeIntervalSince(Date())
+                if newTimeRemaining > 0 {
+                    await updatePrayerCountdown(timeRemaining: newTimeRemaining)
                 } else {
                     await endCurrentActivity()
                     break
@@ -264,60 +279,79 @@ public enum LiveActivityError: Error, LocalizedError {
 
 // MARK: - Live Activity Widget Views
 
+#if canImport(WidgetKit) && !os(macOS)
 @available(iOS 16.1, *)
 struct PrayerCountdownLiveActivityView: View {
-    let context: ActivityViewContext<PrayerCountdownActivity>
+    // Note: ActivityViewContext is only available in widget extensions
+    // This view should be moved to the widget extension target
+    // For now, we'll use a placeholder to prevent compilation errors
+    let state: PrayerCountdownActivity.ContentState
     
     var body: some View {
         VStack(spacing: 8) {
-            // Header with prayer info
+            // Header with Islamic symbol and prayer info
             HStack {
-                Image(systemName: context.state.nextPrayer.systemImageName)
-                    .foregroundColor(context.state.nextPrayer.color)
-                    .font(.title2)
-                
+                HStack(spacing: 8) {
+                    // Arabic Allah symbol
+                    Text("الله")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(state.nextPrayer.color)
+                    
+                    Image(systemName: state.nextPrayer.systemImageName)
+                        .foregroundColor(state.nextPrayer.color)
+                        .font(.title2)
+                }
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(context.state.nextPrayer.displayName)
+                    Text(state.nextPrayer.displayName)
                         .font(.headline)
                         .fontWeight(.semibold)
-                    
-                    Text(context.state.nextPrayer.arabicName)
-                        .font(.caption)
+
+                    Text(state.nextPrayer.arabicName)
+                        .font(.callout)
                         .foregroundColor(.secondary)
+                        .fontWeight(.medium)
                 }
-                
+
                 Spacer()
-                
+
                 // Countdown
                 VStack(alignment: .trailing, spacing: 2) {
-                    if context.state.hasPassed {
-                        Text("Prayer Time")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                            .foregroundColor(context.state.nextPrayer.color)
+                    if state.hasPassed {
+                        VStack(alignment: .trailing, spacing: 1) {
+                            Text("حان وقت الصلاة")
+                                .font(.caption)
+                                .foregroundColor(state.nextPrayer.color)
+                            
+                            Text("Prayer Time")
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(state.nextPrayer.color)
+                        }
                     } else {
-                        Text(context.state.formattedTimeRemaining)
+                        Text(state.formattedTimeRemaining)
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundColor(context.state.isImminent ? .red : context.state.nextPrayer.color)
+                            .foregroundColor(state.isImminent ? .red : state.nextPrayer.color)
                             .monospacedDigit()
                     }
-                    
-                    Text(formatPrayerTime(context.state.prayerTime))
+
+                    Text(formatPrayerTime(state.prayerTime))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             // Footer with location and date
             HStack {
-                Text(context.state.location)
+                Text(state.location)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
+
                 Spacer()
-                
-                Text(context.state.hijriDate)
+
+                Text(state.hijriDate)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -338,61 +372,101 @@ struct PrayerCountdownLiveActivityView: View {
 @available(iOS 16.1, *)
 extension PrayerCountdownLiveActivityView {
     
-    /// Compact leading view for Dynamic Island
+    /// Compact leading view for Dynamic Island with Islamic styling
     @ViewBuilder
     func dynamicIslandCompactLeading() -> some View {
-        Image(systemName: context.state.nextPrayer.systemImageName)
-            .foregroundColor(context.state.nextPrayer.color)
-            .font(.title3)
+        HStack(spacing: 2) {
+            // Arabic Allah symbol
+            Text("الله")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(state.nextPrayer.color)
+                .opacity(0.8)
+            
+            Image(systemName: state.nextPrayer.systemImageName)
+                .foregroundColor(state.nextPrayer.color)
+                .font(.title3)
+        }
     }
-    
+
     /// Compact trailing view for Dynamic Island
     @ViewBuilder
     func dynamicIslandCompactTrailing() -> some View {
-        Text(context.state.shortFormattedTime)
+        Text(state.shortFormattedTime)
             .font(.caption)
             .fontWeight(.semibold)
-            .foregroundColor(context.state.isImminent ? .red : .primary)
+            .foregroundColor(state.isImminent ? .red : .primary)
             .monospacedDigit()
     }
-    
-    /// Minimal view for Dynamic Island
+
+    /// Minimal view for Dynamic Island with Islamic symbol
     @ViewBuilder
     func dynamicIslandMinimal() -> some View {
-        Image(systemName: context.state.nextPrayer.systemImageName)
-            .foregroundColor(context.state.nextPrayer.color)
-            .font(.caption)
+        HStack(spacing: 1) {
+            // Arabic Allah symbol for minimal persistent display
+            Text("الله")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(state.nextPrayer.color)
+            
+            Image(systemName: state.nextPrayer.systemImageName)
+                .foregroundColor(state.nextPrayer.color)
+                .font(.caption)
+        }
     }
     
-    /// Expanded view for Dynamic Island
+    /// Expanded view for Dynamic Island with enhanced Islamic styling
     @ViewBuilder
     func dynamicIslandExpanded() -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(spacing: 6) {
+            // Top row: Islamic symbol and prayer info
+            HStack {
                 HStack(spacing: 6) {
-                    Image(systemName: context.state.nextPrayer.systemImageName)
-                        .foregroundColor(context.state.nextPrayer.color)
-                    
-                    Text(context.state.nextPrayer.displayName)
+                    // Arabic Allah symbol
+                    Text("الله")
                         .font(.headline)
-                        .fontWeight(.medium)
+                        .fontWeight(.bold)
+                        .foregroundColor(state.nextPrayer.color)
+                    
+                    Image(systemName: state.nextPrayer.systemImageName)
+                        .foregroundColor(state.nextPrayer.color)
+                        .font(.title3)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(state.nextPrayer.displayName)
+                            .font(.headline)
+                            .fontWeight(.medium)
+                        
+                        Text(state.nextPrayer.arabicName)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
-                
-                Text(context.state.location)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(state.formattedTimeRemaining)
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(state.isImminent ? .red : state.nextPrayer.color)
+                        .monospacedDigit()
+
+                    Text(formatPrayerTime(state.prayerTime))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(context.state.formattedTimeRemaining)
-                    .font(.title3)
-                    .fontWeight(.bold)
-                    .foregroundColor(context.state.isImminent ? .red : context.state.nextPrayer.color)
-                    .monospacedDigit()
-                
-                Text(formatPrayerTime(context.state.prayerTime))
+            // Bottom row: Location and Hijri date
+            HStack {
+                Text(state.location)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Text(state.hijriDate)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -400,3 +474,4 @@ extension PrayerCountdownLiveActivityView {
         .padding()
     }
 }
+#endif

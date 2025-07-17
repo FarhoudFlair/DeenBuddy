@@ -22,7 +22,6 @@ public class ARCompassSession: NSObject, ObservableObject {
     private var arSession: ARSession?
     private var anchorEntity: AnchorEntity?
     private var qiblaIndicator: ModelEntity?
-    private var northReference: ModelEntity? // Debug: North reference indicator
     
     private let locationService: any LocationServiceProtocol
     private var qiblaDirection: QiblaDirection?
@@ -76,14 +75,14 @@ public class ARCompassSession: NSObject, ObservableObject {
     /// Stop the AR session
     public func stopSession() {
         arSession?.pause()
+        arSession?.delegate = nil
         arView?.scene.anchors.removeAll()
         isSessionRunning = false
-        
+
         // Clean up entities
         anchorEntity = nil
         qiblaIndicator = nil
-        northReference = nil
-        
+
         print("🎯 AR Compass: Session stopped")
     }
     
@@ -110,15 +109,9 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Create simple Qibla indicator
         setupQiblaIndicator()
         
-        // Create debug North reference indicator
-        setupNorthReference()
-        
-        // Add indicators to anchor
+        // Add indicator to anchor
         if let indicator = qiblaIndicator { 
             anchor.addChild(indicator) 
-        }
-        if let northRef = northReference {
-            anchor.addChild(northRef)
         }
         
         // Add anchor to scene
@@ -181,20 +174,6 @@ public class ARCompassSession: NSObject, ObservableObject {
         print("🎯 AR Compass: With .gravityAndHeading alignment, +Z should be North (0°)")
     }
     
-    private func setupNorthReference() {
-        // Create a small red indicator that always points North for debugging
-        let refMesh = MeshResource.generateBox(width: 0.015, height: 0.01, depth: 0.04)
-        let refMaterial = createNorthReferenceMaterial()
-        
-        northReference = ModelEntity(mesh: refMesh, materials: [refMaterial])
-        northReference?.scale = [indicatorScale * 0.8, indicatorScale * 0.8, indicatorScale * 0.8] // Smaller than Qibla arrow
-        northReference?.position = [0.1, 0, 0] // Offset to the right so both are visible
-        
-        // North reference always points to 0° (no rotation applied)
-        // This will help us verify that our coordinate system is correct
-        
-        print("🎯 AR Compass: North reference indicator created for debugging")
-    }
     
     private func createArrowTip() {
         guard let indicator = qiblaIndicator else { return }
@@ -238,14 +217,6 @@ public class ARCompassSession: NSObject, ObservableObject {
         return material
     }
     
-    private func createNorthReferenceMaterial() -> SimpleMaterial {
-        var material = SimpleMaterial()
-        // Use red color for North reference indicator
-        material.color = .init(tint: UIColor.systemRed)
-        material.metallic = .init(floatLiteral: 0.2)
-        material.roughness = .init(floatLiteral: 0.3)
-        return material
-    }
     
     // MARK: - Indicator Updates
     
@@ -345,10 +316,23 @@ public class ARCompassSession: NSObject, ObservableObject {
     // MARK: - Cleanup
     
     deinit {
-        Task { @MainActor in
-            self.stopSession()
-        }
+        // Perform synchronous cleanup - no async tasks in deinit
+        arSession?.pause()
+        arSession?.delegate = nil
+        arView?.scene.anchors.removeAll()
+
+        // Clean up entities
+        anchorEntity = nil
+        qiblaIndicator = nil
+
+        // Clean up references
+        arView = nil
+        arSession = nil
+
+        // Clean up Combine subscriptions
         cancellables.removeAll()
+
+        print("🎯 AR Compass: Session cleaned up in deinit")
     }
 }
 
@@ -396,22 +380,25 @@ extension ARCompassSession: @preconcurrency ARSessionDelegate {
     
     nonisolated public func session(_ session: ARSession, didFailWithError error: Error) {
         print("❌ AR Compass: Session failed with error: \(error)")
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             self.error = .sessionFailed(error.localizedDescription)
             self.isSessionRunning = false
         }
     }
-    
+
     nonisolated public func sessionWasInterrupted(_ session: ARSession) {
         print("⚠️ AR Compass: Session was interrupted")
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             self.isSessionRunning = false
         }
     }
-    
+
     nonisolated public func sessionInterruptionEnded(_ session: ARSession) {
         print("✅ AR Compass: Session interruption ended")
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
+            guard let self = self else { return }
             self.isSessionRunning = true
         }
     }

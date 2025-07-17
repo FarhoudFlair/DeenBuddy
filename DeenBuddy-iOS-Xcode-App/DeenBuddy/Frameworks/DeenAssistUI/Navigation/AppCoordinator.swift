@@ -298,7 +298,7 @@ public struct DeenAssistApp: View {
                 )
                 
             case .home:
-                MainAppView(coordinator: coordinator)
+                SimpleTabView(coordinator: coordinator)
             }
         }
         .onAppear {
@@ -378,45 +378,16 @@ private struct MainAppView: View {
                 prayerTimeService: coordinator.prayerTimeService,
                 locationService: coordinator.locationService,
                 settingsService: coordinator.settingsService,
-                onCompassTapped: {
-                    coordinator.showCompass()
-                },
-                onGuidesTapped: {
-                    coordinator.showGuides()
-                },
-                onQuranSearchTapped: {
-                    coordinator.showQuranSearch()
-                },
-                onSettingsTapped: {
-                    coordinator.showSettings()
-                }
+                onCompassTapped: { }, // No action needed - available as tab
+                onGuidesTapped: { }, // No action needed - available as tab
+                onQuranSearchTapped: { }, // No action needed - available as tab
+                onSettingsTapped: { } // No action needed - available as tab
             )
 
             // Loading overlay
             if coordinator.isLoading {
                 LoadingOverlay()
             }
-        }
-        .sheet(isPresented: $coordinator.showingSettings) {
-            SettingsScreen(
-                settingsService: coordinator.settingsService,
-                themeManager: coordinator.themeManager,
-                onDismiss: {
-                    coordinator.dismissSettings()
-                }
-            )
-        }
-        .sheet(isPresented: $coordinator.showingCompass) {
-            QiblaCompassScreen(
-                locationService: coordinator.locationService,
-                onDismiss: {
-                    coordinator.dismissCompass()
-                },
-                onShowAR: {
-                    coordinator.dismissCompass()
-                    coordinator.showARCompass()
-                }
-            )
         }
         .fullScreenCover(isPresented: $coordinator.showingARCompass) {
             ARQiblaCompassScreen(
@@ -425,17 +396,6 @@ private struct MainAppView: View {
                     coordinator.dismissARCompass()
                 }
             )
-        }
-        .sheet(isPresented: $coordinator.showingGuides) {
-            PrayerGuidesScreen(
-                settingsService: coordinator.settingsService,
-                onDismiss: {
-                    coordinator.dismissGuides()
-                }
-            )
-        }
-        .sheet(isPresented: $coordinator.showingQuranSearch) {
-            QuranSearchView()
         }
         .errorAlert()
         .themed(with: coordinator.themeManager)
@@ -539,6 +499,70 @@ private struct LoadingOverlay: View {
                     .fill(Color.black.opacity(0.8))
             )
         }
+    }
+}
+
+// MARK: - Simple Tab View
+
+private struct SimpleTabView: View {
+    @ObservedObject private var coordinator: AppCoordinator
+    
+    init(coordinator: AppCoordinator) {
+        self.coordinator = coordinator
+    }
+    
+    var body: some View {
+        TabView {
+            // 1. Home Tab - Prayer times and main dashboard
+            MainAppView(coordinator: coordinator)
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("Home")
+                }
+            
+            // 2. Qibla Tab - Direct access to compass
+            QiblaCompassScreen(
+                locationService: coordinator.locationService,
+                onDismiss: { }, // No dismiss needed in tab mode
+                onShowAR: {
+                    coordinator.showARCompass()
+                }
+            )
+            .tabItem {
+                Image(systemName: "safari.fill")
+                Text("Qibla")
+            }
+            
+            // 3. Prayer Guides Tab - Direct access to guides
+            PrayerGuidesScreen(
+                settingsService: coordinator.settingsService,
+                onDismiss: { } // No dismiss needed in tab mode
+            )
+            .tabItem {
+                Image(systemName: "book.closed.fill")
+                Text("Guides")
+            }
+            
+            // 4. Quran Tab - Direct access to QuranSearchView
+            QuranSearchView()
+                .tabItem {
+                    Image(systemName: "book.fill")
+                    Text("Quran")
+                }
+            
+            // 5. Settings Tab - Direct access to SettingsScreen
+            SettingsScreen(
+                settingsService: coordinator.settingsService,
+                themeManager: coordinator.themeManager,
+                onDismiss: { } // No dismiss needed in tab mode
+            )
+            .tabItem {
+                Image(systemName: "gear")
+                Text("Settings")
+            }
+        }
+        .accentColor(ColorPalette.primary)
+        .themed(with: coordinator.themeManager)
     }
 }
 

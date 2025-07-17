@@ -3,10 +3,6 @@ import CoreLocation
 import Combine
 import Adhan
 
-// MARK: - Notification Names
-extension Notification.Name {
-    static let settingsDidChange = Notification.Name("settingsDidChange")
-}
 
 /// Real implementation of PrayerTimeServiceProtocol using AdhanSwift
 public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
@@ -64,7 +60,9 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
     
     deinit {
-        timerManager.cancelTimer(id: "prayer-update")
+        MainActor.assumeIsolated {
+            timerManager.cancelTimer(id: "prayer-update")
+        }
         updateNextPrayerTask?.cancel()
     }
     
@@ -282,7 +280,9 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
     /// Manual cleanup for testing or debugging
     public func cleanup() {
-        timerManager.cancelTimer(id: "prayer-update")
+        MainActor.assumeIsolated {
+            timerManager.cancelTimer(id: "prayer-update")
+        }
         
         cancelAllTasks()
         

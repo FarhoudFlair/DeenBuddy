@@ -347,7 +347,9 @@ public class BatteryAwareTimerManager: ObservableObject {
     }
     
     deinit {
-        cancelAllTimers()
+        Task { @MainActor in
+            cancelAllTimers()
+        }
         cancellables.removeAll()
     }
 }

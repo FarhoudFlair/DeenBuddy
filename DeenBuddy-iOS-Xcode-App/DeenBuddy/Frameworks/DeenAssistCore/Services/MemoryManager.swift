@@ -28,7 +28,9 @@ public class MemoryManager: ObservableObject {
     }
     
     deinit {
-        timerManager.cancelTimer(id: "memory-monitoring")
+        MainActor.assumeIsolated {
+            timerManager.cancelTimer(id: "memory-monitoring")
+        }
     }
     
     // MARK: - Public Methods
@@ -48,7 +50,6 @@ public class MemoryManager: ObservableObject {
     /// Stop memory monitoring
     public func stopMonitoring() {
         timerManager.cancelTimer(id: "memory-monitoring")
-        memoryTimer = nil
         print("📊 Memory monitoring stopped")
     }
     

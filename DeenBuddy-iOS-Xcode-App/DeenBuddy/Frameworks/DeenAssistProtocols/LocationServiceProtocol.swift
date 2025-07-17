@@ -50,6 +50,12 @@ public protocol LocationServiceProtocol: ObservableObject {
     /// Stop updating location
     func stopUpdatingLocation()
     
+    /// Start background location updates for traveler mode (shows status bar indicator)
+    func startBackgroundLocationUpdates()
+    
+    /// Stop background location updates
+    func stopBackgroundLocationUpdates()
+    
     /// Start updating heading for compass functionality
     func startUpdatingHeading()
     
@@ -58,6 +64,21 @@ public protocol LocationServiceProtocol: ObservableObject {
     
     /// Get location for a specific city name
     func geocodeCity(_ cityName: String) async throws -> CLLocation
+    
+    /// Get cached location if available
+    func getCachedLocation() -> CLLocation?
+    
+    /// Check if cached location is valid and recent enough to use
+    func isCachedLocationValid() -> Bool
+    
+    /// Get location preferring cached if valid, otherwise request fresh
+    func getLocationPreferCached() async throws -> CLLocation
+    
+    /// Check if current location is from cache
+    func isCurrentLocationFromCache() -> Bool
+    
+    /// Get location age in seconds
+    func getLocationAge() -> TimeInterval?
 }
 
 /// Location-related errors

@@ -355,3 +355,263 @@ extension Array {
     }
 }
 
+// MARK: - Enhanced Search Components
+
+/// Enhanced verse result card with semantic search features
+struct EnhancedVerseResultCard: View {
+    let result: EnhancedSearchResult
+    let isBookmarked: Bool
+    let onTap: () -> Void
+    let onBookmark: () -> Void
+    let onRelatedTap: (QuranVerse) -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header with reference and metrics
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(result.verse.reference)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(ColorPalette.primary)
+                        
+                        Text(result.verse.surahNameArabic)
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 8) {
+                        // Combined relevance score
+                        ScoreIndicator(score: result.combinedScore)
+                        
+                        // Match type indicator
+                        MatchTypeIndicator(matchType: result.matchType)
+                        
+                        // Bookmark button
+                        Image(systemName: isBookmarked ? "bookmark.fill" : "bookmark")
+                            .foregroundColor(isBookmarked ? ColorPalette.primary : ColorPalette.textTertiary)
+                            .onTapGesture(perform: onBookmark)
+                            .accessibilityLabel(isBookmarked ? "Remove Bookmark" : "Add Bookmark")
+                            .accessibilityAddTraits(.isButton)
+                    }
+                }
+                
+                // Arabic text
+                Text(result.verse.textArabic)
+                    .font(.title3)
+                    .fontWeight(.medium)
+                    .foregroundColor(ColorPalette.textPrimary)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.vertical, 4)
+                
+                // Highlighted translation
+                Text(result.highlightedText)
+                    .font(.body)
+                    .foregroundColor(ColorPalette.textPrimary)
+                    .multilineTextAlignment(.leading)
+                
+                // Transliteration if available
+                if let transliteration = result.verse.textTransliteration {
+                    Text(transliteration)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .italic()
+                }
+                
+                // Context suggestions
+                if !result.contextSuggestions.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(result.contextSuggestions.prefix(4), id: \.self) { suggestion in
+                                Text(suggestion)
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(ColorPalette.primary.opacity(0.1))
+                                    .foregroundColor(ColorPalette.primary)
+                                    .cornerRadius(8)
+                            }
+                        }
+                        .padding(.horizontal, 1)
+                    }
+                }
+                
+                // Related verses
+                if !result.relatedVerses.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Related Verses")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(ColorPalette.textSecondary)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(result.relatedVerses.prefix(3)) { relatedVerse in
+                                    Button(action: {
+                                        onRelatedTap(relatedVerse)
+                                    }) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(relatedVerse.shortReference)
+                                                .font(.caption)
+                                                .fontWeight(.medium)
+                                                .foregroundColor(ColorPalette.primary)
+                                            
+                                            Text(relatedVerse.textTranslation)
+                                                .font(.caption2)
+                                                .foregroundColor(ColorPalette.textSecondary)
+                                                .lineLimit(2)
+                                        }
+                                        .frame(width: 120, alignment: .leading)
+                                        .padding(6)
+                                        .background(ColorPalette.surfaceSecondary)
+                                        .cornerRadius(6)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 1)
+                        }
+                    }
+                }
+            }
+            .padding()
+            .background(ColorPalette.surface)
+            .cornerRadius(12)
+            .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
+/// Score indicator for search results
+struct ScoreIndicator: View {
+    let score: Double
+    
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: "star.fill")
+                .font(.caption2)
+                .foregroundColor(scoreColor)
+            
+            Text(String(format: "%.1f", score))
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(scoreColor)
+        }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .background(scoreColor.opacity(0.1))
+        .cornerRadius(4)
+    }
+    
+    private var scoreColor: Color {
+        switch score {
+        case 0.8...1.0: return .green
+        case 0.6..<0.8: return .orange
+        default: return .gray
+        }
+    }
+}
+
+/// Query expansion card showing search intelligence
+struct QueryExpansionCard: View {
+    let expansion: QueryExpansion
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundColor(ColorPalette.primary)
+                
+                Text("Search Intelligence")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(ColorPalette.textPrimary)
+                
+                Spacer()
+                
+                Text(expansion.queryType.displayName)
+                    .font(.caption)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(ColorPalette.primary.opacity(0.1))
+                    .foregroundColor(ColorPalette.primary)
+                    .cornerRadius(4)
+            }
+            
+            // Typo correction
+            if let correctedQuery = expansion.correctedQuery {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.caption)
+                    
+                    Text("Corrected to: \"\(correctedQuery)\"")
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                }
+            }
+            
+            // Expanded terms
+            if !expansion.expandedTerms.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Also searching for:")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(ColorPalette.textSecondary)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(expansion.expandedTerms.prefix(6), id: \.self) { term in
+                                Text(term)
+                                    .font(.caption)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(ColorPalette.accent.opacity(0.1))
+                                    .foregroundColor(ColorPalette.accent)
+                                    .cornerRadius(6)
+                            }
+                        }
+                        .padding(.horizontal, 1)
+                    }
+                }
+            }
+            
+            // Related concepts
+            if !expansion.relatedConcepts.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Related concepts:")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(ColorPalette.textSecondary)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(expansion.relatedConcepts.prefix(4), id: \.self) { concept in
+                                Text(concept)
+                                    .font(.caption)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(ColorPalette.secondary.opacity(0.1))
+                                    .foregroundColor(ColorPalette.secondary)
+                                    .cornerRadius(6)
+                            }
+                        }
+                        .padding(.horizontal, 1)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(ColorPalette.backgroundSecondary)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(ColorPalette.primary.opacity(0.2), lineWidth: 1)
+        )
+    }
+}
+

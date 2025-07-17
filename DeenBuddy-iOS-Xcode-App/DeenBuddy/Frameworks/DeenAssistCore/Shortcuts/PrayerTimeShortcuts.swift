@@ -70,16 +70,14 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
     // MARK: - Dependencies
     
     private var prayerTimeService: (any PrayerTimeServiceProtocol)?
-    private var qiblaService: (any QiblaServiceProtocol)?
+    // Note: QiblaServiceProtocol not available in current implementation
     private var locationService: (any LocationServiceProtocol)?
     
     public func configure(
         prayerTimeService: any PrayerTimeServiceProtocol,
-        qiblaService: any QiblaServiceProtocol,
         locationService: any LocationServiceProtocol
     ) {
         self.prayerTimeService = prayerTimeService
-        self.qiblaService = qiblaService
         self.locationService = locationService
     }
     
@@ -162,7 +160,7 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
             return GetNextPrayerIntentResponse(code: .failure, userActivity: nil)
         }
         
-        guard let nextPrayer = prayerTimeService.nextPrayer else {
+        guard let nextPrayer = await prayerTimeService.nextPrayer else {
             return GetNextPrayerIntentResponse(code: .failure, userActivity: nil)
         }
         
@@ -176,7 +174,7 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
         var responseText = "The next prayer is \(nextPrayer.prayer.displayName) at \(timeString)"
         
         if intent.includeTimeRemaining?.boolValue == true,
-           let timeRemaining = prayerTimeService.timeUntilNextPrayer {
+           let timeRemaining = await prayerTimeService.timeUntilNextPrayer {
             let hours = Int(timeRemaining) / 3600
             let minutes = Int(timeRemaining) % 3600 / 60
             
@@ -201,7 +199,7 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
             return GetPrayerTimesIntentResponse(code: .failure, userActivity: nil)
         }
         
-        let prayerTimes = prayerTimeService.todaysPrayerTimes
+        let prayerTimes = await prayerTimeService.todaysPrayerTimes
         guard !prayerTimes.isEmpty else {
             return GetPrayerTimesIntentResponse(code: .failure, userActivity: nil)
         }
@@ -228,33 +226,22 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
     
     /// Handle Qibla direction intent
     public func handleQiblaDirectionIntent(_ intent: GetQiblaDirectionIntent) async -> GetQiblaDirectionIntentResponse {
-        guard let qiblaService = qiblaService,
-              let locationService = locationService else {
+        guard let locationService = locationService else {
             return GetQiblaDirectionIntentResponse(code: .failure, userActivity: nil)
         }
         
         do {
-            let location = try await locationService.getCurrentLocation()
-            let qiblaDirection = try await qiblaService.calculateQiblaDirection(from: location)
+            let location = try await locationService.requestLocation()
+            // TODO: Implement qibla calculation service
+            // For now, return a placeholder response
             
             let response = GetQiblaDirectionIntentResponse(code: .success, userActivity: nil)
             
-            let directionFormatter = NumberFormatter()
-            directionFormatter.maximumFractionDigits = 0
-            let directionString = directionFormatter.string(from: NSNumber(value: qiblaDirection.bearing)) ?? "0"
-            
-            var responseText = "Qibla direction is \(directionString) degrees from North"
-            
-            if intent.includeDistance?.boolValue == true {
-                let distanceFormatter = NumberFormatter()
-                distanceFormatter.maximumFractionDigits = 0
-                let distanceString = distanceFormatter.string(from: NSNumber(value: qiblaDirection.distance / 1000)) ?? "0"
-                responseText += ", approximately \(distanceString) kilometers to Mecca"
-            }
+            // Placeholder implementation
+            let responseText = "Qibla direction calculation service is not yet implemented. Please use the main app for accurate Qibla direction."
             
             response.userActivity = createUserActivity(for: .qiblaDirection, data: [
-                "bearing": qiblaDirection.bearing,
-                "distance": qiblaDirection.distance,
+                "message": "Service not implemented",
                 "location": [
                     "latitude": location.coordinate.latitude,
                     "longitude": location.coordinate.longitude

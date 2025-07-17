@@ -66,7 +66,7 @@ public class WidgetService: ObservableObject {
 
         do {
             let widgetData = try await createWidgetData()
-            WidgetDataManager.shared.saveWidgetData(widgetData)
+            saveWidgetData(widgetData)
             reloadAllWidgets()
 
             lastWidgetUpdate = Date()
@@ -81,7 +81,6 @@ public class WidgetService: ObservableObject {
         guard isWidgetAvailable else { return }
 
         WidgetCenter.shared.reloadAllTimelines()
-        WidgetBackgroundRefreshManager.shared.refreshAllWidgets()
         print("🔄 Reloaded all widget timelines")
     }
     
@@ -172,9 +171,7 @@ public class WidgetService: ObservableObject {
             nextPrayer: nextPrayer,
             timeUntilNextPrayer: timeUntilNextPrayer,
             todaysPrayerTimes: todaysPrayerTimes,
-            hijriDate: hijriDate,
-            location: locationName ?? "Unknown Location",
-            calculationMethod: calculationMethod
+            location: locationName ?? "Unknown Location"
         )
     }
     

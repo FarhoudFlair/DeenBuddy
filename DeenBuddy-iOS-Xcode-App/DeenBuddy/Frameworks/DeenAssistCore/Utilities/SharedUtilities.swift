@@ -110,6 +110,52 @@ public final class SharedUtilities {
     public static func removeDiacritics(from text: String) -> String {
         return text.folding(options: .diacriticInsensitive, locale: .current)
     }
+
+    /// Normalize Arabic text for search by removing diacritics and standardizing characters
+    /// - Parameter text: Arabic text to normalize
+    /// - Returns: Normalized text suitable for search matching
+    public static func normalizeArabicForSearch(_ text: String) -> String {
+        var normalized = text
+
+        // Remove all diacritics by filtering out combining marks
+        normalized = String(normalized.unicodeScalars.filter { scalar in
+            let category = scalar.properties.generalCategory
+            return category != .nonspacingMark && category != .enclosingMark && category != .spacingMark
+        })
+
+        // Normalize different Alif variants to standard Alif
+        normalized = normalized.replacingOccurrences(of: "ٱ", with: "ا") // Alif Wasla → Alif
+        normalized = normalized.replacingOccurrences(of: "أ", with: "ا") // Alif with Hamza above → Alif
+        normalized = normalized.replacingOccurrences(of: "إ", with: "ا") // Alif with Hamza below → Alif
+        normalized = normalized.replacingOccurrences(of: "آ", with: "ا") // Alif with Madda → Alif
+
+        // Normalize different Yaa variants
+        normalized = normalized.replacingOccurrences(of: "ى", with: "ي") // Alif Maksura → Yaa
+        normalized = normalized.replacingOccurrences(of: "ئ", with: "ي") // Yaa with Hamza → Yaa
+
+        // Normalize different Haa variants
+        normalized = normalized.replacingOccurrences(of: "ة", with: "ه") // Taa Marbouta → Haa
+
+        // Normalize different Waw variants
+        normalized = normalized.replacingOccurrences(of: "ؤ", with: "و") // Waw with Hamza → Waw
+
+        // Remove extra whitespace and convert to lowercase
+        normalized = normalized.trimmingCharacters(in: .whitespacesAndNewlines)
+        normalized = normalized.lowercased()
+
+        return normalized
+    }
+
+    /// Check if text contains Arabic search term with proper normalization
+    /// - Parameters:
+    ///   - text: Text to search in
+    ///   - searchTerm: Term to search for
+    /// - Returns: True if normalized text contains normalized search term
+    public static func arabicTextContains(_ text: String, searchTerm: String) -> Bool {
+        let normalizedText = normalizeArabicForSearch(text)
+        let normalizedSearchTerm = normalizeArabicForSearch(searchTerm)
+        return normalizedText.contains(normalizedSearchTerm)
+    }
     
     // MARK: - Data Conversion
     

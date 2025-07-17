@@ -218,7 +218,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     deinit {
         // Cleanup all resources to prevent memory leaks
-        performCleanup()
+        MainActor.assumeIsolated {
+            performCleanup()
+        }
         
         // Track instance destruction for monitoring
         Self.instanceCountQueue.async(flags: .barrier) {
@@ -338,13 +340,11 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public func getCurrentLocation() async throws -> CLLocation {
         // Check for concurrent requests
-        return try await continuationQueue.sync {
-            guard !locationRequestInProgress else {
-                throw LocationError.locationUnavailable("Location request already in progress. Please wait for current request to complete.")
-            }
-            
-            return try await performLocationRequest()
+        guard !locationRequestInProgress else {
+            throw LocationError.locationUnavailable("Location request already in progress. Please wait for current request to complete.")
         }
+        
+        return try await performLocationRequest()
     }
     
     private func performLocationRequest() async throws -> CLLocation {
@@ -438,6 +438,40 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         
         isUpdatingLocation = true
         locationManager.startUpdatingLocation()
+    }
+    
+    /// Start background location updates for traveler mode
+    /// This will show the blue location arrow in the status bar
+    public func startBackgroundLocationUpdates() {
+        guard authorizationStatus == .authorizedAlways else {
+            print("❌ Background location requires 'Always' authorization. Current status: \(authorizationStatus)")
+            return
+        }
+        
+        guard isLocationServicesAvailable() else {
+            print("❌ Location services not available")
+            return
+        }
+        
+        // Configure for background updates
+        locationManager.allowsBackgroundLocationUpdates = true
+        locationManager.pausesLocationUpdatesAutomatically = false
+        
+        // Start monitoring significant location changes for battery efficiency
+        locationManager.startMonitoringSignificantLocationChanges()
+        
+        isUpdatingLocation = true
+        print("🌍 Started background location updates for traveler mode")
+    }
+    
+    /// Stop background location updates
+    public func stopBackgroundLocationUpdates() {
+        locationManager.allowsBackgroundLocationUpdates = false
+        locationManager.pausesLocationUpdatesAutomatically = true
+        locationManager.stopMonitoringSignificantLocationChanges()
+        
+        isUpdatingLocation = false
+        print("🌍 Stopped background location updates")
     }
     
     public func stopUpdatingLocation() {
@@ -565,6 +599,65 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public func getCachedLocation() -> CLLocation? {
         return cachedLocation
+    }
+    
+    /// Check if cached location is valid and recent enough to use
+    public func isCachedLocationValid() -> Bool {
+        guard let cached = cachedLocation else { return false }
+        return isLocationRecent(cached) && cached.horizontalAccuracy < minimumAccuracy
+    }
+    
+    /// Get location preferring cached if valid, otherwise request fresh
+    public func getLocationPreferCached() async throws -> CLLocation {
+        // First check if we have a valid cached location
+        if let cached = cachedLocation, isLocationRecent(cached) && cached.horizontalAccuracy < minimumAccuracy {
+            print("📍 Using valid cached location from \(cached.timestamp)")
+            // Update currentLocation to ensure UI sees the cached location
+            await MainActor.run {
+                self.currentLocation = cached
+            }
+            return cached
+        }
+        
+        // If we have a cached location but it's not recent, still use it as fallback
+        if let cached = cachedLocation, cached.horizontalAccuracy < minimumAccuracy * 2 {
+            print("📍 Using older cached location from \(cached.timestamp) as fallback")
+            await MainActor.run {
+                self.currentLocation = cached
+            }
+            
+            // Try to get fresh location in background but return cached immediately
+            Task {
+                do {
+                    _ = try await getCurrentLocation()
+                    print("📍 Successfully refreshed location in background")
+                } catch {
+                    print("📍 Background location refresh failed: \(error)")
+                }
+            }
+            
+            return cached
+        }
+        
+        // If no valid cached location, try to get fresh location
+        return try await getCurrentLocation()
+    }
+    
+    /// Check if current location is from cache
+    public func isCurrentLocationFromCache() -> Bool {
+        guard let current = currentLocation, let cached = cachedLocation else {
+            return false
+        }
+        
+        return current.coordinate.latitude == cached.coordinate.latitude &&
+               current.coordinate.longitude == cached.coordinate.longitude &&
+               current.timestamp == cached.timestamp
+    }
+    
+    /// Get location age in seconds
+    public func getLocationAge() -> TimeInterval? {
+        guard let current = currentLocation else { return nil }
+        return Date().timeIntervalSince(current.timestamp)
     }
     
     public func clearLocationCache() {

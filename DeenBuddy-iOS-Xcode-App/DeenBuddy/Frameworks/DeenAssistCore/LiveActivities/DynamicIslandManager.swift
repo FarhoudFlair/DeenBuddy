@@ -1,6 +1,7 @@
 import Foundation
 import ActivityKit
 import SwiftUI
+import WidgetKit
 
 // MARK: - Dynamic Island Manager
 
@@ -170,58 +171,43 @@ public enum DynamicIslandError: Error, LocalizedError {
 
 // MARK: - Enhanced Dynamic Island Views
 
+#if canImport(WidgetKit) && !os(macOS)
 @available(iOS 16.1, *)
 public struct PrayerDynamicIslandView: View {
-    let context: ActivityViewContext<PrayerCountdownActivity>
+    // Note: ActivityViewContext is only available in widget extensions
+    // This view should be moved to the widget extension target
+    let state: PrayerCountdownActivity.ContentState
     @StateObject private var dynamicIslandManager = DynamicIslandManager.shared
-    
+
     public var body: some View {
-        let style = dynamicIslandManager.getDynamicIslandStyle(for: context.state)
-        
-        DynamicIsland {
-            // Expanded view
-            DynamicIslandExpandedRegion(.leading) {
-                expandedLeadingView(style: style)
-            }
-            
-            DynamicIslandExpandedRegion(.trailing) {
-                expandedTrailingView(style: style)
-            }
-            
-            DynamicIslandExpandedRegion(.bottom) {
-                expandedBottomView(style: style)
-            }
-            
-        } compactLeading: {
-            compactLeadingView(style: style)
-            
-        } compactTrailing: {
-            compactTrailingView(style: style)
-            
-        } minimal: {
-            minimalView(style: style)
-        }
-        .keylineTint(context.state.nextPrayer.color)
+        // This view is only intended for widget extensions
+        // In the main app, we return a placeholder
+        Text("Dynamic Island View - Widget Extension Only")
+            .font(.caption)
+            .foregroundColor(.secondary)
     }
     
-    // MARK: - Expanded Views
+    // MARK: - Helper Views (for widget extension use)
+    /*
+    // These views are intended for use in widget extensions
+    // They are commented out in the main app to avoid compilation issues
     
     @ViewBuilder
     private func expandedLeadingView(style: DynamicIslandStyle) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: context.state.nextPrayer.systemImageName)
-                .foregroundColor(context.state.nextPrayer.color)
+            Image(systemName: state.nextPrayer.systemImageName)
+                .foregroundColor(state.nextPrayer.color)
                 .font(.title2)
                 .scaleEffect(style.pulseAnimation ? 1.1 : 1.0)
                 .animation(style.pulseAnimation ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: style.pulseAnimation)
             
             VStack(alignment: .leading, spacing: 2) {
-                Text(context.state.nextPrayer.displayName)
+                Text(state.nextPrayer.displayName)
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
                 
-                Text(context.state.nextPrayer.arabicName)
+                Text(state.nextPrayer.arabicName)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -231,7 +217,7 @@ public struct PrayerDynamicIslandView: View {
     @ViewBuilder
     private func expandedTrailingView(style: DynamicIslandStyle) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
-            if context.state.hasPassed {
+            if state.hasPassed {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("Prayer")
                         .font(.headline)
@@ -244,7 +230,7 @@ public struct PrayerDynamicIslandView: View {
                         .foregroundColor(style.textColor)
                 }
             } else {
-                Text(context.state.formattedTimeRemaining)
+                Text(state.formattedTimeRemaining)
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(style.textColor)
@@ -253,7 +239,7 @@ public struct PrayerDynamicIslandView: View {
                     .animation(style.pulseAnimation ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: style.pulseAnimation)
             }
             
-            Text(formatPrayerTime(context.state.prayerTime))
+            Text(formatPrayerTime(state.prayerTime))
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -268,7 +254,7 @@ public struct PrayerDynamicIslandView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 
-                Text(context.state.location)
+                Text(state.location)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -277,16 +263,16 @@ public struct PrayerDynamicIslandView: View {
             Spacer()
             
             // Hijri date
-            Text(context.state.hijriDate)
+            Text(state.hijriDate)
                 .font(.caption)
                 .foregroundColor(.secondary)
             
             Spacer()
             
             // Progress indicator
-            if !context.state.hasPassed {
+            if !state.hasPassed {
                 ProgressView(value: progressValue)
-                    .progressViewStyle(LinearProgressViewStyle(tint: context.state.nextPrayer.color))
+                    .progressViewStyle(LinearProgressViewStyle(tint: state.nextPrayer.color))
                     .frame(width: 40)
             }
         }
@@ -297,8 +283,8 @@ public struct PrayerDynamicIslandView: View {
     
     @ViewBuilder
     private func compactLeadingView(style: DynamicIslandStyle) -> some View {
-        Image(systemName: context.state.nextPrayer.systemImageName)
-            .foregroundColor(context.state.nextPrayer.color)
+        Image(systemName: state.nextPrayer.systemImageName)
+            .foregroundColor(state.nextPrayer.color)
             .font(.title3)
             .scaleEffect(style.pulseAnimation ? 1.1 : 1.0)
             .animation(style.pulseAnimation ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: style.pulseAnimation)
@@ -306,13 +292,13 @@ public struct PrayerDynamicIslandView: View {
     
     @ViewBuilder
     private func compactTrailingView(style: DynamicIslandStyle) -> some View {
-        if context.state.hasPassed {
+        if state.hasPassed {
             Text("Now")
                 .font(.caption)
                 .fontWeight(.bold)
                 .foregroundColor(style.textColor)
         } else {
-            Text(context.state.shortFormattedTime)
+            Text(state.shortFormattedTime)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(style.textColor)
@@ -324,8 +310,8 @@ public struct PrayerDynamicIslandView: View {
     
     @ViewBuilder
     private func minimalView(style: DynamicIslandStyle) -> some View {
-        Image(systemName: context.state.nextPrayer.systemImageName)
-            .foregroundColor(context.state.nextPrayer.color)
+        Image(systemName: state.nextPrayer.systemImageName)
+            .foregroundColor(state.nextPrayer.color)
             .font(.caption)
             .scaleEffect(style.pulseAnimation ? 1.2 : 1.0)
             .animation(style.pulseAnimation ? .easeInOut(duration: 1).repeatForever(autoreverses: true) : .none, value: style.pulseAnimation)
@@ -336,7 +322,7 @@ public struct PrayerDynamicIslandView: View {
     private var progressValue: Double {
         // Assume maximum prayer interval is 6 hours (21600 seconds)
         let maxInterval: TimeInterval = 21600
-        let elapsed = maxInterval - context.state.timeRemaining
+        let elapsed = maxInterval - state.timeRemaining
         return min(1.0, max(0.0, elapsed / maxInterval))
     }
     
@@ -345,7 +331,9 @@ public struct PrayerDynamicIslandView: View {
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
+    */
 }
+#endif
 
 // MARK: - Dynamic Island Integration Service
 

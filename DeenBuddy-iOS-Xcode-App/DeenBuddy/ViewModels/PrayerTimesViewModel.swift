@@ -72,7 +72,8 @@ class PrayerTimesViewModel: ObservableObject {
     func fetchPrayerTimes() async {
         isLoading = true
         do {
-            let location = try await locationService.requestLocation()
+            // Use cached location if available and valid, otherwise get fresh location
+            let location = try await locationService.getLocationPreferCached()
             let times = try await prayerTimeService.calculatePrayerTimes(for: location, date: Date())
             await MainActor.run {
                 self.prayerTimes = PrayerTimes(
@@ -121,9 +122,16 @@ private class DummyLocationService: LocationServiceProtocol {
     func requestLocation() async throws -> CLLocation { throw LocationError.locationUnavailable("Location unavailable in dummy service") }
     func startUpdatingLocation() {}
     func stopUpdatingLocation() {}
+    func startBackgroundLocationUpdates() {}
+    func stopBackgroundLocationUpdates() {}
     func startUpdatingHeading() {}
     func stopUpdatingHeading() {}
     func geocodeCity(_ cityName: String) async throws -> CLLocation { throw LocationError.geocodingFailed("Geocoding failed in dummy service") }
+    func getCachedLocation() -> CLLocation? { return nil }
+    func isCachedLocationValid() -> Bool { return false }
+    func getLocationPreferCached() async throws -> CLLocation { throw LocationError.locationUnavailable("Location unavailable in dummy service") }
+    func isCurrentLocationFromCache() -> Bool { return false }
+    func getLocationAge() -> TimeInterval? { return nil }
 }
 
 @MainActor

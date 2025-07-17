@@ -138,7 +138,9 @@ private class CountdownTimerManager: ObservableObject {
     }
     
     deinit {
-        timerManager.cancelTimer(id: timerID)
+        MainActor.assumeIsolated {
+            timerManager.cancelTimer(id: timerID)
+        }
     }
 }
 

@@ -2,6 +2,7 @@ import Foundation
 
 /// Secure setup utility for initial credential configuration
 /// This should only be used during development setup and removed from production builds
+@MainActor
 public class SecureSetup {
     
     private let configManager = ConfigurationManager.shared

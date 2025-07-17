@@ -84,13 +84,16 @@ public class ResourceMonitor: ObservableObject {
     }
     
     deinit {
-        stopMonitoring()
+        MainActor.assumeIsolated {
+            stopMonitoring()
+        }
         NotificationCenter.default.removeObserver(self)
     }
     
     // MARK: - Public Methods
     
     /// Start continuous resource monitoring
+    @MainActor
     public func startMonitoring() {
         guard !isMonitoring else { return }
         
@@ -106,6 +109,7 @@ public class ResourceMonitor: ObservableObject {
     }
     
     /// Stop continuous resource monitoring
+    @MainActor
     public func stopMonitoring() {
         guard isMonitoring else { return }
         

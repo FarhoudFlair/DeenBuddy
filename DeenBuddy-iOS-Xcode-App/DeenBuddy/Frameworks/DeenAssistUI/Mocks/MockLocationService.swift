@@ -76,6 +76,20 @@ public class MockLocationService: LocationServiceProtocol {
         isUpdatingLocation = false
     }
     
+    public func startBackgroundLocationUpdates() {
+        print("🌍 MockLocationService: Started background location updates")
+        isUpdatingLocation = true
+        // Simulate getting location updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            self.simulateLocationUpdate()
+        }
+    }
+    
+    public func stopBackgroundLocationUpdates() {
+        print("🌍 MockLocationService: Stopped background location updates")
+        isUpdatingLocation = false
+    }
+    
     public func startUpdatingHeading() {
         isUpdatingHeading = true
         
@@ -89,16 +103,41 @@ public class MockLocationService: LocationServiceProtocol {
         isUpdatingHeading = false
     }
     
+    private func simulateLocationUpdate() {
+        guard isUpdatingLocation else { return }
+
+        // Simulate slight location variations around New York City
+        let baseLatitude = 40.7128
+        let baseLongitude = -74.0060
+
+        // Add small random variations to simulate GPS drift
+        let latVariation = Double.random(in: -0.001...0.001)
+        let lonVariation = Double.random(in: -0.001...0.001)
+
+        let newLocation = CLLocation(
+            latitude: baseLatitude + latVariation,
+            longitude: baseLongitude + lonVariation
+        )
+
+        currentLocation = newLocation
+        locationSubject.send(newLocation)
+
+        // Schedule next update every 5 seconds for background updates
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            self.simulateLocationUpdate()
+        }
+    }
+
     private func simulateHeadingUpdate() {
         guard isUpdatingHeading else { return }
-        
+
         // Simulate compass heading that slowly rotates
         currentHeading = (currentHeading + 1).truncatingRemainder(dividingBy: 360)
-        
+
         // Create a mock CLHeading
         let mockHeading = MockCLHeading(magneticHeading: currentHeading, headingAccuracy: headingAccuracy)
         headingSubject.send(mockHeading)
-        
+
         // Schedule next update
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.simulateHeadingUpdate()
@@ -126,6 +165,31 @@ public class MockLocationService: LocationServiceProtocol {
         default:
             throw LocationError.geocodingFailed("Failed to find location for city: \(cityName)")
         }
+    }
+    
+    // MARK: - Cached Location Methods
+    
+    public func getCachedLocation() -> CLLocation? {
+        return currentLocation
+    }
+    
+    public func isCachedLocationValid() -> Bool {
+        return currentLocation != nil
+    }
+    
+    public func getLocationPreferCached() async throws -> CLLocation {
+        // For mock service, just return request location
+        return try await requestLocation()
+    }
+    
+    public func isCurrentLocationFromCache() -> Bool {
+        // For mock service, consider it always fresh
+        return false
+    }
+    
+    public func getLocationAge() -> TimeInterval? {
+        // For mock service, always return a small age
+        return 30.0 // 30 seconds
     }
 }
 

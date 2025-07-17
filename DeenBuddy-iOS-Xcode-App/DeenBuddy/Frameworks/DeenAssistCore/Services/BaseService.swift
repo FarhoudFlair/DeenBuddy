@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 import os.log
 
 /// Base service class that provides common functionality for all DeenBuddy services
@@ -21,31 +22,25 @@ open class BaseService: ObservableObject {
     /// Service health status
     @Published public var isHealthy: Bool = true
     
-    // MARK: - Protected Properties
+    // MARK: - Internal Properties
     
     /// Service name for logging and debugging
-    protected let serviceName: String
+    internal let serviceName: String
     
     /// Logger instance
-    protected let logger: Logger
+    internal let logger: Logger
     
     /// Combine cancellables storage
-    protected var cancellables = Set<AnyCancellable>()
+    internal var cancellables = Set<AnyCancellable>()
     
     /// Unified cache manager
-    protected let cacheManager: UnifiedCacheManager
+    internal let cacheManager: UnifiedCacheManager
     
     /// Timer manager for battery-aware operations
-    protected let timerManager: BatteryAwareTimerManager
-    
-    /// Error handler for consistent error management
-    protected let errorHandler: ErrorHandler
-    
-    /// Retry mechanism for resilient operations
-    protected let retryMechanism: RetryMechanism
+    internal let timerManager: BatteryAwareTimerManager
     
     /// Current operation tasks for cleanup
-    protected var currentTasks: [String: Task<Void, Never>] = [:]
+    internal var currentTasks: [String: Task<Void, Never>] = [:]
     
     // MARK: - Configuration
     
@@ -72,7 +67,7 @@ open class BaseService: ObservableObject {
         }
     }
     
-    protected let configuration: ServiceConfiguration
+    internal let configuration: ServiceConfiguration
     
     // MARK: - Initialization
     
@@ -89,21 +84,22 @@ open class BaseService: ObservableObject {
         self.logger = Logger(subsystem: "com.deenbuddy.app", category: serviceName)
         self.cacheManager = UnifiedCacheManager.shared
         self.timerManager = BatteryAwareTimerManager.shared
-        self.errorHandler = SharedInstances.errorHandler
-        self.retryMechanism = SharedInstances.retryMechanism
         
         setupHealthMonitoring()
         
         if configuration.enableLogging {
-            logger.info("✅ \(serviceName) initialized successfully")
+            logger.info("✅ \(self.serviceName) initialized successfully")
         }
     }
     
     deinit {
-        cleanup()
+        // Cleanup synchronously without await
+        MainActor.assumeIsolated {
+            syncCleanup()
+        }
         
         if configuration.enableLogging {
-            logger.info("🧹 \(serviceName) deinitialized")
+            logger.info("🧹 \(self.serviceName) deinitialized")
         }
     }
     
@@ -111,14 +107,14 @@ open class BaseService: ObservableObject {
     
     /// Start the service
     open func start() {
-        logger.info("🚀 Starting \(serviceName)")
+        logger.info("🚀 Starting \(self.serviceName)")
         isHealthy = true
         lastSuccessfulOperation = Date()
     }
     
     /// Stop the service
     open func stop() {
-        logger.info("🛑 Stopping \(serviceName)")
+        logger.info("🛑 Stopping \(self.serviceName)")
         cleanup()
     }
     
@@ -139,7 +135,7 @@ open class BaseService: ObservableObject {
         )
     }
     
-    // MARK: - Protected Methods
+    // MARK: - Internal Methods
     
     /// Execute operation with common patterns (loading, error handling, retry)
     /// - Parameters:
@@ -147,7 +143,7 @@ open class BaseService: ObservableObject {
     ///   - operationName: Name for logging and task tracking
     ///   - enableRetry: Whether to enable retry mechanism
     /// - Returns: Result of the operation
-    protected func executeOperation<T>(
+    internal func executeOperation<T>(
         _ operation: @escaping () async throws -> T,
         operationName: String,
         enableRetry: Bool = true
@@ -181,11 +177,8 @@ open class BaseService: ObservableObject {
             let result: T
             
             if enableRetry && configuration.enableRetry {
-                result = try await retryMechanism.executeWithRetry(
-                    operation: operation,
-                    retryPolicy: .conservative,
-                    operationId: taskId
-                )
+                // Simplified retry mechanism - retry once on failure
+                result = try await performWithSimpleRetry(operation: operation)
             } else {
                 result = try await operation()
             }
@@ -216,7 +209,6 @@ open class BaseService: ObservableObject {
                 logger.error("❌ \(operationName) failed: \(error.localizedDescription)")
             }
             
-            await errorHandler.handleError(serviceError)
             throw serviceError
         }
     }
@@ -225,7 +217,7 @@ open class BaseService: ObservableObject {
     /// - Parameters:
     ///   - operation: The operation to execute
     ///   - operationName: Name for logging
-    protected func safeAsyncOperation(
+    internal func safeAsyncOperation(
         _ operation: @escaping () async -> Void,
         operationName: String
     ) {
@@ -245,7 +237,7 @@ open class BaseService: ObservableObject {
     ///   - operation: The operation to execute
     ///   - timerType: Timer type for battery awareness
     ///   - operationName: Name for logging
-    protected func schedulePeriodicOperation(
+    internal func schedulePeriodicOperation(
         _ operation: @escaping () async -> Void,
         timerType: BatteryAwareTimerManager.TimerType,
         operationName: String
@@ -259,7 +251,7 @@ open class BaseService: ObservableObject {
     
     /// Cancel periodic operation
     /// - Parameter operationName: Name of the operation to cancel
-    protected func cancelPeriodicOperation(_ operationName: String) {
+    internal func cancelPeriodicOperation(_ operationName: String) {
         let timerId = "\(serviceName)-\(operationName)"
         timerManager.cancelTimer(id: timerId)
     }
@@ -270,7 +262,7 @@ open class BaseService: ObservableObject {
     ///   - key: Cache key
     ///   - type: Cache type
     ///   - expiry: Custom expiry time
-    protected func storeInCache<T: Codable>(
+    internal func storeInCache<T: Codable>(
         _ data: T,
         key: String,
         type: UnifiedCacheManager.CacheType,
@@ -288,7 +280,7 @@ open class BaseService: ObservableObject {
     ///   - key: Cache key
     ///   - type: Cache type
     /// - Returns: Cached data or nil
-    protected func retrieveFromCache<T: Codable>(
+    internal func retrieveFromCache<T: Codable>(
         _ dataType: T.Type,
         key: String,
         type: UnifiedCacheManager.CacheType
@@ -301,15 +293,17 @@ open class BaseService: ObservableObject {
     
     /// Clear service-specific cache
     /// - Parameter type: Cache type to clear
-    protected func clearServiceCache(type: UnifiedCacheManager.CacheType) {
-        // This would clear only service-specific entries
+    internal func clearServiceCache(type: UnifiedCacheManager.CacheType) {
+        // Clear cache entries that start with service name
         // Implementation would filter by service name prefix
+        let servicePrefix = "\(serviceName)_"
+        cacheManager.clearCacheWithPrefix(servicePrefix, type: type)
     }
     
     /// Convert error to service-specific error
     /// - Parameter error: Original error
     /// - Returns: Service error
-    protected func convertToServiceError(_ error: Error) -> ServiceError {
+    internal func convertToServiceError(_ error: Error) -> ServiceError {
         if let serviceError = error as? ServiceError {
             return serviceError
         }
@@ -335,7 +329,7 @@ open class BaseService: ObservableObject {
     }
     
     private func handleMemoryPressure() {
-        logger.warning("⚠️ Memory pressure detected in \(serviceName)")
+        logger.warning("⚠️ Memory pressure detected in \(self.serviceName)")
         
         // Cancel non-essential operations
         let nonEssentialTasks = currentTasks.filter { $0.key.contains("background") || $0.key.contains("cache") }
@@ -361,7 +355,41 @@ open class BaseService: ObservableObject {
         // Clear subscriptions
         cancellables.removeAll()
         
-        logger.info("🧹 \(serviceName) cleanup completed")
+        logger.info("🧹 \(self.serviceName) cleanup completed")
+    }
+    
+    /// Synchronous cleanup for deinit
+    private func syncCleanup() {
+        // Cancel all tasks synchronously
+        for (_, task) in currentTasks {
+            task.cancel()
+        }
+        currentTasks.removeAll()
+        
+        // Clear subscriptions
+        cancellables.removeAll()
+    }
+    
+    /// Simple retry mechanism
+    private func performWithSimpleRetry<T>(
+        operation: @escaping () async throws -> T,
+        maxRetries: Int = 2
+    ) async throws -> T {
+        var lastError: Error?
+        
+        for attempt in 0..<maxRetries {
+            do {
+                return try await operation()
+            } catch {
+                lastError = error
+                if attempt < maxRetries - 1 {
+                    // Wait before retry
+                    try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(attempt)) * 500_000_000)) // 0.5s, 1s
+                }
+            }
+        }
+        
+        throw lastError ?? ServiceError.unknownError(NSError(domain: "BaseService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Retry failed"]))
     }
 }
 
@@ -405,5 +433,18 @@ public enum ServiceError: LocalizedError {
         case .unknownError(let error):
             return "Unknown error: \(error.localizedDescription)"
         }
+    }
+}
+
+// MARK: - UnifiedCacheManager Extension
+
+extension UnifiedCacheManager {
+    /// Clear cache entries with a specific prefix
+    /// - Parameters:
+    ///   - prefix: Prefix to match
+    ///   - type: Cache type
+    internal func clearCacheWithPrefix(_ prefix: String, type: CacheType) {
+        // Implementation would clear entries starting with the prefix
+        // For now, this is a placeholder method
     }
 }

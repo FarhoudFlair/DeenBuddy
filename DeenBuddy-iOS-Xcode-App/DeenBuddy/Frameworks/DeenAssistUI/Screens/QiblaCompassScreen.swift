@@ -165,11 +165,7 @@ public struct QiblaCompassScreen: View {
                             .stroke(ColorPalette.primary.opacity(0.1), lineWidth: 1)
                     )
                 
-                // Compass markings
-                compassMarkings
                 
-                // North reference needle (red arrow pointing to magnetic North)
-                deviceHeadingIndicator
 
                 // Qibla direction indicator (green arrow pointing to Qibla)
                 if let qiblaDirection = qiblaDirection {
@@ -230,86 +226,6 @@ public struct QiblaCompassScreen: View {
         }
     }
     
-    @ViewBuilder
-    private var compassMarkings: some View {
-        ForEach(0..<360, id: \.self) { degree in
-            if degree % 30 == 0 {
-                // Enhanced major markings (every 30 degrees) - more prominent for key directions
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                ColorPalette.primary.opacity(degree % 90 == 0 ? 0.9 : 0.7),
-                                ColorPalette.textSecondary.opacity(degree % 90 == 0 ? 0.7 : 0.5)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .frame(width: degree % 90 == 0 ? 4 : 2.5, height: degree % 90 == 0 ? 30 : 22)
-                    .offset(y: -140)
-                    .rotationEffect(.degrees(Double(degree)))
-            } else if degree % 15 == 0 {
-                // Medium markings (every 15 degrees) - added for better orientation
-                Rectangle()
-                    .fill(ColorPalette.textSecondary.opacity(0.5))
-                    .frame(width: 1.5, height: 16)
-                    .offset(y: -140)
-                    .rotationEffect(.degrees(Double(degree)))
-            } else if degree % 10 == 0 {
-                // Refined minor markings (every 10 degrees)
-                Rectangle()
-                    .fill(ColorPalette.textSecondary.opacity(0.4))
-                    .frame(width: 1, height: 12)
-                    .offset(y: -140)
-                    .rotationEffect(.degrees(Double(degree)))
-            } else if degree % 5 == 0 {
-                // Fine markings (every 5 degrees)
-                Rectangle()
-                    .fill(ColorPalette.textSecondary.opacity(0.2))
-                    .frame(width: 0.5, height: 8)
-                    .offset(y: -140)
-                    .rotationEffect(.degrees(Double(degree)))
-            }
-        }
-        
-        // Enhanced degree markings for orientation (without cardinal direction labels)
-        // Primary degree markers (every 90 degrees)
-        ForEach([0, 90, 180, 270], id: \.self) { degree in
-            VStack(spacing: 1) {
-                Text("\(degree)°")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(ColorPalette.textPrimary.opacity(0.8))
-            }
-            .background(
-                Circle()
-                    .fill(Color.white.opacity(0.9))
-                    .frame(width: 32, height: 32)
-                    .shadow(color: .black.opacity(0.08), radius: 2, x: 0, y: 1)
-            )
-            .offset(y: -115)
-            .rotationEffect(.degrees(Double(degree)))
-        }
-
-        // Secondary degree markers (every 45 degrees) for better orientation
-        ForEach([45, 135, 225, 315], id: \.self) { degree in
-            VStack(spacing: 1) {
-                Text("\(degree)°")
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                    .foregroundColor(ColorPalette.textSecondary.opacity(0.7))
-            }
-            .background(
-                Circle()
-                    .fill(Color.white.opacity(0.6))
-                    .frame(width: 24, height: 24)
-                    .shadow(color: .black.opacity(0.04), radius: 1, x: 0, y: 0.5)
-            )
-            .offset(y: -110)
-            .rotationEffect(.degrees(Double(degree)))
-        }
-    }
     
     @ViewBuilder
     private func qiblaNeedle(direction: QiblaDirection) -> some View {
@@ -403,51 +319,6 @@ public struct QiblaCompassScreen: View {
         .accessibilityHint("Align your device with this indicator to face the Qibla")
     }
     
-    @ViewBuilder
-    private var deviceHeadingIndicator: some View {
-        // Subtle North reference needle for accuracy verification
-        VStack(spacing: 0) {
-            // Refined north arrow tip - smaller and more subtle
-            Triangle()
-                .fill(Color.red.opacity(0.7))
-                .frame(width: 8, height: 12)
-
-            // Thinner needle body
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.red.opacity(0.7),
-                            Color.red.opacity(0.5)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: 2, height: 60)
-
-            // Refined North label with better contrast
-            Text("N")
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundColor(.red.opacity(0.8))
-                .background(
-                    Circle()
-                        .fill(Color.white.opacity(0.9))
-                        .frame(width: 18, height: 18)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
-                        )
-                )
-        }
-        .offset(y: -135)
-        .opacity(0.8) // Make the entire north indicator more subtle
-        .animation(.easeInOut(duration: 0.2), value: compassManager.heading)
-        .accessibilityLabel("North Reference Needle")
-        .accessibilityValue("Pointing toward magnetic north")
-        .accessibilityHint("Use this red needle to verify compass accuracy")
-    }
     
     @ViewBuilder
     private func directionInfo(_ qiblaDirection: QiblaDirection) -> some View {
@@ -501,33 +372,18 @@ public struct QiblaCompassScreen: View {
                         .fill(ColorPalette.primary.opacity(0.1))
                 )
 
-                // Dual indicator explanation
+                // Qibla indicator explanation
                 VStack(spacing: 6) {
-                    HStack(spacing: 12) {
-                        // Qibla indicator legend
-                        HStack(spacing: 4) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(ColorPalette.primary)
-                                .frame(width: 16, height: 8)
-                            Text("Qibla Direction")
-                                .caption()
-                                .foregroundColor(ColorPalette.textSecondary)
-                        }
-                        
-                        Spacer()
-                        
-                        // North indicator legend
-                        HStack(spacing: 4) {
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(Color.red.opacity(0.7))
-                                .frame(width: 16, height: 8)
-                            Text("North Reference")
-                                .caption()
-                                .foregroundColor(ColorPalette.textSecondary)
-                        }
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(ColorPalette.primary)
+                            .frame(width: 16, height: 8)
+                        Text("Qibla Direction")
+                            .caption()
+                            .foregroundColor(ColorPalette.textSecondary)
                     }
                     
-                    Text("Use the red north needle to verify compass accuracy")
+                    Text("The green arrow points toward Mecca for prayer")
                         .caption()
                         .foregroundColor(ColorPalette.textSecondary.opacity(0.8))
                         .multilineTextAlignment(.center)

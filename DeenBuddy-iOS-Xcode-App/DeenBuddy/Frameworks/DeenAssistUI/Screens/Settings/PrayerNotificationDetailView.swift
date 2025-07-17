@@ -231,7 +231,7 @@ public struct PrayerNotificationDetailView: View {
                     
                     NotificationPreviewCard(
                         title: customTitle.isEmpty ? getDefaultTitle(for: minutes) : customTitle,
-                        body: customBody.isEmpty ? getDefaultBody(for: minutes) : customBody,
+                        bodyText: customBody.isEmpty ? getDefaultBody(for: minutes) : customBody,
                         prayer: prayer
                     )
                 }
@@ -346,7 +346,7 @@ struct AddReminderSheet: View {
 /// Preview card showing how notification will appear
 struct NotificationPreviewCard: View {
     let title: String
-    let body: String
+    let bodyText: String
     let prayer: Prayer
 
     var body: some View {
@@ -360,7 +360,7 @@ struct NotificationPreviewCard: View {
                     .font(.headline)
                     .foregroundColor(.primary)
 
-                Text(body)
+                Text(bodyText)
                     .font(.body)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.leading)

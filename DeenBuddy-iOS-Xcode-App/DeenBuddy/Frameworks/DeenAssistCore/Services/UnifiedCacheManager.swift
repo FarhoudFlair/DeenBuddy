@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import CoreData
 import Combine
+import UIKit
 
 /// Unified caching system for all DeenBuddy services
 /// Replaces individual service caches with a centralized, high-performance solution
@@ -57,17 +58,45 @@ public class UnifiedCacheManager: ObservableObject {
         }
     }
     
+    // MARK: - Cache Entry Protocol
+
+    private protocol CacheEntryProtocol {
+        var isExpired: Bool { get }
+        var timestamp: Date { get }
+        var expirationDate: Date { get }
+        var key: String { get }
+        var size: Int { get }
+        var accessCount: Int { get }
+        var lastAccessed: Date { get }
+        var cacheType: CacheType { get }
+    }
+
     // MARK: - Cache Entry
-    
-    private struct CacheEntry<T: Codable>: Codable {
+
+    private struct CacheEntry<T: Codable>: Codable, CacheEntryProtocol {
         let data: T
         let timestamp: Date
         let expirationDate: Date
         let key: String
-        let type: CacheType
+        let type: String // Store as String for Codable conformance
         let size: Int
         let accessCount: Int
         let lastAccessed: Date
+        
+        init(data: T, timestamp: Date, expirationDate: Date, key: String, type: CacheType, size: Int, accessCount: Int, lastAccessed: Date) {
+            self.data = data
+            self.timestamp = timestamp
+            self.expirationDate = expirationDate
+            self.key = key
+            self.type = type.rawValue
+            self.size = size
+            self.accessCount = accessCount
+            self.lastAccessed = lastAccessed
+        }
+        
+        var cacheType: CacheType {
+            return CacheType(rawValue: type) ?? .temporaryData
+        }
         
         var isExpired: Bool {
             return Date() > expirationDate
@@ -90,7 +119,16 @@ public class UnifiedCacheManager: ObservableObject {
             return total > 0 ? Double(totalHits) / Double(total) : 0.0
         }
         
-        public var typeStats: [CacheType: TypeStatistics] = [:]
+        public var typeStats: [String: TypeStatistics] = [:]
+        
+        // Helper methods for type-safe access
+        public mutating func getTypeStats(for type: CacheType) -> TypeStatistics {
+            return typeStats[type.rawValue] ?? TypeStatistics()
+        }
+        
+        public mutating func setTypeStats(_ stats: TypeStatistics, for type: CacheType) {
+            typeStats[type.rawValue] = stats
+        }
         
         public struct TypeStatistics: Codable {
             public var hits: Int = 0
@@ -138,7 +176,7 @@ public class UnifiedCacheManager: ObservableObject {
         
         // Initialize type statistics
         for type in CacheType.allCases {
-            statistics.typeStats[type] = CacheStatistics.TypeStatistics()
+            statistics.typeStats[type.rawValue] = CacheStatistics.TypeStatistics()
         }
     }
     
@@ -237,7 +275,7 @@ public class UnifiedCacheManager: ObservableObject {
     /// - Returns: Size in bytes
     public func getCacheSize(for type: CacheType) -> Int {
         return queue.sync {
-            return statistics.typeStats[type]?.totalSize ?? 0
+            return statistics.typeStats[type.rawValue]?.totalSize ?? 0
         }
     }
     
@@ -260,7 +298,7 @@ public class UnifiedCacheManager: ObservableObject {
     /// - Parameter type: Cache type
     /// - Returns: Type statistics
     public func getStatistics(for type: CacheType) -> CacheStatistics.TypeStatistics {
-        return statistics.typeStats[type] ?? CacheStatistics.TypeStatistics()
+        return statistics.typeStats[type.rawValue] ?? CacheStatistics.TypeStatistics()
     }
     
     // MARK: - Private Methods
@@ -272,7 +310,7 @@ public class UnifiedCacheManager: ObservableObject {
     }
     
     private func storeEntry<T: Codable>(_ entry: CacheEntry<T>) {
-        let fullKey = createFullKey(entry.key, type: entry.type)
+        let fullKey = createFullKey(entry.key, type: entry.cacheType)
         
         // Store in memory cache
         memoryCache[fullKey] = entry
@@ -295,11 +333,11 @@ public class UnifiedCacheManager: ObservableObject {
         enforceMemoryLimits()
     }
     
-    private func getEntry(forKey key: String, type: CacheType) -> Any? {
+    private func getEntry(forKey key: String, type: CacheType) -> CacheEntryProtocol? {
         let fullKey = createFullKey(key, type: type)
         
         // Check memory cache first
-        if let entry = memoryCache[fullKey] {
+        if let entry = memoryCache[fullKey] as? CacheEntryProtocol {
             return entry
         }
         
@@ -314,7 +352,7 @@ public class UnifiedCacheManager: ObservableObject {
                 case .qiblaDirections:
                     return try decoder.decode(CacheEntry<QiblaDirection>.self, from: data)
                 case .locationData:
-                    return try decoder.decode(CacheEntry<CLLocation>.self, from: data)
+                    return try decoder.decode(CacheEntry<CodableCLLocation>.self, from: data)
                 default:
                     return try decoder.decode(CacheEntry<Data>.self, from: data)
                 }
@@ -342,7 +380,7 @@ public class UnifiedCacheManager: ObservableObject {
         removeDiskFile(forKey: fullKey)
         
         // Update statistics
-        statistics.typeStats[type]?.evictions += 1
+        statistics.typeStats[type.rawValue]?.evictions += 1
         statistics.totalEvictions += 1
     }
     
@@ -360,7 +398,7 @@ public class UnifiedCacheManager: ObservableObject {
         try? fileManager.removeItem(at: typeDirectory)
         
         // Reset statistics
-        statistics.typeStats[type] = CacheStatistics.TypeStatistics()
+        statistics.typeStats[type.rawValue] = CacheStatistics.TypeStatistics()
     }
     
     private func clearAllCacheInternal() {
@@ -374,7 +412,7 @@ public class UnifiedCacheManager: ObservableObject {
         // Reset statistics
         statistics = CacheStatistics()
         for type in CacheType.allCases {
-            statistics.typeStats[type] = CacheStatistics.TypeStatistics()
+            statistics.typeStats[type.rawValue] = CacheStatistics.TypeStatistics()
         }
     }
     
@@ -391,12 +429,12 @@ public class UnifiedCacheManager: ObservableObject {
     
     private func recordHit(for type: CacheType) {
         statistics.totalHits += 1
-        statistics.typeStats[type]?.hits += 1
+        statistics.typeStats[type.rawValue]?.hits += 1
     }
-    
+
     private func recordMiss(for type: CacheType) {
         statistics.totalMisses += 1
-        statistics.typeStats[type]?.misses += 1
+        statistics.typeStats[type.rawValue]?.misses += 1
     }
     
     private func updateAccessStats(for key: String, type: CacheType) {
@@ -504,7 +542,9 @@ public class UnifiedCacheManager: ObservableObject {
     }
     
     deinit {
-        timerManager.cancelTimer(id: "unified-cache-cleanup")
+        Task { @MainActor in
+            timerManager.cancelTimer(id: "unified-cache-cleanup")
+        }
         NotificationCenter.default.removeObserver(self)
     }
 }
@@ -534,11 +574,15 @@ extension UnifiedCacheManager {
     
     /// Convenience method for location data
     public func storeLocation(_ location: CLLocation, forKey key: String) {
-        store(location, forKey: key, type: .locationData)
+        let codableLocation = CodableCLLocation(from: location)
+        store(codableLocation, forKey: key, type: .locationData)
     }
-    
+
     /// Convenience method for retrieving location data
     public func retrieveLocation(forKey key: String) -> CLLocation? {
-        return retrieve(CLLocation.self, forKey: key, cacheType: .locationData)
+        guard let codableLocation = retrieve(CodableCLLocation.self, forKey: key, cacheType: .locationData) else {
+            return nil
+        }
+        return codableLocation.toCLLocation()
     }
 }

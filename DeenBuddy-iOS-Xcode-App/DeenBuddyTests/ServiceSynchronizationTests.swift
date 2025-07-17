@@ -418,8 +418,36 @@ class TestMockLocationService: LocationServiceProtocol {
         isUpdatingHeading = false
     }
 
+    func startBackgroundLocationUpdates() {
+        isUpdatingLocation = true
+    }
+
+    func stopBackgroundLocationUpdates() {
+        isUpdatingLocation = false
+    }
+
     func geocodeCity(_ cityName: String) async throws -> CLLocation {
         // Mock implementation - return San Francisco for any city
         return CLLocation(latitude: 37.7749, longitude: -122.4194)
+    }
+
+    func getCachedLocation() -> CLLocation? {
+        return currentLocation
+    }
+
+    func isCachedLocationValid() -> Bool {
+        return currentLocation != nil
+    }
+
+    func getLocationPreferCached() async throws -> CLLocation {
+        return try await requestLocation()
+    }
+
+    func isCurrentLocationFromCache() -> Bool {
+        return false
+    }
+
+    func getLocationAge() -> TimeInterval? {
+        return 30.0
     }
 }

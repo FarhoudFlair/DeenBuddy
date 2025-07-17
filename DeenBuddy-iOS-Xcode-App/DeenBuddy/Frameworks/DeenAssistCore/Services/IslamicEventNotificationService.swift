@@ -46,7 +46,7 @@ public class IslamicEventNotificationService: ObservableObject {
         
         // Create critical alert content
         let content = UNMutableNotificationContent()
-        content.title = "🕌 \(event.title)"
+        content.title = "🕌 \(event.name)"
         content.body = event.description
         content.categoryIdentifier = "ISLAMIC_EVENT"
         content.sound = UNNotificationSound.defaultCritical
@@ -55,8 +55,8 @@ public class IslamicEventNotificationService: ObservableObject {
         // Add Islamic event metadata
         content.userInfo = [
             "event_id": event.id.uuidString,
-            "event_type": event.type.rawValue,
-            "importance": event.importance.rawValue,
+            "event_category": event.category.rawValue,
+            "significance": event.significance.rawValue,
             "hijri_date": event.hijriDate.formatted,
             "is_critical": true
         ]
@@ -69,7 +69,7 @@ public class IslamicEventNotificationService: ObservableObject {
         
         do {
             try await notificationCenter.add(request)
-            print("✅ Scheduled critical alert for \(event.title)")
+            print("✅ Scheduled critical alert for \(event.name)")
         } catch {
             print("❌ Failed to schedule critical alert: \(error)")
             throw IslamicEventNotificationError.schedulingFailed
@@ -94,8 +94,8 @@ public class IslamicEventNotificationService: ObservableObject {
         // Add Islamic event metadata
         content.userInfo = [
             "event_id": event.id.uuidString,
-            "event_type": event.type.rawValue,
-            "importance": event.importance.rawValue,
+            "event_category": event.category.rawValue,
+            "significance": event.significance.rawValue,
             "hijri_date": event.hijriDate.formatted,
             "is_critical": false
         ]
@@ -108,7 +108,7 @@ public class IslamicEventNotificationService: ObservableObject {
         
         do {
             try await notificationCenter.add(request)
-            print("✅ Scheduled Islamic event notification for \(event.title)")
+            print("✅ Scheduled Islamic event notification for \(event.name)")
         } catch {
             print("❌ Failed to schedule Islamic event notification: \(error)")
             throw IslamicEventNotificationError.schedulingFailed
@@ -120,7 +120,7 @@ public class IslamicEventNotificationService: ObservableObject {
         let ramadanEvents = generateRamadanEvents(for: year)
         
         for event in ramadanEvents {
-            if event.importance == .critical {
+            if event.significance == .major {
                 try await scheduleCriticalAlert(for: event)
             } else {
                 try await scheduleIslamicEventNotification(for: event)
@@ -147,8 +147,8 @@ public class IslamicEventNotificationService: ObservableObject {
         // Schedule for the event date at a meaningful time
         var dateComponents = calendar.dateComponents([.year, .month, .day], from: gregorianDate)
         
-        // Set time based on event type
-        switch event.type {
+        // Set time based on event category
+        switch event.category {
         case .religious:
             dateComponents.hour = 6 // Early morning for religious events
             dateComponents.minute = 0
@@ -158,6 +158,12 @@ public class IslamicEventNotificationService: ObservableObject {
         case .historical:
             dateComponents.hour = 12 // Noon for historical events
             dateComponents.minute = 0
+        case .personal:
+            dateComponents.hour = 8 // Morning for personal events
+            dateComponents.minute = 0
+        case .community:
+            dateComponents.hour = 10 // Mid-morning for community events
+            dateComponents.minute = 0
         }
         
         return UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: event.isRecurring)
@@ -165,7 +171,7 @@ public class IslamicEventNotificationService: ObservableObject {
     
     private func getEventTitle(for event: IslamicEvent) -> String {
         let emoji = getEventEmoji(for: event)
-        return "\(emoji) \(event.title)"
+        return "\(emoji) \(event.name)"
     }
     
     private func getEventBody(for event: IslamicEvent) -> String {
@@ -174,54 +180,55 @@ public class IslamicEventNotificationService: ObservableObject {
         // Add Hijri date
         body += "\n\n📅 \(event.hijriDate.formatted)"
         
-        // Add location if available
-        if let location = event.location {
-            body += "\n📍 \(location)"
-        }
+        // Location information is not available in the current model
         
         return body
     }
     
     private func getEventEmoji(for event: IslamicEvent) -> String {
-        switch event.type {
+        switch event.category {
         case .religious:
-            switch event.importance {
-            case .critical:
+            switch event.significance {
+            case .major:
                 return "🕌"
-            case .high:
+            case .moderate:
                 return "🌙"
-            case .medium:
+            case .minor:
                 return "⭐"
-            case .low:
+            case .personal:
                 return "📿"
             }
         case .cultural:
             return "🎉"
         case .historical:
             return "📚"
+        case .personal:
+            return "👤"
+        case .community:
+            return "🏘️"
         }
     }
     
     private func getEventSound(for event: IslamicEvent) -> UNNotificationSound {
-        switch event.importance {
-        case .critical:
+        switch event.significance {
+        case .major:
             return .defaultCritical
-        case .high:
+        case .moderate:
             return .default
-        case .medium, .low:
+        case .minor, .personal:
             return .default
         }
     }
     
     private func getInterruptionLevel(for event: IslamicEvent) -> UNNotificationInterruptionLevel {
-        switch event.importance {
-        case .critical:
+        switch event.significance {
+        case .major:
             return .critical
-        case .high:
+        case .moderate:
             return .active
-        case .medium:
+        case .minor:
             return .active
-        case .low:
+        case .personal:
             return .passive
         }
     }
@@ -232,45 +239,36 @@ public class IslamicEventNotificationService: ObservableObject {
         // Ramadan start
         let ramadanStart = HijriDate(day: 1, month: .ramadan, year: year)
         events.append(IslamicEvent(
-            id: UUID(),
-            title: "Ramadan Mubarak",
+            name: "Ramadan Mubarak",
             description: "The blessed month of Ramadan has begun. May Allah accept your fasting and prayers.",
             hijriDate: ramadanStart,
-            type: .religious,
-            importance: .critical,
-            isRecurring: false,
-            location: nil,
-            reminder: nil
+            category: .religious,
+            significance: .major,
+            isRecurring: false
         ))
         
         // Laylat al-Qadr (Night of Power) - estimated dates
         for day in [21, 23, 25, 27, 29] {
             let laylahDate = HijriDate(day: day, month: .ramadan, year: year)
             events.append(IslamicEvent(
-                id: UUID(),
-                title: "Laylat al-Qadr",
+                name: "Laylat al-Qadr",
                 description: "Tonight could be the Night of Power. Increase your prayers and remembrance of Allah.",
                 hijriDate: laylahDate,
-                type: .religious,
-                importance: .high,
-                isRecurring: false,
-                location: nil,
-                reminder: nil
+                category: .religious,
+                significance: .moderate,
+                isRecurring: false
             ))
         }
         
         // Eid al-Fitr
         let eidDate = HijriDate(day: 1, month: .shawwal, year: year)
         events.append(IslamicEvent(
-            id: UUID(),
-            title: "Eid al-Fitr Mubarak",
+            name: "Eid al-Fitr Mubarak",
             description: "Eid Mubarak! May this blessed day bring joy, peace, and prosperity to you and your family.",
             hijriDate: eidDate,
-            type: .religious,
-            importance: .critical,
-            isRecurring: false,
-            location: nil,
-            reminder: nil
+            category: .religious,
+            significance: .major,
+            isRecurring: false
         ))
         
         return events

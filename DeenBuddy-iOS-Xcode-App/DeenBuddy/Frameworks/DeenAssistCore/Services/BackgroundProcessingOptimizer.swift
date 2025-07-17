@@ -2,6 +2,7 @@ import Foundation
 import BackgroundTasks
 import WidgetKit
 import ActivityKit
+import UIKit
 
 /// Optimized background processing manager for widgets, Live Activities, and notifications
 public class BackgroundProcessingOptimizer: ObservableObject {
@@ -265,8 +266,10 @@ public class BackgroundProcessingOptimizer: ObservableObject {
                 do {
                     print("📱 Refreshing widgets in background")
                     
-                    // Update widget data
-                    WidgetBackgroundRefreshManager.shared.refreshAllWidgets()
+                    // Update widget data using WidgetKit directly
+                    if #available(iOS 14.0, *) {
+                        WidgetCenter.shared.reloadAllTimelines()
+                    }
                     
                     // Simulate widget update processing
                     try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second

@@ -3,7 +3,7 @@ import Combine
 
 /// Real implementation of IslamicCalendarServiceProtocol
 @MainActor
-public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableObject {
+public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol {
     
     // MARK: - Published Properties
     
@@ -12,14 +12,9 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
     @Published public var upcomingEvents: [IslamicEvent] = []
     @Published public var allEvents: [IslamicEvent] = []
     @Published public var statistics: IslamicCalendarStatistics = IslamicCalendarStatistics()
-    @Published public var isLoading: Bool = false
-    @Published public var error: Error? = nil
-    
     // MARK: - Private Properties
     
     private let userDefaults = UserDefaults.standard
-    private var cancellables = Set<AnyCancellable>()
-    private let timerManager = BatteryAwareTimerManager.shared
     private var calculationMethod: IslamicCalendarMethod = .civil
     private var eventNotificationsEnabled: Bool = true
     private var defaultReminderTime: TimeInterval = 86400 // 24 hours
@@ -38,15 +33,19 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
     // MARK: - Initialization
     
     public init() {
+        super.init(serviceName: "IslamicCalendarService")
         setupDefaultEvents()
         loadCachedData()
         setupObservers()
         updateTodayInfo()
+        start()
     }
     
     deinit {
-        timerManager.cancelTimer(id: "hijri-calendar-daily")
-        timerManager.cancelTimer(id: "hijri-calendar-hourly")
+        MainActor.assumeIsolated {
+            cancelPeriodicOperation("hijri-calendar-daily")
+            cancelPeriodicOperation("hijri-calendar-hourly")
+        }
     }
     
     // MARK: - Setup Methods
@@ -160,19 +159,19 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
     }
     
     private func setupObservers() {
-        // Update today's info daily using battery-aware timer
-        timerManager.scheduleTimer(id: "hijri-calendar-daily", type: .hijriCalendar) { [weak self] in
-            Task { @MainActor in
-                self?.updateTodayInfo()
-            }
-        }
+        // Update today's info daily using base service method
+        schedulePeriodicOperation({
+            await self.updateTodayInfo()
+        }, timerType: .hijriCalendar, operationName: "hijri-calendar-daily")
         
-        // Update current Hijri date hourly using cache cleanup timer
-        timerManager.scheduleTimer(id: "hijri-calendar-hourly", type: .cacheCleanup) { [weak self] in
-            Task { @MainActor in
-                self?.currentHijriDate = HijriDate(from: Date())
-            }
-        }
+        // Update current Hijri date hourly
+        schedulePeriodicOperation({
+            await self.updateCurrentHijriDate()
+        }, timerType: .cacheCleanup, operationName: "hijri-calendar-hourly")
+    }
+    
+    private func updateCurrentHijriDate() async {
+        currentHijriDate = HijriDate(from: Date())
     }
     
     private func loadCachedData() {
@@ -602,10 +601,10 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
                     "isUserAdded": event.isUserAdded
                 ]
             },
-            "exportDate": ISO8601DateFormatter().string(from: Date()),
+            "exportDate": SharedUtilities.sharedDateFormatters.iso8601.string(from: Date()),
             "period": [
-                "start": ISO8601DateFormatter().string(from: period.start),
-                "end": ISO8601DateFormatter().string(from: period.end)
+                "start": SharedUtilities.sharedDateFormatters.iso8601.string(from: period.start),
+                "end": SharedUtilities.sharedDateFormatters.iso8601.string(from: period.end)
             ]
         ]
 
@@ -634,16 +633,16 @@ public class IslamicCalendarService: IslamicCalendarServiceProtocol, ObservableO
         icalendar += "VERSION:2.0\r\n"
         icalendar += "PRODID:-//DeenBuddy//Islamic Calendar//EN\r\n"
 
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
-        dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
+        let iCalFormatter = DateFormatter()
+        iCalFormatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        iCalFormatter.timeZone = TimeZone(abbreviation: "UTC")
 
         for event in events {
             let eventDate = event.gregorianDate(for: currentHijriDate.year)
 
             icalendar += "BEGIN:VEVENT\r\n"
             icalendar += "UID:\(event.id.uuidString)\r\n"
-            icalendar += "DTSTART:\(dateFormatter.string(from: eventDate))\r\n"
+            icalendar += "DTSTART:\(iCalFormatter.string(from: eventDate))\r\n"
             icalendar += "SUMMARY:\(event.name)\r\n"
             icalendar += "DESCRIPTION:\(event.description)\r\n"
             icalendar += "CATEGORIES:\(event.category.displayName)\r\n"
