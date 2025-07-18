@@ -12,11 +12,13 @@ public struct PrayerTrackingScreen: View {
     private let notificationService: any NotificationServiceProtocol
     
     // MARK: - State
-    
+
     @State private var selectedTab: TrackingTab = .today
     @State private var showingPrayerCompletion = false
     @State private var selectedPrayer: Prayer?
-    @State private var showingAnalytics = false
+    @State private var weeklyStats: PrayerStatistics?
+    @State private var monthlyStats: PrayerStatistics?
+    @State private var currentStreak: PrayerStreak?
     
     // MARK: - Callbacks
     
@@ -68,14 +70,6 @@ public struct PrayerTrackingScreen: View {
                         onDismiss()
                     }
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingAnalytics = true
-                    }) {
-                        Image(systemName: "chart.bar.fill")
-                    }
-                }
             }
             .sheet(isPresented: $showingPrayerCompletion) {
                 if let prayer = selectedPrayer {
@@ -89,13 +83,8 @@ public struct PrayerTrackingScreen: View {
                     )
                 }
             }
-            .sheet(isPresented: $showingAnalytics) {
-                PrayerAnalyticsView(
-                    prayerTrackingService: prayerTrackingService,
-                    onDismiss: {
-                        showingAnalytics = false
-                    }
-                )
+            .onAppear {
+                loadStatistics()
             }
         }
     }
@@ -278,19 +267,19 @@ public struct PrayerTrackingScreen: View {
                 HStack(spacing: 20) {
                     PrayerStatItem(
                         title: "This Week",
-                        value: "85%",
+                        value: weeklyCompletionRate,
                         icon: "calendar.badge.clock"
                     )
 
                     PrayerStatItem(
                         title: "This Month",
-                        value: "78%",
+                        value: monthlyCompletionRate,
                         icon: "chart.line.uptrend.xyaxis"
                     )
 
                     PrayerStatItem(
                         title: "Best Streak",
-                        value: "12 days",
+                        value: bestStreakText,
                         icon: "flame.fill"
                     )
                 }
@@ -312,6 +301,41 @@ public struct PrayerTrackingScreen: View {
         return prayerTrackingService.recentEntries.contains { entry in
             entry.prayer == prayer && Calendar.current.isDate(entry.completedAt, inSameDayAs: today)
         }
+    }
+
+    // MARK: - Statistics Loading
+
+    private func loadStatistics() {
+        Task {
+            do {
+                // Load weekly statistics
+                weeklyStats = await prayerTrackingService.getThisWeekStatistics()
+
+                // Load monthly statistics
+                monthlyStats = await prayerTrackingService.getThisMonthStatistics()
+
+                // Load current streak
+                currentStreak = await prayerTrackingService.getCurrentStreak()
+            }
+        }
+    }
+
+    // MARK: - Computed Properties for Statistics
+
+    private var weeklyCompletionRate: String {
+        guard let weeklyStats = weeklyStats else { return "Loading..." }
+        return "\(Int(weeklyStats.completionRate * 100))%"
+    }
+
+    private var monthlyCompletionRate: String {
+        guard let monthlyStats = monthlyStats else { return "Loading..." }
+        return "\(Int(monthlyStats.completionRate * 100))%"
+    }
+
+    private var bestStreakText: String {
+        guard let currentStreak = currentStreak else { return "Loading..." }
+        let days = max(currentStreak.current, currentStreak.longest)
+        return "\(days) days"
     }
 }
 
