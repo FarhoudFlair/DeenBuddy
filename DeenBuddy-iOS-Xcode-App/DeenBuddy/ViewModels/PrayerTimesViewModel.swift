@@ -132,6 +132,8 @@ private class DummyLocationService: LocationServiceProtocol {
     func getLocationPreferCached() async throws -> CLLocation { throw LocationError.locationUnavailable("Location unavailable in dummy service") }
     func isCurrentLocationFromCache() -> Bool { return false }
     func getLocationAge() -> TimeInterval? { return nil }
+    func searchCity(_ cityName: String) async throws -> [LocationInfo] { throw LocationError.geocodingFailed("Geocoding failed in dummy service") }
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo { throw LocationError.geocodingFailed("Geocoding failed in dummy service") }
 }
 
 @MainActor
