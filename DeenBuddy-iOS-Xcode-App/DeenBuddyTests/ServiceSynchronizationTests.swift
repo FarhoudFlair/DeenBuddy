@@ -450,4 +450,17 @@ class TestMockLocationService: LocationServiceProtocol {
     func getLocationAge() -> TimeInterval? {
         return 30.0
     }
+
+    func searchCity(_ cityName: String) async throws -> [LocationInfo] {
+        return []
+    }
+
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
+        return LocationInfo(
+            coordinate: coordinate,
+            accuracy: 10.0,
+            city: "Test City",
+            country: "Test Country"
+        )
+    }
 }

@@ -16,6 +16,7 @@ public struct HomeScreen: View {
     let onNotificationsTapped: (() -> Void)?
 
     @State private var isRefreshing = false
+    @State private var showLocationDiagnostic = false
 
     public init(
         prayerTimeService: any PrayerTimeServiceProtocol,
@@ -125,6 +126,22 @@ public struct HomeScreen: View {
                 }
             }
         }
+        .overlay(
+            // Location diagnostic popup
+            Group {
+                if showLocationDiagnostic, let location = locationService.currentLocation {
+                    LocationDiagnosticPopup(
+                        location: location,
+                        locationService: locationService,
+                        isPresented: $showLocationDiagnostic
+                    )
+                }
+            }
+        )
+        .onChange(of: locationService.currentLocationInfo) { newLocationInfo in
+            // Location display is now handled by currentLocationInfo from the service
+            // No need to manually load location names anymore
+        }
     }
     
     @ViewBuilder
@@ -161,9 +178,20 @@ public struct HomeScreen: View {
 
                     HStack(spacing: 8) {
                         if let location = locationService.currentLocation {
-                            Text(locationString(for: location))
-                                .titleMedium()
-                                .foregroundColor(ColorPalette.textPrimary)
+                            Button(action: {
+                                showLocationDiagnostic = true
+                            }) {
+                                HStack(spacing: 6) {
+                                    Text(displayLocationText(for: location))
+                                        .titleMedium()
+                                        .foregroundColor(ColorPalette.textPrimary)
+
+                                    Image(systemName: "info.circle")
+                                        .font(.caption)
+                                        .foregroundColor(ColorPalette.textTertiary)
+                                }
+                            }
+                            .buttonStyle(PlainButtonStyle())
                         } else {
                             Text(locationStatusText)
                                 .titleMedium()
@@ -311,44 +339,24 @@ public struct HomeScreen: View {
         }
     }
     
-    private func locationString(for location: CLLocation) -> String {
-        let coordinates = String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
-
-        // Build city name part
-        var cityPart = ""
+    private func displayLocationText(for location: CLLocation) -> String {
+        // Use the currentLocationInfo if available (from remote changes)
         if let locationInfo = locationService.currentLocationInfo,
            let city = locationInfo.city {
             // Determine if we should show "Near" prefix based on accuracy
             let accuracy = location.horizontalAccuracy
             if accuracy > 100 {
-                cityPart = "Near \(city)"
+                return "Near \(city)"
             } else {
-                cityPart = city
+                return city
             }
         }
 
-        // Build cache indicator
-        var cacheIndicator = ""
-        if locationService.isCurrentLocationFromCache() {
-            if let age = locationService.getLocationAge() {
-                let minutes = Int(age / 60)
-                if minutes < 1 {
-                    cacheIndicator = " • cached"
-                } else {
-                    cacheIndicator = " • cached \(minutes)m ago"
-                }
-            } else {
-                cacheIndicator = " • cached"
-            }
-        }
-
-        // Combine city and coordinates
-        if !cityPart.isEmpty {
-            return "\(cityPart)\n\(coordinates)\(cacheIndicator)"
-        } else {
-            return "\(coordinates)\(cacheIndicator)"
-        }
+        // Fallback to coordinates if no city info available
+        return String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
     }
+
+
     
     private func getPrayerStatus(for prayerTime: PrayerTime) -> PrayerStatus {
         let now = Date()

@@ -178,7 +178,7 @@ public class MockLocationService: LocationServiceProtocol {
     public func geocodeCity(_ cityName: String) async throws -> CLLocation {
         // Simulate network delay
         try await Task.sleep(nanoseconds: 1_000_000_000)
-        
+
         // Mock geocoding results
         switch cityName.lowercased() {
         case "new york", "nyc":
@@ -195,6 +195,74 @@ public class MockLocationService: LocationServiceProtocol {
             return CLLocation(latitude: 41.0082, longitude: 28.9784)
         default:
             throw LocationError.geocodingFailed("Failed to find location for city: \(cityName)")
+        }
+    }
+
+    public func searchCity(_ cityName: String) async throws -> [LocationInfo] {
+        // Simulate network delay
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        // Mock search results
+        switch cityName.lowercased() {
+        case "new york", "nyc":
+            return [LocationInfo(
+                coordinate: LocationCoordinate(latitude: 40.7128, longitude: -74.0060),
+                accuracy: 10.0,
+                city: "New York",
+                country: "United States"
+            )]
+        case "london":
+            return [LocationInfo(
+                coordinate: LocationCoordinate(latitude: 51.5074, longitude: -0.1278),
+                accuracy: 10.0,
+                city: "London",
+                country: "United Kingdom"
+            )]
+        case "mecca", "makkah":
+            return [LocationInfo(
+                coordinate: LocationCoordinate(latitude: 21.4225, longitude: 39.8262),
+                accuracy: 10.0,
+                city: "Mecca",
+                country: "Saudi Arabia"
+            )]
+        default:
+            return []
+        }
+    }
+
+    public func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
+        // Simulate network delay
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        // Mock reverse geocoding based on coordinates
+        if abs(coordinate.latitude - 40.7128) < 0.1 && abs(coordinate.longitude - (-74.0060)) < 0.1 {
+            return LocationInfo(
+                coordinate: coordinate,
+                accuracy: 10.0,
+                city: "New York",
+                country: "United States"
+            )
+        } else if abs(coordinate.latitude - 51.5074) < 0.1 && abs(coordinate.longitude - (-0.1278)) < 0.1 {
+            return LocationInfo(
+                coordinate: coordinate,
+                accuracy: 10.0,
+                city: "London",
+                country: "United Kingdom"
+            )
+        } else if abs(coordinate.latitude - 21.4225) < 0.1 && abs(coordinate.longitude - 39.8262) < 0.1 {
+            return LocationInfo(
+                coordinate: coordinate,
+                accuracy: 10.0,
+                city: "Mecca",
+                country: "Saudi Arabia"
+            )
+        } else {
+            return LocationInfo(
+                coordinate: coordinate,
+                accuracy: 10.0,
+                city: "Unknown City",
+                country: "Unknown Country"
+            )
         }
     }
     

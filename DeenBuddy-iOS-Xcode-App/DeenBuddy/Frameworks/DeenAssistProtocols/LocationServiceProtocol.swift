@@ -110,19 +110,25 @@ public protocol LocationServiceProtocol: ObservableObject {
     
     /// Get location for a specific city name
     func geocodeCity(_ cityName: String) async throws -> CLLocation
-    
+
+    /// Search for cities by name
+    func searchCity(_ cityName: String) async throws -> [LocationInfo]
+
+    /// Get location info (city, country) for coordinates
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo
+
     /// Get cached location if available
     func getCachedLocation() -> CLLocation?
-    
+
     /// Check if cached location is valid and recent enough to use
     func isCachedLocationValid() -> Bool
-    
+
     /// Get location preferring cached if valid, otherwise request fresh
     func getLocationPreferCached() async throws -> CLLocation
-    
+
     /// Check if current location is from cache
     func isCurrentLocationFromCache() -> Bool
-    
+
     /// Get location age in seconds
     func getLocationAge() -> TimeInterval?
 }
