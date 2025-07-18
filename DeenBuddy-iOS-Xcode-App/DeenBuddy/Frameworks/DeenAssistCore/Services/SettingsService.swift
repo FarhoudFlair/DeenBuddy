@@ -9,15 +9,21 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague {
         didSet {
-            saveSettingsAsync()
+            // Notify immediately for UI updates
             NotificationCenter.default.post(name: .settingsDidChange, object: self)
+            
+            // Debounce the save operation
+            saveSettingsAsync()
         }
     }
 
     @Published public var madhab: Madhab = .shafi {
         didSet {
-            saveSettingsAsync()
+            // Notify immediately for UI updates
             NotificationCenter.default.post(name: .settingsDidChange, object: self)
+            
+            // Debounce the save operation
+            saveSettingsAsync()
         }
     }
     
@@ -74,6 +80,8 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     private let userDefaults: UserDefaults
     private let suiteName: String?
     private let migrationHelper: SettingsMigration
+    private var saveTask: Task<Void, Never>?
+    private let saveDebounceInterval: TimeInterval = 0.5
     
     // MARK: - Settings Keys (Now using UnifiedSettingsKeys)
     // Note: SettingsKeys enum removed - now using UnifiedSettingsKeys for consistency
@@ -476,9 +484,28 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     // MARK: - Private Methods
     
     private func saveSettingsAsync() {
-        Task {
-            try? await saveSettings()
+        // Cancel any existing save task
+        saveTask?.cancel()
+        
+        // Create a new debounced save task
+        saveTask = Task {
+            // Wait for the debounce interval
+            try? await Task.sleep(nanoseconds: UInt64(saveDebounceInterval * 1_000_000_000))
+            
+            // Check if the task was cancelled
+            if !Task.isCancelled {
+                try? await saveSettings()
+            }
         }
+    }
+    
+    /// Force immediate save without debouncing
+    public func saveImmediately() async throws {
+        // Cancel any pending debounced save
+        saveTask?.cancel()
+        
+        // Save immediately
+        try await saveSettings()
     }
 }
 

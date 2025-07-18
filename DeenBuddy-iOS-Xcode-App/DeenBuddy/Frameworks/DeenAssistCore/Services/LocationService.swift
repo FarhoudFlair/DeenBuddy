@@ -11,6 +11,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     @Published public var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published public var currentLocation: CLLocation?
+    @Published public var currentLocationInfo: LocationInfo?
     @Published public var isUpdatingLocation: Bool = false
     @Published public var locationError: Error?
     @Published public var currentHeading: Double = 0
@@ -184,6 +185,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     private enum CacheKeys {
         static let cachedLocation = "DeenAssist.CachedLocation"
+        static let cachedLocationInfo = "DeenAssist.CachedLocationInfo"
         static let cacheTimestamp = "DeenAssist.CacheTimestamp"
     }
     
@@ -559,27 +561,44 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
         let clLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        
+
         return try await withCheckedThrowingContinuation { continuation in
+            var isResumed = false
+            let resumeOnce = { (result: Result<LocationInfo, Error>) in
+                guard !isResumed else { return }
+                isResumed = true
+                switch result {
+                case .success(let locationInfo):
+                    continuation.resume(returning: locationInfo)
+                case .failure(let error):
+                    continuation.resume(throwing: error)
+                }
+            }
+
+            // Set a timeout to prevent continuation leaks
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
+                resumeOnce(.failure(LocationError.networkError("Location info request timed out after 10 seconds.")))
+            }
+
             geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
                 if let error = error {
-                    continuation.resume(throwing: LocationError.networkError("Network error occurred while searching for location."))
+                    resumeOnce(.failure(LocationError.networkError("Network error occurred while searching for location.")))
                     return
                 }
-                
+
                 guard let placemark = placemarks?.first else {
-                    continuation.resume(throwing: LocationError.geocodingFailed("Failed to find location for the specified city."))
+                    resumeOnce(.failure(LocationError.geocodingFailed("Failed to find location for the specified city.")))
                     return
                 }
-                
+
                 let locationInfo = LocationInfo(
                     coordinate: coordinate,
                     accuracy: 10.0,
                     city: placemark.locality,
                     country: placemark.country
                 )
-                
-                continuation.resume(returning: locationInfo)
+
+                resumeOnce(.success(locationInfo))
             }
         }
     }
@@ -662,7 +681,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     public func clearLocationCache() {
         cachedLocation = nil
+        currentLocationInfo = nil
         userDefaults.removeObject(forKey: CacheKeys.cachedLocation)
+        userDefaults.removeObject(forKey: CacheKeys.cachedLocationInfo)
         userDefaults.removeObject(forKey: CacheKeys.cacheTimestamp)
     }
     
@@ -809,18 +830,48 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     private func processLocation(_ clLocation: CLLocation) {
         // Update current location for protocol conformance
         currentLocation = clLocation
-        
+
         // Cache the location
         cacheLocation(clLocation)
-        
+
         // Notify subscribers
         locationSubject.send(clLocation)
-        
+
+        // Perform reverse geocoding to get city information (in background)
+        Task {
+            do {
+                let coordinate = LocationCoordinate(from: clLocation.coordinate)
+                let locationInfo = try await getLocationInfo(for: coordinate)
+
+                await MainActor.run {
+                    self.currentLocationInfo = locationInfo
+                    // Cache the location info
+                    self.cacheLocationInfo(locationInfo)
+                }
+
+                print("📍 Successfully resolved city: \(locationInfo.city ?? "Unknown")")
+            } catch {
+                print("📍 Failed to resolve city for location: \(error)")
+                // Create basic location info without city
+                let coordinate = LocationCoordinate(from: clLocation.coordinate)
+                let basicLocationInfo = LocationInfo(
+                    coordinate: coordinate,
+                    accuracy: clLocation.horizontalAccuracy
+                )
+
+                await MainActor.run {
+                    self.currentLocationInfo = basicLocationInfo
+                    // Cache the basic location info
+                    self.cacheLocationInfo(basicLocationInfo)
+                }
+            }
+        }
+
         // Complete pending location request with thread safety
         continuationQueue.async(flags: .barrier) { [weak self] in
             guard let self = self,
                   let continuation = self.locationContinuation else { return }
-            
+
             self.locationContinuation = nil
             self.locationRequestInProgress = false
             continuation.resume(returning: clLocation)
@@ -860,7 +911,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     private func cacheLocation(_ location: CLLocation) {
         cachedLocation = location
-        
+
         // Cache location data
         let locationData = [
             "latitude": location.coordinate.latitude,
@@ -868,10 +919,26 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             "accuracy": location.horizontalAccuracy,
             "timestamp": location.timestamp.timeIntervalSince1970
         ]
-        
+
         if let data = try? JSONSerialization.data(withJSONObject: locationData) {
             userDefaults.set(data, forKey: CacheKeys.cachedLocation)
             userDefaults.set(Date().timeIntervalSince1970, forKey: CacheKeys.cacheTimestamp)
+        }
+    }
+
+    private func cacheLocationInfo(_ locationInfo: LocationInfo) {
+        // Cache location info data
+        let locationInfoData: [String: Any] = [
+            "latitude": locationInfo.coordinate.latitude,
+            "longitude": locationInfo.coordinate.longitude,
+            "accuracy": locationInfo.accuracy,
+            "timestamp": locationInfo.timestamp.timeIntervalSince1970,
+            "city": locationInfo.city as Any,
+            "country": locationInfo.country as Any
+        ]
+
+        if let data = try? JSONSerialization.data(withJSONObject: locationInfoData) {
+            userDefaults.set(data, forKey: CacheKeys.cachedLocationInfo)
         }
     }
     
@@ -884,10 +951,10 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
               let timestamp = locationData["timestamp"] as? TimeInterval else {
             return
         }
-        
+
         let cacheTimestamp = userDefaults.double(forKey: CacheKeys.cacheTimestamp)
         let cacheDate = Date(timeIntervalSince1970: cacheTimestamp)
-        
+
         // Check if cache is still valid
         if Date().timeIntervalSince(cacheDate) < cacheExpirationTime {
             let location = CLLocation(
@@ -899,9 +966,38 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             )
             cachedLocation = location
             currentLocation = location
+
+            // Also load cached location info if available
+            loadCachedLocationInfo()
         } else {
             clearLocationCache()
         }
+    }
+
+    private func loadCachedLocationInfo() {
+        guard let data = userDefaults.data(forKey: CacheKeys.cachedLocationInfo),
+              let locationInfoData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let latitude = locationInfoData["latitude"] as? Double,
+              let longitude = locationInfoData["longitude"] as? Double,
+              let accuracy = locationInfoData["accuracy"] as? Double,
+              let timestamp = locationInfoData["timestamp"] as? TimeInterval else {
+            return
+        }
+
+        let coordinate = LocationCoordinate(latitude: latitude, longitude: longitude)
+        let city = locationInfoData["city"] as? String
+        let country = locationInfoData["country"] as? String
+
+        let locationInfo = LocationInfo(
+            coordinate: coordinate,
+            accuracy: accuracy,
+            timestamp: Date(timeIntervalSince1970: timestamp),
+            city: city,
+            country: country
+        )
+
+        currentLocationInfo = locationInfo
+        print("📍 Loaded cached location info: \(city ?? "Unknown city")")
     }
     
     private func isLocationRecent(_ location: CLLocation) -> Bool {

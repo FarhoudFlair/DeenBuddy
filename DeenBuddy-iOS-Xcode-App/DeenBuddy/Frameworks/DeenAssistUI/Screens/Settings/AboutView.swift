@@ -31,7 +31,7 @@ public struct AboutView: View {
                         }
                         
                         VStack(spacing: 8) {
-                            Text("Deen Assist")
+                            Text("DeenBuddy")
                                 .headlineLarge()
                                 .foregroundColor(ColorPalette.textPrimary)
                             
@@ -52,7 +52,7 @@ public struct AboutView: View {
                             .headlineSmall()
                             .foregroundColor(ColorPalette.textPrimary)
                         
-                        Text("Deen Assist is designed to help Muslims maintain their daily prayers with accurate prayer times, Qibla direction, and comprehensive prayer guides. The app works offline and respects your privacy.")
+                        Text("DeenBuddy is designed to help Muslims maintain their daily prayers with accurate prayer times, Qibla direction, and comprehensive prayer guides. The app works offline and respects your privacy.")
                             .bodyMedium()
                             .foregroundColor(ColorPalette.textSecondary)
                     }
@@ -127,7 +127,7 @@ public struct AboutView: View {
                     }
                     
                     // Copyright
-                    Text("© 2024 Deen Assist. All rights reserved.")
+                    Text("© 2025 DeenBuddy. All rights reserved.")
                         .labelSmall()
                         .foregroundColor(ColorPalette.textTertiary)
                         .padding(.top, 16)

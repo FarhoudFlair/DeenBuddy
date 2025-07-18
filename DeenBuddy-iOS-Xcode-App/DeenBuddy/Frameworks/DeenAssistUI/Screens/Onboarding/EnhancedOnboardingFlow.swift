@@ -11,7 +11,7 @@ public struct EnhancedOnboardingFlow: View {
     @State private var currentStep = 0
     @State private var userName: String = ""
     @State private var selectedCalculationMethod: CalculationMethod = .muslimWorldLeague
-    @State private var selectedMadhab: Madhab = .sunni
+    @State private var selectedMadhab: Madhab = .shafi
     @State private var locationPermissionGranted = false
     @State private var notificationPermissionGranted = false
     @State private var isLoading = false
@@ -187,7 +187,7 @@ public struct EnhancedOnboardingFlow: View {
 //                Image(systemName: "moon.stars.fill")
 //                    .font(.system(size: 80))
 //                    .foregroundColor(ColorPalette.primary)
-//                    .accessibilityLabel("Deen Assist app icon")
+//                    .accessibilityLabel("DeenBuddy app icon")
 //                
 //                VStack(spacing: 8) {
 //                    Text(LocalizationKeys.welcome.localized)
@@ -202,7 +202,7 @@ public struct EnhancedOnboardingFlow: View {
 //                }
 //            }
 //            
-//            Text("Deen Assist helps you stay connected with your prayers through accurate prayer times, Qibla direction, and guided prayer instructions.")
+//            Text("DeenBuddy helps you stay connected with your prayers through accurate prayer times, Qibla direction, and guided prayer instructions.")
 //                .bodyMedium()
 //                .foregroundColor(ColorPalette.textSecondary)
 //                .multilineTextAlignment(.center)

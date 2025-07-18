@@ -1,5 +1,5 @@
 // MARK: - DeenAssist Core Module
-// This module provides all the core functionality for the Deen Assist iOS app
+// This module provides all the core functionality for the DeenBuddy iOS app
 // including location services, API integration, notification management, and Islamic feature flags.
 
 import Foundation

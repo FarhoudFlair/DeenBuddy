@@ -18,7 +18,7 @@ struct PrayerTimesView: View {
     var body: some View {
         VStack(spacing: 20) {
             if viewModel.isLoading {
-                ProgressView("Loading prayer times...")
+                ContextualLoadingView(context: .prayerTimes)
                     .padding()
             } else if let errorMessage = viewModel.errorMessage {
                 VStack(spacing: 16) {
@@ -87,7 +87,7 @@ struct PrayerTimesView: View {
                                     if let prayer = Prayer(rawValue: prayerType.rawValue.lowercased()) {
                                         Text("\(prayer.defaultRakahCount) rakahs")
                                             .font(.caption)
-                                            .foregroundColor(.secondary)
+                                            .foregroundColor(ColorPalette.rakahText)
                                     }
                                 }
                                 Spacer()
@@ -172,14 +172,8 @@ struct PrayerTimesSettingsView: View {
     private var madhabPicker: some View {
         Picker("Madhab", selection: $viewModel.settingsService.madhab) {
             ForEach(Madhab.allCases) { madhab in
-                VStack(alignment: .leading) {
-                    Text(madhab.displayName)
-                        .font(.body)
-                    Text(madhab.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .tag(madhab)
+                Text(madhab.displayName)
+                    .tag(madhab)
             }
         }
         .pickerStyle(.navigationLink)

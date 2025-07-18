@@ -144,10 +144,10 @@ public struct FullScreenLoadingView: View {
 
 #Preview("Loading Views") {
     VStack(spacing: 40) {
-        LoadingView.spinner(message: "Loading...")
-        LoadingView.dots(message: "Calculating prayer times...")
-        LoadingView.pulse(message: "Syncing data...")
-        LoadingView.prayer(message: "Preparing your prayer schedule...")
+        LoadingView.contextual(.settings)
+        LoadingView.contextual(.prayerTimes)
+        LoadingView.contextual(.qiblaDirection)
+        LoadingView.contextual(.quranData)
     }
     .padding()
     .background(ColorPalette.backgroundPrimary)

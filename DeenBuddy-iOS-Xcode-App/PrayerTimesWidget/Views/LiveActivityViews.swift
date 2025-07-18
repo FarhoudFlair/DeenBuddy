@@ -116,9 +116,11 @@ extension PrayerCountdownLiveActivityView {
     
     func dynamicIslandCompactLeading() -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(state.prayerSymbol)
+            // White Arabic Allah symbol
+            Text("الله")
                 .font(.caption)
-                .foregroundColor(.accentColor)
+                .fontWeight(.semibold)
+                .foregroundColor(.white)
             
             Text(state.nextPrayer.displayName)
                 .font(.caption2)
@@ -143,9 +145,11 @@ extension PrayerCountdownLiveActivityView {
     
     func dynamicIslandMinimal() -> some View {
         HStack(spacing: 2) {
-            Text(state.prayerSymbol)
+            // White Arabic Allah symbol for minimal persistent display
+            Text("الله")
                 .font(.caption2)
-                .foregroundColor(.accentColor)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
             
             Text(state.formattedTimeRemaining)
                 .font(.caption2)
@@ -157,9 +161,17 @@ extension PrayerCountdownLiveActivityView {
     func dynamicIslandExpanded() -> some View {
         VStack(spacing: 8) {
             HStack {
-                Text(state.prayerSymbol)
-                    .font(.title)
-                    .foregroundColor(.accentColor)
+                HStack(spacing: 6) {
+                    // White Arabic Allah symbol
+                    Text("الله")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text(state.prayerSymbol)
+                        .font(.title)
+                        .foregroundColor(.accentColor)
+                }
                 
                 Spacer()
                 

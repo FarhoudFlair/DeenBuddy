@@ -42,7 +42,7 @@ public struct QiblaCompassScreen: View {
                 .ignoresSafeArea()
                 
                 if isLoading {
-                    LoadingView.prayer(message: "Finding Qibla direction...")
+                    LoadingView.contextual(.qiblaDirection)
                 } else if let error = error {
                     ErrorView(
                         error: .unknownError(error.localizedDescription),

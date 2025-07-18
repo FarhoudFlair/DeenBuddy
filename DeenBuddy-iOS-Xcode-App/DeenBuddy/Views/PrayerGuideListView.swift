@@ -31,7 +31,7 @@ struct PrayerGuideListView: View {
 
             Group {
                 if viewModel.isLoading && viewModel.prayerGuides.isEmpty {
-                    ModernLoadingView(message: "Loading prayer guides...")
+                    ModernLoadingView(context: .prayerGuides)
                 } else if let errorMessage = viewModel.errorMessage, viewModel.prayerGuides.isEmpty {
                     ModernErrorView(
                         title: "Error Loading Guides",

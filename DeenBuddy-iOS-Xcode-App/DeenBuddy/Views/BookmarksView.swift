@@ -15,61 +15,106 @@ struct BookmarksView: View {
         viewModel.prayerGuides.filter { bookmarkedGuideIds.contains($0.id) }
             .sorted { $0.prayer.rawValue < $1.prayer.rawValue }
     }
+
+    private var sunniBookmarksCount: String {
+        "\(bookmarkedGuides.filter { $0.madhab == .shafi }.count)"
+    }
+
+    private var shiaBookmarksCount: String {
+        "\(bookmarkedGuides.filter { $0.madhab == .hanafi }.count)"
+    }
     
     var body: some View {
         NavigationStack {
-            Group {
-                if bookmarkedGuides.isEmpty {
-                    EmptyStateView(state: .noSearchResults)
-                } else {
-                    List {
-                        Section("Bookmarked Guides (\(bookmarkedGuides.count))") {
-                            ForEach(bookmarkedGuides) { guide in
-                                NavigationLink(destination: PrayerGuideDetailView(guide: guide)) {
-                                    PrayerGuideRowView(guide: guide)
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button("Remove") {
-                                        removeBookmark(guide.id)
-                                    }
-                                    .tint(.red)
-                                }
-                            }
-                        }
-                        
-                        // Quick stats
-                        Section("Statistics") {
-                            StatRowView(
-                                title: "Total Bookmarks",
-                                value: "\(bookmarkedGuides.count)"
-                            )
-                            
-                            StatRowView(
-                                title: "Sunni Bookmarks",
-                                value: "\(bookmarkedGuides.filter { $0.madhab == .shafi }.count)"
-                            )
-                            
-                            StatRowView(
-                                title: "Shia Bookmarks",
-                                value: "\(bookmarkedGuides.filter { $0.madhab == .hanafi }.count)"
-                            )
-                        }
-                    }
+            contentView
+                .navigationTitle("Bookmarks")
+                .toolbar {
+                    toolbarContent
                 }
-            }
-            .navigationTitle("Bookmarks")
-            .toolbar {
-                if !bookmarkedGuides.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Clear All") {
-                            clearAllBookmarks()
-                        }
-                        .foregroundColor(.red)
-                    }
+                .onAppear {
+                    loadBookmarks()
                 }
+        }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        Group {
+            if bookmarkedGuides.isEmpty {
+                EmptyStateView(state: .noSearchResults)
+            } else {
+                bookmarksList
             }
-            .onAppear {
-                loadBookmarks()
+        }
+    }
+
+    @ViewBuilder
+    private var bookmarksList: some View {
+        List {
+            bookmarksSection
+            statisticsSection
+        }
+    }
+
+    @ViewBuilder
+    private var bookmarksSection: some View {
+        Section("Bookmarked Guides (\(bookmarkedGuides.count))") {
+            ForEach(bookmarkedGuides) { guide in
+                bookmarkRow(for: guide)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func bookmarkRow(for guide: PrayerGuide) -> some View {
+        NavigationLink(destination: PrayerGuideDetailView(guide: guide)) {
+            PrayerGuideRowView(guide: guide)
+        }
+        .swipeActions(edge: .trailing) {
+            Button("Remove") {
+                removeBookmark(guide.id)
+            }
+            .tint(.red)
+        }
+    }
+
+    @ViewBuilder
+    private var statisticsSection: some View {
+        Section("Statistics") {
+            HStack {
+                Text("Total Bookmarks")
+                    .foregroundColor(.primary)
+                Spacer()
+                Text("\(bookmarkedGuides.count)")
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                Text("Sunni Bookmarks")
+                    .foregroundColor(.primary)
+                Spacer()
+                Text(sunniBookmarksCount)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack {
+                Text("Shia Bookmarks")
+                    .foregroundColor(.primary)
+                Spacer()
+                Text(shiaBookmarksCount)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        if !bookmarkedGuides.isEmpty {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Clear All") {
+                    clearAllBookmarks()
+                }
+                .foregroundColor(.red)
             }
         }
     }

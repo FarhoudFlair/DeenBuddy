@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Typography system for Deen Assist app
+/// Typography system for DeenBuddy app
 public struct Typography {
     
     // MARK: - Font Weights

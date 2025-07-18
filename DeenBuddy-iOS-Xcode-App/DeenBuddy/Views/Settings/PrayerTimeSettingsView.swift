@@ -25,7 +25,14 @@ struct PrayerTimeSettingsView: View {
         Section("Calculation Method") {
             Picker("Method", selection: Binding(
                 get: { viewModel.settings.calculationMethod },
-                set: { viewModel.settings.calculationMethod = $0 }
+                set: { newValue in
+                    // Add haptic feedback for immediate user response
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                    
+                    // Update the value synchronously first
+                    viewModel.settings.calculationMethod = newValue
+                }
             )) {
                 ForEach(CalculationMethod.allCases) { method in
                     Text(method.displayName)
@@ -40,7 +47,14 @@ struct PrayerTimeSettingsView: View {
         Section("Madhab") {
             Picker("Madhab", selection: Binding(
                 get: { viewModel.settings.madhab },
-                set: { viewModel.settings.madhab = $0 }
+                set: { newValue in
+                    // Add haptic feedback for immediate user response
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                    
+                    // Update the value synchronously first
+                    viewModel.settings.madhab = newValue
+                }
             )) {
                 ForEach(Madhab.allCases) { madhab in
                     HStack {
@@ -60,7 +74,14 @@ struct PrayerTimeSettingsView: View {
         Section("Time Format") {
             Picker("Format", selection: Binding(
                 get: { viewModel.settings.timeFormat },
-                set: { viewModel.settings.timeFormat = $0 }
+                set: { newValue in
+                    // Add haptic feedback for immediate user response
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                    
+                    // Update the value synchronously first
+                    viewModel.settings.timeFormat = newValue
+                }
             )) {
                 ForEach(TimeFormat.allCases) { format in
                     VStack(alignment: .leading) {
@@ -80,7 +101,14 @@ struct PrayerTimeSettingsView: View {
         Section("Notifications") {
             Toggle("Enable Prayer Notifications", isOn: Binding(
                 get: { viewModel.settings.enableNotifications },
-                set: { viewModel.settings.enableNotifications = $0 }
+                set: { newValue in
+                    // Add haptic feedback for immediate user response
+                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                    impactFeedback.impactOccurred()
+                    
+                    // Update the value synchronously first
+                    viewModel.settings.enableNotifications = newValue
+                }
             ))
 
             if viewModel.settings.enableNotifications {
@@ -94,7 +122,14 @@ struct PrayerTimeSettingsView: View {
                         Stepper(
                             value: Binding(
                                 get: { viewModel.settings.notificationOffset / 60 },
-                                set: { viewModel.settings.notificationOffset = $0 * 60 }
+                                set: { newValue in
+                                    // Add haptic feedback for immediate user response
+                                    let impactFeedback = UIImpactFeedbackGenerator(style: .light)
+                                    impactFeedback.impactOccurred()
+                                    
+                                    // Update the value synchronously first
+                                    viewModel.settings.notificationOffset = newValue * 60
+                                }
                             ),
                             in: 0...30,
                             step: 1

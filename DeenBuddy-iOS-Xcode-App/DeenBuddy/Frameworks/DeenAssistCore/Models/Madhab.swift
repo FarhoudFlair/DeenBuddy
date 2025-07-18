@@ -1,264 +1,276 @@
 import Foundation
 import SwiftUI
 
-/// Represents the major Islamic traditions (Sunni and Shia) with iOS-specific features
+/// Represents the major Islamic schools of jurisprudence with prayer timing calculations
 public enum Madhab: String, CaseIterable, Codable, Identifiable {
     public var id: String { rawValue }
-    case sunni = "sunni"
-    case shia = "shia"
-    case shafi = "shafi"
     case hanafi = "hanafi"
-    
+    case shafi = "shafi"
+    case jafari = "jafari"
+
+    // MARK: - Prayer Timing Properties
+
+    /// Shadow multiplier for Asr prayer calculation
+    public var asrShadowMultiplier: Double {
+        switch self {
+        case .hanafi: return 2.0  // Hanafi: shadow length = 2x object height
+        case .shafi: return 1.0   // Shafi'i: shadow length = 1x object height
+        case .jafari: return 1.0  // Ja'fari: shadow length = 1x object height
+        }
+    }
+
+    /// Twilight angle for Isha prayer calculation (degrees below horizon)
+    public var ishaTwilightAngle: Double {
+        switch self {
+        case .hanafi: return 18.0  // Hanafi: 18 degrees
+        case .shafi: return 17.0   // Shafi'i: 17 degrees
+        case .jafari: return 14.0  // Ja'fari: 14 degrees
+        }
+    }
+
+    /// Delay in minutes after sunset for Maghrib prayer
+    public var maghribDelayMinutes: Double {
+        switch self {
+        case .hanafi: return 0.0   // Hanafi: at sunset
+        case .shafi: return 0.0    // Shafi'i: at sunset
+        case .jafari: return 4.0   // Ja'fari: 4 minutes after sunset
+        }
+    }
+
+    /// Twilight angle for Fajr prayer calculation (degrees below horizon)
+    public var fajrTwilightAngle: Double {
+        switch self {
+        case .hanafi: return 18.0  // Hanafi: 18 degrees
+        case .shafi: return 18.0   // Shafi'i: 18 degrees (when using Muslim World League)
+        case .jafari: return 16.0  // Ja'fari: 16 degrees
+        }
+    }
+
     // MARK: - Display Properties
-    
-    /// Localized display name for the tradition
+
+    /// Localized display name for the school
     public var displayName: String {
         switch self {
-        case .sunni: return "Sunni"
-        case .shia: return "Shia"
-        case .shafi: return "Shafi"
         case .hanafi: return "Hanafi"
+        case .shafi: return "Shafi'i (Maliki/Hanbali)"
+        case .jafari: return "Ja'fari (Shia)"
         }
     }
-    
-    /// Arabic name of the tradition
+
+    /// Arabic name of the school
     public var arabicName: String {
         switch self {
-        case .sunni: return "سني"
-        case .shia: return "شيعي"
-        case .shafi: return "شافعي"
         case .hanafi: return "حنفي"
+        case .shafi: return "شافعي"
+        case .jafari: return "جعفري"
         }
     }
-    
+
     /// Transliteration of the Arabic name
     public var transliteration: String {
         switch self {
-        case .sunni: return "Sunni"
-        case .shia: return "Shi'i"
-        case .shafi: return "Shafi'i"
         case .hanafi: return "Hanafi"
+        case .shafi: return "Shafi'i"
+        case .jafari: return "Ja'fari"
         }
     }
-    
+
     /// Display name for sect/tradition selection
     public var sectDisplayName: String {
         return displayName
     }
-    
-    /// Full formal name of the tradition
+
+    /// Full formal name of the school
     public var formalName: String {
         switch self {
-        case .sunni: return "Ahl as-Sunnah wa'l-Jamā'ah"
-        case .shia: return "Shīʿat ʿAlī"
-        case .shafi: return "Madhhab ash-Shāfiʿī"
         case .hanafi: return "Madhhab al-Hanafī"
+        case .shafi: return "Madhhab ash-Shāfiʿī"
+        case .jafari: return "Madhhab al-Ja'farī"
         }
     }
-    
-    // MARK: - Tradition Information
-    
-    /// Brief description of the tradition
+
+    // MARK: - School Information
+
+    /// Brief description of the school
     public var description: String {
         switch self {
-        case .sunni: return "Sunni Islamic tradition following the Sunnah of Prophet Muhammad (PBUH)"
-        case .shia: return "Shia Islamic tradition following the teachings of Ali ibn Abi Talib (AS)"
-        case .shafi: return "Shafi'i school of Islamic jurisprudence founded by Imam ash-Shafi'i"
         case .hanafi: return "Hanafi school of Islamic jurisprudence founded by Imam Abu Hanifa"
+        case .shafi: return "Shafi'i school representing Maliki and Hanbali prayer timing methods"
+        case .jafari: return "Ja'fari school of Islamic jurisprudence followed by Twelver Shia Muslims"
         }
     }
-    
-    /// Detailed description of the tradition
+
+    /// Detailed description of the school
     public var detailedDescription: String {
         switch self {
-        case .sunni:
-            return "The largest denomination of Islam, emphasizing the Sunnah (traditions) of Prophet Muhammad (PBUH) and the consensus of the Muslim community."
-        case .shia:
-            return "The second-largest denomination of Islam, emphasizing the divine right of Ali ibn Abi Talib (AS) and his descendants to lead the Muslim community."
-        case .shafi:
-            return "One of the four major Sunni schools of Islamic jurisprudence, founded by Imam ash-Shafi'i, emphasizing the Quran and Hadith as primary sources."
         case .hanafi:
-            return "One of the four major Sunni schools of Islamic jurisprudence, founded by Imam Abu Hanifa, known for its use of reason and opinion."
+            return "One of the four major Sunni schools of Islamic jurisprudence, founded by Imam Abu Hanifa, known for its use of reason and opinion in prayer timing calculations."
+        case .shafi:
+            return "Represents the Shafi'i, Maliki, and Hanbali schools which share similar prayer timing methodologies, emphasizing the Quran and Hadith as primary sources."
+        case .jafari:
+            return "The primary school of jurisprudence in Twelver Shia Islam, founded by Imam Ja'far as-Sadiq, with distinct prayer timing calculations."
         }
     }
-    
+
     /// Key distinguishing practices
     public var keyPractices: [String] {
         switch self {
-        case .sunni:
+        case .hanafi:
             return [
-                "Follows the Four Rightly-Guided Caliphs",
-                "Emphasizes consensus (Ijma) and analogy (Qiyas)",
-                "Four major schools of jurisprudence (Madhabs)",
-                "Prayer with hands folded"
-            ]
-        case .shia:
-            return [
-                "Follows the Twelve Imams",
-                "Emphasizes the authority of the Imam",
-                "Temporary marriage (Mut'ah) permitted",
-                "Prayer with hands at sides",
-                "Observance of Ashura"
+                "Uses reason (Ra'y) and opinion extensively",
+                "Flexibility in interpretation",
+                "Emphasizes local customs (Urf)",
+                "Practical approach to jurisprudence",
+                "Later Asr prayer timing (2x shadow length)"
             ]
         case .shafi:
             return [
                 "Emphasizes Quran and Hadith as primary sources",
                 "Uses consensus (Ijma) and analogy (Qiyas)",
                 "Systematic approach to jurisprudence",
-                "Moderate position on many issues"
+                "Moderate position on many issues",
+                "Earlier Asr prayer timing (1x shadow length)"
             ]
-        case .hanafi:
+        case .jafari:
             return [
-                "Uses reason (Ra'y) and opinion extensively",
-                "Flexibility in interpretation",
-                "Emphasizes local customs (Urf)",
-                "Practical approach to jurisprudence"
+                "Follows the Twelve Imams",
+                "Emphasizes the authority of the Imam",
+                "Distinct prayer timing calculations",
+                "Maghrib prayer 4 minutes after sunset",
+                "Different twilight angles for Fajr and Isha"
             ]
         }
     }
-    
+
     // MARK: - iOS UI Properties
-    
-    /// SwiftUI color associated with this tradition
+
+    /// SwiftUI color associated with this school
     public var color: Color {
         switch self {
-        case .sunni: return .green
-        case .shia: return .purple
-        case .shafi: return .blue
         case .hanafi: return .orange
+        case .shafi: return .blue
+        case .jafari: return .purple
         }
     }
-    
+
     /// Secondary color for gradients
     public var secondaryColor: Color {
         switch self {
-        case .sunni: return .mint
-        case .shia: return .indigo
-        case .shafi: return .cyan
         case .hanafi: return .yellow
+        case .shafi: return .cyan
+        case .jafari: return .indigo
         }
     }
-    
-    /// Gradient colors for this tradition
+
+    /// Gradient colors for this school
     public var gradientColors: [Color] {
         return [color, secondaryColor]
     }
-    
-    /// SF Symbol name representing this tradition
+
+    /// SF Symbol name representing this school
     public var systemImageName: String {
         switch self {
-        case .sunni: return "book.closed"
-        case .shia: return "crown"
-        case .shafi: return "graduationcap"
         case .hanafi: return "building.columns"
+        case .shafi: return "graduationcap"
+        case .jafari: return "crown"
         }
     }
-    
+
     /// Alternative SF Symbol for variety
     public var alternativeSystemImageName: String {
         switch self {
-        case .sunni: return "text.book.closed"
-        case .shia: return "star.circle"
-        case .shafi: return "person.badge.plus"
         case .hanafi: return "building.2"
+        case .shafi: return "person.badge.plus"
+        case .jafari: return "star.circle"
         }
     }
-    
+
     // MARK: - Prayer Differences
-    
+
     /// Key differences in prayer practices
     public var prayerDifferences: [String] {
         switch self {
-        case .sunni:
+        case .hanafi:
             return [
-                "Hands folded during prayer",
-                "Amen said aloud after Fatiha",
-                "Feet together during standing"
-            ]
-        case .shia:
-            return [
-                "Hands at sides during prayer",
-                "Amen said silently after Fatiha",
-                "Feet slightly apart during standing",
-                "Prostration on clay tablet (Turbah)"
+                "Hands folded below navel",
+                "Silent recitation in certain prayers",
+                "Specific prostration positions",
+                "Flexibility in some prayer practices",
+                "Asr prayer when shadow = 2x object height"
             ]
         case .shafi:
             return [
                 "Hands folded above navel",
                 "Specific recitations in prayer",
                 "Particular standing positions",
-                "Emphasis on following Sunnah precisely"
+                "Emphasis on following Sunnah precisely",
+                "Asr prayer when shadow = 1x object height"
             ]
-        case .hanafi:
+        case .jafari:
             return [
-                "Hands folded below navel",
-                "Silent recitation in certain prayers",
-                "Specific prostration positions",
-                "Flexibility in some prayer practices"
+                "Hands at sides during prayer",
+                "Amen said silently after Fatiha",
+                "Feet slightly apart during standing",
+                "Prostration on clay tablet (Turbah)",
+                "Maghrib prayer 4 minutes after sunset"
             ]
         }
     }
-    
+
     /// Recommended prayer times differences
     public var prayerTimingNotes: String {
         switch self {
-        case .sunni:
-            return "Generally follows standard calculation methods with slight variations by school"
-        case .shia:
-            return "May combine Dhuhr with Asr, and Maghrib with Isha prayers"
-        case .shafi:
-            return "Follows precise prayer time calculations based on Hadith and Quran"
         case .hanafi:
-            return "Uses specific calculations for Fajr and Isha times, allowing for regional flexibility"
+            return "Uses specific calculations for Fajr and Isha times, with Asr prayer typically 30-40 minutes later than other schools"
+        case .shafi:
+            return "Represents Shafi'i, Maliki, and Hanbali timing methods with precise calculations based on Hadith and Quran"
+        case .jafari:
+            return "Distinct Shia timing calculations with Maghrib 4 minutes after sunset and may combine Dhuhr with Asr, Maghrib with Isha"
         }
     }
-    
+
     // MARK: - Accessibility
-    
+
     /// Accessibility label for VoiceOver
     public var accessibilityLabel: String {
-        return "\(displayName) Islamic tradition"
+        return "\(displayName) Islamic school of jurisprudence"
     }
-    
+
     /// Accessibility hint for VoiceOver
     public var accessibilityHint: String {
         return description
     }
-    
+
     // MARK: - Utility Properties
-    
+
     /// Percentage of global Muslim population (approximate)
     public var globalPercentage: Double {
         switch self {
-        case .sunni: return 85.0
-        case .shia: return 15.0
-        case .shafi: return 28.0 // Approx percentage within Sunni Islam
-        case .hanafi: return 45.0 // Approx percentage within Sunni Islam
+        case .hanafi: return 45.0 // Largest Sunni school
+        case .shafi: return 43.0  // Combined Shafi'i, Maliki, Hanbali
+        case .jafari: return 12.0 // Twelver Shia Muslims
         }
     }
-    
-    /// Major geographic regions where this tradition is prevalent
+
+    /// Major geographic regions where this school is prevalent
     public var prevalentRegions: [String] {
         switch self {
-        case .sunni:
+        case .hanafi:
             return [
-                "Saudi Arabia", "Egypt", "Turkey", "Indonesia", "Pakistan",
-                "Bangladesh", "Nigeria", "Morocco", "Algeria", "Sudan"
-            ]
-        case .shia:
-            return [
-                "Iran", "Iraq", "Azerbaijan", "Bahrain", "Lebanon",
-                "Yemen (Houthis)", "Parts of Afghanistan", "Parts of Pakistan"
+                "Turkey", "Central Asia", "Pakistan", "Afghanistan", "India",
+                "Bangladesh", "Bosnia", "Albania", "Kosovo", "Parts of Iraq"
             ]
         case .shafi:
             return [
                 "Egypt", "Indonesia", "Malaysia", "Brunei", "Philippines",
-                "Jordan", "Palestine", "Lebanon", "Eastern Africa"
+                "Jordan", "Palestine", "Lebanon", "Eastern Africa", "Saudi Arabia",
+                "Morocco", "Algeria", "Tunisia", "Libya", "West Africa"
             ]
-        case .hanafi:
+        case .jafari:
             return [
-                "Turkey", "Central Asia", "Pakistan", "Afghanistan", "India",
-                "Bangladesh", "Bosnia", "Albania", "Kosovo"
+                "Iran", "Iraq", "Azerbaijan", "Bahrain", "Lebanon",
+                "Yemen (Houthis)", "Parts of Afghanistan", "Parts of Pakistan",
+                "Parts of India", "Parts of Syria"
             ]
         }
     }
@@ -269,13 +281,22 @@ public enum Madhab: String, CaseIterable, Codable, Identifiable {
 // Note: description property is already defined in the main enum
 
 extension Madhab {
-    /// Returns the opposite tradition
-    public var opposite: Madhab {
+    /// Returns an alternative school for comparison
+    public var alternative: Madhab {
         switch self {
-        case .sunni: return .shia
-        case .shia: return .sunni
-        case .shafi: return .hanafi
         case .hanafi: return .shafi
+        case .shafi: return .hanafi
+        case .jafari: return .shafi
         }
+    }
+
+    /// Whether this school uses earlier Asr timing (1x shadow)
+    public var usesEarlyAsr: Bool {
+        return asrShadowMultiplier == 1.0
+    }
+
+    /// Whether this school delays Maghrib after sunset
+    public var delaysMaghrib: Bool {
+        return maghribDelayMinutes > 0
     }
 }

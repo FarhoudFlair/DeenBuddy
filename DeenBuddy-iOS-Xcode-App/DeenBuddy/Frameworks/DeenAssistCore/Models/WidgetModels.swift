@@ -236,13 +236,19 @@ public enum WidgetError: Error, LocalizedError {
 /// Constants for App Group sharing between main app and widget
 public enum AppGroupConstants {
     public static let groupIdentifier = "group.com.deenbuddy.app"
-    public static let widgetDataKey = "DeenAssist.WidgetData"
-    public static let widgetConfigurationKey = "DeenAssist.WidgetConfiguration"
-    public static let lastWidgetUpdateKey = "DeenAssist.LastWidgetUpdate"
+    public static let widgetDataKey = "DeenBuddy.WidgetData"
+    public static let widgetConfigurationKey = "DeenBuddy.WidgetConfiguration"
+    public static let lastWidgetUpdateKey = "DeenBuddy.LastWidgetUpdate"
     
     /// Get shared UserDefaults for App Group
     public static var sharedDefaults: UserDefaults? {
-        return UserDefaults(suiteName: groupIdentifier)
+        guard let defaults = UserDefaults(suiteName: groupIdentifier) else {
+            print("❌ Main App: Failed to create shared UserDefaults for group: \(groupIdentifier)")
+            return nil
+        }
+
+        // Ensure proper container access without persona issues
+        return defaults
     }
 }
 

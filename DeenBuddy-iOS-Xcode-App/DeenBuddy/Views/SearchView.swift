@@ -55,7 +55,7 @@ struct SearchView: View {
                 VStack {
                     // Search results
                     if viewModel.isLoading {
-                        ModernLoadingView(message: "Searching prayer guides...")
+                        ModernLoadingView(context: .searchResults)
                     } else if filteredGuides.isEmpty {
                         ModernEmptyState(
                             title: "No Results",

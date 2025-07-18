@@ -39,12 +39,35 @@ struct PrayerCountdownActivity: ActivityAttributes {
         var formattedTimeRemaining: String {
             let hours = Int(timeUntilNext) / 3600
             let minutes = Int(timeUntilNext) % 3600 / 60
+            let seconds = Int(timeUntilNext) % 60
+            
+            if hours > 0 {
+                return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            } else {
+                return String(format: "%d:%02d", minutes, seconds)
+            }
+        }
+        
+        /// Short formatted time for compact displays
+        var shortFormattedTime: String {
+            let hours = Int(timeUntilNext) / 3600
+            let minutes = Int(timeUntilNext) % 3600 / 60
             
             if hours > 0 {
                 return "\(hours)h \(minutes)m"
             } else {
                 return "\(minutes)m"
             }
+        }
+        
+        /// Check if prayer time is imminent (less than 5 minutes)
+        var isImminent: Bool {
+            return timeUntilNext <= 300 // 5 minutes
+        }
+        
+        /// Check if prayer time has passed
+        var hasPassed: Bool {
+            return timeUntilNext <= 0
         }
     }
     

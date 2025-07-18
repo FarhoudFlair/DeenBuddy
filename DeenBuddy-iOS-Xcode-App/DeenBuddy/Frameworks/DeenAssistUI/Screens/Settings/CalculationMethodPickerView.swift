@@ -105,26 +105,19 @@ private struct MadhabRow: View {
     
     var body: some View {
         Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text(madhab.displayName)
-                        .titleMedium()
-                        .foregroundColor(ColorPalette.textPrimary)
-                    
-                    Spacer()
-                    
-                    if isSelected {
-                        Image(systemName: "checkmark")
-                            .foregroundColor(ColorPalette.primary)
-                    }
+            HStack {
+                Text(madhab.displayName)
+                    .titleMedium()
+                    .foregroundColor(ColorPalette.textPrimary)
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(ColorPalette.primary)
                 }
-                
-                Text(madhab.description)
-                    .bodySmall()
-                    .foregroundColor(ColorPalette.textSecondary)
-                    .multilineTextAlignment(.leading)
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -236,7 +229,7 @@ private struct ThemeRow: View {
 
 #Preview("Madhab Picker") {
     MadhabPickerView(
-        selectedMadhab: .sunni,
+        selectedMadhab: .shafi,
         onMadhabSelected: { _ in }
     )
 }

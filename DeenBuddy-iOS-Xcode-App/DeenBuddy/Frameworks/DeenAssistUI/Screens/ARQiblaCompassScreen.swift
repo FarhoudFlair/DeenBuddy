@@ -103,21 +103,10 @@ public struct ARQiblaCompassScreen: View {
     
     @ViewBuilder
     private var loadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.5)
-                .tint(ColorPalette.primary)
-            
-            VStack(spacing: 8) {
-                Text("Initializing AR Compass")
-                    .font(.headline)
-                    .foregroundColor(ColorPalette.textPrimary)
-                
-                Text("Please hold your device steady")
-                    .font(.subheadline)
-                    .foregroundColor(ColorPalette.textSecondary)
-            }
-        }
+        ContextualLoadingView(
+            context: .qiblaDirection,
+            customMessage: "Initializing AR compass..."
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ColorPalette.backgroundPrimary)
     }

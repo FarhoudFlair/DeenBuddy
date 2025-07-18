@@ -32,9 +32,9 @@ struct PrayerTimesWidgetBundle: WidgetBundle {
         }
 
         // iOS 16.1+ Live Activities
-        // if #available(iOS 16.1, *) {
-        //     PrayerCountdownLiveActivity()
-        // }
+        if #available(iOS 16.1, *) {
+            PrayerCountdownLiveActivity()
+        }
     }
 }
 
@@ -103,32 +103,151 @@ struct PrayerCountdownLockScreenWidget: Widget {
     }
 }
 
-// MARK: - Live Activity Widget (Temporarily Disabled)
+// MARK: - Live Activity Widget
 
-/*
 @available(iOS 16.1, *)
 struct PrayerCountdownLiveActivity: Widget {
     var body: ActivityConfiguration<PrayerCountdownActivity> {
         ActivityConfiguration(for: PrayerCountdownActivity.self) { context in
             // Lock screen/banner UI goes here
-            LiveActivityLockScreenView(context: context)
+            LiveActivityLockScreenView()
         } dynamicIsland: { context in
-            // DynamicIsland implementation temporarily disabled
-            DynamicIsland {
+            // Dynamic Island implementation with white Arabic Allah symbol
+            return DynamicIsland {
+                // Expanded view
                 DynamicIslandExpandedRegion(.leading) {
-                    Text("☪")
+                    HStack(spacing: 6) {
+                        // White Arabic Allah symbol
+                        Text("الله")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                        
+                        Image(systemName: context.state.nextPrayer.prayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.prayer.systemImageName)
+                            .foregroundColor(context.state.nextPrayer.prayer.color)
+                            .font(.title3)
+                    }
+                }
+                
+                DynamicIslandExpandedRegion(.trailing) {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(context.state.formattedTimeRemaining)
+                            .font(.title3)
+                            .fontWeight(.bold)
+                            .foregroundColor(context.state.isImminent ? .red : .white)
+                            .monospacedDigit()
+                        
+                        Text(formatPrayerTime(context.state.nextPrayer.time))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack {
+                        Text(context.state.nextPrayer.location ?? "Current Location")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        Text(context.state.arabicSymbol)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
             } compactLeading: {
-                Text("☪")
+                HStack(spacing: 4) {
+                    // White Arabic Allah symbol
+                    Text("الله")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Image(systemName: context.state.nextPrayer.prayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.prayer.systemImageName)
+                        .foregroundColor(context.state.nextPrayer.prayer.color)
+                        .font(.title3)
+                }
             } compactTrailing: {
-                Text("--")
+                Text(context.state.shortFormattedTime)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(context.state.isImminent ? .red : .white)
+                    .monospacedDigit()
             } minimal: {
-                Text("☪")
+                HStack(spacing: 1) {
+                    // White Arabic Allah symbol in top-left for minimal persistent display
+                    Text("الله")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Image(systemName: context.state.nextPrayer.prayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.prayer.systemImageName)
+                        .foregroundColor(context.state.nextPrayer.prayer.color)
+                        .font(.caption)
+                }
+            }
+        }
+    }
+    
+    private func formatPrayerTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+    
+    /// Creates a fallback Dynamic Island view when data is invalid
+    private func createFallbackDynamicIsland() -> DynamicIsland {
+        DynamicIsland {
+            DynamicIslandExpandedRegion(.leading) {
+                HStack(spacing: 6) {
+                    Text("الله")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Image(systemName: "exclamationmark.triangle")
+                        .foregroundColor(.orange)
+                        .font(.title3)
+                }
+            }
+            
+            DynamicIslandExpandedRegion(.trailing) {
+                Text("Error")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.red)
+            }
+        } compactLeading: {
+            HStack(spacing: 4) {
+                Text("الله")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundColor(.orange)
+                    .font(.title3)
+            }
+        } compactTrailing: {
+            Text("Error")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.red)
+        } minimal: {
+            HStack(spacing: 1) {
+                Text("الله")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundColor(.orange)
+                    .font(.caption)
             }
         }
     }
 }
-*/
 
 // MARK: - Live Activity Configuration (Disabled for now)
 // Live Activities can be added later once basic widgets are working

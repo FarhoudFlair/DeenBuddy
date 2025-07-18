@@ -10,7 +10,8 @@
 
 /// Adhan Swift library for Islamic prayer time calculations
 /// Provides accurate prayer times based on location and calculation methods
-@_exported import Adhan
+// TODO: Re-enable when Adhan dependency is properly configured
+// @_exported import Adhan
 
 // MARK: - Core Exports
 

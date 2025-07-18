@@ -140,20 +140,8 @@ struct PrayerTimesList: View {
 
 struct PrayerTimesLoadingView: View {
     var body: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.2)
-            
-            Text("Loading Prayer Times...")
-                .font(.headline)
-                .foregroundColor(.secondary)
-            
-            Text("Calculating accurate prayer times for your location")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding()
+        ContextualLoadingView(context: .prayerTimes)
+            .padding()
     }
 }
 

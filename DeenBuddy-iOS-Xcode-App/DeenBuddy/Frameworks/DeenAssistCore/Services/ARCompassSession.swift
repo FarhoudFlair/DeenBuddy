@@ -95,30 +95,31 @@ public class ARCompassSession: NSObject, ObservableObject {
     // MARK: - Private AR Setup
     
     private func setupARScene(_ arView: ARView) {
-        // Create world anchor positioned closer to user
-        let transform = simd_float4x4(
+        // Create a simple world anchor at the origin
+        // The sphere positioning will handle the Qibla direction
+        let identityTransform = simd_float4x4(
             simd_float4(1, 0, 0, 0),
             simd_float4(0, 1, 0, 0),
             simd_float4(0, 0, 1, 0),
-            simd_float4(0, 0, -indicatorDistance, 1)
+            simd_float4(0, 0, 0, 1)
         )
-        anchorEntity = AnchorEntity(world: transform)
-        
+        anchorEntity = AnchorEntity(world: identityTransform)
+
         guard let anchor = anchorEntity else { return }
-        
-        // Create simple Qibla indicator
+
+        // Create the Qibla sphere indicator
         setupQiblaIndicator()
-        
-        // Add indicator to anchor
-        if let indicator = qiblaIndicator { 
-            anchor.addChild(indicator) 
+
+        // Add sphere to anchor
+        if let indicator = qiblaIndicator {
+            anchor.addChild(indicator)
         }
-        
+
         // Add anchor to scene
         arView.scene.addAnchor(anchor)
-        
-        print("🎯 AR Compass: Simple scene setup complete with world anchor at distance \(indicatorDistance)m")
-        
+
+        print("🎯 AR Compass: AR scene setup complete with floating Qibla sphere")
+
         // Test with known locations for debugging
         testKnownQiblaDirections()
     }
@@ -150,70 +151,45 @@ public class ARCompassSession: NSObject, ObservableObject {
     }
     
     private func setupQiblaIndicator() {
-        // Create simple arrow pointing toward Qibla using a pyramid shape
-        // GEOMETRY ANALYSIS:
-        // - Box dimensions: width=0.03 (X), height=0.015 (Y), depth=0.06 (Z)
-        // - In AR coordinates: X=left/right, Y=up/down, Z=forward/back
-        // - Arrow body extends in +Z direction (forward from anchor)
-        // - Initial orientation: Arrow points in +Z direction (0° relative to anchor)
-        let indicatorMesh = MeshResource.generateBox(width: 0.03, height: 0.015, depth: 0.06)
+        // Create a simple floating sphere that points toward Qibla direction
+        // This is much simpler and more reliable than complex arrow geometry
+        let sphereRadius: Float = 0.05
+        let indicatorMesh = MeshResource.generateSphere(radius: sphereRadius)
         let indicatorMaterial = createQiblaIndicatorMaterial()
-        
+
         qiblaIndicator = ModelEntity(mesh: indicatorMesh, materials: [indicatorMaterial])
         qiblaIndicator?.scale = [indicatorScale, indicatorScale, indicatorScale]
-        qiblaIndicator?.position = [0, 0, 0] // Centered at anchor
-        
-        // Add a small tip to make it more arrow-like
-        createArrowTip()
-        
+
+        // Position will be calculated based on Qibla direction in updateIndicatorPosition()
+        qiblaIndicator?.position = [0, 0, -indicatorDistance] // Initial position
+
         // Add subtle pulsing animation
         addPulsingAnimation()
-        
-        print("🎯 AR Compass: Simple Qibla arrow created with size [0.03, 0.015, 0.06] and scale \(indicatorScale)")
-        print("🎯 AR Compass: Arrow geometry - initially points in +Z direction (forward)")
-        print("🎯 AR Compass: With .gravityAndHeading alignment, +Z should be North (0°)")
+
+        print("🎯 AR Compass: Floating Qibla sphere created with radius \(sphereRadius) and scale \(indicatorScale)")
+        print("🎯 AR Compass: Sphere will be positioned directly in Qibla direction")
     }
     
-    
-    private func createArrowTip() {
-        guard let indicator = qiblaIndicator else { return }
-        
-        // Create a small pyramid tip for the arrow
-        // TIP ANALYSIS:
-        // - Tip positioned at [0, 0, 0.04] = +Z direction from arrow center
-        // - This places tip at the "front" of the arrow in +Z direction
-        // - Confirms arrow points in +Z direction initially
-        let tipMesh = MeshResource.generateBox(width: 0.04, height: 0.02, depth: 0.02)
-        let tipMaterial = createQiblaIndicatorMaterial()
-        
-        let tipEntity = ModelEntity(mesh: tipMesh, materials: [tipMaterial])
-        tipEntity.position = [0, 0, 0.04] // Position at front of arrow (+Z direction)
-        
-        indicator.addChild(tipEntity)
-        
-        print("🎯 AR Compass: Arrow tip positioned at +Z (0.04), confirming arrow points forward")
-    }
+
     
     private func addPulsingAnimation() {
         guard let indicator = qiblaIndicator else { return }
-        
-        // Create a simple Transform component animation using Timer
-        // RealityKit animations are more complex, so let's keep it simple for now
-        // The subtle pulsing will be handled through manual scale updates
-        
-        // For now, just add a comment that animation could be added later
-        // The indicator is already visible and functional without animation
-        print("🎯 AR Compass: Qibla indicator ready (animation placeholder)")
+
+        // For now, skip the animation to avoid RealityKit complexity
+        // The sphere will be visible and functional without animation
+        // Animation can be added later if needed using RealityKit's animation system
+
+        print("🎯 AR Compass: Qibla sphere ready (animation skipped for simplicity)")
     }
     
     // MARK: - Material Creation
     
     private func createQiblaIndicatorMaterial() -> SimpleMaterial {
         var material = SimpleMaterial()
-        // Use Islamic green color for Qibla direction
+        // Use Islamic green color for Qibla direction with enhanced visibility
         material.color = .init(tint: UIColor.systemGreen)
-        material.metallic = .init(floatLiteral: 0.2)
-        material.roughness = .init(floatLiteral: 0.3)
+        material.metallic = .init(floatLiteral: 0.1)
+        material.roughness = .init(floatLiteral: 0.2)
         return material
     }
     
@@ -223,48 +199,34 @@ public class ARCompassSession: NSObject, ObservableObject {
     private func updateIndicatorPosition() {
         guard let direction = qiblaDirection,
               let indicator = qiblaIndicator else { return }
-        
-        // Detailed logging for debugging
-        print("🎯 AR Compass: === Qibla Direction Debug ===")
+
+        print("🎯 AR Compass: === Updating Qibla Sphere Position ===")
         print("🎯 AR Compass: Location: \(direction.location.latitude), \(direction.location.longitude)")
-        print("🎯 AR Compass: Calculated Qibla bearing: \(direction.direction)° (\(direction.compassDirection))")
+        print("🎯 AR Compass: Qibla bearing: \(direction.direction)° (\(direction.compassDirection))")
         print("🎯 AR Compass: Distance to Kaaba: \(direction.formattedDistance)")
-        print("🎯 AR Compass: Radians conversion: \(direction.directionRadians)")
-        
-        // Rotate indicator to point toward Qibla direction
-        let qiblaAngle = Float(direction.directionRadians)
-        
-        // POTENTIAL FIX: ARKit coordinate system adjustment
-        // If the arrow is pointing wrong, it might be because:
-        // 1. Our arrow geometry points in wrong initial direction, OR
-        // 2. ARKit's coordinate system doesn't align +Z with North as expected
-        // 
-        // Testing both possibilities:
-        let qiblaRotation = simd_quatf(angle: qiblaAngle, axis: [0, 1, 0])
-        indicator.orientation = qiblaRotation
-        
-        // Alternative rotation if the above is wrong:
-        // let adjustedAngle = qiblaAngle + .pi  // 180° offset
-        // let qiblaRotation = simd_quatf(angle: adjustedAngle, axis: [0, 1, 0])
-        // indicator.orientation = qiblaRotation
-        
-        print("🎯 AR Compass: Applied rotation: \(qiblaAngle) radians = \(qiblaAngle * 180 / .pi)°")
-        
-        // CRITICAL ANALYSIS: ARKit Coordinate System
-        // POTENTIAL ISSUE IDENTIFIED:
-        // With .gravityAndHeading, the coordinate system aligns with magnetic north,
-        // BUT we need to verify if +Z actually points North or if there's an offset
-        print("🎯 AR Compass: *** COORDINATE SYSTEM CHECK ***")
-        print("🎯 AR Compass: ARKit .gravityAndHeading alignment setting used")
-        print("🎯 AR Compass: ASSUMPTION: +Z = North, +X = East")
-        print("🎯 AR Compass: Arrow initially points +Z direction")
-        print("🎯 AR Compass: Applied rotation: \(qiblaAngle * 180 / .pi)° from initial +Z")
-        print("🎯 AR Compass: ⚠️  IF INCORRECT: May need coordinate system adjustment")
-        
+
+        // Convert Qibla direction to 3D position using spherical coordinates
+        // ARKit coordinate system: +X = East, +Y = Up, +Z = South (toward user)
+        // We want to position the sphere in the Qibla direction at a fixed distance
+        let qiblaAngleRadians = Float(direction.directionRadians)
+        let distance = indicatorDistance
+
+        // Calculate 3D position in ARKit coordinates
+        // Note: ARKit +Z points toward the user, so we use negative for forward direction
+        let x = distance * sin(qiblaAngleRadians)  // East-West position
+        let y: Float = 0.0  // Keep at eye level
+        let z = -distance * cos(qiblaAngleRadians)  // North-South position (negative for forward)
+
+        // Position the sphere directly in the Qibla direction
+        indicator.position = [x, y, z]
+
+        print("🎯 AR Compass: Sphere positioned at [\(x), \(y), \(z)] for \(direction.direction)° bearing")
+        print("🎯 AR Compass: Distance from user: \(distance)m")
+
         // Log expected results for known locations
         logExpectedDirection(for: direction)
-        
-        print("🎯 AR Compass: === End Debug ===")
+
+        print("🎯 AR Compass: === Position Update Complete ===")
     }
     
     private func logExpectedDirection(for direction: QiblaDirection) {
@@ -319,9 +281,8 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Perform synchronous cleanup - no async tasks in deinit
         arSession?.pause()
         arSession?.delegate = nil
-        arView?.scene.anchors.removeAll()
 
-        // Clean up entities
+        // Clean up entities first
         anchorEntity = nil
         qiblaIndicator = nil
 

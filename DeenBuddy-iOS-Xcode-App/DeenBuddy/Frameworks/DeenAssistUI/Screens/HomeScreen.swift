@@ -65,6 +65,21 @@ public struct HomeScreen: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    // Debug: Dynamic Island trigger button (hidden in production)
+                    #if DEBUG
+                    Button(action: {
+                        Task {
+                            await prayerTimeService.triggerDynamicIslandForNextPrayer()
+                        }
+                    }) {
+                        Image(systemName: "oval.fill")
+                            .foregroundColor(.blue)
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("Test Dynamic Island")
+                    .accessibilityHint("Trigger Dynamic Island for next prayer")
+                    #endif
+                    
                     // Notification bell icon
                     if let notificationService = notificationService,
                        let onNotificationsTapped = onNotificationsTapped {
@@ -298,22 +313,41 @@ public struct HomeScreen: View {
     
     private func locationString(for location: CLLocation) -> String {
         let coordinates = String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
-        
-        // Add cache indicator if location is from cache
+
+        // Build city name part
+        var cityPart = ""
+        if let locationInfo = locationService.currentLocationInfo,
+           let city = locationInfo.city {
+            // Determine if we should show "Near" prefix based on accuracy
+            let accuracy = location.horizontalAccuracy
+            if accuracy > 100 {
+                cityPart = "Near \(city)"
+            } else {
+                cityPart = city
+            }
+        }
+
+        // Build cache indicator
+        var cacheIndicator = ""
         if locationService.isCurrentLocationFromCache() {
             if let age = locationService.getLocationAge() {
                 let minutes = Int(age / 60)
                 if minutes < 1 {
-                    return "\(coordinates) • cached"
+                    cacheIndicator = " • cached"
                 } else {
-                    return "\(coordinates) • cached \(minutes)m ago"
+                    cacheIndicator = " • cached \(minutes)m ago"
                 }
             } else {
-                return "\(coordinates) • cached"
+                cacheIndicator = " • cached"
             }
         }
-        
-        return coordinates
+
+        // Combine city and coordinates
+        if !cityPart.isEmpty {
+            return "\(cityPart)\n\(coordinates)\(cacheIndicator)"
+        } else {
+            return "\(coordinates)\(cacheIndicator)"
+        }
     }
     
     private func getPrayerStatus(for prayerTime: PrayerTime) -> PrayerStatus {

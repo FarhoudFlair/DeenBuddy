@@ -25,13 +25,13 @@ public class BatteryAwareTimerManager: ObservableObject {
         var baseInterval: TimeInterval {
             switch self {
             case .prayerUpdate: return 60.0
-            case .countdownUI: return 1.0
+            case .countdownUI: return 1.5 // Increased from 1.0 to reduce CPU usage
             case .backgroundRefresh: return 300.0 // 5 minutes
-            case .memoryMonitoring: return 5.0
+            case .memoryMonitoring: return 10.0 // Increased from 5.0 to reduce CPU usage
             case .hijriCalendar: return 86400.0 // 24 hours
-            case .resourceMonitoring: return 10.0
-            case .locationUpdate: return 30.0
-            case .cacheCleanup: return 3600.0 // 1 hour
+            case .resourceMonitoring: return 30.0 // Increased from 10.0 to reduce CPU usage
+            case .locationUpdate: return 45.0 // Increased from 30.0 to reduce CPU usage
+            case .cacheCleanup: return 10800.0 // 3 hours (increased from 1 hour)
             }
         }
         
@@ -84,6 +84,10 @@ public class BatteryAwareTimerManager: ObservableObject {
     private var timers: [String: Timer] = [:]
     private var timerCallbacks: [String: () -> Void] = [:]
     private var cancellables = Set<AnyCancellable>()
+
+    // Task deduplication to prevent excessive operations
+    private var lastExecutionTimes: [String: Date] = [:]
+    private let minimumExecutionInterval: TimeInterval = 0.5 // Minimum 500ms between executions
     
     // MARK: - Timer Info
     
@@ -330,6 +334,16 @@ public class BatteryAwareTimerManager: ObservableObject {
     }
     
     private func handleTimerFire(id: String, type: TimerType) {
+        let now = Date()
+
+        // Task deduplication: prevent excessive executions
+        if let lastExecution = lastExecutionTimes[id],
+           now.timeIntervalSince(lastExecution) < minimumExecutionInterval {
+            return // Skip this execution to prevent CPU overload
+        }
+
+        lastExecutionTimes[id] = now
+
         // Update timer info
         if let info = activeTimers[id] {
             activeTimers[id] = TimerInfo(
@@ -337,11 +351,11 @@ public class BatteryAwareTimerManager: ObservableObject {
                 type: info.type,
                 currentInterval: info.currentInterval,
                 isActive: info.isActive,
-                lastFired: Date(),
+                lastFired: now,
                 fireCount: info.fireCount + 1
             )
         }
-        
+
         // Execute callback
         timerCallbacks[id]?()
     }

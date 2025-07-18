@@ -20,7 +20,7 @@ public struct User: Codable {
     
     public init(
         id: UUID = UUID(),
-        preferredMadhab: Madhab = .sunni,
+        preferredMadhab: Madhab = .shafi,
         enabledNotifications: Bool = true,
         locationPermissionGranted: Bool = false,
         bookmarkedGuides: Set<String> = [],

@@ -31,6 +31,30 @@ enum Prayer: String, CaseIterable, Codable {
         case .isha: return "العشاء"
         }
     }
+    
+    // MARK: - iOS UI Properties for Dynamic Island
+    
+    /// SF Symbol name for this prayer
+    var systemImageName: String {
+        switch self {
+        case .fajr: return "sunrise"
+        case .dhuhr: return "sun.max"
+        case .asr: return "sun.and.horizon"
+        case .maghrib: return "sunset"
+        case .isha: return "moon.stars"
+        }
+    }
+    
+    /// SwiftUI color associated with this prayer
+    var color: Color {
+        switch self {
+        case .fajr: return .orange
+        case .dhuhr: return .yellow
+        case .asr: return .blue
+        case .maghrib: return .red
+        case .isha: return .purple
+        }
+    }
 }
 
 /// Simplified prayer time model for widget extension
@@ -38,9 +62,10 @@ struct PrayerTime: Codable, Identifiable {
     let id = UUID()
     let prayer: Prayer
     let time: Date
+    let location: String?
 
     enum CodingKeys: String, CodingKey {
-        case prayer, time
+        case prayer, time, location
     }
 
     var displayName: String {
@@ -117,14 +142,14 @@ struct WidgetData: Codable {
     
     // Placeholder data for previews
     static let placeholder = WidgetData(
-        nextPrayer: PrayerTime(prayer: .maghrib, time: Date().addingTimeInterval(3600)),
+        nextPrayer: PrayerTime(prayer: .maghrib, time: Date().addingTimeInterval(3600), location: nil),
         timeUntilNextPrayer: 3600,
         todaysPrayerTimes: [
-            PrayerTime(prayer: .fajr, time: Date().addingTimeInterval(-18000)),
-            PrayerTime(prayer: .dhuhr, time: Date().addingTimeInterval(-7200)),
-            PrayerTime(prayer: .asr, time: Date().addingTimeInterval(-3600)),
-            PrayerTime(prayer: .maghrib, time: Date().addingTimeInterval(3600)),
-            PrayerTime(prayer: .isha, time: Date().addingTimeInterval(7200))
+            PrayerTime(prayer: .fajr, time: Date().addingTimeInterval(-18000), location: nil),
+            PrayerTime(prayer: .dhuhr, time: Date().addingTimeInterval(-7200), location: nil),
+            PrayerTime(prayer: .asr, time: Date().addingTimeInterval(-3600), location: nil),
+            PrayerTime(prayer: .maghrib, time: Date().addingTimeInterval(3600), location: nil),
+            PrayerTime(prayer: .isha, time: Date().addingTimeInterval(7200), location: nil)
         ],
         hijriDate: HijriDate(from: Date()),
         location: "New York, NY",
@@ -180,67 +205,100 @@ enum WidgetTheme: String, Codable {
 
 // MARK: - Widget Data Manager
 
-/// Manager for widget data operations
+/// Manager for widget data operations - simplified for widget extension
 class WidgetDataManager {
     static let shared = WidgetDataManager()
-    
+
     private let groupIdentifier = "group.com.deenbuddy.app"
-    private let widgetDataKey = "DeenAssist.WidgetData"
-    private let widgetConfigurationKey = "DeenAssist.WidgetConfiguration"
-    
+    private let widgetDataKey = "DeenBuddy.WidgetData"
+    private let widgetConfigurationKey = "DeenBuddy.WidgetConfiguration"
+
     private init() {}
-    
+
     private var sharedDefaults: UserDefaults? {
-        return UserDefaults(suiteName: groupIdentifier)
+        guard let defaults = UserDefaults(suiteName: groupIdentifier) else {
+            print("⚠️ Widget: Failed to create shared UserDefaults for group: \(groupIdentifier)")
+            return nil
+        }
+
+        // Ensure we're using the current user's defaults, not any user
+        // This prevents the CFPreferences persona error
+        return defaults
     }
     
     func loadWidgetData() -> WidgetData? {
-        guard let sharedDefaults = sharedDefaults,
-              let data = sharedDefaults.data(forKey: widgetDataKey) else {
+        guard let sharedDefaults = sharedDefaults else {
+            print("⚠️ Widget: Failed to access shared UserDefaults for group: \(groupIdentifier)")
             return nil
         }
-        
+
+        guard let data = sharedDefaults.data(forKey: widgetDataKey) else {
+            print("ℹ️ Widget: No widget data found in shared container for key: \(widgetDataKey)")
+            return nil
+        }
+
         do {
-            return try JSONDecoder().decode(WidgetData.self, from: data)
+            let widgetData = try JSONDecoder().decode(WidgetData.self, from: data)
+            print("✅ Widget: Successfully loaded widget data")
+            return widgetData
         } catch {
-            print("❌ Failed to decode widget data: \(error)")
+            print("❌ Widget: Failed to decode widget data: \(error)")
             return nil
         }
     }
     
     func saveWidgetData(_ data: WidgetData) {
-        guard let sharedDefaults = sharedDefaults else { return }
-        
+        guard let sharedDefaults = sharedDefaults else {
+            print("⚠️ Widget: Failed to access shared UserDefaults for saving")
+            return
+        }
+
         do {
             let encodedData = try JSONEncoder().encode(data)
             sharedDefaults.set(encodedData, forKey: widgetDataKey)
             sharedDefaults.synchronize()
+            print("✅ Widget: Successfully saved widget data")
         } catch {
-            print("❌ Failed to encode widget data: \(error)")
+            print("❌ Widget: Failed to encode widget data: \(error)")
         }
     }
     
     func loadWidgetConfiguration() -> WidgetConfiguration {
-        guard let sharedDefaults = sharedDefaults,
-              let data = sharedDefaults.data(forKey: widgetConfigurationKey) else {
+        guard let sharedDefaults = sharedDefaults else {
+            print("⚠️ Widget: Failed to access shared UserDefaults for configuration")
             return .default
         }
-        
+
+        guard let data = sharedDefaults.data(forKey: widgetConfigurationKey) else {
+            print("ℹ️ Widget: No widget configuration found, using default")
+            return .default
+        }
+
         do {
-            return try JSONDecoder().decode(WidgetConfiguration.self, from: data)
+            let config = try JSONDecoder().decode(WidgetConfiguration.self, from: data)
+            print("✅ Widget: Successfully loaded widget configuration")
+            return config
         } catch {
-            print("❌ Failed to decode widget configuration: \(error)")
+            print("❌ Widget: Failed to decode widget configuration: \(error)")
             return .default
         }
     }
     
     func saveWidgetConfiguration(_ configuration: WidgetConfiguration) {
-        guard let sharedDefaults = sharedDefaults else { return }
+        guard let sharedDefaults = sharedDefaults else {
+            print("⚠️ Shared defaults not available, cannot save widget configuration")
+            return
+        }
         
         do {
             let encodedData = try JSONEncoder().encode(configuration)
             sharedDefaults.set(encodedData, forKey: widgetConfigurationKey)
-            sharedDefaults.synchronize()
+            let success = sharedDefaults.synchronize()
+            if success {
+                print("✅ Widget configuration saved successfully")
+            } else {
+                print("⚠️ Widget configuration save synchronization failed")
+            }
         } catch {
             print("❌ Failed to save widget configuration: \(error)")
         }
