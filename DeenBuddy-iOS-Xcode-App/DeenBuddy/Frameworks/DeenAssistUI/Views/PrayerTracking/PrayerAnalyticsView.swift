@@ -26,6 +26,7 @@ public struct PrayerAnalyticsView: View {
     @State private var selectedMetric: String = "completion"
     @State private var insights: [InsightData] = []
     @State private var isLoadingInsights: Bool = false
+    @State private var showingExportSheet: Bool = false
 
     // MARK: - Initialization
 
