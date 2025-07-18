@@ -2,18 +2,18 @@ import Foundation
 import WidgetKit
 
 /// Manager for widget timeline generation and refresh strategies
-public class WidgetTimelineManager {
+class WidgetTimelineManager {
     
     // MARK: - Singleton
     
-    public static let shared = WidgetTimelineManager()
+    static let shared = WidgetTimelineManager()
     
     private init() {}
     
     // MARK: - Timeline Generation
     
     /// Generate timeline entries for prayer widgets with strategic refresh times
-    public func generateTimeline(from currentEntry: PrayerWidgetEntry, maxEntries: Int = 20) -> [PrayerWidgetEntry] {
+    func generateTimeline(from currentEntry: PrayerWidgetEntry, maxEntries: Int = 20) -> [PrayerWidgetEntry] {
         var entries: [PrayerWidgetEntry] = []
         let now = Date()
         let calendar = Calendar.current
@@ -42,7 +42,7 @@ public class WidgetTimelineManager {
     }
     
     /// Determine the next strategic refresh time
-    public func getNextRefreshDate(from entry: PrayerWidgetEntry) -> Date {
+    func getNextRefreshDate(from entry: PrayerWidgetEntry) -> Date {
         let now = Date()
         let calendar = Calendar.current
         
@@ -76,7 +76,7 @@ public class WidgetTimelineManager {
     }
     
     /// Check if widget data needs refresh based on staleness
-    public func shouldRefreshData(for entry: PrayerWidgetEntry) -> Bool {
+    func shouldRefreshData(for entry: PrayerWidgetEntry) -> Bool {
         let now = Date()
         let dataAge = now.timeIntervalSince(entry.widgetData.lastUpdated)
         
@@ -104,7 +104,7 @@ public class WidgetTimelineManager {
     
     private func createUpdatedEntry(from baseEntry: PrayerWidgetEntry, at date: Date) -> PrayerWidgetEntry {
         var updatedWidgetData = baseEntry.widgetData
-        
+
         // Update time until next prayer
         if let nextPrayerTime = updatedWidgetData.nextPrayer?.time {
             let timeUntilNext = nextPrayerTime.timeIntervalSince(date)
@@ -120,12 +120,11 @@ public class WidgetTimelineManager {
                 )
             }
         }
-        
+
         return PrayerWidgetEntry(
             date: date,
             widgetData: updatedWidgetData,
-            configuration: baseEntry.configuration,
-            relevance: TimelineEntryRelevance(score: calculateRelevanceScore(for: date, widgetData: updatedWidgetData))
+            configuration: baseEntry.configuration
         )
     }
     
@@ -177,8 +176,7 @@ public class WidgetTimelineManager {
                 let midnightEntry = PrayerWidgetEntry(
                     date: midnight,
                     widgetData: updatedWidgetData,
-                    configuration: baseEntry.configuration,
-                    relevance: TimelineEntryRelevance(score: 0.5) // Medium relevance for daily updates
+                    configuration: baseEntry.configuration
                 )
                 
                 entries.append(midnightEntry)
@@ -214,23 +212,27 @@ public class WidgetTimelineManager {
         // Lower relevance for other times
         return 0.3
     }
+    
+    // MARK: - Helper Methods
+    
+
 }
 
 // MARK: - Widget Background Refresh Manager
 
 /// Manager for coordinating background refresh of widget data
-public class WidgetBackgroundRefreshManager {
+class WidgetBackgroundRefreshManager {
     
     // MARK: - Singleton
     
-    public static let shared = WidgetBackgroundRefreshManager()
+    static let shared = WidgetBackgroundRefreshManager()
     
     private init() {}
     
     // MARK: - Background Refresh
     
     /// Trigger background refresh of all prayer widgets
-    public func refreshAllWidgets() {
+    func refreshAllWidgets() {
         guard #available(iOS 14.0, *) else { return }
         
         WidgetCenter.shared.reloadAllTimelines()
@@ -238,7 +240,7 @@ public class WidgetBackgroundRefreshManager {
     }
     
     /// Refresh specific widget kind
-    public func refreshWidget(kind: String) {
+    func refreshWidget(kind: String) {
         guard #available(iOS 14.0, *) else { return }
         
         WidgetCenter.shared.reloadTimelines(ofKind: kind)
@@ -246,7 +248,7 @@ public class WidgetBackgroundRefreshManager {
     }
     
     /// Schedule background refresh at strategic times
-    public func scheduleStrategicRefresh(for widgetData: WidgetData) {
+    func scheduleStrategicRefresh(for widgetData: WidgetData) {
         let calendar = Calendar.current
         let now = Date()
         
@@ -273,7 +275,7 @@ public class WidgetBackgroundRefreshManager {
     
     /// Get current widget relevance for iOS 17+ features
     @available(iOS 17.0, *)
-    public func getCurrentRelevance(for widgetData: WidgetData) -> TimelineEntryRelevance? {
+    func getCurrentRelevance(for widgetData: WidgetData) -> TimelineEntryRelevance? {
         guard let nextPrayerTime = widgetData.nextPrayer?.time else { return nil }
         
         let now = Date()
@@ -281,12 +283,12 @@ public class WidgetBackgroundRefreshManager {
         
         // High relevance approaching prayer time
         if timeUntilPrayer <= 1800 && timeUntilPrayer > 0 { // 30 minutes
-            return TimelineEntryRelevance(score: 1.0, duration: timeUntilPrayer)
+            return TimelineEntryRelevance(score: 1.0)
         }
         
         // Medium relevance within an hour
         if timeUntilPrayer <= 3600 && timeUntilPrayer > 0 { // 1 hour
-            return TimelineEntryRelevance(score: 0.7, duration: timeUntilPrayer)
+            return TimelineEntryRelevance(score: 0.7)
         }
         
         return TimelineEntryRelevance(score: 0.3)

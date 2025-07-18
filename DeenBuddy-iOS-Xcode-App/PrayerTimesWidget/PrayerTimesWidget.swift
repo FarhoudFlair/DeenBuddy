@@ -1,29 +1,55 @@
-import WidgetKit
-import SwiftUI
+//
+//  PrayerTimesWidget.swift
+//  PrayerTimesWidget
+//
+//  Created by Farhoud Talebi on 2025-07-17.
+//
 
-/// Main widget bundle containing all prayer time widgets
+import Foundation
+import SwiftUI
+import WidgetKit
+import ActivityKit
+
+// MARK: - Widget Bundle
+
 @main
 struct PrayerTimesWidgetBundle: WidgetBundle {
     var body: some Widget {
+        // iOS 14+ Home Screen Widgets
         NextPrayerWidget()
         TodaysPrayerTimesWidget()
         PrayerCountdownWidget()
+        
+        // iOS 16+ Lock Screen Widgets
+        if #available(iOS 16.0, *) {
+            NextPrayerLockScreenWidget()
+            PrayerCountdownLockScreenWidget()
+        }
+        
+        // iOS 17+ Interactive Widgets (future)
+        if #available(iOS 17.0, *) {
+            // InteractivePrayerWidget() // For future implementation
+        }
+
+        // iOS 16.1+ Live Activities
+        // if #available(iOS 16.1, *) {
+        //     PrayerCountdownLiveActivity()
+        // }
     }
 }
+
+
 
 // MARK: - Next Prayer Widget
 
 /// Widget showing the next upcoming prayer with countdown
 struct NextPrayerWidget: Widget {
     let kind: String = "NextPrayerWidget"
-    
-    var body: some WidgetConfiguration {
+
+    var body: StaticConfiguration<NextPrayerWidgetView> {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             NextPrayerWidgetView(entry: entry)
         }
-        .configurationDisplayName("Next Prayer")
-        .description("Shows the next upcoming prayer time with countdown")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
 
@@ -32,14 +58,11 @@ struct NextPrayerWidget: Widget {
 /// Widget showing all prayer times for today
 struct TodaysPrayerTimesWidget: Widget {
     let kind: String = "TodaysPrayerTimesWidget"
-    
-    var body: some WidgetConfiguration {
+
+    var body: StaticConfiguration<TodaysPrayerTimesWidgetView> {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             TodaysPrayerTimesWidgetView(entry: entry)
         }
-        .configurationDisplayName("Today's Prayer Times")
-        .description("Shows all prayer times for today")
-        .supportedFamilies([.systemMedium, .systemLarge, .accessoryRectangular])
     }
 }
 
@@ -48,16 +71,67 @@ struct TodaysPrayerTimesWidget: Widget {
 /// Widget showing countdown to next prayer
 struct PrayerCountdownWidget: Widget {
     let kind: String = "PrayerCountdownWidget"
-    
-    var body: some WidgetConfiguration {
+
+    var body: StaticConfiguration<PrayerCountdownWidgetView> {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             PrayerCountdownWidgetView(entry: entry)
         }
-        .configurationDisplayName("Prayer Countdown")
-        .description("Shows countdown to next prayer")
-        .supportedFamilies([.systemSmall, .accessoryCircular, .accessoryInline])
     }
 }
+
+// MARK: - Lock Screen Widget
+
+@available(iOS 16.0, *)
+struct NextPrayerLockScreenWidget: Widget {
+    let kind: String = "NextPrayerLockScreenWidget"
+    
+    var body: StaticConfiguration<NextPrayerLockScreenView> {
+        StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
+            NextPrayerLockScreenView(entry: entry)
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+struct PrayerCountdownLockScreenWidget: Widget {
+    let kind: String = "PrayerCountdownLockScreenWidget"
+    
+    var body: StaticConfiguration<PrayerCountdownLockScreenView> {
+        StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
+            PrayerCountdownLockScreenView(entry: entry)
+        }
+    }
+}
+
+// MARK: - Live Activity Widget (Temporarily Disabled)
+
+/*
+@available(iOS 16.1, *)
+struct PrayerCountdownLiveActivity: Widget {
+    var body: ActivityConfiguration<PrayerCountdownActivity> {
+        ActivityConfiguration(for: PrayerCountdownActivity.self) { context in
+            // Lock screen/banner UI goes here
+            LiveActivityLockScreenView(context: context)
+        } dynamicIsland: { context in
+            // DynamicIsland implementation temporarily disabled
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Text("☪")
+                }
+            } compactLeading: {
+                Text("☪")
+            } compactTrailing: {
+                Text("--")
+            } minimal: {
+                Text("☪")
+            }
+        }
+    }
+}
+*/
+
+// MARK: - Live Activity Configuration (Disabled for now)
+// Live Activities can be added later once basic widgets are working
 
 // MARK: - Timeline Provider
 
@@ -108,7 +182,7 @@ struct PrayerTimeProvider: TimelineProvider {
             )
         } else {
             // Return placeholder if no data available
-            return .placeholder()
+            return PrayerWidgetEntry.placeholder()
         }
     }
     
@@ -174,74 +248,7 @@ struct PrayerTimeProvider: TimelineProvider {
     }
 }
 
-// MARK: - Widget Views
-
-/// View for Next Prayer Widget (Small/Medium/Lock Screen)
-struct NextPrayerWidgetView: View {
-    let entry: PrayerWidgetEntry
-    @Environment(\.widgetFamily) var widgetFamily
-    
-    var body: some View {
-        switch widgetFamily {
-        case .accessoryCircular:
-            NextPrayerCircularView(entry: entry)
-        case .accessoryRectangular:
-            NextPrayerRectangularView(entry: entry)
-        case .accessoryInline:
-            NextPrayerInlineView(entry: entry)
-        default:
-            GeometryReader { geometry in
-                if geometry.size.width < 200 {
-                    // Small widget
-                    NextPrayerSmallView(entry: entry)
-                } else {
-                    // Medium widget
-                    NextPrayerMediumView(entry: entry)
-                }
-            }
-        }
-    }
-}
-
-/// View for Today's Prayer Times Widget (Medium/Large/Lock Screen)
-struct TodaysPrayerTimesWidgetView: View {
-    let entry: PrayerWidgetEntry
-    @Environment(\.widgetFamily) var widgetFamily
-    
-    var body: some View {
-        switch widgetFamily {
-        case .accessoryRectangular:
-            TodaysPrayerTimesRectangularView(entry: entry)
-        default:
-            GeometryReader { geometry in
-                if geometry.size.height > 300 {
-                    // Large widget
-                    TodaysPrayerTimesLargeView(entry: entry)
-                } else {
-                    // Medium widget
-                    TodaysPrayerTimesMediumView(entry: entry)
-                }
-            }
-        }
-    }
-}
-
-/// View for Prayer Countdown Widget (Small/Lock Screen)
-struct PrayerCountdownWidgetView: View {
-    let entry: PrayerWidgetEntry
-    @Environment(\.widgetFamily) var widgetFamily
-    
-    var body: some View {
-        switch widgetFamily {
-        case .accessoryCircular:
-            PrayerCountdownCircularView(entry: entry)
-        case .accessoryInline:
-            PrayerCountdownInlineView(entry: entry)
-        default:
-            PrayerCountdownSmallView(entry: entry)
-        }
-    }
-}
+// MARK: - Widget Views (Defined in WidgetViews.swift)
 
 // MARK: - Preview
 
@@ -263,29 +270,31 @@ struct PrayerTimesWidget_Previews: PreviewProvider {
                 .previewDisplayName("Today's Prayers - Large")
             
             // Lock Screen Widgets
-            NextPrayerWidgetView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryCircular))
-                .previewDisplayName("Next Prayer - Lock Screen Circular")
-            
-            NextPrayerWidgetView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
-                .previewDisplayName("Next Prayer - Lock Screen Rectangular")
-            
-            NextPrayerWidgetView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryInline))
-                .previewDisplayName("Next Prayer - Lock Screen Inline")
-            
-            TodaysPrayerTimesWidgetView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
-                .previewDisplayName("Today's Prayers - Lock Screen Rectangular")
-            
-            PrayerCountdownWidgetView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryCircular))
-                .previewDisplayName("Prayer Countdown - Lock Screen Circular")
-            
-            PrayerCountdownWidgetView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryInline))
-                .previewDisplayName("Prayer Countdown - Lock Screen Inline")
+            if #available(iOS 16.0, *) {
+                NextPrayerLockScreenView(entry: .placeholder())
+                    .previewContext(WidgetPreviewContext(family: .accessoryCircular))
+                    .previewDisplayName("Next Prayer - Lock Screen Circular")
+                
+                NextPrayerLockScreenView(entry: .placeholder())
+                    .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
+                    .previewDisplayName("Next Prayer - Lock Screen Rectangular")
+                
+                NextPrayerLockScreenView(entry: .placeholder())
+                    .previewContext(WidgetPreviewContext(family: .accessoryInline))
+                    .previewDisplayName("Next Prayer - Lock Screen Inline")
+                
+                PrayerCountdownLockScreenView(entry: .placeholder())
+                    .previewContext(WidgetPreviewContext(family: .accessoryCircular))
+                    .previewDisplayName("Countdown - Lock Screen Circular")
+                
+                PrayerCountdownLockScreenView(entry: .placeholder())
+                    .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
+                    .previewDisplayName("Countdown - Lock Screen Rectangular")
+                
+                PrayerCountdownLockScreenView(entry: .placeholder())
+                    .previewContext(WidgetPreviewContext(family: .accessoryInline))
+                    .previewDisplayName("Countdown - Lock Screen Inline")
+            }
         }
     }
 }

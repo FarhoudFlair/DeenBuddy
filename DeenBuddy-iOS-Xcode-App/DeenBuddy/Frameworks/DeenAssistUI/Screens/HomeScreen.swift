@@ -114,18 +114,29 @@ public struct HomeScreen: View {
     
     @ViewBuilder
     private var headerView: some View {
-        VStack(spacing: 8) {
-            // Personalized greeting
-            if !settingsService.userName.isEmpty {
-                HStack {
-                    Text("Salam Alaykum, \(settingsService.userName)")
-                        .titleLarge()
-                        .foregroundColor(ColorPalette.textPrimary)
-                    
-                    Spacer()
+        VStack(spacing: 12) {
+            // Personalized greeting - always show prominently
+            VStack(spacing: 4) {
+                if !settingsService.userName.isEmpty {
+                    Text("Salaam Alaykum, \(settingsService.userName)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(ColorPalette.primary)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("Salaam Alaykum")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(ColorPalette.primary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.bottom, 4)
+                
+                Text("Welcome to your prayer companion")
+                    .font(.subheadline)
+                    .foregroundColor(ColorPalette.textSecondary)
+                    .multilineTextAlignment(.center)
             }
+            .padding(.bottom, 8)
             
             HStack {
                 VStack(alignment: .leading, spacing: 4) {

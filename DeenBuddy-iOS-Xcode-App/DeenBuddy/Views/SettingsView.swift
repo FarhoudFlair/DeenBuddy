@@ -10,6 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var viewModel: PrayerGuideViewModel
     @ObservedObject var themeManager: ThemeManager
+    @StateObject private var settingsService = SettingsService()
     @State private var prayerTimesViewModel: PrayerTimesViewModel?
     @State private var notificationsEnabled = true
     @State private var offlineDownloadsEnabled = true
@@ -20,6 +21,21 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // Personal Information Section
+                Section {
+                    profileSection
+                } header: {
+                    HStack {
+                        Image(systemName: "person.circle.fill")
+                            .foregroundColor(.islamicPrimaryGreen)
+                        Text("Personal Information")
+                    }
+                } footer: {
+                    Text("Your name will be used for personalized Islamic greetings and prayer notifications.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
                 // Prayer Settings
                 Section("Prayer Settings") {
                     Picker("Default Tradition", selection: $viewModel.selectedMadhab) {
@@ -41,13 +57,19 @@ struct SettingsView: View {
                             // TODO: Handle notification permission
                         }
                 }
-                
+
                 // App Settings
                 Section("App Settings") {
+                    
                     Picker("Theme", selection: $themeManager.currentTheme) {
                         ForEach(ThemeMode.allCases, id: \.self) { theme in
                             Text(theme.displayName).tag(theme)
                         }
+                    }
+                    .onChange(of: themeManager.currentTheme) { newTheme in
+                        // Update both theme manager and settings service
+                        themeManager.setTheme(newTheme)
+                        settingsService.theme = newTheme
                     }
 
                     Toggle("Offline Downloads", isOn: $offlineDownloadsEnabled)
@@ -108,6 +130,7 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .preferredColorScheme(themeManager.getColorScheme())
             .task {
                 if prayerTimesViewModel == nil {
                     prayerTimesViewModel = PrayerTimesViewModel(preview: true)
@@ -123,7 +146,67 @@ struct SettingsView: View {
             }
         }
     }
-    
+
+    // MARK: - Profile Section
+
+    private var profileSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.title2)
+                    .foregroundColor(.islamicPrimaryGreen)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Your Name")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.primary)
+
+                    Text("Used for personalized greetings")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Enter your full name", text: $settingsService.userName)
+                    .textFieldStyle(IslamicTextFieldStyle())
+                    .submitLabel(.done)
+                    .onSubmit {
+                        // Validate and save when user submits
+                        validateAndSaveName()
+                    }
+
+                if settingsService.userName.isEmpty {
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundColor(.islamicSecondaryGreen)
+
+                        Text("Adding your name enables personalized Islamic greetings")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                } else if !settingsService.userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.islamicPrimaryGreen)
+
+                        Text("Assalamu alaikum, \(settingsService.userName.trimmingCharacters(in: .whitespacesAndNewlines))!")
+                            .font(.caption)
+                            .foregroundColor(.islamicTextSecondary)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    // MARK: - Computed Properties
+
     private var offlineGuidesCount: Int {
         viewModel.prayerGuides.filter { $0.isAvailableOffline }.count
     }
@@ -145,6 +228,21 @@ struct SettingsView: View {
     private func openAppStore() {
         // TODO: Open App Store for rating
         print("Opening App Store")
+    }
+
+    // MARK: - Profile Validation
+
+    private func validateAndSaveName() {
+        // Trim whitespace and validate
+        let trimmedName = settingsService.userName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Update the settings service with the trimmed name
+        if trimmedName != settingsService.userName {
+            settingsService.userName = trimmedName
+        }
+
+        // The SettingsService automatically saves when userName changes
+        print("Name validated and saved: '\(trimmedName)'")
     }
 }
 
@@ -206,6 +304,25 @@ struct DataManagementView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Custom Text Field Style
+
+struct IslamicTextFieldStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(.systemBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.islamicPrimaryGreen.opacity(0.3), lineWidth: 1)
+            )
+            .font(.body)
     }
 }
 

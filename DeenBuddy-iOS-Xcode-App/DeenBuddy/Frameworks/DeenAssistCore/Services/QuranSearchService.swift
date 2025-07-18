@@ -420,6 +420,92 @@ public class QuranSearchService: ObservableObject {
         }
     }
 
+    /// Test case-insensitive search functionality
+    public func testCaseInsensitiveSearch() {
+        print("🔧 DEBUG: === Testing Case-Insensitive Search ===")
+
+        let testQueries = [
+            "Ayat al-Kursi",
+            "AYAT AL-KURSI",
+            "ayat al-kursi",
+            "Ayat Al-Kursi",
+            "KURSI",
+            "kursi",
+            "Kursi",
+            "THRONE VERSE",
+            "throne verse",
+            "Throne Verse"
+        ]
+
+        for query in testQueries {
+            print("🔧 DEBUG: Testing query: '\(query)'")
+
+            // Test famous verse recognition
+            let famousResults = checkForFamousVerses(query: query)
+            print("🔧 DEBUG: Famous verse matches: \(famousResults.count)")
+
+            // Test semantic expansion
+            let expandedTerms = semanticEngine.expandQuery(query)
+            print("🔧 DEBUG: Expanded terms: \(expandedTerms)")
+
+            // Test direct verse matching
+            if let ayatAlKursi = allVerses.first(where: { $0.surahNumber == 2 && $0.verseNumber == 255 }) {
+                let directMatch = ayatAlKursi.contains(text: query)
+                let semanticMatch = ayatAlKursi.semanticallyMatches(query: query, expandedTerms: expandedTerms)
+                print("🔧 DEBUG: Direct match: \(directMatch), Semantic match: \(semanticMatch)")
+            }
+
+            print("🔧 DEBUG: ---")
+        }
+
+        print("🔧 DEBUG: === End Case-Insensitive Test ===")
+    }
+
+    /// Comprehensive test for case-insensitive search functionality
+    public func runCaseInsensitiveTests() async {
+        print("🔧 DEBUG: === Running Comprehensive Case-Insensitive Tests ===")
+
+        let testCases = [
+            ("Ayat al-Kursi", "Mixed case with hyphens"),
+            ("AYAT AL-KURSI", "All uppercase with hyphens"),
+            ("ayat al-kursi", "All lowercase with hyphens"),
+            ("Ayat Al-Kursi", "Title case with hyphens"),
+            ("ayat al kursi", "Lowercase with spaces"),
+            ("AYAT AL KURSI", "Uppercase with spaces"),
+            ("Ayat Al Kursi", "Title case with spaces"),
+            ("KURSI", "Single word uppercase"),
+            ("kursi", "Single word lowercase"),
+            ("Kursi", "Single word title case"),
+            ("THRONE VERSE", "Alternative name uppercase"),
+            ("throne verse", "Alternative name lowercase"),
+            ("Throne Verse", "Alternative name title case")
+        ]
+
+        for (query, description) in testCases {
+            print("🔧 DEBUG: Testing '\(query)' (\(description))")
+
+            // Test the full search flow
+            await searchVerses(query: query)
+
+            let foundResults = !enhancedSearchResults.isEmpty
+            let hasAyatAlKursi = enhancedSearchResults.contains { result in
+                result.verse.surahNumber == 2 && result.verse.verseNumber == 255
+            }
+
+            print("🔧 DEBUG: Results found: \(foundResults), Contains Ayat al-Kursi: \(hasAyatAlKursi)")
+
+            if hasAyatAlKursi {
+                let ayatResult = enhancedSearchResults.first { $0.verse.surahNumber == 2 && $0.verse.verseNumber == 255 }
+                print("🔧 DEBUG: Ayat al-Kursi relevance score: \(ayatResult?.relevanceScore ?? 0)")
+                print("🔧 DEBUG: Match type: \(ayatResult?.matchType ?? .partial)")
+            }
+
+            print("🔧 DEBUG: ---")
+        }
+
+        print("🔧 DEBUG: === End Comprehensive Case-Insensitive Tests ===")
+    }
+
     // MARK: - Public Search Methods
     
     /// Perform comprehensive search across Quran verses
@@ -498,22 +584,50 @@ public class QuranSearchService: ObservableObject {
             "mankind": (114, 1)
         ]
 
-        // Check if query matches any famous verse
+        // Check if query matches any famous verse (case-insensitive)
         for (name, location) in famousVerses {
-            if queryLower.contains(name) || name.contains(queryLower) {
+            // Exact match check (case-insensitive)
+            if queryLower == name {
                 if let verse = allVerses.first(where: { $0.surahNumber == location.surah && $0.verseNumber == location.verse }) {
-                    print("🔧 DEBUG: Found famous verse match: \(name) -> \(verse.shortReference)")
+                    print("🔧 DEBUG: Found exact famous verse match: '\(name)' -> \(verse.shortReference)")
                     return [EnhancedSearchResult(
                         verse: verse,
                         relevanceScore: 10.0,
                         semanticScore: 10.0,
-                        combinedScore: 10.0,
+                        matchedText: name,
                         matchType: .exact,
                         highlightedText: verse.textTranslation,
-                        matchedTerms: [name],
-                        relatedVerses: verse.getRelatedVerses(from: allVerses, limit: 3),
                         contextSuggestions: [name, "monotheism", "unity", "protection"],
-                        explanation: "This is the famous verse known as '\(name)'"
+                        queryExpansion: QueryExpansion(
+                            originalQuery: name,
+                            expandedTerms: [name, "monotheism", "unity"],
+                            relatedConcepts: ["Tawhid", "Oneness"],
+                            suggestions: ["search by verse reference", "search by theme"]
+                        ),
+                        relatedVerses: verse.getRelatedVerses(from: allVerses, limit: 3)
+                    )]
+                }
+            }
+
+            // Partial match check (case-insensitive)
+            if queryLower.contains(name) || name.contains(queryLower) {
+                if let verse = allVerses.first(where: { $0.surahNumber == location.surah && $0.verseNumber == location.verse }) {
+                    print("🔧 DEBUG: Found partial famous verse match: '\(name)' -> \(verse.shortReference)")
+                    return [EnhancedSearchResult(
+                        verse: verse,
+                        relevanceScore: 9.0, // Slightly lower for partial matches
+                        semanticScore: 9.0,
+                        matchedText: name,
+                        matchType: .semantic,
+                        highlightedText: verse.textTranslation,
+                        contextSuggestions: [name, "monotheism", "unity", "protection"],
+                        queryExpansion: QueryExpansion(
+                            originalQuery: name,
+                            expandedTerms: [name, "monotheism", "unity"],
+                            relatedConcepts: ["Tawhid", "Oneness"],
+                            suggestions: ["search by verse reference", "search by theme"]
+                        ),
+                        relatedVerses: verse.getRelatedVerses(from: allVerses, limit: 3)
                     )]
                 }
             }
@@ -791,14 +905,15 @@ public class QuranSearchService: ObservableObject {
     /// Determine the type of query being performed
     private func determineQueryType(_ query: String) -> QueryType {
         let cleanQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        
+        let cleanQueryLower = cleanQuery.lowercased()
+
         // Check if it's a reference (e.g., "2:255", "Al-Baqarah 255")
         if cleanQuery.contains(":") && cleanQuery.components(separatedBy: ":").count == 2 {
             return .reference
         }
-        
-        // Check if it's a question
-        if cleanQuery.hasPrefix("what") || cleanQuery.hasPrefix("how") || cleanQuery.hasPrefix("why") || cleanQuery.hasPrefix("when") || cleanQuery.hasPrefix("where") {
+
+        // Check if it's a question (case-insensitive)
+        if cleanQueryLower.hasPrefix("what") || cleanQueryLower.hasPrefix("how") || cleanQueryLower.hasPrefix("why") || cleanQueryLower.hasPrefix("when") || cleanQueryLower.hasPrefix("where") {
             return .question
         }
         
@@ -807,9 +922,9 @@ public class QuranSearchService: ObservableObject {
             return .arabic
         }
         
-        // Check if it's a common theme
+        // Check if it's a common theme (case-insensitive)
         let commonThemes = ["prayer", "mercy", "guidance", "patience", "forgiveness", "paradise", "hell", "death", "life", "love", "fear", "knowledge", "wisdom", "justice", "peace"]
-        if commonThemes.contains(cleanQuery.lowercased()) {
+        if commonThemes.contains(cleanQueryLower) {
             return .theme
         }
         

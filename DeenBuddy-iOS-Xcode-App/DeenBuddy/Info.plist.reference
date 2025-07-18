@@ -43,7 +43,16 @@
 	<array>
 		<string>background-fetch</string>
 		<string>background-processing</string>
+		<string>location</string>
 	</array>
+	
+	<!-- Live Activities Support -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	
+	<!-- Live Activities Frequent Updates -->
+	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
 	
 	<!-- Background Task Identifiers -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
