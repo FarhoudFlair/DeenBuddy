@@ -5,7 +5,7 @@ public struct PrayerStreakView: View {
     
     // MARK: - Properties
     
-    @ObservedObject private var prayerTrackingService: any PrayerTrackingServiceProtocol
+    private let prayerTrackingService: any PrayerTrackingServiceProtocol
     
     // MARK: - State
     
@@ -74,12 +74,12 @@ public struct PrayerStreakView: View {
                     
                     Text("\(prayerTrackingService.currentStreak)")
                         .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .foregroundColor(ColorPalette.primary)
-                    
+                        .foregroundColor(.primary)
+
                     Text("Day Streak")
                         .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundColor(ColorPalette.secondary)
+                        .foregroundColor(.secondary)
                 }
                 
                 // Streak Description
@@ -88,7 +88,7 @@ public struct PrayerStreakView: View {
                         Text(streakMessage)
                             .font(.subheadline)
                             .multilineTextAlignment(.center)
-                            .foregroundColor(ColorPalette.secondary)
+                            .foregroundColor(.secondary)
                         
                         // Progress to next milestone
                         streakProgressView
@@ -96,7 +96,7 @@ public struct PrayerStreakView: View {
                         Text("Start your prayer streak today!")
                             .font(.subheadline)
                             .multilineTextAlignment(.center)
-                            .foregroundColor(ColorPalette.secondary)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
@@ -175,7 +175,7 @@ public struct PrayerStreakView: View {
                         Image(systemName: "chevron.right")
                     }
                 }
-                .foregroundColor(ColorPalette.primary)
+                .foregroundColor(.primary)
             }
             
             ModernCard {
@@ -257,7 +257,7 @@ public struct PrayerStreakView: View {
                 Text(motivationalMessage)
                     .font(.subheadline)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(ColorPalette.secondary)
+                    .foregroundColor(.secondary)
             }
             .padding()
         }
@@ -278,7 +278,7 @@ public struct PrayerStreakView: View {
                 Text(day)
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(ColorPalette.secondary)
+                    .foregroundColor(.secondary)
                     .frame(height: 20)
             }
             
@@ -301,7 +301,7 @@ public struct PrayerStreakView: View {
                         Text("\(day)")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .foregroundColor(completionRate > 0.5 ? .white : ColorPalette.primary)
+                            .foregroundColor(completionRate > 0.5 ? .white : .primary)
                     )
             }
         }
@@ -314,7 +314,7 @@ public struct PrayerStreakView: View {
         HStack {
             Text("Less")
                 .font(.caption)
-                .foregroundColor(ColorPalette.secondary)
+                .foregroundColor(.secondary)
             
             HStack(spacing: 2) {
                 ForEach([0.0, 0.25, 0.5, 0.75, 1.0], id: \.self) { rate in
@@ -326,7 +326,7 @@ public struct PrayerStreakView: View {
             
             Text("More")
                 .font(.caption)
-                .foregroundColor(ColorPalette.secondary)
+                .foregroundColor(.secondary)
         }
     }
     
@@ -341,13 +341,13 @@ public struct PrayerStreakView: View {
             HStack {
                 Text("Next milestone: \(nextMilestone) days")
                     .font(.caption)
-                    .foregroundColor(ColorPalette.secondary)
+                    .foregroundColor(.secondary)
                 
                 Spacer()
                 
                 Text("\(nextMilestone - prayerTrackingService.currentStreak) days to go")
                     .font(.caption)
-                    .foregroundColor(ColorPalette.secondary)
+                    .foregroundColor(.secondary)
             }
             
             ProgressView(value: progress)
@@ -404,12 +404,12 @@ public struct PrayerStreakView: View {
     
     private func getHeatMapColor(for completionRate: Double) -> Color {
         switch completionRate {
-        case 0: return ColorPalette.surface
-        case 0.01...0.25: return ColorPalette.primary.opacity(0.2)
-        case 0.26...0.5: return ColorPalette.primary.opacity(0.4)
-        case 0.51...0.75: return ColorPalette.primary.opacity(0.6)
-        case 0.76...1.0: return ColorPalette.primary.opacity(0.8)
-        default: return ColorPalette.surface
+        case 0: return Color.gray.opacity(0.1)
+        case 0.01...0.25: return Color.blue.opacity(0.2)
+        case 0.26...0.5: return Color.blue.opacity(0.4)
+        case 0.51...0.75: return Color.blue.opacity(0.6)
+        case 0.76...1.0: return Color.blue.opacity(0.8)
+        default: return Color.gray.opacity(0.1)
         }
     }
 }
@@ -431,7 +431,7 @@ private struct StreakHistoryRow: View {
                 
                 Text(startDate.formatted(date: .abbreviated, time: .omitted))
                     .font(.caption)
-                    .foregroundColor(ColorPalette.secondary)
+                    .foregroundColor(.secondary)
             }
             
             Spacer()
@@ -446,7 +446,7 @@ private struct StreakHistoryRow: View {
                 Text("\(days) days")
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(isActive ? .orange : ColorPalette.primary)
+                    .foregroundColor(isActive ? .orange : .primary)
             }
         }
     }
@@ -464,17 +464,17 @@ private struct AchievementCard: View {
             VStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.title2)
-                    .foregroundColor(isUnlocked ? color : ColorPalette.secondary)
-                
+                    .foregroundColor(isUnlocked ? color : .secondary)
+
                 Text(title)
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(isUnlocked ? ColorPalette.primary : ColorPalette.secondary)
-                
+                    .foregroundColor(isUnlocked ? .primary : .secondary)
+
                 Text(description)
                     .font(.caption)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(ColorPalette.secondary)
+                    .foregroundColor(.secondary)
             }
             .padding()
             .opacity(isUnlocked ? 1.0 : 0.6)

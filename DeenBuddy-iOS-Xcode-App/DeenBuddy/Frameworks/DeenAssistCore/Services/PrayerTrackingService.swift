@@ -69,7 +69,12 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         loadCachedData()
         calculateTodayStats()
     }
-    
+
+    deinit {
+        // Clean up notification observers
+        NotificationCenter.default.removeObserver(self)
+    }
+
     // MARK: - Setup Methods
     
     private func setupObservers() {
@@ -79,6 +84,77 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
             Task { @MainActor in
                 self?.calculateTodayStats()
             }
+        }
+
+        // Setup notification observers for prayer tracking actions
+        setupNotificationObservers()
+    }
+
+    private func setupNotificationObservers() {
+        // Listen for prayer completion from notifications
+        NotificationCenter.default.addObserver(
+            forName: .prayerMarkedAsPrayed,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let userInfo = notification.userInfo,
+                  let prayerString = userInfo["prayer"] as? String,
+                  let prayer = Prayer(rawValue: prayerString),
+                  let timestamp = userInfo["timestamp"] as? Date else {
+                return
+            }
+
+            let source = userInfo["source"] as? String ?? "unknown"
+            let action = userInfo["action"] as? String ?? "completed"
+
+            print("📱 Received prayer completion from \(source): \(prayer.displayName) - \(action)")
+
+            // Only log as completed if the action is "completed"
+            if action == "completed" {
+                Task { @MainActor in
+                    await self?.logPrayerCompletion(prayer, at: timestamp)
+                }
+            }
+        }
+
+        // Listen for notification taps (for analytics)
+        NotificationCenter.default.addObserver(
+            forName: .notificationTapped,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let userInfo = notification.userInfo,
+                  let prayerString = userInfo["prayer"] as? String,
+                  let prayer = Prayer(rawValue: prayerString) else {
+                return
+            }
+
+            let source = userInfo["source"] as? String ?? "unknown"
+            let action = userInfo["action"] as? String ?? "tapped"
+
+            print("📊 Prayer notification interaction: \(prayer.displayName) - \(action) from \(source)")
+
+            // Could add analytics tracking here
+        }
+
+        // Listen for notification dismissals (for analytics)
+        NotificationCenter.default.addObserver(
+            forName: .notificationDismissed,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let userInfo = notification.userInfo,
+                  let prayerString = userInfo["prayer"] as? String,
+                  let prayer = Prayer(rawValue: prayerString) else {
+                return
+            }
+
+            let source = userInfo["source"] as? String ?? "unknown"
+            let action = userInfo["action"] as? String ?? "dismissed"
+
+            print("📊 Prayer notification dismissed: \(prayer.displayName) - \(action) from \(source)")
+
+            // Could add analytics tracking here
         }
     }
     

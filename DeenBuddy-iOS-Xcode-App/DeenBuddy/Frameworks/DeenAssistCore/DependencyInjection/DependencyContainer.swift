@@ -14,6 +14,7 @@ public class DependencyContainer: ObservableObject {
     @Published public private(set) var settingsService: any SettingsServiceProtocol
     @Published public private(set) var prayerTrackingService: any PrayerTrackingServiceProtocol
     @Published public private(set) var prayerAnalyticsService: PrayerAnalyticsService
+    @Published public private(set) var prayerTrackingCoordinator: PrayerTrackingCoordinator
     @Published public private(set) var tasbihService: any TasbihServiceProtocol
     @Published public private(set) var islamicCalendarService: any IslamicCalendarServiceProtocol
     @Published public private(set) var backgroundTaskManager: BackgroundTaskManager
@@ -35,6 +36,7 @@ public class DependencyContainer: ObservableObject {
         settingsService: any SettingsServiceProtocol,
         prayerTrackingService: any PrayerTrackingServiceProtocol,
         prayerAnalyticsService: PrayerAnalyticsService,
+        prayerTrackingCoordinator: PrayerTrackingCoordinator,
         tasbihService: any TasbihServiceProtocol,
         islamicCalendarService: any IslamicCalendarServiceProtocol,
         backgroundTaskManager: BackgroundTaskManager,
@@ -49,6 +51,7 @@ public class DependencyContainer: ObservableObject {
         self.settingsService = settingsService
         self.prayerTrackingService = prayerTrackingService
         self.prayerAnalyticsService = prayerAnalyticsService
+        self.prayerTrackingCoordinator = prayerTrackingCoordinator
         self.tasbihService = tasbihService
         self.islamicCalendarService = islamicCalendarService
         self.backgroundTaskManager = backgroundTaskManager
@@ -129,6 +132,13 @@ public class DependencyContainer: ObservableObject {
             prayerTrackingService: resolvedPrayerTrackingService
         ) }
 
+        let resolvedPrayerTrackingCoordinator = await MainActor.run { PrayerTrackingCoordinator(
+            prayerTimeService: resolvedPrayerTimeService,
+            prayerTrackingService: resolvedPrayerTrackingService,
+            notificationService: resolvedNotificationService,
+            settingsService: resolvedSettingsService
+        ) }
+
         let resolvedTasbihService = await MainActor.run { TasbihService() }
 
         let resolvedIslamicCalendarService = await MainActor.run { IslamicCalendarService() }
@@ -141,6 +151,7 @@ public class DependencyContainer: ObservableObject {
             settingsService: resolvedSettingsService,
             prayerTrackingService: resolvedPrayerTrackingService,
             prayerAnalyticsService: resolvedPrayerAnalyticsService,
+            prayerTrackingCoordinator: resolvedPrayerTrackingCoordinator,
             tasbihService: resolvedTasbihService,
             islamicCalendarService: resolvedIslamicCalendarService,
             backgroundTaskManager: resolvedBackgroundTaskManager,
@@ -335,6 +346,13 @@ public extension DependencyContainer {
             prayerTrackingService: resolvedPrayerTrackingService
         )
 
+        let resolvedPrayerTrackingCoordinator = PrayerTrackingCoordinator(
+            prayerTimeService: resolvedPrayerTimeService,
+            prayerTrackingService: resolvedPrayerTrackingService,
+            notificationService: resolvedNotificationService,
+            settingsService: resolvedSettingsService
+        )
+
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
 
         let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
@@ -359,6 +377,7 @@ public extension DependencyContainer {
             settingsService: resolvedSettingsService,
             prayerTrackingService: resolvedPrayerTrackingService,
             prayerAnalyticsService: resolvedPrayerAnalyticsService,
+            prayerTrackingCoordinator: resolvedPrayerTrackingCoordinator,
             tasbihService: resolvedTasbihService,
             islamicCalendarService: resolvedIslamicCalendarService,
             backgroundTaskManager: resolvedBackgroundTaskManager,
@@ -414,6 +433,13 @@ public extension DependencyContainer {
             prayerTrackingService: resolvedPrayerTrackingService
         )
 
+        let resolvedPrayerTrackingCoordinator = PrayerTrackingCoordinator(
+            prayerTimeService: resolvedPrayerTimeService,
+            prayerTrackingService: resolvedPrayerTrackingService,
+            notificationService: resolvedNotificationService,
+            settingsService: resolvedSettingsService
+        )
+
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
 
         let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
@@ -426,6 +452,7 @@ public extension DependencyContainer {
             settingsService: resolvedSettingsService,
             prayerTrackingService: resolvedPrayerTrackingService,
             prayerAnalyticsService: resolvedPrayerAnalyticsService,
+            prayerTrackingCoordinator: resolvedPrayerTrackingCoordinator,
             tasbihService: resolvedTasbihService,
             islamicCalendarService: resolvedIslamicCalendarService,
             backgroundTaskManager: resolvedBackgroundTaskManager,

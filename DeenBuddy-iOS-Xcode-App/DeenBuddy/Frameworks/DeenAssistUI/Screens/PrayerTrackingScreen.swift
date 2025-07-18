@@ -276,19 +276,19 @@ public struct PrayerTrackingScreen: View {
                 }
                 
                 HStack(spacing: 20) {
-                    StatItem(
+                    PrayerStatItem(
                         title: "This Week",
                         value: "85%",
                         icon: "calendar.badge.clock"
                     )
-                    
-                    StatItem(
+
+                    PrayerStatItem(
                         title: "This Month",
                         value: "78%",
                         icon: "chart.line.uptrend.xyaxis"
                     )
-                    
-                    StatItem(
+
+                    PrayerStatItem(
                         title: "Best Streak",
                         value: "12 days",
                         icon: "flame.fill"

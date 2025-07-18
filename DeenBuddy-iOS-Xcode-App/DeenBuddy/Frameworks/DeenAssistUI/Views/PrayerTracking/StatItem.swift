@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Reusable component for displaying statistics with icon, title, and value
-public struct StatItem: View {
+public struct PrayerStatItem: View {
     
     // MARK: - Properties
     
@@ -58,23 +58,23 @@ public struct StatItem: View {
 // MARK: - Preview
 
 #if DEBUG
-struct StatItem_Previews: PreviewProvider {
+struct PrayerStatItem_Previews: PreviewProvider {
     static var previews: some View {
         HStack(spacing: 20) {
-            StatItem(
+            PrayerStatItem(
                 title: "This Week",
                 value: "85%",
                 icon: "calendar.badge.clock"
             )
-            
-            StatItem(
+
+            PrayerStatItem(
                 title: "This Month",
                 value: "78%",
                 icon: "chart.line.uptrend.xyaxis",
                 color: .green
             )
-            
-            StatItem(
+
+            PrayerStatItem(
                 title: "Best Streak",
                 value: "12 days",
                 icon: "flame.fill",
@@ -82,7 +82,7 @@ struct StatItem_Previews: PreviewProvider {
             )
         }
         .padding()
-        .background(ColorPalette.background)
+        .background(Color.gray.opacity(0.1))
         .previewLayout(.sizeThatFits)
     }
 }

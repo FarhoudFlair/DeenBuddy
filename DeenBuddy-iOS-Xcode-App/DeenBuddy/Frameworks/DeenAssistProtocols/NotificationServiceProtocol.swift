@@ -18,9 +18,16 @@ public protocol NotificationServiceProtocol: ObservableObject {
     
     /// Cancel all scheduled notifications
     func cancelAllNotifications() async
-    
+
     /// Cancel specific prayer notifications
     func cancelNotifications(for prayer: Prayer) async
+
+    /// Schedule a prayer tracking notification with interactive actions
+    func schedulePrayerTrackingNotification(
+        for prayer: Prayer,
+        at prayerTime: Date,
+        reminderMinutes: Int
+    ) async throws
 
     /// Get current notification settings
     func getNotificationSettings() -> NotificationSettings

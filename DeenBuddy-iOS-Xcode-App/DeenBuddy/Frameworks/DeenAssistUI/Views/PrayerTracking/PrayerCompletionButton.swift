@@ -120,7 +120,7 @@ public struct PrayerCompletionButton: View {
         if isCompleted {
             return prayer.color.opacity(0.05)
         } else {
-            return ColorPalette.background
+            return Color.gray.opacity(0.1)
         }
     }
     
@@ -190,7 +190,7 @@ struct PrayerCompletionButton_Previews: PreviewProvider {
             )
         }
         .padding()
-        .background(ColorPalette.background)
+        .background(Color.gray.opacity(0.1))
         .previewLayout(.sizeThatFits)
     }
 }
