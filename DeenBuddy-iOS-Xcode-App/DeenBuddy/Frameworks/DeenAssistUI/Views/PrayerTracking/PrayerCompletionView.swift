@@ -6,7 +6,7 @@ public struct PrayerCompletionView: View {
     // MARK: - Properties
     
     let prayer: Prayer
-    @ObservedObject private var prayerTrackingService: any PrayerTrackingServiceProtocol
+    private let prayerTrackingService: any PrayerTrackingServiceProtocol
     private let onDismiss: () -> Void
     
     // MARK: - State
@@ -204,7 +204,7 @@ public struct PrayerCompletionView: View {
                 .fontWeight(.medium)
             
             HStack(spacing: 12) {
-                ForEach([CongregationType.individual, CongregationType.congregation, CongregationType.family], id: \.self) { type in
+                ForEach([CongregationType.individual, CongregationType.mosque, CongregationType.home], id: \.self) { type in
                     Button(action: {
                         selectedCongregation = type
                     }) {
@@ -236,7 +236,7 @@ public struct PrayerCompletionView: View {
                 .fontWeight(.medium)
             
             HStack(spacing: 12) {
-                ForEach([PrayerMood.peaceful, PrayerMood.grateful, PrayerMood.focused, PrayerMood.rushed], id: \.self) { mood in
+                ForEach([PrayerMood.excellent, PrayerMood.good, PrayerMood.neutral, PrayerMood.difficult], id: \.self) { mood in
                     Button(action: {
                         selectedMood = selectedMood == mood ? nil : mood
                     }) {
@@ -333,42 +333,4 @@ public struct PrayerCompletionView: View {
 }
 
 // MARK: - Extensions
-
-private extension PrayerMethod {
-    var displayName: String {
-        switch self {
-        case .individual: return "Individual"
-        case .congregation: return "Congregation"
-        }
-    }
-}
-
-private extension CongregationType {
-    var displayName: String {
-        switch self {
-        case .individual: return "Individual"
-        case .congregation: return "Mosque"
-        case .family: return "Family"
-        }
-    }
-}
-
-private extension PrayerMood {
-    var displayName: String {
-        switch self {
-        case .peaceful: return "Peaceful"
-        case .grateful: return "Grateful"
-        case .focused: return "Focused"
-        case .rushed: return "Rushed"
-        }
-    }
-    
-    var emoji: String {
-        switch self {
-        case .peaceful: return "😌"
-        case .grateful: return "🙏"
-        case .focused: return "🧘"
-        case .rushed: return "⏰"
-        }
-    }
-}
+// Note: displayName and emoji properties are already defined in PrayerTracking.swift

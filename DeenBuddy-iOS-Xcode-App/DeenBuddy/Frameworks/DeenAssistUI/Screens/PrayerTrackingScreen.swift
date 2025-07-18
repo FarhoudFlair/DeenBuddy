@@ -7,9 +7,9 @@ public struct PrayerTrackingScreen: View {
     
     // MARK: - Services
     
-    @ObservedObject private var prayerTrackingService: any PrayerTrackingServiceProtocol
-    @ObservedObject private var prayerTimeService: any PrayerTimeServiceProtocol
-    @ObservedObject private var notificationService: any NotificationServiceProtocol
+    private let prayerTrackingService: any PrayerTrackingServiceProtocol
+    private let prayerTimeService: any PrayerTimeServiceProtocol
+    private let notificationService: any NotificationServiceProtocol
     
     // MARK: - State
     

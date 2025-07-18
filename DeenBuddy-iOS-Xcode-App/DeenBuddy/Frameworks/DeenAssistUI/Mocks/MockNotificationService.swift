@@ -36,7 +36,18 @@ public class MockNotificationService: NotificationServiceProtocol {
     public func cancelNotifications(for prayer: Prayer) async {
         print("Mock: Cancelled notifications for \(prayer.displayName)")
     }
-    
+
+    public func schedulePrayerTrackingNotification(
+        for prayer: Prayer,
+        at prayerTime: Date,
+        reminderMinutes: Int
+    ) async throws {
+        // Simulate scheduling delay
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        print("Mock: Scheduled prayer tracking notification for \(prayer.displayName) at \(prayerTime) with \(reminderMinutes) minute reminder")
+    }
+
     // MARK: - Missing Protocol Methods
     
     public func getNotificationSettings() -> NotificationSettings {

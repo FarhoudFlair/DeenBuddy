@@ -364,6 +364,23 @@ extension Color {
             settingsService: MockSettingsService(),
             locationService: MockLocationService()
         ),
+        prayerAnalyticsService: PrayerAnalyticsService(
+            prayerTrackingService: PrayerTrackingService(
+                prayerTimeService: MockPrayerTimeService(),
+                settingsService: MockSettingsService(),
+                locationService: MockLocationService()
+            )
+        ),
+        prayerTrackingCoordinator: PrayerTrackingCoordinator(
+            prayerTimeService: MockPrayerTimeService(),
+            prayerTrackingService: PrayerTrackingService(
+                prayerTimeService: MockPrayerTimeService(),
+                settingsService: MockSettingsService(),
+                locationService: MockLocationService()
+            ),
+            notificationService: MockNotificationService(),
+            settingsService: MockSettingsService()
+        ),
         tasbihService: TasbihService(),
         islamicCalendarService: IslamicCalendarService(),
         backgroundTaskManager: BackgroundTaskManager(),

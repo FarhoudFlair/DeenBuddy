@@ -1,7 +1,5 @@
 import SwiftUI
 import CoreLocation
-import DeenAssistCore
-import DeenAssistProtocols
 
 /// Diagnostic popup showing detailed location information
 public struct LocationDiagnosticPopup: View {

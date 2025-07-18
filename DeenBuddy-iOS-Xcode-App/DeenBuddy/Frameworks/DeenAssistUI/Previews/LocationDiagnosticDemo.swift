@@ -1,7 +1,5 @@
 import SwiftUI
 import CoreLocation
-import DeenAssistCore
-import DeenAssistProtocols
 
 /// Demo view showing the location diagnostic feature
 public struct LocationDiagnosticDemo: View {

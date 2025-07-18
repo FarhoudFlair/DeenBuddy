@@ -6,7 +6,7 @@ public struct PrayerAnalyticsView: View {
     
     // MARK: - Properties
     
-    @ObservedObject private var prayerTrackingService: any PrayerTrackingServiceProtocol
+    private let prayerTrackingService: any PrayerTrackingServiceProtocol
     private let onDismiss: () -> Void
     
     // MARK: - State
@@ -302,18 +302,7 @@ public struct PrayerAnalyticsView: View {
 }
 
 // MARK: - Supporting Types
-
-private enum AnalyticsPeriod: CaseIterable {
-    case week, month, year
-    
-    var title: String {
-        switch self {
-        case .week: return "Week"
-        case .month: return "Month"
-        case .year: return "Year"
-        }
-    }
-}
+// Note: Using AnalyticsPeriod from PrayerAnalyticsService
 
 private enum AnalyticsMetric: CaseIterable {
     case completion, streak, timing
