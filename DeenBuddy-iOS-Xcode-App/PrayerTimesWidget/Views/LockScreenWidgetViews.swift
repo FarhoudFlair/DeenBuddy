@@ -1,256 +1,420 @@
 import SwiftUI
 import WidgetKit
 
-// MARK: - Next Prayer Lock Screen Views
+// MARK: - Lock Screen Widget Views (iOS 16+)
 
-/// Circular lock screen widget for next prayer
-struct NextPrayerCircularView: View {
+@available(iOS 16.0, *)
+struct NextPrayerLockScreenView: View {
     let entry: PrayerWidgetEntry
     
+    @Environment(\.widgetFamily) var family
+    @Environment(\.colorScheme) var colorScheme
+    
     var body: some View {
-        ZStack {
-            AccessoryWidgetBackground()
-            
-            VStack(spacing: 2) {
-                if let nextPrayer = entry.widgetData.nextPrayer {
-                    // Prayer name
-                    Text(nextPrayer.prayer.displayName)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .minimumScaleFactor(0.8)
-                        .lineLimit(1)
-                    
-                    // Countdown
-                    Text(entry.widgetData.formattedTimeUntilNext)
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
-                } else {
-                    Text("No Prayer")
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                }
-            }
+        switch family {
+        case .accessoryCircular:
+            CircularNextPrayerView(entry: entry)
+        case .accessoryRectangular:
+            RectangularNextPrayerView(entry: entry)
+        case .accessoryInline:
+            InlineNextPrayerView(entry: entry)
+        default:
+            EmptyView()
         }
     }
 }
 
-/// Rectangular lock screen widget for next prayer
-struct NextPrayerRectangularView: View {
+@available(iOS 16.0, *)
+struct PrayerCountdownLockScreenView: View {
+    let entry: PrayerWidgetEntry
+    
+    @Environment(\.widgetFamily) var family
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        switch family {
+        case .accessoryCircular:
+            CircularCountdownView(entry: entry)
+        case .accessoryRectangular:
+            RectangularCountdownView(entry: entry)
+        case .accessoryInline:
+            InlineCountdownView(entry: entry)
+        default:
+            EmptyView()
+        }
+    }
+}
+
+// MARK: - Circular Lock Screen Views
+
+@available(iOS 16.0, *)
+struct CircularNextPrayerView: View {
     let entry: PrayerWidgetEntry
     
     var body: some View {
         ZStack {
-            AccessoryWidgetBackground()
+            // Background circle
+            Circle()
+                .fill(.quaternary)
+                .frame(width: 42, height: 42)
             
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(spacing: 1) {
+                // Islamic symbol
+                Text("☪")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                
+                // Next prayer info
                 if let nextPrayer = entry.widgetData.nextPrayer {
-                    // Header with next prayer
-                    HStack {
-                        Text("Next:")
-                            .font(.caption2)
-                            .fontWeight(.medium)
-                            .opacity(0.8)
+                    Text(nextPrayer.displayName.prefix(3))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    
+                    Text(formatTime(nextPrayer.time))
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else {
+                    Text("--")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .accessibilityLabel(accessibilityLabel)
+    }
+    
+    private var accessibilityLabel: String {
+        if let nextPrayer = entry.widgetData.nextPrayer {
+            return "Next prayer: \(nextPrayer.displayName) at \(formatTime(nextPrayer.time))"
+        } else {
+            return "No prayer data available"
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+struct CircularCountdownView: View {
+    let entry: PrayerWidgetEntry
+    
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(.quaternary)
+                .frame(width: 42, height: 42)
+            
+            VStack(spacing: 1) {
+                // Islamic symbol
+                Text("☪")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                
+                // Countdown
+                if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+                    let (hours, minutes) = parseTimeInterval(timeUntil)
+                    
+                    if hours > 0 {
+                        Text("\(hours)h")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.primary)
                         
-                        Text(nextPrayer.prayer.displayName)
-                            .font(.caption2)
-                            .fontWeight(.bold)
+                        Text("\(minutes)m")
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("\(minutes)")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.primary)
                         
-                        Spacer()
-                        
-                        Text(formatTime(nextPrayer.time))
-                            .font(.caption2)
-                            .fontWeight(.bold)
+                        Text("min")
+                            .font(.system(size: 7))
+                            .foregroundStyle(.secondary)
                     }
-                    
-                    // Countdown
-                    Text("in \(entry.widgetData.formattedTimeUntilNext)")
-                        .font(.caption2)
-                        .opacity(0.8)
                 } else {
-                    Text("No upcoming prayers")
-                        .font(.caption2)
-                        .fontWeight(.medium)
+                    Text("Now")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.orange)
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
         }
+        .accessibilityLabel(countdownAccessibilityLabel)
     }
     
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-}
-
-/// Inline lock screen widget for next prayer
-struct NextPrayerInlineView: View {
-    let entry: PrayerWidgetEntry
-    
-    var body: some View {
-        HStack(spacing: 4) {
-            if let nextPrayer = entry.widgetData.nextPrayer {
-                Text("Next:")
-                    .font(.caption2)
-                    .opacity(0.8)
-                
-                Text(nextPrayer.prayer.displayName)
-                    .font(.caption2)
-                    .fontWeight(.medium)
-                
-                Text("in \(entry.widgetData.formattedTimeUntilNext)")
-                    .font(.caption2)
-                    .opacity(0.8)
-            } else {
-                Text("No upcoming prayers")
-                    .font(.caption2)
-            }
+    private var countdownAccessibilityLabel: String {
+        if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+            let (hours, minutes) = parseTimeInterval(timeUntil)
+            let timeString = hours > 0 ? "\(hours) hours and \(minutes) minutes" : "\(minutes) minutes"
+            return "Time until next prayer: \(timeString)"
+        } else {
+            return "Prayer time now"
         }
     }
 }
 
-// MARK: - Today's Prayer Times Lock Screen Views
+// MARK: - Rectangular Lock Screen Views
 
-/// Rectangular lock screen widget showing next 3 prayers
-struct TodaysPrayerTimesRectangularView: View {
+@available(iOS 16.0, *)
+struct RectangularNextPrayerView: View {
     let entry: PrayerWidgetEntry
     
     var body: some View {
-        ZStack {
-            AccessoryWidgetBackground()
+        HStack(spacing: 8) {
+            // Islamic symbol
+            Text("☪")
+                .font(.system(size: 16))
+                .foregroundStyle(.secondary)
             
             VStack(alignment: .leading, spacing: 1) {
-                let upcomingPrayers = getUpcomingPrayers()
-                
-                if !upcomingPrayers.isEmpty {
-                    ForEach(upcomingPrayers.prefix(3), id: \.prayer) { prayerTime in
-                        HStack {
-                            Text(prayerTime.prayer.displayName)
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                if let nextPrayer = entry.widgetData.nextPrayer {
+                    // Prayer name
+                    Text(nextPrayer.displayName)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    
+                    // Time and location
+                    HStack(spacing: 4) {
+                        Text(formatTime(nextPrayer.time))
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                        
+                        if !entry.widgetData.location.isEmpty {
+                            Text("•")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
                             
-                            Spacer()
-                            
-                            Text(formatTime(prayerTime.time))
-                                .font(.caption2)
-                                .fontWeight(.bold)
+                            Text(entry.widgetData.location)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(1)
                         }
                     }
                 } else {
-                    Text("No upcoming prayers")
-                        .font(.caption2)
-                        .fontWeight(.medium)
+                    Text("No Prayer Data")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            
+            Spacer()
         }
+        .padding(.horizontal, 4)
+        .accessibilityLabel(rectangularAccessibilityLabel)
     }
     
-    private func getUpcomingPrayers() -> [PrayerTime] {
-        let now = Date()
-        return entry.widgetData.todaysPrayerTimes.filter { $0.time > now }
-    }
-    
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+    private var rectangularAccessibilityLabel: String {
+        if let nextPrayer = entry.widgetData.nextPrayer {
+            return "Next prayer: \(nextPrayer.displayName) at \(formatTime(nextPrayer.time))"
+        } else {
+            return "No prayer data available"
+        }
     }
 }
 
-// MARK: - Prayer Countdown Lock Screen Views
-
-/// Circular lock screen widget for prayer countdown
-struct PrayerCountdownCircularView: View {
+@available(iOS 16.0, *)
+struct RectangularCountdownView: View {
     let entry: PrayerWidgetEntry
     
     var body: some View {
-        ZStack {
-            AccessoryWidgetBackground()
+        HStack(spacing: 8) {
+            // Islamic symbol
+            Text("☪")
+                .font(.system(size: 16))
+                .foregroundStyle(.secondary)
             
-            VStack(spacing: 1) {
+            VStack(alignment: .leading, spacing: 1) {
                 if let nextPrayer = entry.widgetData.nextPrayer {
-                    // Time until next prayer
-                    Text(entry.widgetData.formattedTimeUntilNext)
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .minimumScaleFactor(0.7)
+                    // Prayer name
+                    Text(nextPrayer.displayName)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                     
-                    // Prayer name
-                    Text(nextPrayer.prayer.displayName)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .minimumScaleFactor(0.8)
-                        .lineLimit(1)
-                        .opacity(0.8)
+                    // Countdown
+                    if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+                        let (hours, minutes) = parseTimeInterval(timeUntil)
+                        
+                        if hours > 0 {
+                            Text("\(hours)h \(minutes)m remaining")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("\(minutes) minutes remaining")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Prayer time now")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(.orange)
+                    }
                 } else {
-                    Text("—")
-                        .font(.caption2)
-                        .fontWeight(.bold)
+                    Text("No Prayer Data")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                 }
             }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 4)
+        .accessibilityLabel(rectangularCountdownAccessibilityLabel)
+    }
+    
+    private var rectangularCountdownAccessibilityLabel: String {
+        if let nextPrayer = entry.widgetData.nextPrayer {
+            if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+                let (hours, minutes) = parseTimeInterval(timeUntil)
+                let timeString = hours > 0 ? "\(hours) hours and \(minutes) minutes" : "\(minutes) minutes"
+                return "Next prayer: \(nextPrayer.displayName), \(timeString) remaining"
+            } else {
+                return "Prayer time now: \(nextPrayer.displayName)"
+            }
+        } else {
+            return "No prayer data available"
         }
     }
 }
 
-/// Inline lock screen widget for prayer countdown
-struct PrayerCountdownInlineView: View {
+// MARK: - Inline Lock Screen Views
+
+@available(iOS 16.0, *)
+struct InlineNextPrayerView: View {
     let entry: PrayerWidgetEntry
     
     var body: some View {
         HStack(spacing: 4) {
+            // Islamic symbol
+            Text("☪")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            
             if let nextPrayer = entry.widgetData.nextPrayer {
-                Text(nextPrayer.prayer.displayName)
-                    .font(.caption2)
-                    .fontWeight(.medium)
+                Text(nextPrayer.displayName)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary)
                 
-                Text("in \(entry.widgetData.formattedTimeUntilNext)")
-                    .font(.caption2)
-                    .opacity(0.8)
+                Text("•")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                
+                Text(formatTime(nextPrayer.time))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             } else {
-                Text("No upcoming prayers")
-                    .font(.caption2)
+                Text("No data")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
+        }
+        .accessibilityLabel(inlineAccessibilityLabel)
+    }
+    
+    private var inlineAccessibilityLabel: String {
+        if let nextPrayer = entry.widgetData.nextPrayer {
+            return "Next prayer: \(nextPrayer.displayName) at \(formatTime(nextPrayer.time))"
+        } else {
+            return "No prayer data available"
         }
     }
 }
 
-// MARK: - Preview
+@available(iOS 16.0, *)
+struct InlineCountdownView: View {
+    let entry: PrayerWidgetEntry
+    
+    var body: some View {
+        HStack(spacing: 4) {
+            // Islamic symbol
+            Text("☪")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            
+            if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+                let (hours, minutes) = parseTimeInterval(timeUntil)
+                
+                if hours > 0 {
+                    Text("\(hours)h \(minutes)m")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.primary)
+                } else {
+                    Text("\(minutes)m")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.primary)
+                }
+                
+                Text("left")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Prayer time now")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.orange)
+            }
+        }
+        .accessibilityLabel(inlineCountdownAccessibilityLabel)
+    }
+    
+    private var inlineCountdownAccessibilityLabel: String {
+        if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+            let (hours, minutes) = parseTimeInterval(timeUntil)
+            let timeString = hours > 0 ? "\(hours) hours and \(minutes) minutes" : "\(minutes) minutes"
+            return "Time until next prayer: \(timeString)"
+        } else {
+            return "Prayer time now"
+        }
+    }
+}
 
-#if DEBUG
+// MARK: - Helper Functions
+
+private func formatTime(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+}
+
+private func parseTimeInterval(_ interval: TimeInterval) -> (hours: Int, minutes: Int) {
+    let totalMinutes = Int(interval) / 60
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    return (hours, minutes)
+}
+
+// MARK: - Previews
+
+@available(iOS 16.0, *)
 struct LockScreenWidgetViews_Previews: PreviewProvider {
     static var previews: some View {
         Group {
-            NextPrayerCircularView(entry: .placeholder())
+            // Circular previews
+            NextPrayerLockScreenView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .accessoryCircular))
                 .previewDisplayName("Next Prayer - Circular")
             
-            NextPrayerRectangularView(entry: .placeholder())
+            PrayerCountdownLockScreenView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryCircular))
+                .previewDisplayName("Countdown - Circular")
+            
+            // Rectangular previews
+            NextPrayerLockScreenView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
                 .previewDisplayName("Next Prayer - Rectangular")
             
-            NextPrayerInlineView(entry: .placeholder())
+            PrayerCountdownLockScreenView(entry: .placeholder())
+                .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
+                .previewDisplayName("Countdown - Rectangular")
+            
+            // Inline previews
+            NextPrayerLockScreenView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .accessoryInline))
                 .previewDisplayName("Next Prayer - Inline")
             
-            TodaysPrayerTimesRectangularView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryRectangular))
-                .previewDisplayName("Today's Prayers - Rectangular")
-            
-            PrayerCountdownCircularView(entry: .placeholder())
-                .previewContext(WidgetPreviewContext(family: .accessoryCircular))
-                .previewDisplayName("Prayer Countdown - Circular")
-            
-            PrayerCountdownInlineView(entry: .placeholder())
+            PrayerCountdownLockScreenView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .accessoryInline))
-                .previewDisplayName("Prayer Countdown - Inline")
+                .previewDisplayName("Countdown - Inline")
         }
     }
 }
-#endif

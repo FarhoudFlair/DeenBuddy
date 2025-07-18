@@ -35,14 +35,14 @@ struct QuranDataStatusView: View {
             HStack {
                 Image(systemName: "cloud.fill")
                     .foregroundColor(.blue)
-                Text("Loading Complete Quran Data...")
+                Text("Loading Quran data...")
                     .font(.headline)
                 Spacer()
             }
-            
+
             ProgressView(value: searchService.loadingProgress)
                 .progressViewStyle(LinearProgressViewStyle())
-            
+
             Text("\(Int(searchService.loadingProgress * 100))% Complete")
                 .font(.caption)
                 .foregroundColor(.secondary)

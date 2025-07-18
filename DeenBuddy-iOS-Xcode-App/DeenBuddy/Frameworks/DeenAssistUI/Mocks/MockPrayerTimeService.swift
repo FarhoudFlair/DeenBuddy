@@ -71,6 +71,16 @@ public class MockPrayerTimeService: PrayerTimeServiceProtocol {
         return mockLocation
     }
     
+    public func triggerDynamicIslandForNextPrayer() async {
+        // Mock implementation - just print for debugging
+        print("Mock: triggerDynamicIslandForNextPrayer called")
+        if let next = nextPrayer {
+            print("Mock: Would trigger Dynamic Island for \(next.prayer.displayName) at \(next.time)")
+        } else {
+            print("Mock: No next prayer available")
+        }
+    }
+    
     private func generateMockPrayerTimes(for date: Date = Date()) -> [PrayerTime] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: date)

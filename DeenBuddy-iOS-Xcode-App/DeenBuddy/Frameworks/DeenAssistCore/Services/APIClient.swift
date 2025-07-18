@@ -76,7 +76,7 @@ public class APIClient: APIClientProtocol, ObservableObject {
         
         // Build request
         let methodId = calculationMethodId(for: calculationMethod)
-        let schoolId = madhab == .hanafi ? 1 : 0
+        let schoolId = madhabSchoolId(for: madhab)
         
         let endpoint = APIEndpoint.timings(
             latitude: location.latitude,
@@ -338,6 +338,14 @@ public class APIClient: APIClientProtocol, ObservableObject {
         case .kuwait: return 9
         case .qatar: return 10
         case .singapore: return 11
+        }
+    }
+
+    private func madhabSchoolId(for madhab: Madhab) -> Int {
+        switch madhab {
+        case .hanafi: return 1  // Hanafi school
+        case .shafi: return 0   // Shafi'i school (default, includes Maliki/Hanbali)
+        case .jafari: return 0  // Use Shafi'i as closest approximation for API
         }
     }
 }

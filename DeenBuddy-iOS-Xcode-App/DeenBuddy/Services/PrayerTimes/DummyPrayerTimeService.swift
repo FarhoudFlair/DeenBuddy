@@ -28,4 +28,8 @@ public class DummyPrayerTimeService: PrayerTimeServiceProtocol {
     public func getCurrentLocation() async throws -> CLLocation {
         throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Dummy service cannot provide location"])
     }
+    
+    public func triggerDynamicIslandForNextPrayer() async {
+        // Dummy implementation - no-op
+    }
 }

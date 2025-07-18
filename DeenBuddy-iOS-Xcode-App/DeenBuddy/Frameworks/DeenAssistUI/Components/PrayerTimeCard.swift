@@ -24,7 +24,7 @@ public struct PrayerTimeCard: View {
 
                         Text("\(prayer.prayer.defaultRakahCount) rakahs")
                             .caption()
-                            .foregroundColor(ColorPalette.textTertiary)
+                            .foregroundColor(ColorPalette.rakahText)
                     }
 
                     if isNext {

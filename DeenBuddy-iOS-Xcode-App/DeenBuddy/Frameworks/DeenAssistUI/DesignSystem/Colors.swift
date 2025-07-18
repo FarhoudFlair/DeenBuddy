@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Main color palette for the Deen Assist app
+/// Main color palette for the DeenBuddy app
 public struct ColorPalette {
     
     // MARK: - Primary Colors
@@ -26,6 +26,11 @@ public struct ColorPalette {
     public static let textPrimary = Color(.label)
     public static let textSecondary = Color(.secondaryLabel)
     public static let textTertiary = Color(.tertiaryLabel)
+
+    // MARK: - Prayer-specific Text Colors
+
+    /// Rakah count text color - brighter than tertiary in dark theme for better readability
+    public static let rakahText = Color.rakahText
     
     // MARK: - Status Colors
     
@@ -49,7 +54,7 @@ public struct ColorPalette {
     public static let accessibleBackground = Color(.systemBackground)
 }
 
-/// Design system colors for Deen Assist app
+/// Design system colors for DeenBuddy app
 public extension Color {
     
     // MARK: - Primary Colors
@@ -83,6 +88,20 @@ public extension Color {
     static let successGreen = Color.green
     static let warningOrange = Color.orange
     static let errorRed = Color.red
+
+    /// Rakah count text - brighter than tertiary in dark theme
+    static let rakahText: Color = {
+        Color(UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                // In dark mode, use a brighter color (60% white instead of tertiary's ~40%)
+                return UIColor.white.withAlphaComponent(0.75)
+            default:
+                // In light mode, use secondary label (darker than tertiary)
+                return UIColor.secondaryLabel
+            }
+        })
+    }()
     
     // MARK: - Islamic Green Theme Colors
 

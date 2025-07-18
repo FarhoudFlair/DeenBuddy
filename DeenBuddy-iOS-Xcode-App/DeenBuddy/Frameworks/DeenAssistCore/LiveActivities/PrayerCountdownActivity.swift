@@ -132,25 +132,39 @@ public class PrayerLiveActivityManager: ObservableObject {
         )
         
         do {
+            // Check if Live Activities are available before attempting to start
+            guard isLiveActivityAvailable else {
+                throw LiveActivityError.notAvailable
+            }
+
             let activity = try Activity.request(
                 attributes: activityAttributes,
                 contentState: initialContentState,
                 pushType: .token
             )
-            
+
             await MainActor.run {
                 self.currentActivity = activity
                 self.isActivityActive = true
             }
-            
+
             print("✅ Started Live Activity for \(prayer.displayName) prayer")
-            
+
             // Schedule updates
             scheduleActivityUpdates(for: activity, prayerTime: prayerTime)
-            
+
         } catch {
             print("❌ Failed to start Live Activity: \(error)")
-            throw LiveActivityError.failedToStart(error)
+
+            // Handle specific ActivityKit errors
+            // Note: ActivityKit.ActivityError is not available in all iOS versions
+            // Check error description for common permission issues
+            let errorDescription = error.localizedDescription.lowercased()
+            if errorDescription.contains("permission") || errorDescription.contains("not enabled") {
+                throw LiveActivityError.permissionDenied
+            } else {
+                throw LiveActivityError.failedToStart(error)
+            }
         }
     }
     
@@ -376,12 +390,11 @@ extension PrayerCountdownLiveActivityView {
     @ViewBuilder
     func dynamicIslandCompactLeading() -> some View {
         HStack(spacing: 2) {
-            // Arabic Allah symbol
+            // White Arabic Allah symbol
             Text("الله")
                 .font(.caption)
                 .fontWeight(.semibold)
-                .foregroundColor(state.nextPrayer.color)
-                .opacity(0.8)
+                .foregroundColor(.white)
             
             Image(systemName: state.nextPrayer.systemImageName)
                 .foregroundColor(state.nextPrayer.color)
@@ -403,11 +416,11 @@ extension PrayerCountdownLiveActivityView {
     @ViewBuilder
     func dynamicIslandMinimal() -> some View {
         HStack(spacing: 1) {
-            // Arabic Allah symbol for minimal persistent display
+            // White Arabic Allah symbol for minimal persistent display in top-left
             Text("الله")
                 .font(.caption2)
                 .fontWeight(.bold)
-                .foregroundColor(state.nextPrayer.color)
+                .foregroundColor(.white)
             
             Image(systemName: state.nextPrayer.systemImageName)
                 .foregroundColor(state.nextPrayer.color)
@@ -422,11 +435,11 @@ extension PrayerCountdownLiveActivityView {
             // Top row: Islamic symbol and prayer info
             HStack {
                 HStack(spacing: 6) {
-                    // Arabic Allah symbol
+                    // White Arabic Allah symbol
                     Text("الله")
                         .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundColor(state.nextPrayer.color)
+                        .foregroundColor(.white)
                     
                     Image(systemName: state.nextPrayer.systemImageName)
                         .foregroundColor(state.nextPrayer.color)

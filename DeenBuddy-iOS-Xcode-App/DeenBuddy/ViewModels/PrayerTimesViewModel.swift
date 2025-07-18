@@ -86,6 +86,10 @@ class PrayerTimesViewModel: ObservableObject {
                     calculationMethod: self.prayerTimeService.calculationMethod.displayName,
                     location: LocationCoordinate(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
                 )
+
+                // Update widget data when prayer times are fetched
+                self.updateWidgetData(with: times, location: location)
+
                 self.isLoading = false
             }
         } catch {
@@ -101,7 +105,34 @@ class PrayerTimesViewModel: ObservableObject {
             }
         }
     }
-    
+
+    /// Update widget data when prayer times are fetched
+    private func updateWidgetData(with times: [PrayerTime], location: CLLocation) {
+        Task {
+            // Find next prayer
+            let now = Date()
+            let upcomingPrayers = times.filter { $0.time > now }
+            let nextPrayer = upcomingPrayers.first
+            let timeUntilNext = nextPrayer?.time.timeIntervalSince(now)
+
+            // Create widget data with basic location info
+            let widgetData = WidgetData(
+                nextPrayer: nextPrayer,
+                timeUntilNextPrayer: timeUntilNext,
+                todaysPrayerTimes: times,
+                hijriDate: HijriDate(from: Date()),
+                location: "Current Location",
+                calculationMethod: prayerTimeService.calculationMethod,
+                lastUpdated: Date()
+            )
+
+            // Save widget data
+            WidgetDataManager.shared.saveWidgetData(widgetData)
+
+            print("✅ Widget data updated from PrayerTimesViewModel")
+        }
+    }
+
 }
 
 // MARK: - Dummy Services for Fallback
@@ -109,6 +140,7 @@ class PrayerTimesViewModel: ObservableObject {
 private class DummyLocationService: LocationServiceProtocol {
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
     var currentLocation: CLLocation?
+    var currentLocationInfo: LocationInfo?
     var isUpdatingLocation: Bool = false
     var locationError: Error?
     var currentHeading: Double = 0

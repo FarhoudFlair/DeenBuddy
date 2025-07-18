@@ -329,13 +329,13 @@ private struct FullPrivacyPolicyView: View {
     
     private var privacyPolicyText: String {
         return """
-        # Privacy Policy for Deen Assist
+        # Privacy Policy for DeenBuddy
         
         Last updated: \(DateFormatter.localizedString(from: Date(), dateStyle: .long, timeStyle: .none))
         
         ## Introduction
         
-        Deen Assist ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile application.
+        DeenBuddy ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our mobile application.
         
         ## Information We Collect
         

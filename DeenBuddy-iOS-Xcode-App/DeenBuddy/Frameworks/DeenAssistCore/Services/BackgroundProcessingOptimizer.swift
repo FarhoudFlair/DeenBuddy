@@ -12,6 +12,8 @@ public class BackgroundProcessingOptimizer: ObservableObject {
     public static let shared = BackgroundProcessingOptimizer()
     
     private init() {
+        // Don't auto-register background tasks to prevent conflicts with BackgroundTaskManager
+        // Call registerBackgroundTasks() explicitly if needed
         setupBackgroundTasks()
     }
     
@@ -329,7 +331,7 @@ public class BackgroundProcessingOptimizer: ObservableObject {
     private func setupBackgroundTasks() {
         // Check background refresh status
         isBackgroundRefreshEnabled = UIApplication.shared.backgroundRefreshStatus == .available
-        
+
         // Observe background refresh status changes
         NotificationCenter.default.addObserver(
             self,
@@ -337,6 +339,9 @@ public class BackgroundProcessingOptimizer: ObservableObject {
             name: UIApplication.backgroundRefreshStatusDidChangeNotification,
             object: nil
         )
+
+        // Note: Background task registration is handled by BackgroundTaskManager
+        // to prevent conflicts and duplicate registrations
     }
     
     @objc private func backgroundRefreshStatusChanged() {
@@ -399,10 +404,11 @@ public class BackgroundProcessingOptimizer: ObservableObject {
 // MARK: - Background Task Identifiers
 
 public enum BackgroundTaskIdentifiers {
-    public static let prayerTimeUpdate = "com.deenbuddy.prayertime.update"
-    public static let widgetRefresh = "com.deenbuddy.widget.refresh"
-    public static let notificationScheduling = "com.deenbuddy.notification.schedule"
-    public static let liveActivityUpdate = "com.deenbuddy.liveactivity.update"
+    // Use identifiers that match Info.plist configuration
+    public static let prayerTimeUpdate = "com.deenbuddy.app.prayer-update"
+    public static let widgetRefresh = "com.deenbuddy.app.refresh"
+    public static let notificationScheduling = "com.deenbuddy.app.refresh"
+    public static let liveActivityUpdate = "com.deenbuddy.app.refresh"
 }
 
 // MARK: - Task Priority

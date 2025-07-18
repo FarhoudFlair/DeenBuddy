@@ -32,27 +32,42 @@ public struct NotificationSettingsScreen: View {
     
     public var body: some View {
         NavigationView {
-            List {
-                // Global notification settings
-                globalSettingsSection
-                
-                // Per-prayer settings
-                prayerSettingsSection
-                
-                // Preview section
-                previewSection
-                
-                // Permission status
-                permissionStatusSection
-            }
-            .navigationTitle("Prayer Notifications")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        saveSettings()
+            ZStack {
+                List {
+                    // Global notification settings
+                    globalSettingsSection
+
+                    // Per-prayer settings
+                    prayerSettingsSection
+
+                    // Preview section
+                    previewSection
+
+                    // Permission status
+                    permissionStatusSection
+                }
+                .navigationTitle("Prayer Notifications")
+                .navigationBarTitleDisplayMode(.large)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Save") {
+                            saveSettings()
+                        }
+                        .disabled(isLoading)
                     }
-                    .disabled(isLoading)
+                }
+
+                if isLoading {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+
+                    ContextualLoadingView(context: .settingsSync)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(ColorPalette.backgroundSecondary)
+                                .shadow(radius: 10)
+                        )
+                        .padding()
                 }
             }
             .alert("Notification Permission Required", isPresented: $showingPermissionAlert) {
@@ -278,17 +293,10 @@ public struct NotificationSettingsScreen: View {
         isLoading = true
         
         Task {
-            do {
-                notificationService.updateNotificationSettings(notificationSettings)
-                
-                await MainActor.run {
-                    isLoading = false
-                }
-            } catch {
-                await MainActor.run {
-                    isLoading = false
-                    print("Failed to save notification settings: \(error)")
-                }
+            notificationService.updateNotificationSettings(notificationSettings)
+
+            await MainActor.run {
+                isLoading = false
             }
         }
     }

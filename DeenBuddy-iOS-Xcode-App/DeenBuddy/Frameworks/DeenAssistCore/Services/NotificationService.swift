@@ -250,6 +250,63 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         notificationCenter.removeAllPendingNotificationRequests()
         print("Cancelled all prayer notifications")
     }
+
+    /// Schedule a prayer tracking notification with interactive actions
+    public func schedulePrayerTrackingNotification(
+        for prayer: Prayer,
+        at prayerTime: Date,
+        reminderMinutes: Int = 0
+    ) async throws {
+        guard authorizationStatus == .authorized || authorizationStatus == .provisional else {
+            throw NotificationError.permissionDenied
+        }
+
+        let notificationTime = Calendar.current.date(
+            byAdding: .minute,
+            value: -reminderMinutes,
+            to: prayerTime
+        ) ?? prayerTime
+
+        guard notificationTime > Date() else {
+            throw NotificationError.invalidDate
+        }
+
+        let identifier = "prayer_tracking_\(prayer.rawValue)_\(prayerTime.timeIntervalSince1970)"
+
+        let content = UNMutableNotificationContent()
+        content.title = reminderMinutes > 0 ?
+            "\(prayer.displayName) in \(reminderMinutes) minutes" :
+            "Time for \(prayer.displayName)"
+        content.body = "It's time for \(prayer.displayName) prayer. Have you completed it?"
+        content.categoryIdentifier = "PRAYER_TRACKING"
+        content.userInfo = [
+            "prayer": prayer.rawValue,
+            "type": "prayer_tracking",
+            "scheduled_time": notificationTime.timeIntervalSince1970,
+            "prayer_time": prayerTime.timeIntervalSince1970,
+            "reminder_minutes": reminderMinutes
+        ]
+
+        // Add sound and badge
+        content.sound = .default
+        content.badge = NSNumber(value: 1)
+
+        // Create trigger
+        let calendar = Calendar.current
+        let dateComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: notificationTime)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+
+        // Create request
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+        do {
+            try await notificationCenter.add(request)
+            let timingDesc = reminderMinutes == 0 ? "at prayer time" : "\(reminderMinutes) minutes before"
+            print("Scheduled prayer tracking notification for \(prayer.displayName) \(timingDesc)")
+        } catch {
+            throw NotificationError.schedulingFailed
+        }
+    }
     
     public func cancelNotifications(for prayer: Prayer) async {
         let requests = await notificationCenter.pendingNotificationRequests()
@@ -338,6 +395,28 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             icon: UNNotificationActionIcon(systemImageName: "checkmark.circle.fill")
         )
 
+        // New Prayer Tracking Actions
+        let completedAction = UNNotificationAction(
+            identifier: "PRAYER_COMPLETED",
+            title: "Completed ✓",
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "checkmark.circle.fill")
+        )
+
+        let willDoLaterAction = UNNotificationAction(
+            identifier: "PRAYER_WILL_DO_LATER",
+            title: "Will do later",
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "clock.badge.checkmark")
+        )
+
+        let skipAction = UNNotificationAction(
+            identifier: "PRAYER_SKIP",
+            title: "Skip",
+            options: [],
+            icon: UNNotificationActionIcon(systemImageName: "xmark.circle")
+        )
+
         let snooze5Action = UNNotificationAction(
             identifier: "SNOOZE_5MIN",
             title: "Remind in 5 min",
@@ -369,14 +448,22 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         // Create notification categories
         let prayerReminderCategory = UNNotificationCategory(
             identifier: "PRAYER_REMINDER",
-            actions: [markPrayedAction, snooze5Action, openQiblaAction],
+            actions: [completedAction, willDoLaterAction, openQiblaAction],
             intentIdentifiers: [],
             options: [.customDismissAction, .allowInCarPlay]
         )
 
         let prayerTimeCategory = UNNotificationCategory(
             identifier: "PRAYER_TIME",
-            actions: [markPrayedAction, snooze5Action, snooze10Action, openQiblaAction],
+            actions: [completedAction, willDoLaterAction, skipAction, openQiblaAction],
+            intentIdentifiers: [],
+            options: [.customDismissAction, .allowInCarPlay]
+        )
+
+        // New Prayer Tracking Category for enhanced tracking notifications
+        let prayerTrackingCategory = UNNotificationCategory(
+            identifier: "PRAYER_TRACKING",
+            actions: [completedAction, willDoLaterAction, skipAction],
             intentIdentifiers: [],
             options: [.customDismissAction, .allowInCarPlay]
         )
@@ -391,6 +478,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         notificationCenter.setNotificationCategories([
             prayerReminderCategory,
             prayerTimeCategory,
+            prayerTrackingCategory,
             islamicEventCategory
         ])
     }
@@ -559,6 +647,16 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
         case "MARK_PRAYED":
             handleMarkPrayedAction(for: prayer, userInfo: userInfo)
 
+        // New Prayer Tracking Actions
+        case "PRAYER_COMPLETED":
+            handlePrayerCompletedAction(for: prayer, userInfo: userInfo)
+
+        case "PRAYER_WILL_DO_LATER":
+            handleWillDoLaterAction(for: prayer, userInfo: userInfo)
+
+        case "PRAYER_SKIP":
+            handleSkipPrayerAction(for: prayer, userInfo: userInfo)
+
         case "SNOOZE_5MIN":
             handleSnoozeAction(minutes: 5, for: prayer, userInfo: userInfo)
 
@@ -670,6 +768,94 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
             name: .notificationDismissed,
             object: nil,
             userInfo: userInfo
+        )
+    }
+
+    // MARK: - New Prayer Tracking Action Handlers
+
+    private func handlePrayerCompletedAction(for prayer: Prayer?, userInfo: [AnyHashable: Any]) {
+        guard let prayer = prayer else { return }
+
+        print("✅ User marked \(prayer.displayName) as completed via notification")
+
+        // Post notification for PrayerTrackingService to handle
+        NotificationCenter.default.post(
+            name: .prayerMarkedAsPrayed,
+            object: nil,
+            userInfo: [
+                "prayer": prayer.rawValue,
+                "timestamp": Date(),
+                "source": "notification_action",
+                "action": "completed"
+            ]
+        )
+
+        // Cancel any remaining notifications for this prayer
+        Task {
+            await cancelNotificationsForPrayer(prayer)
+        }
+    }
+
+    private func handleWillDoLaterAction(for prayer: Prayer?, userInfo: [AnyHashable: Any]) {
+        guard let prayer = prayer else { return }
+
+        print("⏰ User will do \(prayer.displayName) later")
+
+        // Schedule a reminder notification in 30 minutes
+        let laterTime = Calendar.current.date(byAdding: .minute, value: 30, to: Date()) ?? Date()
+
+        Task {
+            do {
+                try await scheduleEnhancedNotification(
+                    for: prayer,
+                    prayerTime: laterTime,
+                    notificationTime: laterTime,
+                    reminderMinutes: 0,
+                    config: PrayerNotificationConfig(
+                        customTitle: "\(prayer.displayName) Reminder",
+                        customBody: "You said you'd pray \(prayer.displayName) later. It's time now! 🤲"
+                    )
+                )
+
+                print("✅ Scheduled 'will do later' reminder for \(prayer.displayName)")
+            } catch {
+                print("❌ Failed to schedule 'will do later' notification: \(error)")
+            }
+        }
+
+        // Post notification for analytics
+        NotificationCenter.default.post(
+            name: .notificationTapped,
+            object: nil,
+            userInfo: [
+                "prayer": prayer.rawValue,
+                "timestamp": Date(),
+                "source": "notification_action",
+                "action": "will_do_later"
+            ]
+        )
+    }
+
+    private func handleSkipPrayerAction(for prayer: Prayer?, userInfo: [AnyHashable: Any]) {
+        guard let prayer = prayer else { return }
+
+        print("⏭️ User skipped \(prayer.displayName)")
+
+        // Cancel any remaining notifications for this prayer
+        Task {
+            await cancelNotificationsForPrayer(prayer)
+        }
+
+        // Post notification for analytics (but don't mark as completed)
+        NotificationCenter.default.post(
+            name: .notificationDismissed,
+            object: nil,
+            userInfo: [
+                "prayer": prayer.rawValue,
+                "timestamp": Date(),
+                "source": "notification_action",
+                "action": "skipped"
+            ]
         )
     }
 

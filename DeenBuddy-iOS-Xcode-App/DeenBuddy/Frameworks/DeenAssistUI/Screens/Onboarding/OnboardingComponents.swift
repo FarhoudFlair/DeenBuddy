@@ -239,10 +239,10 @@ struct WelcomeStepView: View {
                 Image(systemName: "moon.stars.fill")
                     .font(.system(size: 80))
                     .foregroundColor(ColorPalette.primary)
-                    .accessibilityLabel("Deen Assist app icon")
+                    .accessibilityLabel("DeenBuddy app icon")
                 
                 VStack(spacing: 8) {
-                    Text("Welcome to Deen Assist")
+                    Text("Welcome to DeenBuddy")
                         .headlineLarge()
                         .foregroundColor(ColorPalette.textPrimary)
                         .multilineTextAlignment(.center)
@@ -254,7 +254,7 @@ struct WelcomeStepView: View {
                 }
             }
             
-            Text("Deen Assist helps you stay connected with your prayers through accurate prayer times, Qibla direction, and guided prayer instructions.")
+            Text("DeenBuddy helps you stay connected with your prayers through accurate prayer times, Qibla direction, and guided prayer instructions.")
                 .bodyMedium()
                 .foregroundColor(ColorPalette.textSecondary)
                 .multilineTextAlignment(.center)
@@ -284,6 +284,6 @@ struct WelcomeStepView: View {
         }
         .padding()
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Welcome to Deen Assist. Your Islamic Prayer Companion with accurate prayer times, Qibla compass, prayer guides, and notifications.")
+        .accessibilityLabel("Welcome to DeenBuddy. Your Islamic Prayer Companion with accurate prayer times, Qibla compass, prayer guides, and notifications.")
     }
 }

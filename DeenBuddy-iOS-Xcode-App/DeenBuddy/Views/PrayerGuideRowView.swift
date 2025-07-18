@@ -49,7 +49,7 @@ struct PrayerGuideRowView: View {
                 // Steps count
                 Text(guide.rakahText)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(ColorPalette.rakahText)
             }
             
             // Arabic name and status

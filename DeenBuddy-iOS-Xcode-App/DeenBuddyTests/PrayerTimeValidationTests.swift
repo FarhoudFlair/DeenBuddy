@@ -135,7 +135,80 @@ class PrayerTimeValidationTests: XCTestCase {
             XCTAssertLessThan(timeDifference, 90 * 60, "Asr difference should be less than 90 minutes")
         }
     }
-    
+
+    func testJafariMadhabTimingDifferences() async throws {
+        // Given: Tehran location (good for testing Ja'fari madhab)
+        let tehranLocation = CLLocation(latitude: 35.6892, longitude: 51.3890)
+        locationService.mockLocation = tehranLocation
+        settingsService.calculationMethod = .muslimWorldLeague
+
+        // Test Shafi madhab (baseline)
+        settingsService.madhab = .shafi
+        await prayerTimeService.refreshPrayerTimes()
+        let shafiPrayerTimes = prayerTimeService.todaysPrayerTimes
+        let shafiMaghribTime = shafiPrayerTimes.first { $0.prayer == .maghrib }?.time
+        let shafiIshaTime = shafiPrayerTimes.first { $0.prayer == .isha }?.time
+
+        // Test Ja'fari madhab
+        settingsService.madhab = .jafari
+        await prayerTimeService.refreshPrayerTimes()
+        let jafariPrayerTimes = prayerTimeService.todaysPrayerTimes
+        let jafariMaghribTime = jafariPrayerTimes.first { $0.prayer == .maghrib }?.time
+        let jafariIshaTime = jafariPrayerTimes.first { $0.prayer == .isha }?.time
+
+        // Then: Ja'fari Maghrib should be 4 minutes later than Shafi
+        XCTAssertNotNil(shafiMaghribTime, "Shafi Maghrib time should be calculated")
+        XCTAssertNotNil(jafariMaghribTime, "Ja'fari Maghrib time should be calculated")
+
+        if let shafiTime = shafiMaghribTime, let jafariTime = jafariMaghribTime {
+            let timeDifference = jafariTime.timeIntervalSince(shafiTime)
+            // Ja'fari Maghrib should be approximately 4 minutes later
+            XCTAssertGreaterThanOrEqual(timeDifference, 3.5 * 60, "Ja'fari Maghrib should be at least 3.5 minutes later")
+            XCTAssertLessThanOrEqual(timeDifference, 4.5 * 60, "Ja'fari Maghrib should be at most 4.5 minutes later")
+        }
+
+        // And: Ja'fari Isha should be earlier than Shafi (due to different twilight angle)
+        XCTAssertNotNil(shafiIshaTime, "Shafi Isha time should be calculated")
+        XCTAssertNotNil(jafariIshaTime, "Ja'fari Isha time should be calculated")
+
+        if let shafiTime = shafiIshaTime, let jafariTime = jafariIshaTime {
+            // Ja'fari uses 14° vs Shafi 17°, so Isha should be earlier
+            XCTAssertLessThan(jafariTime, shafiTime, "Ja'fari Isha should be earlier than Shafi Isha due to smaller twilight angle")
+        }
+    }
+
+    func testMadhabTimingProperties() {
+        // Test Hanafi properties
+        let hanafi = Madhab.hanafi
+        XCTAssertEqual(hanafi.asrShadowMultiplier, 2.0, "Hanafi should use 2x shadow multiplier for Asr")
+        XCTAssertEqual(hanafi.ishaTwilightAngle, 18.0, "Hanafi should use 18° twilight angle for Isha")
+        XCTAssertEqual(hanafi.maghribDelayMinutes, 0.0, "Hanafi should not delay Maghrib")
+        XCTAssertEqual(hanafi.fajrTwilightAngle, 18.0, "Hanafi should use 18° twilight angle for Fajr")
+
+        // Test Shafi properties
+        let shafi = Madhab.shafi
+        XCTAssertEqual(shafi.asrShadowMultiplier, 1.0, "Shafi should use 1x shadow multiplier for Asr")
+        XCTAssertEqual(shafi.ishaTwilightAngle, 17.0, "Shafi should use 17° twilight angle for Isha")
+        XCTAssertEqual(shafi.maghribDelayMinutes, 0.0, "Shafi should not delay Maghrib")
+        XCTAssertEqual(shafi.fajrTwilightAngle, 18.0, "Shafi should use 18° twilight angle for Fajr")
+
+        // Test Ja'fari properties
+        let jafari = Madhab.jafari
+        XCTAssertEqual(jafari.asrShadowMultiplier, 1.0, "Ja'fari should use 1x shadow multiplier for Asr")
+        XCTAssertEqual(jafari.ishaTwilightAngle, 14.0, "Ja'fari should use 14° twilight angle for Isha")
+        XCTAssertEqual(jafari.maghribDelayMinutes, 4.0, "Ja'fari should delay Maghrib by 4 minutes")
+        XCTAssertEqual(jafari.fajrTwilightAngle, 16.0, "Ja'fari should use 16° twilight angle for Fajr")
+
+        // Test helper properties
+        XCTAssertFalse(hanafi.usesEarlyAsr, "Hanafi should not use early Asr")
+        XCTAssertTrue(shafi.usesEarlyAsr, "Shafi should use early Asr")
+        XCTAssertTrue(jafari.usesEarlyAsr, "Ja'fari should use early Asr")
+
+        XCTAssertFalse(hanafi.delaysMaghrib, "Hanafi should not delay Maghrib")
+        XCTAssertFalse(shafi.delaysMaghrib, "Shafi should not delay Maghrib")
+        XCTAssertTrue(jafari.delaysMaghrib, "Ja'fari should delay Maghrib")
+    }
+
     func testCalculationMethodDifferences() async throws {
         // Given: London location (good for testing method differences)
         let location = testLocations[2] // London

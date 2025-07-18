@@ -7,10 +7,22 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		233332802E29A15E00B48D7A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2333327F2E29A15D00B48D7A /* WidgetKit.framework */; };
+		233332822E29A15E00B48D7A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332812E29A15E00B48D7A /* SwiftUI.framework */; };
+		233332912E29A15F00B48D7A /* PrayerTimesWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		233332AB2E29A19D00B48D7A /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332AA2E29A19D00B48D7A /* ActivityKit.framework */; };
+		233332AC2E29A19E00B48D7A /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23EA690F2E20AA2100415CFC /* Adhan */; };
 		23EA69102E20AA2100415CFC /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23EA690F2E20AA2100415CFC /* Adhan */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		2333328F2E29A15F00B48D7A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 23F09EF02E17292A00E25D2F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2333327D2E29A15D00B48D7A;
+			remoteInfo = PrayerTimesWidgetExtension;
+		};
 		23F09F062E17292B00E25D2F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 23F09EF02E17292A00E25D2F /* Project object */;
@@ -27,13 +39,134 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		233332962E29A15F00B48D7A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				233332912E29A15F00B48D7A /* PrayerTimesWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PrayerTimesWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2333327F2E29A15D00B48D7A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		233332812E29A15E00B48D7A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		233332AA2E29A19D00B48D7A /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
+		233332B62E29A8B800B48D7A /* PrayerTimesWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PrayerTimesWidgetExtension.entitlements; sourceTree = "<group>"; };
+		233332B72E29A91000B48D7A /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
+		233332B92E29A91000B48D7A /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
+		233332BB2E29A91000B48D7A /* CodebaseExtensionPoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodebaseExtensionPoints.swift; sourceTree = "<group>"; };
+		233332BC2E29A91000B48D7A /* ConfigurationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationManager.swift; sourceTree = "<group>"; };
+		233332BD2E29A91000B48D7A /* FeatureFlagHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagHelper.swift; sourceTree = "<group>"; };
+		233332BE2E29A91000B48D7A /* IslamicFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicFeatureFlags.swift; sourceTree = "<group>"; };
+		233332BF2E29A91000B48D7A /* SecureSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureSetup.swift; sourceTree = "<group>"; };
+		233332C12E29A91000B48D7A /* UnifiedSettingsKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedSettingsKeys.swift; sourceTree = "<group>"; };
+		233332C32E29A91000B48D7A /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
+		233332C52E29A91000B48D7A /* ErrorHandling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorHandling.swift; sourceTree = "<group>"; };
+		233332C72E29A91000B48D7A /* DynamicIslandManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicIslandManager.swift; sourceTree = "<group>"; };
+		233332C82E29A91000B48D7A /* PrayerCountdownActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerCountdownActivity.swift; sourceTree = "<group>"; };
+		233332CA2E29A91000B48D7A /* Localizable_ar.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_ar.json; sourceTree = "<group>"; };
+		233332CB2E29A91000B48D7A /* Localizable_en.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_en.json; sourceTree = "<group>"; };
+		233332CC2E29A91000B48D7A /* Localizable_es.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_es.json; sourceTree = "<group>"; };
+		233332CD2E29A91000B48D7A /* Localizable_fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_fr.json; sourceTree = "<group>"; };
+		233332CE2E29A91000B48D7A /* Localizable_ur.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_ur.json; sourceTree = "<group>"; };
+		233332D12E29A91000B48D7A /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
+		233332D32E29A91000B48D7A /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
+		233332D42E29A91000B48D7A /* Difficulty.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Difficulty.swift; sourceTree = "<group>"; };
+		233332D52E29A91000B48D7A /* Hadith.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hadith.swift; sourceTree = "<group>"; };
+		233332D62E29A91000B48D7A /* IslamicCalendarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicCalendarModels.swift; sourceTree = "<group>"; };
+		233332D72E29A91000B48D7A /* Language.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Language.swift; sourceTree = "<group>"; };
+		233332D82E29A91000B48D7A /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
+		233332D92E29A91000B48D7A /* Madhab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Madhab.swift; sourceTree = "<group>"; };
+		233332DA2E29A91000B48D7A /* NotificationTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypes.swift; sourceTree = "<group>"; };
+		233332DB2E29A91000B48D7A /* Prayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prayer.swift; sourceTree = "<group>"; };
+		233332DC2E29A91000B48D7A /* PrayerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerContent.swift; sourceTree = "<group>"; };
+		233332DD2E29A91000B48D7A /* PrayerGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerGuide.swift; sourceTree = "<group>"; };
+		233332DE2E29A91000B48D7A /* PrayerJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerJournal.swift; sourceTree = "<group>"; };
+		233332DF2E29A91000B48D7A /* PrayerSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerSchedule.swift; sourceTree = "<group>"; };
+		233332E02E29A91000B48D7A /* PrayerStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerStep.swift; sourceTree = "<group>"; };
+		233332E12E29A91000B48D7A /* PrayerTimes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTimes.swift; sourceTree = "<group>"; };
+		233332E22E29A91000B48D7A /* PrayerTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTracking.swift; sourceTree = "<group>"; };
+		233332E32E29A91000B48D7A /* QiblaDirection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiblaDirection.swift; sourceTree = "<group>"; };
+		233332E42E29A91000B48D7A /* QuranVerse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranVerse.swift; sourceTree = "<group>"; };
+		233332E52E29A91000B48D7A /* TasbihModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasbihModels.swift; sourceTree = "<group>"; };
+		233332E62E29A91000B48D7A /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		233332E72E29A91000B48D7A /* WidgetModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModels.swift; sourceTree = "<group>"; };
+		233332E92E29A91000B48D7A /* PerformanceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitor.swift; sourceTree = "<group>"; };
+		233332EB2E29A91000B48D7A /* APIClientProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientProtocol.swift; sourceTree = "<group>"; };
+		233332ED2E29A91000B48D7A /* APICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APICache.swift; sourceTree = "<group>"; };
+		233332EE2E29A91000B48D7A /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		233332EF2E29A91000B48D7A /* AppLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycleManager.swift; sourceTree = "<group>"; };
+		233332F02E29A91000B48D7A /* ARCompassSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCompassSession.swift; sourceTree = "<group>"; };
+		233332F12E29A91000B48D7A /* BackgroundProcessingOptimizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundProcessingOptimizer.swift; sourceTree = "<group>"; };
+		233332F22E29A91000B48D7A /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
+		233332F32E29A91000B48D7A /* BaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseService.swift; sourceTree = "<group>"; };
+		233332F42E29A91000B48D7A /* BatteryAwareTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryAwareTimerManager.swift; sourceTree = "<group>"; };
+		233332F52E29A91000B48D7A /* BatteryOptimizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryOptimizer.swift; sourceTree = "<group>"; };
+		233332F62E29A91000B48D7A /* ContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentService.swift; sourceTree = "<group>"; };
+		233332F72E29A91000B48D7A /* ExampleRefactoredService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleRefactoredService.swift; sourceTree = "<group>"; };
+		233332F82E29A91000B48D7A /* HapticFeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticFeedbackService.swift; sourceTree = "<group>"; };
+		233332F92E29A91000B48D7A /* IslamicCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicCalendarService.swift; sourceTree = "<group>"; };
+		233332FA2E29A91000B48D7A /* IslamicEventNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicEventNotificationService.swift; sourceTree = "<group>"; };
+		233332FB2E29A91000B48D7A /* IslamicKnowledgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicKnowledgeService.swift; sourceTree = "<group>"; };
+		233332FC2E29A91000B48D7A /* LocalizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationService.swift; sourceTree = "<group>"; };
+		233332FD2E29A91000B48D7A /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		233332FE2E29A91000B48D7A /* MemoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryManager.swift; sourceTree = "<group>"; };
+		233332FF2E29A91000B48D7A /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		233333002E29A91000B48D7A /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		233333012E29A91000B48D7A /* OfflineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineService.swift; sourceTree = "<group>"; };
+		233333022E29A91000B48D7A /* PrayerJournalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerJournalService.swift; sourceTree = "<group>"; };
+		233333032E29A91000B48D7A /* PrayerTimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTimeService.swift; sourceTree = "<group>"; };
+		233333042E29A91000B48D7A /* PrayerTrackingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTrackingService.swift; sourceTree = "<group>"; };
+		233333052E29A91000B48D7A /* QuranAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranAPIService.swift; sourceTree = "<group>"; };
+		233333062E29A91000B48D7A /* QuranDataValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranDataValidator.swift; sourceTree = "<group>"; };
+		233333072E29A91000B48D7A /* QuranSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranSearchService.swift; sourceTree = "<group>"; };
+		233333082E29A91000B48D7A /* RetryMechanism.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryMechanism.swift; sourceTree = "<group>"; };
+		233333092E29A91000B48D7A /* SemanticSearchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchEngine.swift; sourceTree = "<group>"; };
+		2333330A2E29A91000B48D7A /* SettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsService.swift; sourceTree = "<group>"; };
+		2333330B2E29A91000B48D7A /* SharedInstances.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInstances.swift; sourceTree = "<group>"; };
+		2333330C2E29A91000B48D7A /* ShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareService.swift; sourceTree = "<group>"; };
+		2333330D2E29A91000B48D7A /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		2333330E2E29A91000B48D7A /* SupabaseServiceTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseServiceTest.swift; sourceTree = "<group>"; };
+		2333330F2E29A91000B48D7A /* TasbihService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasbihService.swift; sourceTree = "<group>"; };
+		233333102E29A91000B48D7A /* UnifiedCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedCacheManager.swift; sourceTree = "<group>"; };
+		233333112E29A91000B48D7A /* UserPreferencesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferencesService.swift; sourceTree = "<group>"; };
+		233333122E29A91000B48D7A /* WidgetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetService.swift; sourceTree = "<group>"; };
+		233333142E29A91000B48D7A /* PrayerTimeShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTimeShortcuts.swift; sourceTree = "<group>"; };
+		233333162E29A91000B48D7A /* ResourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceMonitor.swift; sourceTree = "<group>"; };
+		233333172E29A91000B48D7A /* SharedUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedUtilities.swift; sourceTree = "<group>"; };
+		233333192E29A91000B48D7A /* DeenAssistCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeenAssistCore.swift; sourceTree = "<group>"; };
+		2333331A2E29A91000B48D7A /* PackageExports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageExports.swift; sourceTree = "<group>"; };
 		23F09EF82E17292A00E25D2F /* DeenBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeenBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		233333212E29AAB800B48D7A /* Exceptions for "PrayerTimesWidget" folder in "PrayerTimesWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		233332832E29A15E00B48D7A /* PrayerTimesWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				233333212E29AAB800B48D7A /* Exceptions for "PrayerTimesWidget" folder in "PrayerTimesWidgetExtension" target */,
+			);
+			path = PrayerTimesWidget;
+			sourceTree = "<group>";
+		};
 		23F09EFA2E17292A00E25D2F /* DeenBuddy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = DeenBuddy;
@@ -52,6 +185,17 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2333327B2E29A15D00B48D7A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				233332AB2E29A19D00B48D7A /* ActivityKit.framework in Frameworks */,
+				233332AC2E29A19E00B48D7A /* Adhan in Frameworks */,
+				233332822E29A15E00B48D7A /* SwiftUI.framework in Frameworks */,
+				233332802E29A15E00B48D7A /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		23F09EF52E17292A00E25D2F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -77,9 +221,233 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		233332B82E29A91000B48D7A /* Accessibility */ = {
+			isa = PBXGroup;
+			children = (
+				233332B72E29A91000B48D7A /* AccessibilityService.swift */,
+			);
+			path = Accessibility;
+			sourceTree = "<group>";
+		};
+		233332BA2E29A91000B48D7A /* Analytics */ = {
+			isa = PBXGroup;
+			children = (
+				233332B92E29A91000B48D7A /* AnalyticsService.swift */,
+			);
+			path = Analytics;
+			sourceTree = "<group>";
+		};
+		233332C02E29A91000B48D7A /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				233332BB2E29A91000B48D7A /* CodebaseExtensionPoints.swift */,
+				233332BC2E29A91000B48D7A /* ConfigurationManager.swift */,
+				233332BD2E29A91000B48D7A /* FeatureFlagHelper.swift */,
+				233332BE2E29A91000B48D7A /* IslamicFeatureFlags.swift */,
+				233332BF2E29A91000B48D7A /* SecureSetup.swift */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		233332C22E29A91000B48D7A /* Constants */ = {
+			isa = PBXGroup;
+			children = (
+				233332C12E29A91000B48D7A /* UnifiedSettingsKeys.swift */,
+			);
+			path = Constants;
+			sourceTree = "<group>";
+		};
+		233332C42E29A91000B48D7A /* DependencyInjection */ = {
+			isa = PBXGroup;
+			children = (
+				233332C32E29A91000B48D7A /* DependencyContainer.swift */,
+			);
+			path = DependencyInjection;
+			sourceTree = "<group>";
+		};
+		233332C62E29A91000B48D7A /* ErrorHandling */ = {
+			isa = PBXGroup;
+			children = (
+				233332C52E29A91000B48D7A /* ErrorHandling.swift */,
+			);
+			path = ErrorHandling;
+			sourceTree = "<group>";
+		};
+		233332C92E29A91000B48D7A /* LiveActivities */ = {
+			isa = PBXGroup;
+			children = (
+				233332C72E29A91000B48D7A /* DynamicIslandManager.swift */,
+				233332C82E29A91000B48D7A /* PrayerCountdownActivity.swift */,
+			);
+			path = LiveActivities;
+			sourceTree = "<group>";
+		};
+		233332CF2E29A91000B48D7A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				233332CA2E29A91000B48D7A /* Localizable_ar.json */,
+				233332CB2E29A91000B48D7A /* Localizable_en.json */,
+				233332CC2E29A91000B48D7A /* Localizable_es.json */,
+				233332CD2E29A91000B48D7A /* Localizable_fr.json */,
+				233332CE2E29A91000B48D7A /* Localizable_ur.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		233332D02E29A91000B48D7A /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				233332CF2E29A91000B48D7A /* Resources */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
+		233332D22E29A91000B48D7A /* Mocks */ = {
+			isa = PBXGroup;
+			children = (
+				233332D12E29A91000B48D7A /* MockAPIClient.swift */,
+			);
+			path = Mocks;
+			sourceTree = "<group>";
+		};
+		233332E82E29A91000B48D7A /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				233332D32E29A91000B48D7A /* APIModels.swift */,
+				233332D42E29A91000B48D7A /* Difficulty.swift */,
+				233332D52E29A91000B48D7A /* Hadith.swift */,
+				233332D62E29A91000B48D7A /* IslamicCalendarModels.swift */,
+				233332D72E29A91000B48D7A /* Language.swift */,
+				233332D82E29A91000B48D7A /* Location.swift */,
+				233332D92E29A91000B48D7A /* Madhab.swift */,
+				233332DA2E29A91000B48D7A /* NotificationTypes.swift */,
+				233332DB2E29A91000B48D7A /* Prayer.swift */,
+				233332DC2E29A91000B48D7A /* PrayerContent.swift */,
+				233332DD2E29A91000B48D7A /* PrayerGuide.swift */,
+				233332DE2E29A91000B48D7A /* PrayerJournal.swift */,
+				233332DF2E29A91000B48D7A /* PrayerSchedule.swift */,
+				233332E02E29A91000B48D7A /* PrayerStep.swift */,
+				233332E12E29A91000B48D7A /* PrayerTimes.swift */,
+				233332E22E29A91000B48D7A /* PrayerTracking.swift */,
+				233332E32E29A91000B48D7A /* QiblaDirection.swift */,
+				233332E42E29A91000B48D7A /* QuranVerse.swift */,
+				233332E52E29A91000B48D7A /* TasbihModels.swift */,
+				233332E62E29A91000B48D7A /* User.swift */,
+				233332E72E29A91000B48D7A /* WidgetModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		233332EA2E29A91000B48D7A /* Performance */ = {
+			isa = PBXGroup;
+			children = (
+				233332E92E29A91000B48D7A /* PerformanceMonitor.swift */,
+			);
+			path = Performance;
+			sourceTree = "<group>";
+		};
+		233332EC2E29A91000B48D7A /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				233332EB2E29A91000B48D7A /* APIClientProtocol.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		233333132E29A91000B48D7A /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				233332ED2E29A91000B48D7A /* APICache.swift */,
+				233332EE2E29A91000B48D7A /* APIClient.swift */,
+				233332EF2E29A91000B48D7A /* AppLifecycleManager.swift */,
+				233332F02E29A91000B48D7A /* ARCompassSession.swift */,
+				233332F12E29A91000B48D7A /* BackgroundProcessingOptimizer.swift */,
+				233332F22E29A91000B48D7A /* BackgroundTaskManager.swift */,
+				233332F32E29A91000B48D7A /* BaseService.swift */,
+				233332F42E29A91000B48D7A /* BatteryAwareTimerManager.swift */,
+				233332F52E29A91000B48D7A /* BatteryOptimizer.swift */,
+				233332F62E29A91000B48D7A /* ContentService.swift */,
+				233332F72E29A91000B48D7A /* ExampleRefactoredService.swift */,
+				233332F82E29A91000B48D7A /* HapticFeedbackService.swift */,
+				233332F92E29A91000B48D7A /* IslamicCalendarService.swift */,
+				233332FA2E29A91000B48D7A /* IslamicEventNotificationService.swift */,
+				233332FB2E29A91000B48D7A /* IslamicKnowledgeService.swift */,
+				233332FC2E29A91000B48D7A /* LocalizationService.swift */,
+				233332FD2E29A91000B48D7A /* LocationService.swift */,
+				233332FE2E29A91000B48D7A /* MemoryManager.swift */,
+				233332FF2E29A91000B48D7A /* NetworkMonitor.swift */,
+				233333002E29A91000B48D7A /* NotificationService.swift */,
+				233333012E29A91000B48D7A /* OfflineService.swift */,
+				233333022E29A91000B48D7A /* PrayerJournalService.swift */,
+				233333032E29A91000B48D7A /* PrayerTimeService.swift */,
+				233333042E29A91000B48D7A /* PrayerTrackingService.swift */,
+				233333052E29A91000B48D7A /* QuranAPIService.swift */,
+				233333062E29A91000B48D7A /* QuranDataValidator.swift */,
+				233333072E29A91000B48D7A /* QuranSearchService.swift */,
+				233333082E29A91000B48D7A /* RetryMechanism.swift */,
+				233333092E29A91000B48D7A /* SemanticSearchEngine.swift */,
+				2333330A2E29A91000B48D7A /* SettingsService.swift */,
+				2333330B2E29A91000B48D7A /* SharedInstances.swift */,
+				2333330C2E29A91000B48D7A /* ShareService.swift */,
+				2333330D2E29A91000B48D7A /* SupabaseService.swift */,
+				2333330E2E29A91000B48D7A /* SupabaseServiceTest.swift */,
+				2333330F2E29A91000B48D7A /* TasbihService.swift */,
+				233333102E29A91000B48D7A /* UnifiedCacheManager.swift */,
+				233333112E29A91000B48D7A /* UserPreferencesService.swift */,
+				233333122E29A91000B48D7A /* WidgetService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		233333152E29A91000B48D7A /* Shortcuts */ = {
+			isa = PBXGroup;
+			children = (
+				233333142E29A91000B48D7A /* PrayerTimeShortcuts.swift */,
+			);
+			path = Shortcuts;
+			sourceTree = "<group>";
+		};
+		233333182E29A91000B48D7A /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				233333162E29A91000B48D7A /* ResourceMonitor.swift */,
+				233333172E29A91000B48D7A /* SharedUtilities.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		2333331B2E29A91000B48D7A /* DeenAssistCore */ = {
+			isa = PBXGroup;
+			children = (
+				233332B82E29A91000B48D7A /* Accessibility */,
+				233332BA2E29A91000B48D7A /* Analytics */,
+				233332C02E29A91000B48D7A /* Configuration */,
+				233332C22E29A91000B48D7A /* Constants */,
+				233332C42E29A91000B48D7A /* DependencyInjection */,
+				233332C62E29A91000B48D7A /* ErrorHandling */,
+				233332C92E29A91000B48D7A /* LiveActivities */,
+				233332D02E29A91000B48D7A /* Localization */,
+				233332D22E29A91000B48D7A /* Mocks */,
+				233332E82E29A91000B48D7A /* Models */,
+				233332EA2E29A91000B48D7A /* Performance */,
+				233332EC2E29A91000B48D7A /* Protocols */,
+				233333132E29A91000B48D7A /* Services */,
+				233333152E29A91000B48D7A /* Shortcuts */,
+				233333182E29A91000B48D7A /* Utilities */,
+				233333192E29A91000B48D7A /* DeenAssistCore.swift */,
+				2333331A2E29A91000B48D7A /* PackageExports.swift */,
+			);
+			name = DeenAssistCore;
+			path = DeenBuddy/Frameworks/DeenAssistCore;
+			sourceTree = "<group>";
+		};
 		23EC89D92E20A2DE00BCAB83 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				2333331B2E29A91000B48D7A /* DeenAssistCore */,
+				233332AA2E29A19D00B48D7A /* ActivityKit.framework */,
+				2333327F2E29A15D00B48D7A /* WidgetKit.framework */,
+				233332812E29A15E00B48D7A /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -87,9 +455,11 @@
 		23F09EEF2E17292A00E25D2F = {
 			isa = PBXGroup;
 			children = (
+				233332B62E29A8B800B48D7A /* PrayerTimesWidgetExtension.entitlements */,
 				23F09EFA2E17292A00E25D2F /* DeenBuddy */,
 				23F09F082E17292B00E25D2F /* DeenBuddyTests */,
 				23F09F122E17292B00E25D2F /* DeenBuddyUITests */,
+				233332832E29A15E00B48D7A /* PrayerTimesWidget */,
 				23EC89D92E20A2DE00BCAB83 /* Frameworks */,
 				23F09EF92E17292A00E25D2F /* Products */,
 			);
@@ -101,6 +471,7 @@
 				23F09EF82E17292A00E25D2F /* DeenBuddy.app */,
 				23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */,
 				23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */,
+				2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,6 +479,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 233332932E29A15F00B48D7A /* Build configuration list for PBXNativeTarget "PrayerTimesWidgetExtension" */;
+			buildPhases = (
+				2333327A2E29A15D00B48D7A /* Sources */,
+				2333327B2E29A15D00B48D7A /* Frameworks */,
+				2333327C2E29A15D00B48D7A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				233332832E29A15E00B48D7A /* PrayerTimesWidget */,
+			);
+			name = PrayerTimesWidgetExtension;
+			packageProductDependencies = (
+				23EA690F2E20AA2100415CFC /* Adhan */,
+			);
+			productName = PrayerTimesWidgetExtension;
+			productReference = 2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		23F09EF72E17292A00E25D2F /* DeenBuddy */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 23F09F192E17292B00E25D2F /* Build configuration list for PBXNativeTarget "DeenBuddy" */;
@@ -115,10 +509,12 @@
 				23F09EF42E17292A00E25D2F /* Sources */,
 				23F09EF52E17292A00E25D2F /* Frameworks */,
 				23F09EF62E17292A00E25D2F /* Resources */,
+				233332962E29A15F00B48D7A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				233332902E29A15F00B48D7A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				23F09EFA2E17292A00E25D2F /* DeenBuddy */,
@@ -183,6 +579,9 @@
 				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
+					2333327D2E29A15D00B48D7A = {
+						CreatedOnToolsVersion = 16.4;
+					};
 					23F09EF72E17292A00E25D2F = {
 						CreatedOnToolsVersion = 16.4;
 					};
@@ -216,11 +615,19 @@
 				23F09EF72E17292A00E25D2F /* DeenBuddy */,
 				23F09F042E17292B00E25D2F /* DeenBuddyTests */,
 				23F09F0E2E17292B00E25D2F /* DeenBuddyUITests */,
+				2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2333327C2E29A15D00B48D7A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		23F09EF62E17292A00E25D2F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -245,6 +652,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2333327A2E29A15D00B48D7A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		23F09EF42E17292A00E25D2F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -269,6 +683,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		233332902E29A15F00B48D7A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */;
+			targetProxy = 2333328F2E29A15F00B48D7A /* PBXContainerItemProxy */;
+		};
 		23F09F072E17292B00E25D2F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 23F09EF72E17292A00E25D2F /* DeenBuddy */;
@@ -282,6 +701,64 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		233332942E29A15F00B48D7A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = PrayerTimesWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23TQMQNW28;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PrayerTimesWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrayerTimesWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app.PrayerTimesWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.5;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		233332952E29A15F00B48D7A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = PrayerTimesWidgetExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23TQMQNW28;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PrayerTimesWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = PrayerTimesWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app.PrayerTimesWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.5;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		23F09F172E17292B00E25D2F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -342,7 +819,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 			};
 			name = Debug;
 		};
@@ -398,7 +875,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -408,6 +885,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
@@ -439,7 +917,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -449,6 +927,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
@@ -480,7 +959,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -497,7 +976,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DeenBuddy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DeenBuddy";
 			};
@@ -515,7 +994,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DeenBuddy.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DeenBuddy";
 			};
@@ -531,7 +1010,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = DeenBuddy;
 			};
@@ -547,7 +1026,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 5.5;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = DeenBuddy;
 			};
@@ -556,6 +1035,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		233332932E29A15F00B48D7A /* Build configuration list for PBXNativeTarget "PrayerTimesWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				233332942E29A15F00B48D7A /* Debug */,
+				233332952E29A15F00B48D7A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		23F09EF32E17292A00E25D2F /* Build configuration list for PBXProject "DeenBuddy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

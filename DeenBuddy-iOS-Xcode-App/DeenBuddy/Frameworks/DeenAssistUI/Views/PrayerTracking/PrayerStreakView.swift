@@ -1,0 +1,483 @@
+import SwiftUI
+
+/// View for displaying prayer streaks and consistency patterns
+public struct PrayerStreakView: View {
+    
+    // MARK: - Properties
+    
+    @ObservedObject private var prayerTrackingService: any PrayerTrackingServiceProtocol
+    
+    // MARK: - State
+    
+    @State private var selectedMonth: Date = Date()
+    
+    // MARK: - Initialization
+    
+    public init(prayerTrackingService: any PrayerTrackingServiceProtocol) {
+        self.prayerTrackingService = prayerTrackingService
+    }
+    
+    // MARK: - Body
+    
+    public var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Current Streak Card
+                currentStreakCard
+                
+                // Streak History
+                streakHistorySection
+                
+                // Calendar Heat Map
+                calendarHeatMapSection
+                
+                // Achievements
+                achievementsSection
+                
+                // Motivational Section
+                motivationalSection
+            }
+            .padding()
+        }
+    }
+    
+    // MARK: - Current Streak Card
+    
+    @ViewBuilder
+    private var currentStreakCard: some View {
+        ModernCard {
+            VStack(spacing: 20) {
+                // Flame Icon with Streak
+                VStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [.orange.opacity(0.3), .red.opacity(0.1)],
+                                    center: .center,
+                                    startRadius: 10,
+                                    endRadius: 50
+                                )
+                            )
+                            .frame(width: 100, height: 100)
+                        
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 50))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.orange, .red],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+                    
+                    Text("\(prayerTrackingService.currentStreak)")
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .foregroundColor(ColorPalette.primary)
+                    
+                    Text("Day Streak")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorPalette.secondary)
+                }
+                
+                // Streak Description
+                VStack(spacing: 8) {
+                    if prayerTrackingService.currentStreak > 0 {
+                        Text(streakMessage)
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(ColorPalette.secondary)
+                        
+                        // Progress to next milestone
+                        streakProgressView
+                    } else {
+                        Text("Start your prayer streak today!")
+                            .font(.subheadline)
+                            .multilineTextAlignment(.center)
+                            .foregroundColor(ColorPalette.secondary)
+                    }
+                }
+            }
+            .padding()
+        }
+    }
+    
+    // MARK: - Streak History Section
+    
+    @ViewBuilder
+    private var streakHistorySection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Streak History")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+            }
+            
+            ModernCard {
+                VStack(spacing: 12) {
+                    StreakHistoryRow(
+                        title: "Current Streak",
+                        days: prayerTrackingService.currentStreak,
+                        startDate: Date().addingTimeInterval(-Double(prayerTrackingService.currentStreak) * 86400),
+                        isActive: true
+                    )
+                    
+                    Divider()
+                    
+                    StreakHistoryRow(
+                        title: "Best Streak",
+                        days: 15, // Placeholder - would calculate from data
+                        startDate: Date().addingTimeInterval(-30 * 86400),
+                        isActive: false
+                    )
+                    
+                    Divider()
+                    
+                    StreakHistoryRow(
+                        title: "Previous Streak",
+                        days: 8,
+                        startDate: Date().addingTimeInterval(-45 * 86400),
+                        isActive: false
+                    )
+                }
+                .padding()
+            }
+        }
+    }
+    
+    // MARK: - Calendar Heat Map Section
+    
+    @ViewBuilder
+    private var calendarHeatMapSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Prayer Consistency")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                // Month Navigation
+                HStack {
+                    Button(action: previousMonth) {
+                        Image(systemName: "chevron.left")
+                    }
+                    
+                    Text(selectedMonth.formatted(.dateTime.month(.wide).year()))
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    
+                    Button(action: nextMonth) {
+                        Image(systemName: "chevron.right")
+                    }
+                }
+                .foregroundColor(ColorPalette.primary)
+            }
+            
+            ModernCard {
+                VStack(spacing: 16) {
+                    // Calendar Grid
+                    calendarGrid
+                    
+                    // Legend
+                    calendarLegend
+                }
+                .padding()
+            }
+        }
+    }
+    
+    // MARK: - Achievements Section
+    
+    @ViewBuilder
+    private var achievementsSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Achievements")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+            }
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                AchievementCard(
+                    icon: "flame.fill",
+                    title: "First Streak",
+                    description: "Complete 3 days in a row",
+                    isUnlocked: prayerTrackingService.currentStreak >= 3,
+                    color: .orange
+                )
+                
+                AchievementCard(
+                    icon: "star.fill",
+                    title: "Week Warrior",
+                    description: "Complete 7 days in a row",
+                    isUnlocked: prayerTrackingService.currentStreak >= 7,
+                    color: .yellow
+                )
+                
+                AchievementCard(
+                    icon: "crown.fill",
+                    title: "Prayer Master",
+                    description: "Complete 30 days in a row",
+                    isUnlocked: prayerTrackingService.currentStreak >= 30,
+                    color: .purple
+                )
+                
+                AchievementCard(
+                    icon: "diamond.fill",
+                    title: "Consistency King",
+                    description: "Complete 100 prayers",
+                    isUnlocked: prayerTrackingService.recentEntries.count >= 100,
+                    color: .blue
+                )
+            }
+        }
+    }
+    
+    // MARK: - Motivational Section
+    
+    @ViewBuilder
+    private var motivationalSection: some View {
+        ModernCard {
+            VStack(spacing: 12) {
+                Image(systemName: "heart.fill")
+                    .font(.title)
+                    .foregroundColor(.pink)
+                
+                Text("Keep Going!")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                
+                Text(motivationalMessage)
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(ColorPalette.secondary)
+            }
+            .padding()
+        }
+    }
+    
+    // MARK: - Calendar Grid
+    
+    @ViewBuilder
+    private var calendarGrid: some View {
+        let calendar = Calendar.current
+        let monthRange = calendar.range(of: .day, in: .month, for: selectedMonth)!
+        let firstOfMonth = calendar.dateInterval(of: .month, for: selectedMonth)!.start
+        let firstWeekday = calendar.component(.weekday, from: firstOfMonth)
+        
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
+            // Weekday headers
+            ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                Text(day)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(ColorPalette.secondary)
+                    .frame(height: 20)
+            }
+            
+            // Empty cells for days before month starts
+            ForEach(0..<(firstWeekday - 1), id: \.self) { _ in
+                Rectangle()
+                    .fill(Color.clear)
+                    .frame(height: 30)
+            }
+            
+            // Days of the month
+            ForEach(1...monthRange.count, id: \.self) { day in
+                let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth)!
+                let completionRate = getDayCompletionRate(for: date)
+                
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(getHeatMapColor(for: completionRate))
+                    .frame(height: 30)
+                    .overlay(
+                        Text("\(day)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(completionRate > 0.5 ? .white : ColorPalette.primary)
+                    )
+            }
+        }
+    }
+    
+    // MARK: - Calendar Legend
+    
+    @ViewBuilder
+    private var calendarLegend: some View {
+        HStack {
+            Text("Less")
+                .font(.caption)
+                .foregroundColor(ColorPalette.secondary)
+            
+            HStack(spacing: 2) {
+                ForEach([0.0, 0.25, 0.5, 0.75, 1.0], id: \.self) { rate in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(getHeatMapColor(for: rate))
+                        .frame(width: 12, height: 12)
+                }
+            }
+            
+            Text("More")
+                .font(.caption)
+                .foregroundColor(ColorPalette.secondary)
+        }
+    }
+    
+    // MARK: - Streak Progress View
+    
+    @ViewBuilder
+    private var streakProgressView: some View {
+        let nextMilestone = getNextMilestone()
+        let progress = Double(prayerTrackingService.currentStreak) / Double(nextMilestone)
+        
+        VStack(spacing: 8) {
+            HStack {
+                Text("Next milestone: \(nextMilestone) days")
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.secondary)
+                
+                Spacer()
+                
+                Text("\(nextMilestone - prayerTrackingService.currentStreak) days to go")
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.secondary)
+            }
+            
+            ProgressView(value: progress)
+                .progressViewStyle(LinearProgressViewStyle(tint: .orange))
+        }
+    }
+    
+    // MARK: - Helper Methods
+    
+    private var streakMessage: String {
+        let streak = prayerTrackingService.currentStreak
+        switch streak {
+        case 1: return "Great start! Keep the momentum going."
+        case 2...6: return "You're building a solid habit!"
+        case 7...13: return "Amazing! You're on fire! 🔥"
+        case 14...29: return "Incredible consistency! You're inspiring!"
+        case 30...99: return "You're a prayer champion! Mashallah!"
+        default: return "Subhanallah! Your dedication is remarkable!"
+        }
+    }
+    
+    private var motivationalMessage: String {
+        let streak = prayerTrackingService.currentStreak
+        if streak == 0 {
+            return "Every journey begins with a single step. Start your prayer streak today!"
+        } else {
+            return "Your consistency in prayer is a beautiful form of worship. May Allah accept your efforts."
+        }
+    }
+    
+    private func getNextMilestone() -> Int {
+        let streak = prayerTrackingService.currentStreak
+        let milestones = [3, 7, 14, 30, 60, 100, 365]
+        return milestones.first { $0 > streak } ?? (streak + 30)
+    }
+    
+    private func previousMonth() {
+        selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth
+    }
+    
+    private func nextMonth() {
+        selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth
+    }
+    
+    private func getDayCompletionRate(for date: Date) -> Double {
+        // Calculate completion rate for a specific day
+        // This would check how many of the 5 prayers were completed on that day
+        // Placeholder implementation
+        let dayEntries = prayerTrackingService.recentEntries.filter { entry in
+            Calendar.current.isDate(entry.completedAt, inSameDayAs: date)
+        }
+        return min(Double(dayEntries.count) / 5.0, 1.0)
+    }
+    
+    private func getHeatMapColor(for completionRate: Double) -> Color {
+        switch completionRate {
+        case 0: return ColorPalette.surface
+        case 0.01...0.25: return ColorPalette.primary.opacity(0.2)
+        case 0.26...0.5: return ColorPalette.primary.opacity(0.4)
+        case 0.51...0.75: return ColorPalette.primary.opacity(0.6)
+        case 0.76...1.0: return ColorPalette.primary.opacity(0.8)
+        default: return ColorPalette.surface
+        }
+    }
+}
+
+// MARK: - Supporting Views
+
+private struct StreakHistoryRow: View {
+    let title: String
+    let days: Int
+    let startDate: Date
+    let isActive: Bool
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                Text(startDate.formatted(date: .abbreviated, time: .omitted))
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.secondary)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 4) {
+                if isActive {
+                    Image(systemName: "flame.fill")
+                        .foregroundColor(.orange)
+                        .font(.caption)
+                }
+                
+                Text("\(days) days")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(isActive ? .orange : ColorPalette.primary)
+            }
+        }
+    }
+}
+
+private struct AchievementCard: View {
+    let icon: String
+    let title: String
+    let description: String
+    let isUnlocked: Bool
+    let color: Color
+    
+    var body: some View {
+        ModernCard {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(isUnlocked ? color : ColorPalette.secondary)
+                
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(isUnlocked ? ColorPalette.primary : ColorPalette.secondary)
+                
+                Text(description)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(ColorPalette.secondary)
+            }
+            .padding()
+            .opacity(isUnlocked ? 1.0 : 0.6)
+        }
+    }
+}

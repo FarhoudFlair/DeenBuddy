@@ -2,30 +2,56 @@ import SwiftUI
 
 /// Settings screen for app configuration
 public struct SettingsScreen: View {
-    private let settingsService: any SettingsServiceProtocol
+    @ObservedObject private var settingsService: SettingsService
     @ObservedObject private var themeManager: ThemeManager
-    
+
     let onDismiss: () -> Void
-    
+
     @State private var showingCalculationMethodPicker = false
     @State private var showingMadhabPicker = false
     @State private var showingThemePicker = false
     @State private var showingAbout = false
     @State private var showingResetConfirmation = false
-    
+    @State private var showingNotificationSettings = false
+    @State private var showingTimeFormatPicker = false
+    @State private var editingUserName = false
+    @State private var tempUserName = ""
+
     public init(
-        settingsService: any SettingsServiceProtocol,
+        settingsService: SettingsService,
         themeManager: ThemeManager,
         onDismiss: @escaping () -> Void
     ) {
-        self.settingsService = settingsService
-        self.themeManager = themeManager
+        self._settingsService = ObservedObject(wrappedValue: settingsService)
+        self._themeManager = ObservedObject(wrappedValue: themeManager)
         self.onDismiss = onDismiss
     }
     
     public var body: some View {
         NavigationView {
             List {
+                // Profile Section
+                Section("Profile") {
+                    ProfileRow(
+                        userName: settingsService.userName,
+                        isEditing: editingUserName,
+                        tempUserName: $tempUserName,
+                        onEditTapped: {
+                            tempUserName = settingsService.userName
+                            editingUserName = true
+                        },
+                        onSave: {
+                            let trimmedName = tempUserName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            settingsService.userName = trimmedName
+                            editingUserName = false
+                        },
+                        onCancel: {
+                            editingUserName = false
+                            tempUserName = ""
+                        }
+                    )
+                }
+
                 // Prayer Settings Section
                 Section("Prayer Settings") {
                     SettingsRow(
@@ -48,11 +74,18 @@ public struct SettingsScreen: View {
                     SettingsToggle(
                         icon: "bell.fill",
                         title: "Prayer Reminders",
-                        description: "Get notified 10 minutes before each prayer",
+                        description: "Get notified before each prayer",
                         isOn: Binding(
                             get: { settingsService.notificationsEnabled },
                             set: { settingsService.notificationsEnabled = $0 }
                         )
+                    )
+
+                    SettingsRow(
+                        icon: "clock.badge",
+                        title: "Notification Timing",
+                        value: "\(Int(settingsService.notificationOffset / 60)) min before",
+                        action: { showingNotificationSettings = true }
                     )
                 }
                 
@@ -63,6 +96,13 @@ public struct SettingsScreen: View {
                         title: "Theme",
                         value: themeManager.currentTheme.displayName,
                         action: { showingThemePicker = true }
+                    )
+
+                    SettingsRow(
+                        icon: "clock.fill",
+                        title: "Time Format",
+                        value: settingsService.timeFormat.displayName,
+                        action: { showingTimeFormatPicker = true }
                     )
                 }
                 
@@ -131,6 +171,16 @@ public struct SettingsScreen: View {
         }
         .sheet(isPresented: $showingAbout) {
             AboutView(onDismiss: { showingAbout = false })
+        }
+        .sheet(isPresented: $showingNotificationSettings) {
+            // Note: NotificationSettingsView is now in the main app
+            Text("Notification Settings")
+                .navigationTitle("Notification Settings")
+        }
+        .sheet(isPresented: $showingTimeFormatPicker) {
+            // Note: TimeFormatPickerView is now in the main app
+            Text("Time Format Settings")
+                .navigationTitle("Time Format")
         }
         .alert("Reset Settings", isPresented: $showingResetConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -270,7 +320,7 @@ private struct SettingsButton: View {
 
 #Preview("Settings Screen") {
     SettingsScreen(
-        settingsService: MockSettingsService(),
+        settingsService: SettingsService(),
         themeManager: ThemePreview.systemTheme,
         onDismiss: { print("Dismiss") }
     )

@@ -115,13 +115,25 @@ public class SettingsMigration {
             print("Migrated calculation method: \(legacyMethod)")
         }
         
-        // Migrate madhab with safeguards
+        // Migrate madhab with safeguards and enum simplification
         if let legacyMadhab = userDefaults.string(forKey: UnifiedSettingsKeys.legacyMadhab),
            userDefaults.string(forKey: UnifiedSettingsKeys.madhab) == nil,
            migratedKeysCount < maxKeysToMigrate {
-            userDefaults.set(legacyMadhab, forKey: UnifiedSettingsKeys.madhab)
+            let migratedMadhab = migrateMadhabValue(legacyMadhab)
+            userDefaults.set(migratedMadhab, forKey: UnifiedSettingsKeys.madhab)
             migratedKeysCount += 1
-            print("Migrated madhab: \(legacyMadhab)")
+            print("Migrated madhab: \(legacyMadhab) -> \(migratedMadhab)")
+        }
+
+        // Also check for current madhab values that need migration (for existing users)
+        if let currentMadhab = userDefaults.string(forKey: UnifiedSettingsKeys.madhab),
+           migratedKeysCount < maxKeysToMigrate {
+            let migratedMadhab = migrateMadhabValue(currentMadhab)
+            if migratedMadhab != currentMadhab {
+                userDefaults.set(migratedMadhab, forKey: UnifiedSettingsKeys.madhab)
+                migratedKeysCount += 1
+                print("Updated madhab: \(currentMadhab) -> \(migratedMadhab)")
+            }
         }
 
         // Migrate cache date with safeguards
@@ -273,6 +285,30 @@ public class SettingsMigration {
         userDefaults.synchronize()
         print("Legacy keys cleanup completed")
     }
+
+    /// Migrates old madhab enum values to new simplified enum
+    /// Handles the transition from 4 cases (sunni, shia, shafi, hanafi) to 3 cases (hanafi, shafi, jafari)
+    private func migrateMadhabValue(_ oldValue: String) -> String {
+        switch oldValue.lowercased() {
+        case "sunni":
+            return "shafi"  // General Sunni -> Shafi'i (most common)
+        case "shia":
+            return "jafari" // Shia -> Ja'fari (Twelver Shia)
+        case "shafi", "shafi'i":
+            return "shafi"  // Already correct
+        case "hanafi":
+            return "hanafi" // Already correct
+        case "maliki":
+            return "shafi"  // Maliki -> Shafi'i (similar timing)
+        case "hanbali":
+            return "shafi"  // Hanbali -> Shafi'i (similar timing)
+        case "jafari", "ja'fari":
+            return "jafari" // Already correct
+        default:
+            print("⚠️ Unknown madhab value '\(oldValue)', defaulting to 'shafi'")
+            return "shafi"  // Default fallback
+        }
+    }
 }
 
 // MARK: - Validation Helper
@@ -285,7 +321,7 @@ public class SettingsValidator {
     public init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
     }
-    
+
     /// Validates that core prayer settings are consistent
     public func validateCoreSettings() -> Bool {
         // Check calculation method

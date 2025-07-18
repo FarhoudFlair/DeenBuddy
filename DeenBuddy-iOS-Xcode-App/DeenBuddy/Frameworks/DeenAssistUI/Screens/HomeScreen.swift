@@ -17,8 +17,6 @@ public struct HomeScreen: View {
 
     @State private var isRefreshing = false
     @State private var showLocationDiagnostic = false
-    @State private var locationDisplayName: String?
-    @State private var isLoadingLocationName = false
 
     public init(
         prayerTimeService: any PrayerTimeServiceProtocol,
@@ -68,6 +66,21 @@ public struct HomeScreen: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    // Debug: Dynamic Island trigger button (hidden in production)
+                    #if DEBUG
+                    Button(action: {
+                        Task {
+                            await prayerTimeService.triggerDynamicIslandForNextPrayer()
+                        }
+                    }) {
+                        Image(systemName: "oval.fill")
+                            .foregroundColor(.blue)
+                            .font(.title3)
+                    }
+                    .accessibilityLabel("Test Dynamic Island")
+                    .accessibilityHint("Trigger Dynamic Island for next prayer")
+                    #endif
+                    
                     // Notification bell icon
                     if let notificationService = notificationService,
                        let onNotificationsTapped = onNotificationsTapped {
@@ -125,34 +138,37 @@ public struct HomeScreen: View {
                 }
             }
         )
-        .onChange(of: locationService.currentLocation) { newLocation in
-            if let location = newLocation {
-                loadLocationDisplayName(for: location)
-            } else {
-                locationDisplayName = nil
-            }
-        }
-        .onAppear {
-            if let location = locationService.currentLocation {
-                loadLocationDisplayName(for: location)
-            }
+        .onChange(of: locationService.currentLocationInfo) { newLocationInfo in
+            // Location display is now handled by currentLocationInfo from the service
+            // No need to manually load location names anymore
         }
     }
     
     @ViewBuilder
     private var headerView: some View {
-        VStack(spacing: 8) {
-            // Personalized greeting
-            if !settingsService.userName.isEmpty {
-                HStack {
-                    Text("Salam Alaykum, \(settingsService.userName)")
-                        .titleLarge()
-                        .foregroundColor(ColorPalette.textPrimary)
-                    
-                    Spacer()
+        VStack(spacing: 12) {
+            // Personalized greeting - always show prominently
+            VStack(spacing: 4) {
+                if !settingsService.userName.isEmpty {
+                    Text("Salaam Alaykum, \(settingsService.userName)")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(ColorPalette.primary)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("Salaam Alaykum")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(ColorPalette.primary)
+                        .multilineTextAlignment(.center)
                 }
-                .padding(.bottom, 4)
+                
+                Text("Welcome to your prayer companion")
+                    .font(.subheadline)
+                    .foregroundColor(ColorPalette.textSecondary)
+                    .multilineTextAlignment(.center)
             }
+            .padding(.bottom, 8)
             
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -166,14 +182,9 @@ public struct HomeScreen: View {
                                 showLocationDiagnostic = true
                             }) {
                                 HStack(spacing: 6) {
-                                    if isLoadingLocationName {
-                                        ProgressView()
-                                            .scaleEffect(0.7)
-                                    } else {
-                                        Text(displayLocationText(for: location))
-                                            .titleMedium()
-                                            .foregroundColor(ColorPalette.textPrimary)
-                                    }
+                                    Text(displayLocationText(for: location))
+                                        .titleMedium()
+                                        .foregroundColor(ColorPalette.textPrimary)
 
                                     Image(systemName: "info.circle")
                                         .font(.caption)
@@ -329,48 +340,23 @@ public struct HomeScreen: View {
     }
     
     private func displayLocationText(for location: CLLocation) -> String {
-        // Show city name if available, otherwise coordinates
-        if let displayName = locationDisplayName {
-            return displayName
-        } else {
-            return String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
-        }
-    }
-
-    private func loadLocationDisplayName(for location: CLLocation) {
-        guard !isLoadingLocationName else { return }
-
-        isLoadingLocationName = true
-
-        Task {
-            do {
-                let coordinate = LocationCoordinate(
-                    latitude: location.coordinate.latitude,
-                    longitude: location.coordinate.longitude
-                )
-                let locationInfo = try await locationService.getLocationInfo(for: coordinate)
-
-                await MainActor.run {
-                    if let city = locationInfo.city, let country = locationInfo.country {
-                        self.locationDisplayName = "\(city), \(country)"
-                    } else if let city = locationInfo.city {
-                        self.locationDisplayName = city
-                    } else if let country = locationInfo.country {
-                        self.locationDisplayName = country
-                    } else {
-                        self.locationDisplayName = "Unknown Location"
-                    }
-                    self.isLoadingLocationName = false
-                }
-            } catch {
-                await MainActor.run {
-                    // Fallback to coordinates if reverse geocoding fails
-                    self.locationDisplayName = String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
-                    self.isLoadingLocationName = false
-                }
+        // Use the currentLocationInfo if available (from remote changes)
+        if let locationInfo = locationService.currentLocationInfo,
+           let city = locationInfo.city {
+            // Determine if we should show "Near" prefix based on accuracy
+            let accuracy = location.horizontalAccuracy
+            if accuracy > 100 {
+                return "Near \(city)"
+            } else {
+                return city
             }
         }
+
+        // Fallback to coordinates if no city info available
+        return String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
     }
+
+
     
     private func getPrayerStatus(for prayerTime: PrayerTime) -> PrayerStatus {
         let now = Date()

@@ -24,6 +24,8 @@ public class AppCoordinator: ObservableObject {
     public let locationService: any LocationServiceProtocol
     public let notificationService: any NotificationServiceProtocol
     public let prayerTimeService: any PrayerTimeServiceProtocol
+    public let prayerTrackingService: any PrayerTrackingServiceProtocol
+    public let prayerAnalyticsService: PrayerAnalyticsService
     public let settingsService: any SettingsServiceProtocol
     public let themeManager: ThemeManager
     private let backgroundTaskManager: BackgroundTaskManager
@@ -43,6 +45,8 @@ public class AppCoordinator: ObservableObject {
         locationService: any LocationServiceProtocol,
         notificationService: any NotificationServiceProtocol,
         prayerTimeService: any PrayerTimeServiceProtocol,
+        prayerTrackingService: any PrayerTrackingServiceProtocol,
+        prayerAnalyticsService: PrayerAnalyticsService,
         settingsService: any SettingsServiceProtocol,
         themeManager: ThemeManager,
         backgroundTaskManager: BackgroundTaskManager,
@@ -51,6 +55,8 @@ public class AppCoordinator: ObservableObject {
         self.locationService = locationService
         self.notificationService = notificationService
         self.prayerTimeService = prayerTimeService
+        self.prayerTrackingService = prayerTrackingService
+        self.prayerAnalyticsService = prayerAnalyticsService
         self.settingsService = settingsService
         self.themeManager = themeManager
         self.backgroundTaskManager = backgroundTaskManager
@@ -298,7 +304,9 @@ public struct DeenAssistApp: View {
                 )
                 
             case .home:
-                SimpleTabView(coordinator: coordinator)
+                // Note: Using MainTabView from the main app for enhanced settings
+                Text("Main App")
+                    .navigationTitle("DeenBuddy")
             }
         }
         .onAppear {
@@ -309,19 +317,19 @@ public struct DeenAssistApp: View {
 
 // MARK: - Onboarding Coordinator View
 
-private struct OnboardingCoordinatorView: View {
+public struct OnboardingCoordinatorView: View {
     let step: OnboardingStep
     let coordinator: AppCoordinator
     
     @State private var currentStep: OnboardingStep
     
-    init(step: OnboardingStep, coordinator: AppCoordinator) {
+    public init(step: OnboardingStep, coordinator: AppCoordinator) {
         self.step = step
         self.coordinator = coordinator
         self._currentStep = State(initialValue: step)
     }
     
-    var body: some View {
+    public var body: some View {
         Group {
             switch currentStep {
             case .welcome:
@@ -378,10 +386,15 @@ private struct MainAppView: View {
                 prayerTimeService: coordinator.prayerTimeService,
                 locationService: coordinator.locationService,
                 settingsService: coordinator.settingsService,
+                notificationService: coordinator.notificationService,
                 onCompassTapped: { }, // No action needed - available as tab
                 onGuidesTapped: { }, // No action needed - available as tab
                 onQuranSearchTapped: { }, // No action needed - available as tab
-                onSettingsTapped: { } // No action needed - available as tab
+                onSettingsTapped: { }, // No action needed - available as tab
+                onNotificationsTapped: {
+                    // Bell icon tapped - notification settings functionality
+                    print("Notification bell tapped")
+                }
             )
 
             // Loading overlay
@@ -533,14 +546,16 @@ private struct SimpleTabView: View {
                 Text("Qibla")
             }
             
-            // 3. Prayer Guides Tab - Direct access to guides
-            PrayerGuidesScreen(
-                settingsService: coordinator.settingsService,
+            // 3. Prayer Tracking Tab - Direct access to prayer tracking
+            PrayerTrackingScreen(
+                prayerTrackingService: coordinator.prayerTrackingService,
+                prayerTimeService: coordinator.prayerTimeService,
+                notificationService: coordinator.notificationService,
                 onDismiss: { } // No dismiss needed in tab mode
             )
             .tabItem {
-                Image(systemName: "book.closed.fill")
-                Text("Guides")
+                Image(systemName: "checkmark.circle.fill")
+                Text("Tracking")
             }
             
             // 4. Quran Tab - Direct access to QuranSearchView
@@ -550,12 +565,10 @@ private struct SimpleTabView: View {
                     Text("Quran")
                 }
             
-            // 5. Settings Tab - Direct access to SettingsScreen
-            SettingsScreen(
-                settingsService: coordinator.settingsService,
-                themeManager: coordinator.themeManager,
-                onDismiss: { } // No dismiss needed in tab mode
-            )
+            // 5. Settings Tab - Direct access to EnhancedSettingsView
+            // Note: Using the enhanced settings view from the main app
+            Text("Settings")
+                .navigationTitle("Settings")
             .tabItem {
                 Image(systemName: "gear")
                 Text("Settings")
@@ -578,6 +591,8 @@ public extension AppCoordinator {
             locationService: container.locationService,
             notificationService: container.notificationService,
             prayerTimeService: container.prayerTimeService,
+            prayerTrackingService: container.prayerTrackingService,
+            prayerAnalyticsService: container.prayerAnalyticsService,
             settingsService: container.settingsService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
@@ -594,6 +609,8 @@ public extension AppCoordinator {
             locationService: container.locationService,
             notificationService: container.notificationService,
             prayerTimeService: container.prayerTimeService,
+            prayerTrackingService: container.prayerTrackingService,
+            prayerAnalyticsService: container.prayerAnalyticsService,
             settingsService: container.settingsService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,

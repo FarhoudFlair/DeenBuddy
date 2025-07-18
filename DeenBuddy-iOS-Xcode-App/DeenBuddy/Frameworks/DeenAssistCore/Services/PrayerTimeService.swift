@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import Combine
 import Adhan
+import ActivityKit
 
 
 /// Real implementation of PrayerTimeServiceProtocol using AdhanSwift
@@ -94,18 +95,25 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             let adhanMethod = calculationMethod.toAdhanMethod()
             var params = adhanMethod.params
             params.madhab = madhab.adhanMadhab()
+
+            // Apply custom madhab-specific adjustments
+            applyMadhabAdjustments(to: &params, madhab: madhab)
+
             // Use Adhan.PrayerTimes to avoid collision with app's PrayerTimes
             guard let adhanPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: params) else {
                 throw AppError.serviceUnavailable("Prayer time calculation")
             }
 
-            let prayerTimes = [
+            var prayerTimes = [
                 PrayerTime(prayer: .fajr, time: adhanPrayerTimes.fajr),
                 PrayerTime(prayer: .dhuhr, time: adhanPrayerTimes.dhuhr),
                 PrayerTime(prayer: .asr, time: adhanPrayerTimes.asr),
                 PrayerTime(prayer: .maghrib, time: adhanPrayerTimes.maghrib),
                 PrayerTime(prayer: .isha, time: adhanPrayerTimes.isha)
             ]
+
+            // Apply post-calculation madhab adjustments
+            prayerTimes = applyPostCalculationAdjustments(to: prayerTimes, madhab: madhab)
 
             // Cache the results
             cachePrayerTimes(prayerTimes, for: date)
@@ -162,6 +170,10 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             let prayerTimes = try await calculatePrayerTimes(for: validLocation, date: Date())
             todaysPrayerTimes = prayerTimes
             updateNextPrayer()
+
+            // Update widget data when prayer times are updated
+            await updateWidgetData()
+
             error = nil // Clear any previous errors
         } catch {
             let appError = convertToAppError(error)
@@ -288,6 +300,16 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         
         print("🧹 PrayerTimeService manually cleaned up")
     }
+    
+    /// Manually trigger Dynamic Island for next prayer (for testing/debugging)
+    public func triggerDynamicIslandForNextPrayer() async {
+        guard let nextPrayer = nextPrayer else {
+            print("❌ No next prayer available to trigger Dynamic Island")
+            return
+        }
+        
+        await startDynamicIslandForPrayer(nextPrayer)
+    }
 
     /// Clears all cached prayer times from UserDefaults (local cache)
     private func clearLocalCachedPrayerTimes() {
@@ -332,10 +354,13 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private func updateNextPrayer() {
         let now = Date()
         let upcomingPrayers = todaysPrayerTimes.filter { $0.time > now }
-        
+
         if let next = upcomingPrayers.first {
             nextPrayer = next
             timeUntilNextPrayer = next.time.timeIntervalSince(now)
+            
+            // Auto-trigger Dynamic Island for approaching prayers
+            checkAndTriggerDynamicIslandForPrayer(next)
         } else {
             // No more prayers today, get tomorrow's Fajr
             Task {
@@ -346,6 +371,9 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                         if let fajr = tomorrowPrayers.first(where: { $0.prayer == .fajr }) {
                             nextPrayer = fajr
                             timeUntilNextPrayer = fajr.time.timeIntervalSince(now)
+                            
+                            // Auto-trigger Dynamic Island for tomorrow's Fajr
+                            checkAndTriggerDynamicIslandForPrayer(fajr)
                         }
                     } catch {
                         self.error = error
@@ -353,6 +381,85 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 }
             }
         }
+    }
+    
+    /// Automatically trigger Dynamic Island when prayer time approaches
+    private func checkAndTriggerDynamicIslandForPrayer(_ prayerTime: PrayerTime) {
+        guard let timeUntilPrayer = timeUntilNextPrayer else { return }
+        
+        // Only trigger if notifications are enabled (user preference)
+        guard settingsService.notificationsEnabled else { return }
+        
+        // Trigger Dynamic Island when prayer is within 30 minutes
+        let triggerThreshold: TimeInterval = 30 * 60 // 30 minutes
+        
+        if timeUntilPrayer <= triggerThreshold && timeUntilPrayer > 0 {
+            Task {
+                await startDynamicIslandForPrayer(prayerTime)
+            }
+        }
+    }
+    
+    /// Start Dynamic Island Live Activity for the approaching prayer
+    private func startDynamicIslandForPrayer(_ prayerTime: PrayerTime) async {
+        // Check if iOS 16.1+ is available for Live Activities
+        if #available(iOS 16.1, *) {
+            do {
+                // Check if Live Activities are available and enabled
+                let authInfo = ActivityAuthorizationInfo()
+                guard authInfo.areActivitiesEnabled else {
+                    print("ℹ️ Live Activities are not enabled, skipping Dynamic Island")
+                    return
+                }
+
+                // Get current location info
+                let locationInfo = locationService.currentLocationInfo?.city ?? "Current Location"
+                let hijriDate = HijriDate(from: Date())
+
+                // Use the integration service to start Dynamic Island
+                try await DynamicIslandIntegrationService.shared.startPrayerCountdownWithDynamicIsland(
+                    prayerTime: prayerTime,
+                    location: locationInfo,
+                    hijriDate: hijriDate,
+                    calculationMethod: calculationMethod
+                )
+
+                print("✅ Auto-started Dynamic Island for \(prayerTime.prayer.displayName) prayer")
+            } catch {
+                // Handle specific Live Activity errors gracefully
+                if let activityError = error as? LiveActivityError {
+                    switch activityError {
+                    case .notAvailable, .permissionDenied:
+                        print("ℹ️ Live Activities not available or permission denied, skipping Dynamic Island")
+                    default:
+                        print("❌ Failed to auto-start Dynamic Island: \(activityError.localizedDescription)")
+                    }
+                } else {
+                    print("❌ Failed to auto-start Dynamic Island: \(error)")
+                }
+            }
+        }
+    }
+
+    /// Update widget data when prayer times change
+    private func updateWidgetData() async {
+        guard !todaysPrayerTimes.isEmpty else { return }
+
+        // Create widget data
+        let widgetData = WidgetData(
+            nextPrayer: nextPrayer,
+            timeUntilNextPrayer: timeUntilNextPrayer,
+            todaysPrayerTimes: todaysPrayerTimes,
+            hijriDate: HijriDate(from: Date()),
+            location: "Current Location",
+            calculationMethod: calculationMethod,
+            lastUpdated: Date()
+        )
+
+        // Save widget data using the shared manager
+        WidgetDataManager.shared.saveWidgetData(widgetData)
+
+        print("✅ Widget data updated from PrayerTimeService")
     }
     
     private func cachePrayerTimes(_ prayerTimes: [PrayerTime], for date: Date) {
@@ -365,9 +472,81 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         let madhabKey = madhab.rawValue
         let cacheKey = "\(UnifiedSettingsKeys.cachedPrayerTimes)_\(dateKey)_\(methodKey)_\(madhabKey)"
 
-        if let data = try? JSONEncoder().encode(prayerTimes) {
+        do {
+            let data = try JSONEncoder().encode(prayerTimes)
+
+            // Check data size before storing (limit to 50KB per cache entry to prevent UserDefaults bloat)
+            let maxCacheSize = 50 * 1024 // 50KB
+            if data.count > maxCacheSize {
+                print("⚠️ Prayer times data too large (\(data.count) bytes), using file-based cache instead")
+                cacheToFile(prayerTimes, cacheKey: cacheKey, dateKey: dateKey)
+                return
+            }
+
+            // Clean old cache entries before adding new ones to prevent UserDefaults bloat
+            cleanOldCacheEntries()
+
             userDefaults.set(data, forKey: cacheKey)
             userDefaults.set(dateKey, forKey: UnifiedSettingsKeys.cacheDate)
+            print("✅ Cached prayer times for \(dateKey) (\(data.count) bytes)")
+        } catch {
+            print("❌ Failed to cache prayer times: \(error)")
+        }
+    }
+
+    /// Cache prayer times to file system for large data
+    private func cacheToFile(_ prayerTimes: [PrayerTime], cacheKey: String, dateKey: String) {
+        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("❌ Could not access documents directory for file caching")
+            return
+        }
+
+        let cacheDirectory = documentsPath.appendingPathComponent("PrayerTimesCache")
+
+        do {
+            // Create cache directory if it doesn't exist
+            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+
+            let fileURL = cacheDirectory.appendingPathComponent("\(cacheKey).json")
+            let data = try JSONEncoder().encode(prayerTimes)
+            try data.write(to: fileURL)
+
+            // Store file reference in UserDefaults (much smaller)
+            userDefaults.set(fileURL.path, forKey: "\(cacheKey)_file")
+            userDefaults.set(dateKey, forKey: UnifiedSettingsKeys.cacheDate)
+            print("✅ Cached prayer times to file: \(fileURL.lastPathComponent)")
+        } catch {
+            print("❌ Failed to cache prayer times to file: \(error)")
+        }
+    }
+
+    /// Clean old cache entries to prevent UserDefaults bloat
+    private func cleanOldCacheEntries() {
+        let calendar = Calendar.current
+        let cutoffDate = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        // Get all UserDefaults keys
+        let allKeys = userDefaults.dictionaryRepresentation().keys
+        var removedCount = 0
+
+        // Find and remove old prayer time cache entries
+        for key in allKeys {
+            if key.hasPrefix(UnifiedSettingsKeys.cachedPrayerTimes) {
+                // Extract date from key
+                let components = key.components(separatedBy: "_")
+                if components.count >= 2,
+                   let date = dateFormatter.date(from: components[1]),
+                   date < cutoffDate {
+                    userDefaults.removeObject(forKey: key)
+                    removedCount += 1
+                }
+            }
+        }
+
+        if removedCount > 0 {
+            print("🗑️ Cleaned \(removedCount) old cache entries from UserDefaults")
         }
     }
 
@@ -382,10 +561,19 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         let madhabKey = madhab.rawValue
         let cacheKey = "\(UnifiedSettingsKeys.cachedPrayerTimes)_\(todayKey)_\(methodKey)_\(madhabKey)"
 
+        // First try UserDefaults cache
         if let data = userDefaults.data(forKey: cacheKey),
            let cachedPrayers = try? JSONDecoder().decode([PrayerTime].self, from: data) {
             return cachedPrayers
         }
+
+        // Then try file-based cache
+        if let filePath = userDefaults.string(forKey: "\(cacheKey)_file"),
+           let fileData = try? Data(contentsOf: URL(fileURLWithPath: filePath)),
+           let cachedPrayers = try? JSONDecoder().decode([PrayerTime].self, from: fileData) {
+            return cachedPrayers
+        }
+
         return nil
     }
 
@@ -399,6 +587,35 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         }
 
         return AppError.unknownError(error)
+    }
+
+    // MARK: - Madhab Adjustments
+
+    /// Apply madhab-specific adjustments to calculation parameters
+    private func applyMadhabAdjustments(to params: inout CalculationParameters, madhab: Madhab) {
+        // Apply custom twilight angles for Isha prayer
+        params.ishaAngle = madhab.ishaTwilightAngle
+
+        // For Ja'fari madhab, we need special handling since Adhan doesn't support it directly
+        if madhab == .jafari {
+            // Use custom angles for Ja'fari calculations
+            params.fajrAngle = 16.0  // Ja'fari Fajr angle
+            params.ishaAngle = 14.0  // Ja'fari Isha angle
+        }
+    }
+
+    /// Apply post-calculation adjustments for specific madhab requirements
+    private func applyPostCalculationAdjustments(to prayerTimes: [PrayerTime], madhab: Madhab) -> [PrayerTime] {
+        var adjustedTimes = prayerTimes
+
+        // Apply Maghrib delay for Ja'fari madhab
+        if madhab == .jafari, let maghribIndex = adjustedTimes.firstIndex(where: { $0.prayer == .maghrib }) {
+            let delayInSeconds = madhab.maghribDelayMinutes * 60
+            let adjustedMaghribTime = adjustedTimes[maghribIndex].time.addingTimeInterval(delayInSeconds)
+            adjustedTimes[maghribIndex] = PrayerTime(prayer: .maghrib, time: adjustedMaghribTime)
+        }
+
+        return adjustedTimes
     }
 }
 
@@ -435,14 +652,12 @@ extension CalculationMethod {
 extension Madhab {
     func adhanMadhab() -> Adhan.Madhab {
         switch self {
-        case .shafi:
-            return .shafi
         case .hanafi:
             return .hanafi
-        case .sunni:
-            return .shafi  // Default to Shafi for general Sunni
-        case .shia:
-            return .shafi  // Adhan library doesn't have Shia, default to Shafi
+        case .shafi:
+            return .shafi
+        case .jafari:
+            return .shafi  // Adhan library doesn't have Ja'fari, use Shafi as closest approximation
         }
     }
 }

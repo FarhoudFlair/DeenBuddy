@@ -39,4 +39,7 @@ public protocol PrayerTimeServiceProtocol: ObservableObject {
 
     /// Get current location (for background services)
     func getCurrentLocation() async throws -> CLLocation
+    
+    /// Trigger Dynamic Island for next prayer (for testing/debugging)
+    func triggerDynamicIslandForNextPrayer() async
 }

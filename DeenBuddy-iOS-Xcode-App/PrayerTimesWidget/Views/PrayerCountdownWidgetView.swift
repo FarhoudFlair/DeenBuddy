@@ -1,258 +1,260 @@
 import SwiftUI
 import WidgetKit
 
-// MARK: - Prayer Countdown Small Widget View
-
-struct PrayerCountdownSmallView: View {
+/// Widget view focused on countdown to next prayer
+struct PrayerCountdownWidgetView: View {
     let entry: PrayerWidgetEntry
+    
+    @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
         ZStack {
-            // Background with prayer-specific gradient
+            // Background gradient
             backgroundGradient
             
-            VStack(spacing: 0) {
-                // Top section - Prayer name
+            VStack(spacing: 12) {
+                // Islamic symbol header
                 HStack {
-                    if let nextPrayer = entry.widgetData.nextPrayer {
-                        Image(systemName: nextPrayer.prayer.systemImageName)
-                            .foregroundColor(.white)
-                            .font(.caption)
-                        
-                        Text(nextPrayer.prayer.displayName)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                    } else {
-                        Text("No Prayer")
-                            .font(.caption)
-                            .foregroundColor(.white)
-                    }
+                    Text("☪")
+                        .font(.title3)
+                        .foregroundColor(.green)
                     
                     Spacer()
-                }
-                .padding(.top, 12)
-                .padding(.horizontal, 12)
-                
-                Spacer()
-                
-                // Center section - Countdown
-                VStack(spacing: 4) {
-                    if let timeUntil = entry.widgetData.timeUntilNextPrayer,
-                       timeUntil > 0 {
-                        
-                        // Large countdown display
-                        Text(formatCountdown(timeUntil))
-                            .font(.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                        
-                        Text("remaining")
-                            .font(.caption2)
-                            .foregroundColor(.white.opacity(0.8))
-                    } else {
-                        VStack(spacing: 2) {
-                            Text("Prayer")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                            
-                            Text("Time")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.white)
-                        }
-                    }
-                }
-                
-                Spacer()
-                
-                // Bottom section - Prayer time
-                HStack {
-                    Spacer()
                     
-                    if let nextPrayer = entry.widgetData.nextPrayer {
-                        Text(formatTime(nextPrayer.time))
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white.opacity(0.9))
-                    }
-                }
-                .padding(.bottom, 12)
-                .padding(.horizontal, 12)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-    
-    private var backgroundGradient: some View {
-        let prayer = entry.widgetData.nextPrayer?.prayer ?? .fajr
-        
-        return ZStack {
-            // Base gradient
-            LinearGradient(
-                gradient: Gradient(colors: prayer.gradientColors),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-            // Overlay pattern for visual interest
-            RadialGradient(
-                gradient: Gradient(colors: [
-                    Color.white.opacity(0.1),
-                    Color.clear
-                ]),
-                center: .topTrailing,
-                startRadius: 20,
-                endRadius: 80
-            )
-        }
-    }
-    
-    private func formatCountdown(_ timeInterval: TimeInterval) -> String {
-        let totalMinutes = Int(timeInterval) / 60
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        
-        if hours > 0 {
-            return "\(hours)h\n\(minutes)m"
-        } else if minutes > 0 {
-            return "\(minutes)\nmin"
-        } else {
-            return "Now"
-        }
-    }
-    
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-}
-
-// MARK: - Alternative Countdown View with Circular Progress
-
-struct PrayerCountdownCircularView: View {
-    let entry: PrayerWidgetEntry
-    
-    var body: some View {
-        ZStack {
-            // Background
-            backgroundGradient
-            
-            VStack(spacing: 8) {
-                // Prayer name
-                if let nextPrayer = entry.widgetData.nextPrayer {
-                    HStack(spacing: 4) {
-                        Image(systemName: nextPrayer.prayer.systemImageName)
-                            .foregroundColor(.white)
-                            .font(.caption)
-                        
-                        Text(nextPrayer.prayer.displayName)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(.white)
-                    }
-                }
-                
-                // Circular progress with countdown
-                ZStack {
-                    // Background circle
-                    Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 4)
-                        .frame(width: 80, height: 80)
-                    
-                    // Progress circle
-                    Circle()
-                        .trim(from: 0, to: progressValue)
-                        .stroke(Color.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                        .frame(width: 80, height: 80)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.easeInOut(duration: 1), value: progressValue)
-                    
-                    // Countdown text
-                    VStack(spacing: 2) {
-                        if let timeUntil = entry.widgetData.timeUntilNextPrayer,
-                           timeUntil > 0 {
-                            Text(formatShortCountdown(timeUntil))
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        } else {
-                            Text("Now")
-                                .font(.headline)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-                        }
-                    }
-                }
-                
-                // Prayer time
-                if let nextPrayer = entry.widgetData.nextPrayer {
-                    Text(formatTime(nextPrayer.time))
+                    Text("Prayer")
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.8))
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
                 }
+                
+                Spacer()
+                
+                // Main content
+                if let nextPrayer = entry.widgetData.nextPrayer {
+                    mainCountdownContent(for: nextPrayer)
+                } else {
+                    noDataView
+                }
+                
+                Spacer()
+                
+                // Bottom info
+                bottomInfoView
             }
             .padding()
         }
+        .widgetBackground(backgroundGradient)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
     }
     
+    // MARK: - Background
+    
     private var backgroundGradient: some View {
-        let prayer = entry.widgetData.nextPrayer?.prayer ?? .fajr
-        return LinearGradient(
-            gradient: Gradient(colors: prayer.gradientColors),
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+        RadialGradient(
+            colors: colorScheme == .dark ? 
+                [Color(red: 0.15, green: 0.25, blue: 0.35), Color(red: 0.05, green: 0.1, blue: 0.2)] :
+                [Color(red: 0.98, green: 0.99, blue: 1.0), Color(red: 0.92, green: 0.96, blue: 0.99)],
+            center: .center,
+            startRadius: 20,
+            endRadius: 100
         )
     }
     
-    private var progressValue: Double {
-        guard let timeUntil = entry.widgetData.timeUntilNextPrayer,
-              timeUntil > 0 else { return 1.0 }
-        
-        // Assume maximum time between prayers is 6 hours (21600 seconds)
-        let maxTime: TimeInterval = 21600
-        let progress = 1.0 - (timeUntil / maxTime)
-        return max(0.0, min(1.0, progress))
-    }
+    // MARK: - Main Content
     
-    private func formatShortCountdown(_ timeInterval: TimeInterval) -> String {
-        let totalMinutes = Int(timeInterval) / 60
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        
-        if hours > 0 {
-            return "\(hours)h"
-        } else if minutes > 0 {
-            return "\(minutes)m"
-        } else {
-            return "Now"
+    private func mainCountdownContent(for prayer: PrayerTime) -> some View {
+        VStack(spacing: 8) {
+            // Arabic prayer name (if enabled)
+            if entry.configuration.showArabicText {
+                Text(prayer.arabicName)
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                    .minimumScaleFactor(0.8)
+                    .lineLimit(1)
+            }
+            
+            // English prayer name
+            Text(prayer.displayName)
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.primary)
+                .minimumScaleFactor(0.9)
+                .lineLimit(1)
+            
+            // Prayer time
+            Text(formatTime(prayer.time))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .monospacedDigit()
+            
+            // Countdown display
+            countdownDisplay
         }
     }
+    
+    private var countdownDisplay: some View {
+        VStack(spacing: 4) {
+            if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+                // Time remaining
+                let (hours, minutes) = parseTimeInterval(timeUntil)
+                
+                HStack(spacing: 4) {
+                    if hours > 0 {
+                        VStack(spacing: 2) {
+                            Text("\(hours)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.green)
+                                .monospacedDigit()
+                            
+                            Text("hr")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text(":")
+                            .font(.title2)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    VStack(spacing: 2) {
+                        Text("\(minutes)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                            .monospacedDigit()
+                        
+                        Text("min")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Text("remaining")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                // Prayer time has arrived
+                VStack(spacing: 4) {
+                    Text("🕌")
+                        .font(.title)
+                    
+                    Text("Prayer Time")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.orange)
+                    
+                    Text("Now")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+    
+    private var bottomInfoView: some View {
+        VStack(spacing: 2) {
+            // Hijri date
+            Text(entry.widgetData.hijriDate.formatted)
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+                .lineLimit(1)
+            
+            // Location (if available)
+            if !entry.widgetData.location.isEmpty {
+                Text(entry.widgetData.location)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+    
+    private var noDataView: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "clock.badge.exclamationmark")
+                .font(.title2)
+                .foregroundColor(.orange)
+            
+            Text("No Data")
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .foregroundColor(.primary)
+            
+            Text("Open app to load")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+    
+    // MARK: - Helper Methods
     
     private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+    
+    private func parseTimeInterval(_ interval: TimeInterval) -> (hours: Int, minutes: Int) {
+        let totalMinutes = Int(interval) / 60
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return (hours, minutes)
+    }
+    
+    private var accessibilityLabel: String {
+        if let nextPrayer = entry.widgetData.nextPrayer {
+            let timeString = formatTime(nextPrayer.time)
+            
+            if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
+                let (hours, minutes) = parseTimeInterval(timeUntil)
+                let countdownString = hours > 0 ? 
+                    "\(hours) hours and \(minutes) minutes" : 
+                    "\(minutes) minutes"
+                return "Next prayer: \(nextPrayer.displayName) at \(timeString), \(countdownString) remaining"
+            } else {
+                return "Prayer time now: \(nextPrayer.displayName) at \(timeString)"
+            }
+        } else {
+            return "No prayer data available"
+        }
     }
 }
 
 // MARK: - Preview
 
-#if DEBUG
 struct PrayerCountdownWidgetView_Previews: PreviewProvider {
     static var previews: some View {
         Group {
-            PrayerCountdownSmallView(entry: .placeholder())
+            PrayerCountdownWidgetView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .systemSmall))
-                .previewDisplayName("Prayer Countdown - Standard")
+                .previewDisplayName("Small - Light")
             
-            PrayerCountdownCircularView(entry: .placeholder())
+            PrayerCountdownWidgetView(entry: .placeholder())
                 .previewContext(WidgetPreviewContext(family: .systemSmall))
-                .previewDisplayName("Prayer Countdown - Circular")
+                .preferredColorScheme(.dark)
+                .previewDisplayName("Small - Dark")
+            
+            // Preview with no data
+            PrayerCountdownWidgetView(entry: PrayerWidgetEntry(
+                date: Date(),
+                widgetData: WidgetData(
+                    nextPrayer: nil,
+                    timeUntilNextPrayer: nil,
+                    todaysPrayerTimes: [],
+                    hijriDate: HijriDate(from: Date()),
+                    location: "",
+                    calculationMethod: .muslimWorldLeague,
+                    lastUpdated: Date()
+                ),
+                configuration: .default
+            ))
+            .previewContext(WidgetPreviewContext(family: .systemSmall))
+            .previewDisplayName("Small - No Data")
         }
     }
 }
-#endif

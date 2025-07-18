@@ -100,7 +100,7 @@ public struct PrayerGuide: Codable, Identifiable, Hashable {
     
     /// Converts sect string to Madhab enum
     public var madhab: Madhab {
-        Madhab(rawValue: sect) ?? .sunni
+        Madhab(rawValue: sect) ?? .shafi
     }
     
     /// Display name for the sect/tradition

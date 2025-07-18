@@ -255,13 +255,7 @@ struct LocalizedPrayerTimesView: View {
         ModernCard {
             VStack(spacing: 16) {
                 if prayerTimeService.isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .cyan))
-                        .scaleEffect(1.2)
-                    
-                    Text(localizationService.localizedString(for: "loading.prayer_times"))
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
+                    ModernContextualLoadingView(context: .prayerTimes)
                 } else if let error = prayerTimeService.error {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.title)
@@ -323,7 +317,7 @@ struct LocalizedPrayerTimeRow: View {
                 HStack(spacing: 8) {
                     Text("\(prayerTime.prayer.defaultRakahCount) rakahs")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(ColorPalette.rakahText)
                         .localizedFrameAlignment(localizationService)
 
                     if !statusText.isEmpty {

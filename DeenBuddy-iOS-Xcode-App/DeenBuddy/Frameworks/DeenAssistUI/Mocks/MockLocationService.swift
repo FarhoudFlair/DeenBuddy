@@ -7,6 +7,7 @@ import Combine
 public class MockLocationService: LocationServiceProtocol {
     @Published public var authorizationStatus: CLAuthorizationStatus = .notDetermined
     @Published public var currentLocation: CLLocation? = nil
+    @Published public var currentLocationInfo: LocationInfo? = nil
     @Published public var isUpdatingLocation: Bool = false
     @Published public var locationError: Error? = nil
     @Published public var currentHeading: Double = 0
@@ -55,6 +56,16 @@ public class MockLocationService: LocationServiceProtocol {
         // Mock location: New York City
         let location = CLLocation(latitude: 40.7128, longitude: -74.0060)
         currentLocation = location
+
+        // Mock location info
+        let coordinate = LocationCoordinate(from: location.coordinate)
+        currentLocationInfo = LocationInfo(
+            coordinate: coordinate,
+            accuracy: location.horizontalAccuracy,
+            city: "New York",
+            country: "United States"
+        )
+
         locationSubject.send(location)
         return location
     }
@@ -67,6 +78,16 @@ public class MockLocationService: LocationServiceProtocol {
             // Mock location: New York City
             let location = CLLocation(latitude: 40.7128, longitude: -74.0060)
             self.currentLocation = location
+
+            // Mock location info
+            let coordinate = LocationCoordinate(from: location.coordinate)
+            self.currentLocationInfo = LocationInfo(
+                coordinate: coordinate,
+                accuracy: location.horizontalAccuracy,
+                city: "New York",
+                country: "United States"
+            )
+
             self.locationSubject.send(location)
             self.isUpdatingLocation = false
         }
@@ -120,6 +141,16 @@ public class MockLocationService: LocationServiceProtocol {
         )
 
         currentLocation = newLocation
+
+        // Mock location info for background updates
+        let coordinate = LocationCoordinate(from: newLocation.coordinate)
+        currentLocationInfo = LocationInfo(
+            coordinate: coordinate,
+            accuracy: newLocation.horizontalAccuracy,
+            city: "New York",
+            country: "United States"
+        )
+
         locationSubject.send(newLocation)
 
         // Schedule next update every 5 seconds for background updates

@@ -74,38 +74,95 @@ final class IslamicAccuracyValidationTests: XCTestCase {
     
     func testMadhabAsrCalculationAccuracy() async throws {
         let testDate = Date()
-        
-        // Test both Madhab calculations for Asr
-        for madhab in Madhab.allCases {
-            settingsService.madhab = madhab
-            
-            let prayerTimes = try await prayerTimeService.calculatePrayerTimes(
-                for: newYorkLocation,
-                date: testDate
-            )
-            
-            guard let asrTime = prayerTimes.first(where: { $0.prayer == .asr }) else {
-                XCTFail("Asr time not found for \(madhab)")
-                continue
-            }
-            
-            // Validate Asr time is between Dhuhr and Maghrib
-            let dhuhrTime = prayerTimes.first(where: { $0.prayer == .dhuhr })?.time
-            let maghribTime = prayerTimes.first(where: { $0.prayer == .maghrib })?.time
-            
-            XCTAssertNotNil(dhuhrTime, "Dhuhr time should exist")
-            XCTAssertNotNil(maghribTime, "Maghrib time should exist")
-            
-            if let dhuhr = dhuhrTime, let maghrib = maghribTime {
-                XCTAssertTrue(asrTime.time > dhuhr, "Asr should be after Dhuhr for \(madhab)")
-                XCTAssertTrue(asrTime.time < maghrib, "Asr should be before Maghrib for \(madhab)")
-                
-                // Hanafi Asr should generally be later than Shafi Asr
-                print("📿 \(madhab) Asr time: \(formatTime(asrTime.time))")
-            }
+
+        // Test Shafi madhab (earlier Asr timing)
+        settingsService.madhab = .shafi
+        let shafiPrayerTimes = try await prayerTimeService.calculatePrayerTimes(
+            for: newYorkLocation,
+            date: testDate
+        )
+
+        // Test Hanafi madhab (later Asr timing)
+        settingsService.madhab = .hanafi
+        let hanafiPrayerTimes = try await prayerTimeService.calculatePrayerTimes(
+            for: newYorkLocation,
+            date: testDate
+        )
+
+        guard let shafiAsrTime = shafiPrayerTimes.first(where: { $0.prayer == .asr })?.time,
+              let hanafiAsrTime = hanafiPrayerTimes.first(where: { $0.prayer == .asr })?.time else {
+            XCTFail("Asr times not found for both madhabs")
+            return
+        }
+
+        // Verify that Hanafi Asr is later than Shafi Asr (key difference)
+        XCTAssertTrue(hanafiAsrTime > shafiAsrTime,
+                     "Hanafi Asr time (\(hanafiAsrTime)) should be later than Shafi Asr time (\(shafiAsrTime))")
+
+        // Validate both Asr times are between Dhuhr and Maghrib
+        let dhuhrTime = shafiPrayerTimes.first(where: { $0.prayer == .dhuhr })?.time
+        let maghribTime = shafiPrayerTimes.first(where: { $0.prayer == .maghrib })?.time
+
+        XCTAssertNotNil(dhuhrTime, "Dhuhr time should exist")
+        XCTAssertNotNil(maghribTime, "Maghrib time should exist")
+
+        if let dhuhr = dhuhrTime, let maghrib = maghribTime {
+            XCTAssertTrue(shafiAsrTime > dhuhr, "Shafi Asr should be after Dhuhr")
+            XCTAssertTrue(shafiAsrTime < maghrib, "Shafi Asr should be before Maghrib")
+            XCTAssertTrue(hanafiAsrTime > dhuhr, "Hanafi Asr should be after Dhuhr")
+            XCTAssertTrue(hanafiAsrTime < maghrib, "Hanafi Asr should be before Maghrib")
+
+            print("📿 Shafi Asr time: \(formatTime(shafiAsrTime))")
+            print("📿 Hanafi Asr time: \(formatTime(hanafiAsrTime))")
+            print("📿 Time difference: \(Int(hanafiAsrTime.timeIntervalSince(shafiAsrTime) / 60)) minutes")
         }
     }
-    
+
+    func testMadhabSettingsIntegration() async throws {
+        // Test that changing Madhab setting immediately updates prayer times
+        let testDate = Date()
+
+        // Set initial Madhab to Shafi
+        settingsService.madhab = .shafi
+
+        // Wait for settings to propagate
+        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+        // Get initial prayer times
+        let initialPrayerTimes = try await prayerTimeService.calculatePrayerTimes(
+            for: newYorkLocation,
+            date: testDate
+        )
+        let initialAsrTime = initialPrayerTimes.first(where: { $0.prayer == .asr })?.time
+
+        // Change Madhab to Hanafi
+        settingsService.madhab = .hanafi
+
+        // Wait for settings to propagate and prayer times to refresh
+        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+
+        // Get updated prayer times
+        let updatedPrayerTimes = try await prayerTimeService.calculatePrayerTimes(
+            for: newYorkLocation,
+            date: testDate
+        )
+        let updatedAsrTime = updatedPrayerTimes.first(where: { $0.prayer == .asr })?.time
+
+        // Verify that the Asr time changed
+        XCTAssertNotNil(initialAsrTime, "Initial Asr time should exist")
+        XCTAssertNotNil(updatedAsrTime, "Updated Asr time should exist")
+
+        if let initial = initialAsrTime, let updated = updatedAsrTime {
+            XCTAssertNotEqual(initial, updated, "Asr time should change when Madhab changes")
+            XCTAssertTrue(updated > initial, "Hanafi Asr should be later than Shafi Asr")
+
+            print("📿 Madhab integration test:")
+            print("   Shafi Asr: \(formatTime(initial))")
+            print("   Hanafi Asr: \(formatTime(updated))")
+            print("   Difference: \(Int(updated.timeIntervalSince(initial) / 60)) minutes")
+        }
+    }
+
     func testPrayerTimeGeographicalAccuracy() async throws {
         let testDate = Date()
         let locations = [

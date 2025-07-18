@@ -10,34 +10,9 @@ public class WidgetService: ObservableObject {
     @Published public var isWidgetAvailable = false
     @Published public var lastWidgetUpdate: Date?
     
-    // MARK: - Widget Data Models
-    
-    public struct WidgetData: Codable {
-        public let nextPrayer: PrayerTime?
-        public let timeUntilNextPrayer: TimeInterval?
-        public let todaysPrayerTimes: [PrayerTime]
-        public let location: String?
-        public let lastUpdated: Date
-        
-        public init(
-            nextPrayer: PrayerTime?,
-            timeUntilNextPrayer: TimeInterval?,
-            todaysPrayerTimes: [PrayerTime],
-            location: String?,
-            lastUpdated: Date = Date()
-        ) {
-            self.nextPrayer = nextPrayer
-            self.timeUntilNextPrayer = timeUntilNextPrayer
-            self.todaysPrayerTimes = todaysPrayerTimes
-            self.location = location
-            self.lastUpdated = lastUpdated
-        }
-    }
-    
     // MARK: - Private Properties
-    
+
     private let userDefaults: UserDefaults
-    private let widgetDataKey = "DeenAssist.WidgetData"
     
     // MARK: - Dependencies
     
@@ -92,12 +67,7 @@ public class WidgetService: ObservableObject {
     }
     
     public func getWidgetData() -> WidgetData? {
-        guard let data = userDefaults.data(forKey: widgetDataKey),
-              let widgetData = try? JSONDecoder().decode(WidgetData.self, from: data) else {
-            return nil
-        }
-        
-        return widgetData
+        return WidgetDataManager.shared.loadWidgetData()
     }
     
     public func scheduleWidgetUpdates() {
@@ -171,18 +141,16 @@ public class WidgetService: ObservableObject {
             nextPrayer: nextPrayer,
             timeUntilNextPrayer: timeUntilNextPrayer,
             todaysPrayerTimes: todaysPrayerTimes,
-            location: locationName ?? "Unknown Location"
+            hijriDate: hijriDate,
+            location: locationName ?? "Unknown Location",
+            calculationMethod: calculationMethod,
+            lastUpdated: Date()
         )
     }
     
     private func saveWidgetData(_ widgetData: WidgetData) {
-        do {
-            let data = try JSONEncoder().encode(widgetData)
-            userDefaults.set(data, forKey: widgetDataKey)
-            userDefaults.synchronize()
-        } catch {
-            print("❌ Failed to save widget data: \(error)")
-        }
+        // Use the shared WidgetDataManager for consistency
+        WidgetDataManager.shared.saveWidgetData(widgetData)
     }
     
     private func scheduleWidgetUpdate(at date: Date) {
