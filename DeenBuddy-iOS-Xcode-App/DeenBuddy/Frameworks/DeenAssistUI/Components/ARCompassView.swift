@@ -46,8 +46,9 @@ public struct ARCompassView: UIViewRepresentable {
         // Set camera background - correct method for RealityKit
         arView.environment.background = .cameraFeed()
         
-        // Enable debug options in development
-        #if DEBUG
+        // Debug options disabled for clean AR compass display
+        // Note: Debug options were causing 3-line display instead of single green circle
+        #if DEBUG && false // Explicitly disabled to prevent 3-line display
         arView.debugOptions = [.showAnchorOrigins, .showAnchorGeometry]
         print("🎯 ARCompassView: Debug options enabled")
         #endif
