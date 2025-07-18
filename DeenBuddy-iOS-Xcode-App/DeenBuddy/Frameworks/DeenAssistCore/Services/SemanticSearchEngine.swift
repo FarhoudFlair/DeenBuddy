@@ -240,7 +240,43 @@ public class SemanticSearchEngine {
             "al-fatiha": ["opening", "mother of the book", "seven oft-repeated", "1:1-7"],
             "ikhlas": ["sincerity", "purity", "112", "say he is allah one"],
             "falaq": ["daybreak", "dawn", "113", "refuge"],
-            "nas": ["mankind", "people", "114", "refuge"]
+            "nas": ["mankind", "people", "114", "refuge"],
+
+            // Food and Dietary Terms
+            "pork": ["swine", "pig", "haram meat", "forbidden food", "unclean meat", "khinzir"],
+            "swine": ["pork", "pig", "haram meat", "forbidden food", "unclean meat", "khinzir"],
+            "pig": ["pork", "swine", "haram meat", "forbidden food", "unclean meat", "khinzir"],
+            "haram meat": ["pork", "swine", "pig", "forbidden food", "unclean meat"],
+            "forbidden food": ["pork", "swine", "pig", "haram meat", "unclean meat"],
+            "unclean meat": ["pork", "swine", "pig", "haram meat", "forbidden food"],
+
+            // Charity and Giving Terms
+            "charity": ["zakat", "sadaqah", "giving to poor", "alms", "helping needy", "infaq"],
+            "zakat": ["charity", "purification", "giving", "alms", "obligatory charity"],
+            "sadaqah": ["charity", "voluntary giving", "alms", "helping poor", "kindness"],
+            "alms": ["charity", "zakat", "sadaqah", "giving to poor", "helping needy"],
+            "giving": ["charity", "zakat", "sadaqah", "alms", "generosity", "spending"],
+            "helping needy": ["charity", "zakat", "sadaqah", "alms", "giving to poor"],
+
+            // Fasting Terms
+            "fasting": ["sawm", "ramadan", "abstaining", "self-control", "hunger", "iftar", "suhur"],
+            "sawm": ["fasting", "abstinence", "self-control", "ramadan", "spiritual discipline"],
+            "ramadan": ["fasting", "sawm", "holy month", "abstaining", "iftar", "suhur"],
+            "abstaining": ["fasting", "sawm", "self-control", "refraining", "restraint"],
+            "iftar": ["breaking fast", "evening meal", "ramadan meal", "fasting"],
+            "suhur": ["pre-dawn meal", "morning meal", "ramadan meal", "fasting"],
+
+            // Prayer Position Terms
+            "prostration": ["sujud", "bowing", "worship", "submission", "prayer position"],
+            "sujud": ["prostration", "bowing", "worship", "submission", "prayer position"],
+            "bowing": ["prostration", "sujud", "ruku", "worship", "prayer position"],
+            "ruku": ["bowing", "prostration", "prayer position", "worship"],
+
+            // Light and Guidance Terms
+            "light verse": ["ayat an-nur", "24:35", "allah is light", "nur", "divine light"],
+            "ayat an-nur": ["light verse", "24:35", "allah is light", "nur", "divine light"],
+            "nur": ["light", "illumination", "guidance", "divine light", "ayat an-nur"],
+            "divine light": ["nur", "light verse", "ayat an-nur", "illumination", "guidance"]
         ]
     }
     
@@ -275,7 +311,21 @@ public class SemanticSearchEngine {
             // Community and relationships
             "community": ["society", "brotherhood", "unity", "cooperation", "fellowship"],
             "family": ["relationships", "kinship", "parents", "children", "marriage"],
-            "charity": ["generosity", "giving", "kindness", "compassion", "zakah"],
+            "charity": ["generosity", "giving", "kindness", "compassion", "zakah", "sadaqah", "alms"],
+
+            // Food and dietary themes
+            "dietary laws": ["halal", "haram", "food", "eating", "consumption", "purity"],
+            "forbidden food": ["haram", "pork", "swine", "unclean", "prohibited", "dietary laws"],
+            "halal food": ["permissible", "lawful", "pure", "good", "tayyib", "dietary laws"],
+
+            // Fasting and spiritual discipline
+            "fasting": ["sawm", "ramadan", "self-control", "discipline", "abstinence", "spirituality"],
+            "ramadan": ["fasting", "sawm", "holy month", "spiritual", "iftar", "suhur"],
+            "spiritual discipline": ["fasting", "sawm", "self-control", "restraint", "purification"],
+
+            // Prayer and worship positions
+            "prostration": ["sujud", "worship", "submission", "humility", "prayer", "devotion"],
+            "prayer positions": ["sujud", "ruku", "qiyam", "prostration", "bowing", "standing"],
             
             // Knowledge and learning
             "knowledge": ["learning", "education", "wisdom", "understanding", "insight"],
@@ -299,7 +349,13 @@ public class SemanticSearchEngine {
             "al-fatiha": ["opening", "praise", "guidance", "worship", "prayer", "essential"],
             "ikhlas": ["monotheism", "unity", "purity", "sincerity", "oneness", "tawhid"],
             "falaq": ["protection", "refuge", "dawn", "evil", "seeking shelter", "safety"],
-            "nas": ["protection", "refuge", "mankind", "evil", "seeking shelter", "whispers"]
+            "nas": ["protection", "refuge", "mankind", "evil", "seeking shelter", "whispers"],
+
+            // Light and guidance themes
+            "light verse": ["divine light", "guidance", "illumination", "nur", "spiritual light"],
+            "ayat an-nur": ["light", "divine light", "guidance", "illumination", "spiritual guidance"],
+            "divine light": ["guidance", "illumination", "spiritual light", "nur", "enlightenment"],
+            "spiritual light": ["guidance", "divine light", "illumination", "enlightenment", "clarity"]
         ]
     }
     
@@ -335,6 +391,32 @@ public class SemanticSearchEngine {
             "zakah": ["charity", "purification", "giving"],
             "hajj": ["pilgrimage", "journey", "ritual"],
             "sawm": ["fasting", "abstinence", "self-control"],
+
+            // Food and dietary Arabic terms
+            "khinzir": ["pig", "swine", "pork", "haram meat"],
+            "lahm": ["meat", "flesh", "food"],
+            "tayyib": ["pure", "good", "wholesome", "halal"],
+
+            // Prayer position Arabic terms
+            "sujud": ["prostration", "bowing", "worship", "submission"],
+            "ruku": ["bowing", "prostration", "prayer position"],
+            "qiyam": ["standing", "prayer position", "worship"],
+            "takbir": ["allahu akbar", "glorification", "magnification"],
+
+            // Charity Arabic terms
+            "sadaqah": ["voluntary charity", "alms", "giving", "kindness"],
+            "infaq": ["spending", "giving", "charity", "expenditure"],
+            "khairat": ["charity", "good deeds", "benevolence"],
+
+            // Fasting Arabic terms
+            "iftar": ["breaking fast", "evening meal", "ramadan meal"],
+            "suhur": ["pre-dawn meal", "morning meal", "ramadan meal"],
+            "itikaf": ["spiritual retreat", "seclusion", "mosque retreat"],
+
+            // Light and guidance Arabic terms
+            "nur": ["light", "illumination", "guidance", "divine light"],
+            "hidayah": ["guidance", "direction", "path", "divine guidance"],
+            "sirat": ["path", "way", "straight path", "bridge"],
             "jihad": ["struggle", "effort", "striving"],
             "ummah": ["community", "nation", "people"],
             "khilafah": ["caliphate", "succession", "leadership"],
@@ -421,7 +503,50 @@ public class SemanticSearchEngine {
             "hayy": "hayy",
             "al fatiha": "al-fatiha",
             "alfatiha": "al-fatiha",
-            "fatiha": "al-fatiha"
+            "fatiha": "al-fatiha",
+
+            // Light verse typos
+            "light vers": "light verse",
+            "lite verse": "light verse",
+            "ayat an nur": "ayat an-nur",
+            "ayat annur": "ayat an-nur",
+            "ayatul nur": "ayat an-nur",
+            "nur vers": "nur verse",
+
+            // Food/dietary typos
+            "prok": "pork",
+            "porc": "pork",
+            "swin": "swine",
+            "swyne": "swine",
+            "haram meat": "haram meat",
+            "haraam": "haram",
+
+            // Charity typos
+            "charitey": "charity",
+            "charaty": "charity",
+            "zakat": "zakat",
+            "zakaat": "zakat",
+            "sadaqa": "sadaqah",
+            "sadaka": "sadaqah",
+            "alms": "alms",
+
+            // Fasting typos
+            "fastin": "fasting",
+            "fastng": "fasting",
+            "ramadhan": "ramadan",
+            "ramzan": "ramadan",
+            "iftar": "iftar",
+            "iftaar": "iftar",
+            "suhoor": "suhur",
+            "sahur": "suhur",
+
+            // Prayer typos
+            "prostration": "prostration",
+            "prostraton": "prostration",
+            "sujood": "sujud",
+            "sajda": "sujud",
+            "rukoo": "ruku",
+            "ruku": "ruku"
         ]
     }
     

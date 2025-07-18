@@ -53,7 +53,7 @@ public struct PrayerCompletionButton: View {
                         .environment(\.layoutDirection, .rightToLeft)
                     
                     // Rakah count
-                    Text("\(prayer.defaultRakahCount) Rakah")
+                    Text("\(prayer.defaultRakahCount) \(prayer.defaultRakahCount == 1 ? "Rakah" : "Rakahs")")
                         .font(.caption)
                         .foregroundColor(ColorPalette.secondary)
                 }

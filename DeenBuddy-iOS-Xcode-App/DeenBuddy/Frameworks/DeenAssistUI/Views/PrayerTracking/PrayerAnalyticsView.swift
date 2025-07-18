@@ -72,14 +72,23 @@ public struct PrayerAnalyticsView: View {
 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
-                        // Export functionality
+                        showingExportSheet = true
                     }) {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
+
             }
             .task {
                 await loadInsights()
+            }
+            .sheet(isPresented: $showingExportSheet) {
+                ExportOptionsView(
+                    selectedPeriod: selectedPeriod,
+                    onExport: { format in
+                        exportData(format: format)
+                    }
+                )
             }
         }
     }
@@ -340,15 +349,27 @@ public struct PrayerAnalyticsView: View {
             .fill(.background)
             .frame(height: 200)
             .overlay(
-                VStack {
+                VStack(spacing: 12) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 40))
+<<<<<<< HEAD
                         .foregroundColor(.secondary)
 
                     Text("Chart will be implemented with Swift Charts")
+=======
+                        .foregroundColor(ColorPalette.primary)
+
+                    Text("Prayer Analytics")
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorPalette.textPrimary)
+
+                    Text("Visual charts showing your prayer patterns and progress over time")
+>>>>>>> c54cbeadcd0d147f3e0a3fb6e51a2498ccc96886
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
             )
     }

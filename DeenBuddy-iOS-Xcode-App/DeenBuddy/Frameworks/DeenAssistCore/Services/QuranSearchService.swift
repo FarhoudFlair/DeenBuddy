@@ -567,21 +567,58 @@ public class QuranSearchService: ObservableObject {
 
         // Famous verse mappings
         let famousVerses: [String: (surah: Int, verse: Int)] = [
+            // Ayat al-Kursi (Throne Verse) - 2:255
             "ayat al-kursi": (2, 255),
             "ayat al kursi": (2, 255),
             "ayatul kursi": (2, 255),
             "ayat ul kursi": (2, 255),
             "throne verse": (2, 255),
             "kursi": (2, 255),
+            "throne": (2, 255),
+            "sustainer verse": (2, 255),
+
+            // Al-Fatiha (The Opening) - 1:1-7
             "al-fatiha": (1, 1),
             "fatiha": (1, 1),
             "opening": (1, 1),
+            "bismillah": (1, 1),
+            "opening verse": (1, 1),
+            "mother of the book": (1, 1),
+
+            // Light Verse (Ayat an-Nur) - 24:35
+            "light verse": (24, 35),
+            "ayat an-nur": (24, 35),
+            "ayat an nur": (24, 35),
+            "nur verse": (24, 35),
+            "allah is light": (24, 35),
+
+            // Ikhlas (Sincerity) - 112:1-4
             "ikhlas": (112, 1),
             "sincerity": (112, 1),
+            "purity": (112, 1),
+            "say he is allah one": (112, 1),
+
+            // Al-Falaq (The Daybreak) - 113:1-5
             "falaq": (113, 1),
             "daybreak": (113, 1),
+            "dawn": (113, 1),
+            "refuge": (113, 1),
+
+            // An-Nas (Mankind) - 114:1-6
             "nas": (114, 1),
-            "mankind": (114, 1)
+            "mankind": (114, 1),
+            "people": (114, 1),
+
+            // Death Verse - 3:185
+            "death verse": (3, 185),
+            "every soul will taste death": (3, 185),
+            "taste death": (3, 185),
+
+            // Burden Verse - 2:286
+            "burden verse": (2, 286),
+            "allah does not burden": (2, 286),
+            "does not charge": (2, 286),
+            "capacity": (2, 286)
         ]
 
         // Check if query matches any famous verse (case-insensitive)

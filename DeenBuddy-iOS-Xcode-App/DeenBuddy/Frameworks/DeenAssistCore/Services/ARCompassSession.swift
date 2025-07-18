@@ -28,9 +28,9 @@ public class ARCompassSession: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Constants
-    
-    private let indicatorDistance: Float = 0.8 // Closer to user for cleaner view
-    private let indicatorScale: Float = 0.15 // Much smaller, subtle indicator
+
+    private let indicatorDistance: Float = 1.0 // Optimal distance for visibility and accuracy
+    private let indicatorScale: Float = 0.2 // Larger scale for better visibility of glowing circle
     
     // MARK: - Initialization
     
@@ -151,11 +151,12 @@ public class ARCompassSession: NSObject, ObservableObject {
     }
     
     private func setupQiblaIndicator() {
-        // Create a simple floating sphere that points toward Qibla direction
-        // This is much simpler and more reliable than complex arrow geometry
-        let sphereRadius: Float = 0.05
-        let indicatorMesh = MeshResource.generateSphere(radius: sphereRadius)
-        let indicatorMaterial = createQiblaIndicatorMaterial()
+        // Create a glowing green circle (torus) that points toward Qibla direction
+        // Using torus for better circular appearance with glow effect
+        let torusRadius: Float = 0.04 // Main radius of the torus
+        let tubeRadius: Float = 0.008 // Thickness of the torus tube
+        let indicatorMesh = MeshResource.generateTorus(majorRadius: torusRadius, minorRadius: tubeRadius)
+        let indicatorMaterial = createGlowingQiblaMaterial()
 
         qiblaIndicator = ModelEntity(mesh: indicatorMesh, materials: [indicatorMaterial])
         qiblaIndicator?.scale = [indicatorScale, indicatorScale, indicatorScale]
@@ -163,30 +164,66 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Position will be calculated based on Qibla direction in updateIndicatorPosition()
         qiblaIndicator?.position = [0, 0, -indicatorDistance] // Initial position
 
-        // Add subtle pulsing animation
-        addPulsingAnimation()
+        // Add glowing pulsing animation
+        addGlowingAnimation()
 
-        print("🎯 AR Compass: Floating Qibla sphere created with radius \(sphereRadius) and scale \(indicatorScale)")
-        print("🎯 AR Compass: Sphere will be positioned directly in Qibla direction")
+        print("🎯 AR Compass: Glowing Qibla circle created with radius \(torusRadius) and scale \(indicatorScale)")
+        print("🎯 AR Compass: Circle will be positioned directly in Qibla direction with glow effect")
     }
     
 
     
-    private func addPulsingAnimation() {
+    private func addGlowingAnimation() {
         guard let indicator = qiblaIndicator else { return }
 
-        // For now, skip the animation to avoid RealityKit complexity
-        // The sphere will be visible and functional without animation
-        // Animation can be added later if needed using RealityKit's animation system
+        // Create a subtle pulsing animation for the glow effect
+        // This helps draw attention to the Qibla direction
+        let scaleAnimation = FromToByAnimation<Transform>(
+            name: "qibla-pulse",
+            from: .init(scale: [1.0, 1.0, 1.0]),
+            to: .init(scale: [1.2, 1.2, 1.2]),
+            duration: 1.5,
+            timing: .easeInOut,
+            isAdditive: false
+        )
 
-        print("🎯 AR Compass: Qibla sphere ready (animation skipped for simplicity)")
+        // Make the animation repeat indefinitely with auto-reverse
+        let animationResource = try? AnimationResource.generate(with: scaleAnimation)
+        if let animation = animationResource {
+            let controller = indicator.playAnimation(animation.repeat())
+            print("🎯 AR Compass: Glowing pulse animation started")
+        } else {
+            print("🎯 AR Compass: Animation creation failed, using static glow")
+        }
+    }
+
+    // Legacy method for backward compatibility
+    private func addPulsingAnimation() {
+        addGlowingAnimation()
     }
     
     // MARK: - Material Creation
-    
+
+    private func createGlowingQiblaMaterial() -> UnlitMaterial {
+        // Use UnlitMaterial for better glow effect and visibility
+        var material = UnlitMaterial()
+
+        // Islamic green color with enhanced brightness for glow
+        let islamicGreen = UIColor(red: 0.0, green: 0.8, blue: 0.3, alpha: 1.0)
+
+        // Set base color and emissive properties for glow effect
+        material.color = .init(tint: islamicGreen)
+
+        // Add emissive glow - this makes it glow even in dark environments
+        material.emissiveColor = .init(color: islamicGreen.withAlphaComponent(0.8))
+        material.emissiveIntensity = 2.0 // Strong glow intensity
+
+        return material
+    }
+
+    // Legacy method for backward compatibility
     private func createQiblaIndicatorMaterial() -> SimpleMaterial {
         var material = SimpleMaterial()
-        // Use Islamic green color for Qibla direction with enhanced visibility
         material.color = .init(tint: UIColor.systemGreen)
         material.metallic = .init(floatLiteral: 0.1)
         material.roughness = .init(floatLiteral: 0.2)
