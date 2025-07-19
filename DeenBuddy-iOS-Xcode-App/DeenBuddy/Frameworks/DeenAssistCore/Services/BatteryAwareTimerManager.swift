@@ -387,6 +387,14 @@ public class BatteryAwareTimerManager: ObservableObject {
     private func consolidateLowPriorityTimers(_ timerIds: [String]) {
         guard timerIds.count > 2 else { return }
 
+        // Store callbacks before canceling timers
+        var storedCallbacks: [String: () -> Void] = [:]
+        for id in timerIds {
+            if let callback = timerCallbacks[id] {
+                storedCallbacks[id] = callback
+            }
+        }
+
         // Cancel individual timers
         for id in timerIds {
             cancelTimer(id: id)
@@ -395,9 +403,9 @@ public class BatteryAwareTimerManager: ObservableObject {
         // Create a single consolidated timer
         let consolidatedId = "consolidated-low-priority"
         scheduleTimer(id: consolidatedId, type: .resourceMonitoring) { [weak self] in
-            // Execute all low-priority callbacks in batch
-            for id in timerIds {
-                self?.timerCallbacks[id]?()
+            // Execute all low-priority callbacks in batch using stored callbacks
+            for (id, callback) in storedCallbacks {
+                callback()
             }
         }
 
