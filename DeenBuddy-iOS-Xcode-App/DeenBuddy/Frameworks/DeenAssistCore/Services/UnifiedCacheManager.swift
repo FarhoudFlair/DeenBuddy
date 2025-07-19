@@ -156,8 +156,9 @@ public class UnifiedCacheManager: ObservableObject {
     private var memoryCache: [String: Any] = [:]
     private var diskCache: [String: Data] = [:]
     private let cacheDirectory: URL
-    private let maxMemorySize: Int = 50 * 1024 * 1024 // 50MB
+    private var maxMemorySize: Int = 50 * 1024 * 1024 // 50MB
     private let maxDiskSize: Int = 200 * 1024 * 1024 // 200MB
+    private var maxEntries: Int = 1000 // Maximum number of cache entries
     
     private let queue = DispatchQueue(label: "UnifiedCacheManager", qos: .utility, attributes: .concurrent)
     private let encodingQueue = DispatchQueue(label: "UnifiedCacheManager.encoding", qos: .utility)
@@ -438,26 +439,267 @@ public class UnifiedCacheManager: ObservableObject {
     }
     
     private func updateAccessStats(for key: String, type: CacheType) {
-        // Update last accessed time in memory
+        // Update last accessed time in memory cache
         let fullKey = createFullKey(key, type: type)
-        // This would be implemented with a more sophisticated LRU tracking
+        let currentTime = Date()
+        
+        if let entry = memoryCache[fullKey] as? CacheEntryProtocol {
+            // Create a new entry with updated access stats
+            if let prayerTimesEntry = entry as? CacheEntry<[PrayerTime]> {
+                let updatedEntry = CacheEntry(
+                    data: prayerTimesEntry.data,
+                    timestamp: prayerTimesEntry.timestamp,
+                    expirationDate: prayerTimesEntry.expirationDate,
+                    key: prayerTimesEntry.key,
+                    type: prayerTimesEntry.cacheType,
+                    size: prayerTimesEntry.size,
+                    accessCount: prayerTimesEntry.accessCount + 1,
+                    lastAccessed: currentTime
+                )
+                memoryCache[fullKey] = updatedEntry
+            } else if let qiblaEntry = entry as? CacheEntry<QiblaDirection> {
+                let updatedEntry = CacheEntry(
+                    data: qiblaEntry.data,
+                    timestamp: qiblaEntry.timestamp,
+                    expirationDate: qiblaEntry.expirationDate,
+                    key: qiblaEntry.key,
+                    type: qiblaEntry.cacheType,
+                    size: qiblaEntry.size,
+                    accessCount: qiblaEntry.accessCount + 1,
+                    lastAccessed: currentTime
+                )
+                memoryCache[fullKey] = updatedEntry
+            } else if let locationEntry = entry as? CacheEntry<CodableCLLocation> {
+                let updatedEntry = CacheEntry(
+                    data: locationEntry.data,
+                    timestamp: locationEntry.timestamp,
+                    expirationDate: locationEntry.expirationDate,
+                    key: locationEntry.key,
+                    type: locationEntry.cacheType,
+                    size: locationEntry.size,
+                    accessCount: locationEntry.accessCount + 1,
+                    lastAccessed: currentTime
+                )
+                memoryCache[fullKey] = updatedEntry
+            } else if let dataEntry = entry as? CacheEntry<Data> {
+                let updatedEntry = CacheEntry(
+                    data: dataEntry.data,
+                    timestamp: dataEntry.timestamp,
+                    expirationDate: dataEntry.expirationDate,
+                    key: dataEntry.key,
+                    type: dataEntry.cacheType,
+                    size: dataEntry.size,
+                    accessCount: dataEntry.accessCount + 1,
+                    lastAccessed: currentTime
+                )
+                memoryCache[fullKey] = updatedEntry
+            }
+        }
+        
+        // Also update disk cache if the entry exists there
+        if let data = diskCache[fullKey] {
+            if let updatedEntry = decodeEntryFromData(data) {
+                // Re-encode with updated access time
+                if let prayerTimesEntry = updatedEntry as? CacheEntry<[PrayerTime]> {
+                    let newEntry = CacheEntry(
+                        data: prayerTimesEntry.data,
+                        timestamp: prayerTimesEntry.timestamp,
+                        expirationDate: prayerTimesEntry.expirationDate,
+                        key: prayerTimesEntry.key,
+                        type: prayerTimesEntry.cacheType,
+                        size: prayerTimesEntry.size,
+                        accessCount: prayerTimesEntry.accessCount + 1,
+                        lastAccessed: currentTime
+                    )
+                    if let encodedData = try? JSONEncoder().encode(newEntry) {
+                        diskCache[fullKey] = encodedData
+                        saveToDisk(encodedData, forKey: fullKey)
+                    }
+                } else if let qiblaEntry = updatedEntry as? CacheEntry<QiblaDirection> {
+                    let newEntry = CacheEntry(
+                        data: qiblaEntry.data,
+                        timestamp: qiblaEntry.timestamp,
+                        expirationDate: qiblaEntry.expirationDate,
+                        key: qiblaEntry.key,
+                        type: qiblaEntry.cacheType,
+                        size: qiblaEntry.size,
+                        accessCount: qiblaEntry.accessCount + 1,
+                        lastAccessed: currentTime
+                    )
+                    if let encodedData = try? JSONEncoder().encode(newEntry) {
+                        diskCache[fullKey] = encodedData
+                        saveToDisk(encodedData, forKey: fullKey)
+                    }
+                } else if let locationEntry = updatedEntry as? CacheEntry<CodableCLLocation> {
+                    let newEntry = CacheEntry(
+                        data: locationEntry.data,
+                        timestamp: locationEntry.timestamp,
+                        expirationDate: locationEntry.expirationDate,
+                        key: locationEntry.key,
+                        type: locationEntry.cacheType,
+                        size: locationEntry.size,
+                        accessCount: locationEntry.accessCount + 1,
+                        lastAccessed: currentTime
+                    )
+                    if let encodedData = try? JSONEncoder().encode(newEntry) {
+                        diskCache[fullKey] = encodedData
+                        saveToDisk(encodedData, forKey: fullKey)
+                    }
+                } else if let dataEntry = updatedEntry as? CacheEntry<Data> {
+                    let newEntry = CacheEntry(
+                        data: dataEntry.data,
+                        timestamp: dataEntry.timestamp,
+                        expirationDate: dataEntry.expirationDate,
+                        key: dataEntry.key,
+                        type: dataEntry.cacheType,
+                        size: dataEntry.size,
+                        accessCount: dataEntry.accessCount + 1,
+                        lastAccessed: currentTime
+                    )
+                    if let encodedData = try? JSONEncoder().encode(newEntry) {
+                        diskCache[fullKey] = encodedData
+                        saveToDisk(encodedData, forKey: fullKey)
+                    }
+                }
+            }
+        }
     }
     
     private func enforceMemoryLimits() {
-        if statistics.totalSize > maxMemorySize || isMemoryPressure {
+        let memoryKeys = Set(memoryCache.keys)
+        let diskKeys = Set(diskCache.keys)
+        let uniqueKeys = memoryKeys.union(diskKeys)
+        let totalEntries = uniqueKeys.count
+        
+        // Check if we need to evict based on size, entry count, or memory pressure
+        let needsEviction = statistics.totalSize > maxMemorySize || 
+                           totalEntries > maxEntries || 
+                           isMemoryPressure
+        
+        if needsEviction {
             evictLeastRecentlyUsed()
         }
     }
     
     private func evictLeastRecentlyUsed() {
-        // Implementation would sort by access time and remove oldest entries
-        // This is a simplified version
-        if memoryCache.count > 100 {
-            let keysToRemove = Array(memoryCache.keys.prefix(10))
-            for key in keysToRemove {
-                memoryCache.removeValue(forKey: key)
+        // Collect all cache entries with their access times for proper LRU eviction
+        var entriesWithAccessTimes: [(key: String, lastAccessed: Date, size: Int, cacheType: CacheType)] = []
+        
+        // Collect memory cache entries
+        for (key, value) in memoryCache {
+            if let entry = value as? CacheEntryProtocol {
+                entriesWithAccessTimes.append((
+                    key: key,
+                    lastAccessed: entry.lastAccessed,
+                    size: entry.size,
+                    cacheType: entry.cacheType
+                ))
             }
         }
+        
+        // Collect disk cache entries (only if not already in memory)
+        for (key, data) in diskCache {
+            if memoryCache[key] == nil {
+                // Try to decode the entry to get access time
+                if let entry = decodeEntryFromData(data) {
+                    entriesWithAccessTimes.append((
+                        key: key,
+                        lastAccessed: entry.lastAccessed,
+                        size: entry.size,
+                        cacheType: entry.cacheType
+                    ))
+                }
+            }
+        }
+        
+        // Sort by last accessed time (oldest first) for true LRU eviction
+        entriesWithAccessTimes.sort { $0.lastAccessed < $1.lastAccessed }
+        
+        // Calculate how many entries to remove based on both entry count and memory size
+        let totalEntries = entriesWithAccessTimes.count
+        let currentTotalSize = statistics.totalSize
+        
+        // Determine eviction criteria
+        let needsEntryCountEviction = totalEntries > maxEntries
+        let needsMemorySizeEviction = currentTotalSize > maxMemorySize
+        
+        // Calculate entries to remove for entry count limit
+        let entriesToRemoveForCount = needsEntryCountEviction ? totalEntries - maxEntries : 0
+        
+        // Calculate entries to remove for memory size limit
+        var entriesToRemoveForSize = 0
+        var cumulativeSize = 0
+        if needsMemorySizeEviction {
+            for entry in entriesWithAccessTimes {
+                cumulativeSize += entry.size
+                entriesToRemoveForSize += 1
+                if currentTotalSize - cumulativeSize <= maxMemorySize {
+                    break
+                }
+            }
+        }
+        
+        // Use the larger of the two eviction counts to ensure both limits are respected
+        // FIXED BUG 1: Ensure entriesToRemove doesn't exceed the actual array size
+        let entriesToRemove = min(max(entriesToRemoveForCount, entriesToRemoveForSize), totalEntries)
+        
+        // Remove the oldest entries
+        var totalSizeRemoved = 0
+        var typeEvictionCounts: [CacheType: Int] = [:]
+        var typeSizeRemoved: [CacheType: Int] = [:]
+        
+        for i in 0..<entriesToRemove {
+            let key = entriesWithAccessTimes[i].key
+            let entrySize = entriesWithAccessTimes[i].size
+            let cacheType = entriesWithAccessTimes[i].cacheType
+            
+            memoryCache.removeValue(forKey: key)
+            diskCache.removeValue(forKey: key)
+            removeDiskFile(forKey: key)
+            
+            // Update global statistics
+            statistics.totalEvictions += 1
+            totalSizeRemoved += entrySize
+            
+            // FIXED BUG 2: Update type-specific statistics
+            typeEvictionCounts[cacheType, default: 0] += 1
+            typeSizeRemoved[cacheType, default: 0] += entrySize
+        }
+        
+        // Update type-specific statistics
+        for (cacheType, evictionCount) in typeEvictionCounts {
+            statistics.typeStats[cacheType.rawValue]?.evictions += evictionCount
+            statistics.typeStats[cacheType.rawValue]?.currentSize = max(0, 
+                (statistics.typeStats[cacheType.rawValue]?.currentSize ?? 0) - (typeSizeRemoved[cacheType] ?? 0))
+        }
+        
+        // Decrement total size for removed entries
+        statistics.totalSize = max(0, statistics.totalSize - totalSizeRemoved)
+        
+        if entriesToRemove > 0 {
+            print("🧹 LRU eviction: removed \(entriesToRemove) oldest cache entries, freed \(totalSizeRemoved) bytes")
+        }
+    }
+    
+    private func decodeEntryFromData(_ data: Data) -> CacheEntryProtocol? {
+        // Try to decode as different entry types to get access time
+        let decoder = JSONDecoder()
+        
+        // Try common types first
+        if let entry = try? decoder.decode(CacheEntry<[PrayerTime]>.self, from: data) {
+            return entry
+        }
+        if let entry = try? decoder.decode(CacheEntry<QiblaDirection>.self, from: data) {
+            return entry
+        }
+        if let entry = try? decoder.decode(CacheEntry<CodableCLLocation>.self, from: data) {
+            return entry
+        }
+        if let entry = try? decoder.decode(CacheEntry<Data>.self, from: data) {
+            return entry
+        }
+        
+        return nil
     }
     
     private func saveToDisk(_ data: Data, forKey key: String) {
@@ -486,14 +728,29 @@ public class UnifiedCacheManager: ObservableObject {
     
     @objc private func handleMemoryPressure() {
         isMemoryPressure = true
-        
-        // Aggressively clean memory cache
+        print("⚠️ Memory pressure detected - performing aggressive cleanup")
+
+        // PERFORMANCE: Aggressively clean memory cache with metrics
+        let initialMemorySize = statistics.totalSize
+
         queue.async(flags: .barrier) { [weak self] in
+            // Clear temporary data first
             self?.clearCacheType(.temporaryData)
+
+            // Evict least recently used items
             self?.evictLeastRecentlyUsed()
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+
+            // PERFORMANCE: Clear additional cache types if still under pressure
+            self?.clearCacheType(.apiResponses)
+
+            // Force garbage collection
+            autoreleasepool { }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
                 self?.isMemoryPressure = false
+                let finalMemorySize = self?.statistics.totalSize ?? 0
+                let memoryFreed = initialMemorySize - finalMemorySize
+                print("🧹 Memory pressure cleanup completed - freed \(memoryFreed) bytes")
             }
         }
     }
@@ -502,6 +759,58 @@ public class UnifiedCacheManager: ObservableObject {
         timerManager.scheduleTimer(id: "unified-cache-cleanup", type: .cacheCleanup) { [weak self] in
             self?.performPeriodicCleanup()
         }
+    }
+
+    // MARK: - Performance Monitoring
+
+    /// PERFORMANCE: Monitor cache performance and memory usage
+    public func getPerformanceMetrics() -> CachePerformanceMetrics {
+        return queue.sync {
+            let hitRate = statistics.totalHits > 0 ?
+                Double(statistics.totalHits) / Double(statistics.totalHits + statistics.totalMisses) : 0.0
+            
+            // Calculate unique entry count to avoid double-counting entries stored in both memory and disk
+            let memoryKeys = Set(memoryCache.keys)
+            let diskKeys = Set(diskCache.keys)
+            let uniqueKeys = memoryKeys.union(diskKeys)
+            let entryCount = uniqueKeys.count
+            
+            let averageEntrySize = entryCount > 0 ?
+                statistics.totalSize / entryCount : 0
+
+            return CachePerformanceMetrics(
+                hitRate: hitRate,
+                totalSize: statistics.totalSize,
+                entryCount: entryCount,
+                averageEntrySize: averageEntrySize,
+                memoryPressureEvents: isMemoryPressure ? 1 : 0,
+                typeStats: statistics.typeStats
+            )
+        }
+    }
+
+    /// PERFORMANCE: Proactive memory management based on device capabilities
+    public func optimizeForDevice() {
+        let deviceMemory = ProcessInfo.processInfo.physicalMemory
+        let availableMemory = deviceMemory / 1024 / 1024 // Convert to MB
+
+        // Adjust cache limits based on device memory
+        if availableMemory < 2048 { // Less than 2GB RAM
+            maxMemorySize = 50 * 1024 * 1024 // 50MB
+            maxEntries = 500
+            print("🔧 Optimized cache for low-memory device (50MB limit)")
+        } else if availableMemory < 4096 { // Less than 4GB RAM
+            maxMemorySize = 100 * 1024 * 1024 // 100MB
+            maxEntries = 1000
+            print("🔧 Optimized cache for medium-memory device (100MB limit)")
+        } else {
+            maxMemorySize = 200 * 1024 * 1024 // 200MB
+            maxEntries = 2000
+            print("🔧 Optimized cache for high-memory device (200MB limit)")
+        }
+
+        // Enforce new limits
+        enforceMemoryLimits()
     }
     
     private func performPeriodicCleanup() {
@@ -584,5 +893,27 @@ extension UnifiedCacheManager {
             return nil
         }
         return codableLocation.toCLLocation()
+    }
+}
+
+// MARK: - Performance Metrics
+
+public struct CachePerformanceMetrics {
+    public let hitRate: Double
+    public let totalSize: Int
+    public let entryCount: Int
+    public let averageEntrySize: Int
+    public let memoryPressureEvents: Int
+    public let typeStats: [String: UnifiedCacheManager.CacheStatistics.TypeStatistics]
+
+    public var description: String {
+        return """
+        Cache Performance Metrics:
+        - Hit Rate: \(String(format: "%.2f%%", hitRate * 100))
+        - Total Size: \(totalSize) bytes
+        - Entry Count: \(entryCount)
+        - Average Entry Size: \(averageEntrySize) bytes
+        - Memory Pressure Events: \(memoryPressureEvents)
+        """
     }
 }

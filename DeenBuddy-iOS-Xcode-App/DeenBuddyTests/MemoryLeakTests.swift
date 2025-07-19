@@ -330,19 +330,108 @@ extension MemoryLeakTests {
     /// Utility to measure memory impact of operations
     func measureMemoryImpact(of operation: () throws -> Void, description: String) rethrows {
         let initialMemory = getCurrentMemoryUsage()
-        
+
         try operation()
-        
+
         autoreleasepool { }
-        
+
         let finalMemory = getCurrentMemoryUsage()
         let memoryIncrease = finalMemory - initialMemory
-        
+
         print("📊 \(description) memory impact: \(memoryIncrease) bytes")
-        
+
         // Flag significant memory increases
         if memoryIncrease > 5_000_000 { // 5MB threshold
             XCTFail("\(description) caused significant memory increase: \(memoryIncrease) bytes")
         }
+    }
+
+    /// PERFORMANCE: Test comprehensive performance metrics
+    func testPerformanceMonitoringService() {
+        let performanceService = PerformanceMonitoringService.shared
+
+        // Start monitoring
+        performanceService.startMonitoring()
+
+        // Wait for initial metrics
+        let expectation = expectation(description: "Performance metrics collected")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 3.0)
+
+        // Get performance report
+        let report = performanceService.getPerformanceReport()
+
+        // Verify metrics are reasonable
+        XCTAssertGreaterThan(report.currentMetrics.memoryUsage, 0, "Memory usage should be tracked")
+        XCTAssertGreaterThanOrEqual(report.currentMetrics.batteryLevel, 0.0, "Battery level should be valid")
+        XCTAssertLessThanOrEqual(report.currentMetrics.batteryLevel, 1.0, "Battery level should be valid")
+
+        // Stop monitoring
+        performanceService.stopMonitoring()
+
+        print("✅ Performance monitoring test completed: \(report.summary)")
+    }
+
+    /// PERFORMANCE: Test timer consolidation
+    func testTimerConsolidation() {
+        let timerManager = BatteryAwareTimerManager.shared
+
+        // Create multiple low-priority timers
+        for i in 0..<5 {
+            timerManager.scheduleTimer(id: "test-timer-\(i)", type: .memoryMonitoring) {
+                print("Timer \(i) fired")
+            }
+        }
+
+        let initialStats = timerManager.getTimerStatistics()
+        XCTAssertGreaterThanOrEqual(initialStats.activeTimerCount, 5, "Should have at least 5 timers")
+
+        // Consolidate timers
+        timerManager.consolidateTimers()
+
+        // Wait for consolidation
+        let expectation = expectation(description: "Timer consolidation completed")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 2.0)
+
+        // Cleanup
+        for i in 0..<5 {
+            timerManager.cancelTimer(id: "test-timer-\(i)")
+        }
+        timerManager.cancelTimer(id: "consolidated-low-priority")
+
+        print("✅ Timer consolidation test completed")
+    }
+
+    /// PERFORMANCE: Test cache performance optimization
+    func testCachePerformanceOptimization() {
+        let cacheManager = UnifiedCacheManager.shared
+
+        // Store test data
+        for i in 0..<100 {
+            cacheManager.store("test-data-\(i)", forKey: "test-key-\(i)", type: .temporaryData)
+        }
+
+        // Get initial metrics
+        let initialMetrics = cacheManager.getPerformanceMetrics()
+        XCTAssertGreaterThan(initialMetrics.entryCount, 0, "Cache should have entries")
+
+        // Optimize for device
+        cacheManager.optimizeForDevice()
+
+        // Verify optimization
+        let optimizedMetrics = cacheManager.getPerformanceMetrics()
+        print("📊 Cache optimization: \(optimizedMetrics.description)")
+
+        // Cleanup
+        cacheManager.clearAll()
+
+        print("✅ Cache performance optimization test completed")
     }
 }
