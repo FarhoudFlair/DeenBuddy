@@ -583,7 +583,7 @@ public class UnifiedCacheManager: ObservableObject {
     
     private func evictLeastRecentlyUsed() {
         // Collect all cache entries with their access times for proper LRU eviction
-        var entriesWithAccessTimes: [(key: String, lastAccessed: Date, size: Int)] = []
+        var entriesWithAccessTimes: [(key: String, lastAccessed: Date, size: Int, cacheType: CacheType)] = []
         
         // Collect memory cache entries
         for (key, value) in memoryCache {
@@ -591,7 +591,8 @@ public class UnifiedCacheManager: ObservableObject {
                 entriesWithAccessTimes.append((
                     key: key,
                     lastAccessed: entry.lastAccessed,
-                    size: entry.size
+                    size: entry.size,
+                    cacheType: entry.cacheType
                 ))
             }
         }
@@ -604,7 +605,8 @@ public class UnifiedCacheManager: ObservableObject {
                     entriesWithAccessTimes.append((
                         key: key,
                         lastAccessed: entry.lastAccessed,
-                        size: entry.size
+                        size: entry.size,
+                        cacheType: entry.cacheType
                     ))
                 }
             }
@@ -638,21 +640,37 @@ public class UnifiedCacheManager: ObservableObject {
         }
         
         // Use the larger of the two eviction counts to ensure both limits are respected
-        let entriesToRemove = max(entriesToRemoveForCount, entriesToRemoveForSize)
+        // FIXED BUG 1: Ensure entriesToRemove doesn't exceed the actual array size
+        let entriesToRemove = min(max(entriesToRemoveForCount, entriesToRemoveForSize), totalEntries)
         
         // Remove the oldest entries
         var totalSizeRemoved = 0
+        var typeEvictionCounts: [CacheType: Int] = [:]
+        var typeSizeRemoved: [CacheType: Int] = [:]
+        
         for i in 0..<entriesToRemove {
             let key = entriesWithAccessTimes[i].key
             let entrySize = entriesWithAccessTimes[i].size
+            let cacheType = entriesWithAccessTimes[i].cacheType
             
             memoryCache.removeValue(forKey: key)
             diskCache.removeValue(forKey: key)
             removeDiskFile(forKey: key)
             
-            // Update statistics
+            // Update global statistics
             statistics.totalEvictions += 1
             totalSizeRemoved += entrySize
+            
+            // FIXED BUG 2: Update type-specific statistics
+            typeEvictionCounts[cacheType, default: 0] += 1
+            typeSizeRemoved[cacheType, default: 0] += entrySize
+        }
+        
+        // Update type-specific statistics
+        for (cacheType, evictionCount) in typeEvictionCounts {
+            statistics.typeStats[cacheType.rawValue]?.evictions += evictionCount
+            statistics.typeStats[cacheType.rawValue]?.currentSize = max(0, 
+                (statistics.typeStats[cacheType.rawValue]?.currentSize ?? 0) - (typeSizeRemoved[cacheType] ?? 0))
         }
         
         // Decrement total size for removed entries
