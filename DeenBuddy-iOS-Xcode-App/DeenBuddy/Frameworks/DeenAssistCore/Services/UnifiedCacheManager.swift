@@ -525,7 +525,7 @@ public class UnifiedCacheManager: ObservableObject {
     public func getPerformanceMetrics() -> CachePerformanceMetrics {
         let hitRate = statistics.totalHits > 0 ?
             Double(statistics.totalHits) / Double(statistics.totalHits + statistics.totalMisses) : 0.0
-        let entryCount = memoryCache.count
+        let entryCount = memoryCache.count + diskCache.count
         let averageEntrySize = entryCount > 0 ?
             statistics.totalSize / entryCount : 0
 
