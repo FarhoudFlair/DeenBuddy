@@ -523,16 +523,17 @@ public class UnifiedCacheManager: ObservableObject {
 
     /// PERFORMANCE: Monitor cache performance and memory usage
     public func getPerformanceMetrics() -> CachePerformanceMetrics {
-        let hitRate = statistics.hitCount > 0 ?
-            Double(statistics.hitCount) / Double(statistics.hitCount + statistics.missCount) : 0.0
+        let hitRate = statistics.totalHits > 0 ?
+            Double(statistics.totalHits) / Double(statistics.totalHits + statistics.totalMisses) : 0.0
 
-        let averageEntrySize = statistics.entryCount > 0 ?
-            statistics.totalSize / statistics.entryCount : 0
+        let entryCount = memoryCache.count
+        let averageEntrySize = entryCount > 0 ?
+            statistics.totalSize / entryCount : 0
 
         return CachePerformanceMetrics(
             hitRate: hitRate,
             totalSize: statistics.totalSize,
-            entryCount: statistics.entryCount,
+            entryCount: entryCount,
             averageEntrySize: averageEntrySize,
             memoryPressureEvents: isMemoryPressure ? 1 : 0,
             typeStats: statistics.typeStats
