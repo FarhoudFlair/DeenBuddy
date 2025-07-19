@@ -9,9 +9,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.calculationMethod = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.calculationMethod = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "calculationMethod",
                 oldValue: oldValue.rawValue,
@@ -22,9 +29,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var madhab: Madhab = .shafi {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.madhab = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.madhab = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "madhab",
                 oldValue: oldValue.rawValue,
@@ -35,9 +49,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     @Published public var notificationsEnabled: Bool = true {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.notificationsEnabled = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.notificationsEnabled = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "notificationsEnabled",
                 oldValue: oldValue,
@@ -48,9 +69,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var theme: ThemeMode = .dark {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.theme = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.theme = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "theme",
                 oldValue: oldValue.rawValue,
@@ -61,9 +89,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var hasCompletedOnboarding: Bool = false {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.hasCompletedOnboarding = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.hasCompletedOnboarding = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "hasCompletedOnboarding",
                 oldValue: oldValue,
@@ -74,9 +109,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var userName: String = "" {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.userName = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.userName = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "userName",
                 oldValue: oldValue,
@@ -87,9 +129,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var timeFormat: TimeFormat = .twelveHour {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.timeFormat = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.timeFormat = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "timeFormat",
                 oldValue: oldValue.rawValue,
@@ -100,9 +149,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var notificationOffset: TimeInterval = 300 { // 5 minutes default
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.notificationOffset = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.notificationOffset = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "notificationOffset",
                 oldValue: oldValue,
@@ -113,9 +169,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var overrideBatteryOptimization: Bool = false {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.overrideBatteryOptimization = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.overrideBatteryOptimization = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "overrideBatteryOptimization",
                 oldValue: oldValue,
@@ -126,9 +189,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     @Published public var showArabicSymbolInWidget: Bool = true {
         didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { self?.showArabicSymbolInWidget = oldValue }
+                    await MainActor.run { 
+                        self?.isRestoring = true
+                        self?.showArabicSymbolInWidget = oldValue
+                        self?.isRestoring = false
+                    }
                 },
                 propertyName: "showArabicSymbolInWidget",
                 oldValue: oldValue,
@@ -157,6 +227,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     private var lastRollbackTime: Date?
     private let maxRollbackAttempts = 3
     private let rollbackCooldownPeriod: TimeInterval = 5.0 // 5 seconds
+    
+    // Guard flag to suppress didSet observers during rollback operations
+    private var isRestoring = false
     
     // MARK: - Settings Keys (Now using UnifiedSettingsKeys)
     // Note: SettingsKeys enum removed - now using UnifiedSettingsKeys for consistency
@@ -847,12 +920,18 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             var savedCount = 0
             for (key, value) in criticalKeys {
-                do {
-                    userDefaults.set(value, forKey: key)
+                // UserDefaults.set() doesn't throw, so we verify by reading back the value
+                userDefaults.set(value, forKey: key)
+
+                // Verify the save was successful by reading back the value
+                let savedValue = userDefaults.object(forKey: key)
+                let saveSuccessful = verifyValueMatch(original: value, saved: savedValue)
+
+                if saveSuccessful {
                     savedCount += 1
-                    print("✅ Saved critical setting: \(key)")
-                } catch {
-                    print("❌ Failed to save critical setting \(key): \(error.localizedDescription)")
+                    print("✅ Saved and verified critical setting: \(key)")
+                } else {
+                    print("❌ Failed to save critical setting \(key): value verification failed")
                 }
             }
             
@@ -864,6 +943,26 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             } else {
                 throw SettingsError.saveFailed(error)
             }
+        }
+    }
+
+    /// Helper method to verify that a value was successfully saved to UserDefaults
+    private func verifyValueMatch(original: Any, saved: Any?) -> Bool {
+        guard let saved = saved else { return false }
+
+        // Handle different types appropriately
+        switch original {
+        case let boolValue as Bool:
+            return saved as? Bool == boolValue
+        case let stringValue as String:
+            return saved as? String == stringValue
+        case let intValue as Int:
+            return saved as? Int == intValue
+        case let doubleValue as Double:
+            return saved as? Double == doubleValue
+        default:
+            // For other types, use string representation comparison
+            return String(describing: original) == String(describing: saved)
         }
     }
 }

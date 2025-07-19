@@ -10,7 +10,7 @@ public class APICache: APICacheProtocol {
     private let fileManager = FileManager.default
     private let cacheDirectory: URL
     private let queue = DispatchQueue(label: "APICache", attributes: .concurrent)
-    private let timerManager = BatteryAwareTimerManager.shared
+    @MainActor private let timerManager = BatteryAwareTimerManager.shared
     
     // MARK: - Cache Configuration
     

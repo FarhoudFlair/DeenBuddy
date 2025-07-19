@@ -93,7 +93,7 @@ public struct PrayerTimes: Codable, Equatable {
     }
 }
 
-public enum CalculationMethod: String, CaseIterable, Codable, Identifiable {
+public enum CalculationMethod: String, CaseIterable, Codable, Identifiable, Sendable {
     public var id: String { rawValue }
     case muslimWorldLeague = "MuslimWorldLeague"
     case egyptian = "Egyptian"

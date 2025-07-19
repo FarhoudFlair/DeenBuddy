@@ -102,6 +102,10 @@ public class BackgroundPrayerRefreshService: ObservableObject {
                 // Cache is handled automatically by PrayerTimeService
                 print("✅ Preloaded prayer times for \(targetDate.formatted(date: .abbreviated, time: .omitted))")
                 
+            } catch is CancellationError {
+                // Handle cancellation gracefully - this is normal if the task is cancelled
+                print("ℹ️ Prayer time preloading was cancelled for \(targetDate.formatted(date: .abbreviated, time: .omitted))")
+                break // Exit the loop since we're cancelled
             } catch {
                 print("❌ Failed to preload prayer times for \(targetDate): \(error)")
             }
@@ -132,6 +136,10 @@ public class BackgroundPrayerRefreshService: ObservableObject {
                     for: newLocation,
                     date: targetDate
                 )
+            } catch is CancellationError {
+                // Handle cancellation gracefully - this is normal if the task is cancelled
+                print("ℹ️ Location change preloading was cancelled")
+                break // Exit the loop since we're cancelled
             } catch {
                 print("❌ Failed to preload for location change: \(error)")
             }
@@ -186,6 +194,9 @@ public class BackgroundPrayerRefreshService: ObservableObject {
         do {
             try BGTaskScheduler.shared.submit(request)
             print("🕌 Background app refresh scheduled")
+        } catch is CancellationError {
+            // Handle cancellation gracefully - this is normal if the task is cancelled
+            print("ℹ️ Background refresh scheduling was cancelled")
         } catch {
             print("❌ Failed to schedule background refresh: \(error)")
         }
@@ -237,6 +248,9 @@ public class PrayerDataPrefetcher: ObservableObject {
                 _ = try await prayerTimeService.calculatePrayerTimes(for: location, date: tomorrow)
                 prefetchProgress = 0.75
                 
+            } catch is CancellationError {
+                // Handle cancellation gracefully - this is normal if the task is cancelled
+                print("ℹ️ Critical data prefetch was cancelled")
             } catch {
                 print("❌ Failed to prefetch prayer times: \(error)")
             }
@@ -267,6 +281,10 @@ public class PrayerDataPrefetcher: ObservableObject {
                     let targetDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: Date()) ?? Date()
                     do {
                         _ = try await prayerTimeService.calculatePrayerTimes(for: location, date: targetDate)
+                    } catch is CancellationError {
+                        // Handle cancellation gracefully - this is normal if the task is cancelled
+                        print("ℹ️ Route prefetch was cancelled")
+                        break // Exit the loop since we're cancelled
                     } catch {
                         print("❌ Failed to prefetch prayer times for route: \(error)")
                     }

@@ -9,7 +9,7 @@ import XCTest
 import Combine
 import CoreLocation
 import BackgroundTasks
-@testable import DeenAssistCore
+@testable import DeenBuddy
 
 /// Tests for cache invalidation and consistency across all cache systems
 class CacheInvalidationConsistencyTests: XCTestCase {

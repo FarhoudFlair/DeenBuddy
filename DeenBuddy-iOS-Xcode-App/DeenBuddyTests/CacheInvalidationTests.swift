@@ -8,7 +8,6 @@
 import XCTest
 import Combine
 import CoreLocation
-@testable import DeenAssistCore
 
 /// Comprehensive tests for cache invalidation across all cache systems
 class CacheInvalidationTests: XCTestCase {

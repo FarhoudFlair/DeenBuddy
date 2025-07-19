@@ -1,7 +1,6 @@
 import XCTest
 import UserNotifications
 import CoreLocation
-@testable import DeenAssistCore
 
 /// Integration tests for notification system synchronization with prayer times and settings
 @MainActor

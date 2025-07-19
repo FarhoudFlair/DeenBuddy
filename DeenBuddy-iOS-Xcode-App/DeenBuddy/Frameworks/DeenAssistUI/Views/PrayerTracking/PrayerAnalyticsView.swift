@@ -33,6 +33,13 @@ enum ExportFormat: String, CaseIterable {
     }
 }
 
+enum ExportStatus {
+    case idle
+    case exporting
+    case success
+    case failure
+}
+
 struct ExportData {
     let period: String
     let completionRate: String
@@ -65,6 +72,8 @@ public struct PrayerAnalyticsView: View {
     @State private var insights: [InsightData] = []
     @State private var isLoadingInsights: Bool = false
     @State private var showingExportSheet: Bool = false
+    @State private var exportStatus: ExportStatus = .idle
+    @State private var exportMessage: String = ""
 
     // MARK: - Initialization
 
@@ -467,35 +476,57 @@ public struct PrayerAnalyticsView: View {
     }
 
     private func shareCSV(data: ExportData) {
-        var csvContent = "Prayer Analytics Export - \(data.period.capitalized)\n\n"
-        csvContent += "Summary\n"
-        csvContent += "Completion Rate,\(data.completionRate)\n"
-        csvContent += "Current Streak,\(data.currentStreak)\n"
-        csvContent += "Total Prayers,\(data.totalPrayers)\n"
-        csvContent += "Best Prayer,\(data.bestPrayer)\n\n"
-        csvContent += "Prayer Breakdown\n"
-        csvContent += "Prayer,Completion Rate,Total Count\n"
+        // Build properly escaped CSV content
+        var csvContent = "\(escapeCsvValue("Prayer Analytics Export - \(data.period.capitalized)"))\n\n"
 
+        // Summary section with proper CSV formatting
+        csvContent += "\(escapeCsvValue("Summary"))\n"
+        csvContent += "\(escapeCsvValue("Completion Rate")),\(escapeCsvValue(data.completionRate))\n"
+        csvContent += "\(escapeCsvValue("Current Streak")),\(escapeCsvValue(data.currentStreak))\n"
+        csvContent += "\(escapeCsvValue("Total Prayers")),\(escapeCsvValue(data.totalPrayers))\n"
+        csvContent += "\(escapeCsvValue("Best Prayer")),\(escapeCsvValue(data.bestPrayer))\n\n"
+
+        // Prayer breakdown section with headers
+        csvContent += "\(escapeCsvValue("Prayer Breakdown"))\n"
+        csvContent += "\(escapeCsvValue("Prayer")),\(escapeCsvValue("Completion Rate")),\(escapeCsvValue("Total Count"))\n"
+
+        // Prayer data with proper escaping
         for prayer in data.prayers {
-            csvContent += "\(prayer.name),\(Int(prayer.completionRate * 100))%,\(prayer.totalCount)\n"
+            let completionRateText = "\(Int(prayer.completionRate * 100))%"
+            csvContent += "\(escapeCsvValue(prayer.name)),\(escapeCsvValue(completionRateText)),\(escapeCsvValue(String(prayer.totalCount)))\n"
         }
 
-        csvContent += "\nInsights\n"
+        // Insights section
+        csvContent += "\n\(escapeCsvValue("Insights"))\n"
         for insight in data.insights {
-            csvContent += "\(insight)\n"
+            csvContent += "\(escapeCsvValue(insight))\n"
         }
 
         shareContent(csvContent, fileName: "prayer_analytics_\(data.period).csv")
     }
 
     private func sharePDF(data: ExportData) {
-        // For now, share as formatted text that could be converted to PDF
+        // Generate formatted text content for PDF-style export
         let pdfContent = formatDataForPDF(data)
+
+        // Validate content before sharing
+        guard !pdfContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("❌ PDF export failed: No content to export")
+            return
+        }
+
         shareContent(pdfContent, fileName: "prayer_analytics_\(data.period).txt")
     }
 
     private func shareText(data: ExportData) {
         let textContent = formatDataAsText(data)
+
+        // Validate content before sharing
+        guard !textContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("❌ Text export failed: No content to export")
+            return
+        }
+
         shareContent(textContent, fileName: "prayer_analytics_\(data.period).txt")
     }
 
@@ -526,14 +557,120 @@ public struct PrayerAnalyticsView: View {
         return formatDataForPDF(data) // Same format for now
     }
 
-    private func shareContent(_ content: String, fileName: String) {
-        // In a real implementation, this would use UIActivityViewController
-        // For now, we'll just print to console as a placeholder
-        print("Exporting content to \(fileName):")
-        print(content)
+    // MARK: - CSV Helper Functions
 
-        // TODO: Implement actual sharing with UIActivityViewController
-        // This would require UIKit integration
+    /// Escapes CSV field values by wrapping in quotes and escaping internal quotes
+    /// - Parameter value: The string value to escape
+    /// - Returns: Properly escaped CSV field value
+    private func escapeCsvValue(_ value: String) -> String {
+        // Wrap all values in double quotes and escape internal quotes by doubling them
+        let escapedValue = value.replacingOccurrences(of: "\"", with: "\"\"")
+        return "\"\(escapedValue)\""
+    }
+
+    // MARK: - Sharing Implementation
+
+    private func shareContent(_ content: String, fileName: String) {
+        // Update export status
+        exportStatus = .exporting
+        exportMessage = "Preparing export..."
+
+        // Validate content before attempting to share
+        guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            exportStatus = .failure
+            exportMessage = "Export failed: Content is empty"
+            print("❌ Export failed: Content is empty")
+            return
+        }
+
+        // Validate filename
+        guard !fileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            exportStatus = .failure
+            exportMessage = "Export failed: Invalid filename"
+            print("❌ Export failed: Invalid filename")
+            return
+        }
+
+        do {
+            // Create temporary file
+            let tempDirectory = FileManager.default.temporaryDirectory
+            let fileURL = tempDirectory.appendingPathComponent(fileName)
+
+            // Write content to file
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
+
+            // Share the file
+            DispatchQueue.main.async {
+                self.shareFile(at: fileURL, fileName: fileName)
+            }
+
+        } catch {
+            exportStatus = .failure
+            exportMessage = "Export failed: \(error.localizedDescription)"
+            print("❌ Export failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func shareFile(at url: URL, fileName: String) {
+        // Verify file was created successfully
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            exportStatus = .failure
+            exportMessage = "File creation failed: File does not exist"
+            print("❌ File creation failed: File does not exist at \(url.path)")
+            return
+        }
+
+        // Get file size for validation
+        do {
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = fileAttributes[.size] as? Int64 ?? 0
+
+            guard fileSize > 0 else {
+                exportStatus = .failure
+                exportMessage = "File creation failed: File is empty"
+                print("❌ File creation failed: File is empty")
+                return
+            }
+
+            print("✅ File created successfully: \(fileName)")
+            print("📁 File location: \(url.path)")
+            print("� File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+            print("�📤 Content ready for sharing")
+
+            // Copy to Documents directory for easier access
+            copyToDocumentsDirectory(from: url, fileName: fileName)
+
+            // Update status to success
+            exportStatus = .success
+            exportMessage = "Export completed successfully! File saved to Documents."
+
+        } catch {
+            exportStatus = .failure
+            exportMessage = "File validation failed: \(error.localizedDescription)"
+            print("❌ File validation failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func copyToDocumentsDirectory(from sourceURL: URL, fileName: String) {
+        do {
+            let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+            let destinationURL = documentsDirectory.appendingPathComponent(fileName)
+
+            // Remove existing file if it exists
+            if FileManager.default.fileExists(atPath: destinationURL.path) {
+                try FileManager.default.removeItem(at: destinationURL)
+            }
+
+            // Copy file to Documents directory
+            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+
+            print("📋 File copied to Documents: \(destinationURL.path)")
+            print("💡 Users can access this file through the Files app")
+
+        } catch {
+            print("⚠️ Could not copy to Documents directory: \(error.localizedDescription)")
+            print("� File is still available at: \(sourceURL.path)")
+        }
     }
 
 

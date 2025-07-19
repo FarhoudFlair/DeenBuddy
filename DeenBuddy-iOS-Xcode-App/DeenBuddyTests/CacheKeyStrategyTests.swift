@@ -7,7 +7,6 @@
 
 import XCTest
 import CoreLocation
-@testable import DeenAssistCore
 
 /// Tests for enhanced cache key strategy that includes calculation method and madhab
 class CacheKeyStrategyTests: XCTestCase {

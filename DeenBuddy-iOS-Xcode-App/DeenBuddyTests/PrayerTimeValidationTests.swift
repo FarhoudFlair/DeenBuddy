@@ -7,7 +7,6 @@
 
 import XCTest
 import CoreLocation
-@testable import DeenAssistCore
 
 /// Validation tests for prayer time accuracy across different calculation methods and real locations
 class PrayerTimeValidationTests: XCTestCase {

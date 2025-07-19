@@ -36,15 +36,18 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     @Published public var trackingError: Error? = nil
     
     // MARK: - Private Properties
-    
+
     private let prayerTimeService: any PrayerTimeServiceProtocol
     private let settingsService: any SettingsServiceProtocol
     private let locationService: any LocationServiceProtocol
     private let userDefaults = UserDefaults.standard
     private var cancellables = Set<AnyCancellable>()
-    
+
+    // Persistent counter for all-time prayer completions
+    private var allTimePrayersCompleted: Int = 0
+
     // MARK: - UserDefaults Keys
-    
+
     private enum CacheKeys {
         static let prayerEntries = "prayer_tracking_entries"
         static let prayerStreaks = "prayer_tracking_streaks"
@@ -53,6 +56,7 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         static let prayerJournals = "prayer_tracking_journals"
         static let prayerBadges = "prayer_tracking_badges"
         static let lastCalculatedDate = "prayer_tracking_last_calculated"
+        static let allTimePrayersCompleted = "prayer_tracking_all_time_completed"
     }
     
     // MARK: - Initialization
@@ -161,12 +165,25 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     
     private func loadCachedData() {
         // Load recent entries
+        var allEntries: [PrayerEntry] = []
         if let data = userDefaults.data(forKey: CacheKeys.prayerEntries),
            let entries = try? JSONDecoder().decode([PrayerEntry].self, from: data) {
+            allEntries = entries
             // Keep only last 100 entries for performance
             recentEntries = Array(entries.suffix(100))
         }
-        
+
+        // Load persistent all-time prayer counter
+        allTimePrayersCompleted = userDefaults.integer(forKey: CacheKeys.allTimePrayersCompleted)
+
+        // Handle data migration for existing users
+        if allTimePrayersCompleted == 0 && !allEntries.isEmpty {
+            // First time loading - migrate existing data
+            allTimePrayersCompleted = allEntries.count
+            userDefaults.set(allTimePrayersCompleted, forKey: CacheKeys.allTimePrayersCompleted)
+            print("🔄 Migrated prayer tracking data: \(allTimePrayersCompleted) total prayers")
+        }
+
         // Load and calculate current streak
         calculateCurrentStreak()
     }
@@ -236,15 +253,19 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
             
             // Add to recent entries
             recentEntries.append(entry)
-            
+
             // Keep only last 100 entries
             if recentEntries.count > 100 {
                 recentEntries = Array(recentEntries.suffix(100))
             }
-            
+
+            // Increment all-time prayer counter
+            allTimePrayersCompleted += 1
+            userDefaults.set(allTimePrayersCompleted, forKey: CacheKeys.allTimePrayersCompleted)
+
             // Save to UserDefaults
             try saveEntriesToCache()
-            
+
             // Update statistics
             calculateTodayStats()
             calculateCurrentStreak()
@@ -273,11 +294,18 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         
         do {
             recentEntries.removeLast()
+
+            // Decrement all-time prayer counter
+            if allTimePrayersCompleted > 0 {
+                allTimePrayersCompleted -= 1
+                userDefaults.set(allTimePrayersCompleted, forKey: CacheKeys.allTimePrayersCompleted)
+            }
+
             try saveEntriesToCache()
-            
+
             calculateTodayStats()
             calculateCurrentStreak()
-            
+
             isTrackingLoading = false
             return true
         } catch {
@@ -470,10 +498,10 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         }
         
         todaysCompletedPrayers = todayEntries.count
-        
-        // Calculate total prayers completed across all time
-        totalPrayersCompleted = recentEntries.count
-        
+
+        // Use persistent counter for accurate all-time total
+        totalPrayersCompleted = allTimePrayersCompleted
+
         // Calculate completion rate based on expected prayers (5 daily prayers)
         let expectedPrayers = 5
         todayCompletionRate = min(Double(todaysCompletedPrayers) / Double(expectedPrayers), 1.0)
@@ -807,13 +835,15 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         userDefaults.removeObject(forKey: CacheKeys.prayerReminders)
         userDefaults.removeObject(forKey: CacheKeys.prayerJournals)
         userDefaults.removeObject(forKey: CacheKeys.prayerBadges)
+        userDefaults.removeObject(forKey: CacheKeys.allTimePrayersCompleted)
 
-        // Reset published properties
+        // Reset published properties and persistent counter
         recentEntries = []
         currentStreak = 0
         todaysCompletedPrayers = 0
         todayCompletionRate = 0.0
         totalPrayersCompleted = 0
+        allTimePrayersCompleted = 0
     }
 
     public func refreshTrackingData() async {

@@ -93,15 +93,7 @@ public class PrayerAnalyticsService: ObservableObject, PrayerAnalyticsServicePro
         let calendar = Calendar.current
         let now = Date()
 
-        let startDate: Date
-        switch period {
-        case .week:
-            startDate = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now.addingTimeInterval(-Defaults.weekInterval)
-        case .month:
-            startDate = calendar.dateInterval(of: .month, for: now)?.start ?? now.addingTimeInterval(-Defaults.monthInterval)
-        case .year:
-            startDate = calendar.dateInterval(of: .year, for: now)?.start ?? now.addingTimeInterval(-Defaults.yearInterval)
-        }
+        let startDate = calculateStartDate(for: period, from: now)
 
         let periodEntries = entries.filter { $0.completedAt >= startDate }
         let totalDays = calendar.dateComponents([.day], from: startDate, to: now).day ?? 1

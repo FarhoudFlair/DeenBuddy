@@ -654,6 +654,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
                 do {
                     _ = try await getCurrentLocation()
                     print("📍 Successfully refreshed location in background")
+                } catch is CancellationError {
+                    // Handle cancellation gracefully - this is normal if the task is cancelled
+                    print("ℹ️ Background location refresh was cancelled")
                 } catch {
                     print("📍 Background location refresh failed: \(error)")
                 }
@@ -819,6 +822,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // Refresh location
         do {
             _ = try await getCurrentLocation()
+        } catch is CancellationError {
+            // Handle cancellation gracefully - this is normal if the task is cancelled
+            print("ℹ️ Location refresh was cancelled")
         } catch {
             Task { @MainActor in
                 errorHandler.handleError(error)

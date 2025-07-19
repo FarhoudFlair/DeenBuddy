@@ -1,6 +1,5 @@
 import XCTest
 import CoreLocation
-@testable import DeenAssistCore
 
 /// Comprehensive Islamic accuracy validation tests for prayer times, notifications, and calendar features
 @MainActor

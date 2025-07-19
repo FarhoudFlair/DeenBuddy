@@ -1,5 +1,4 @@
 import XCTest
-@testable import DeenAssistCore
 
 /// Test suite for Islamic Feature Flags system
 final class IslamicFeatureFlagsTests: XCTestCase {

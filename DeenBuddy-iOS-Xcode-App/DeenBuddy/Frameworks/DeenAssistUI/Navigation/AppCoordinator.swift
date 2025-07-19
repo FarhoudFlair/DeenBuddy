@@ -157,6 +157,10 @@ public class AppCoordinator: ObservableObject {
                 // Use immediate save for critical onboarding completion
                 try await settingsService.saveImmediately()
                 print("✅ Onboarding completion saved successfully in AppCoordinator")
+            } catch is CancellationError {
+                // Handle cancellation gracefully - this is normal if the task is cancelled
+                print("ℹ️ Onboarding completion save was cancelled (this is normal)")
+                // Continue anyway - the app should still transition to home
             } catch {
                 print("⚠️ Error saving onboarding completion in AppCoordinator: \(error.localizedDescription)")
                 // Continue anyway - the app should still transition to home
@@ -219,63 +223,26 @@ public class AppCoordinator: ObservableObject {
 
         // Initialize background services
         Task {
-            // Register background tasks with retry and analytics on failure
-            var registrationSuccess = false
-            for attempt in 1...2 {
-                backgroundTaskManager.registerBackgroundTasks()
-                // There is no error thrown, so check via side effect or log
-                // If you want to check for registration, you may need to add a flag in BackgroundTaskManager
-                // For now, assume registration always succeeds unless a fatal error is printed
-                registrationSuccess = true // No error thrown, so assume success
-                if registrationSuccess { break }
-            }
-            if !registrationSuccess {
-                analyticsService.trackEvent(AnalyticsEvent(name: "error_occurred", parameters: ["context": "BackgroundTaskRegistration", "message": "Failed to register background tasks after retry."], category: .errors))
-                await MainActor.run {
-                    self.showError(.unknownError("Background task registration failed. Some features may not work."))
-                }
-            }
+            // Register background tasks
+            backgroundTaskManager.registerBackgroundTasks()
+            print("📋 Background task registration initiated")
 
-            // Start background prayer refresh with analytics and user notification on failure
-            var refreshStarted = false
-            for attempt in 1...2 {
-                backgroundPrayerRefreshService.startBackgroundRefresh()
-                // No error thrown, so assume success
-                refreshStarted = true
-                if refreshStarted { break }
-            }
-            if !refreshStarted {
-                analyticsService.trackEvent(AnalyticsEvent(name: "error_occurred", parameters: ["context": "BackgroundPrayerRefresh", "message": "Failed to start background prayer refresh after retry."], category: .errors))
-                await MainActor.run {
-                    self.showError(.unknownError("Background prayer refresh failed. Some features may not work."))
-                }
-            }
+            // Start background prayer refresh
+            backgroundPrayerRefreshService.startBackgroundRefresh()
+            print("🕌 Background prayer refresh service started")
         }
 
         print("🚀 Enhanced services initialized")
     }
 
-    private func initializeBackgroundServices() async {
-        // Register background tasks
-        do {
-            backgroundTaskManager.registerBackgroundTasks()
-        } catch {
-            print("❌ Error registering background tasks: \(error)")
-        }
 
-        // Start background prayer refresh
-        do {
-            backgroundPrayerRefreshService.startBackgroundRefresh()
-        } catch {
-            print("❌ Error starting background prayer refresh: \(error)")
-        }
-
-        print("🔄 Background services started successfully")
-    }
     
     private func loadSettings() async {
         do {
             try await settingsService.loadSettings()
+        } catch is CancellationError {
+            // Handle cancellation gracefully - this is normal if the task is cancelled
+            print("ℹ️ Settings loading was cancelled (this is normal)")
         } catch {
             print("Failed to load settings: \(error)")
         }

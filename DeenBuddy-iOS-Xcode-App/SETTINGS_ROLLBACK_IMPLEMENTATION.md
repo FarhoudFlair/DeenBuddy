@@ -13,11 +13,14 @@ The `SettingsService.swift` had a critical UI-data inconsistency issue where:
 
 ### Core Implementation
 
-Each `@Published` property now implements a rollback mechanism in its `didSet` observer:
+Each `@Published` property now implements a rollback mechanism in its `didSet` observer with infinite loop prevention:
 
 ```swift
 @Published public var notificationsEnabled: Bool = true {
     didSet {
+        // Skip observer actions during rollback operations to prevent infinite loops
+        guard !isRestoring else { return }
+        
         let oldValue = oldValue
         let newValue = notificationsEnabled
         
@@ -28,7 +31,10 @@ Each `@Published` property now implements a rollback mechanism in its `didSet` o
         saveSettingsAsync(
             rollbackAction: { [weak self] in
                 await MainActor.run {
+                    // Set guard flag to prevent didSet observer from triggering during rollback
+                    self?.isRestoring = true
                     self?.notificationsEnabled = oldValue
+                    self?.isRestoring = false
                 }
             },
             propertyName: "notificationsEnabled",
@@ -64,8 +70,11 @@ private func saveSettingsAsync(
                 try await saveSettings()
                 print("✅ Successfully saved setting: \(propertyName) = \(newValue)")
             }
+        } catch is CancellationError {
+            // Handle cancellation gracefully without triggering rollback
+            print("ℹ️ Settings save operation for \(propertyName) was cancelled (this is normal for rapid changes)")
         } catch {
-            // Handle save errors gracefully
+            // Handle genuine save errors gracefully
             print("❌ Failed to save settings for \(propertyName): \(error.localizedDescription)")
             print("🔄 Rolling back \(propertyName) from \(newValue) to \(oldValue)")
 
@@ -130,6 +139,54 @@ All settings properties now use the rollback mechanism:
 - ✅ `notificationOffset`
 - ✅ `overrideBatteryOptimization`
 - ✅ `showArabicSymbolInWidget`
+
+## Infinite Loop Prevention
+
+### Guard Flag Mechanism
+
+To prevent infinite save/rollback loops, each property implements a guard flag mechanism:
+
+```swift
+// Private guard flag to suppress didSet observers during rollback operations
+private var isRestoring = false
+```
+
+**How it works:**
+1. **Normal Operation**: `isRestoring` is `false`, so `didSet` observers execute normally
+2. **Rollback Operation**: Before assigning the old value, `isRestoring` is set to `true`
+3. **Observer Suppression**: The `didSet` observer checks `isRestoring` and returns early if `true`
+4. **Flag Reset**: After the rollback assignment, `isRestoring` is reset to `false`
+
+This prevents the rollback assignment from triggering another save operation, breaking the potential infinite loop.
+
+## CancellationError Handling
+
+### Proper Error Classification
+
+The rollback mechanism now properly distinguishes between different types of errors:
+
+```swift
+} catch is CancellationError {
+    // Handle cancellation gracefully without triggering rollback
+    print("ℹ️ Settings save operation for \(propertyName) was cancelled (this is normal for rapid changes)")
+} catch {
+    // Handle genuine save errors gracefully
+    print("❌ Failed to save settings for \(propertyName): \(error.localizedDescription)")
+    // ... rollback logic
+}
+```
+
+**Why this matters:**
+1. **Task Cancellation**: When users make rapid changes, previous save tasks are cancelled
+2. **No Unnecessary Rollbacks**: CancellationError doesn't indicate a save failure, so no rollback is needed
+3. **Better User Experience**: Users don't see their changes reverted when they make rapid adjustments
+4. **Performance**: Avoids unnecessary rollback operations for normal cancellation scenarios
+
+**Error Types Handled:**
+- **CancellationError**: Normal task cancellation, no rollback needed
+- **Genuine Save Errors**: Actual save failures that require rollback
+- **Network Errors**: Connection issues that may require retry logic
+- **Permission Errors**: Access denied scenarios
 
 ## Benefits
 

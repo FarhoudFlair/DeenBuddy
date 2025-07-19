@@ -154,6 +154,11 @@ public extension AppLogger {
 /// Conditional print function that only outputs in DEBUG builds
 public func debugPrint(_ items: Any..., separator: String = " ", terminator: String = "\n") {
     #if DEBUG
-    Swift.print(items, separator: separator, terminator: terminator)
+    if items.isEmpty {
+        Swift.print("", terminator: terminator)
+    } else {
+        let output = items.map { String(describing: $0) }.joined(separator: separator)
+        Swift.print(output, terminator: terminator)
+    }
     #endif
 }

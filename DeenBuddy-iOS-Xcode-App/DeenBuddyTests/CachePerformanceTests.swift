@@ -8,7 +8,7 @@
 import XCTest
 import Combine
 import CoreLocation
-@testable import DeenAssistCore
+
 
 /// Performance tests for cache operations and prayer time synchronization
 class CachePerformanceTests: XCTestCase {

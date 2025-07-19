@@ -1,6 +1,5 @@
 import XCTest
 import UserNotifications
-@testable import DeenAssistCore
 
 /// Performance tests across different iOS devices and versions
 @MainActor

@@ -55,7 +55,6 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     // Debouncing for settings changes to prevent excessive updates
     private var settingsUpdateTask: Task<Void, Never>?
     private let settingsUpdateDebounceInterval: TimeInterval = 1.0 // 1 second
-    private var lastSettingsUpdateTime: Date?
 
     // MARK: - Settings Keys
 
@@ -537,17 +536,10 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         print("📱 NotificationService observers setup - active observers: \(observerCount)/\(Self.maxObservers)")
     }
 
-    /// Handle settings changes that affect notifications with debouncing to prevent excessive updates
+    /// Handle settings changes that affect notifications with proper debouncing
+    /// Each call cancels any existing scheduled update and schedules a new one with full debounce interval
+    /// Only the last call after a pause triggers performSettingsUpdate, achieving correct debouncing behavior
     private func handleSettingsChange() async {
-        let now = Date()
-        
-        // Check if we should throttle this update
-        if let lastUpdate = lastSettingsUpdateTime,
-           now.timeIntervalSince(lastUpdate) < settingsUpdateDebounceInterval {
-            print("⏱️ Throttling notification settings update (too frequent)")
-            return
-        }
-        
         // Cancel any pending settings update task
         settingsUpdateTask?.cancel()
         
@@ -569,8 +561,6 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     
     /// Perform the actual settings update after debouncing
     private func performSettingsUpdate() async {
-        lastSettingsUpdateTime = Date()
-        
         // Reload settings
         loadSettings()
         

@@ -9,7 +9,6 @@ import XCTest
 import Combine
 import CoreLocation
 import BackgroundTasks
-@testable import DeenAssistCore
 
 /// Integration tests for the complete prayer time synchronization system
 /// Tests the interaction between SettingsService, PrayerTimeService, cache systems, and background services

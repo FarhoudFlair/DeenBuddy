@@ -239,7 +239,7 @@ public extension View {
 
 /// Environment key for feature flags
 public struct FeatureFlagsEnvironmentKey: EnvironmentKey {
-    nonisolated public static let defaultValue = IslamicFeatureFlags.shared
+    public static let defaultValue = IslamicFeatureFlags.shared
 }
 
 public extension EnvironmentValues {

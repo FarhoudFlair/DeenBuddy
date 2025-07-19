@@ -1,6 +1,5 @@
 import XCTest
 import Combine
-@testable import DeenAssistCore
 
 /// Comprehensive tests for Quran search functionality with complete data validation
 class QuranSearchComprehensiveTests: XCTestCase {

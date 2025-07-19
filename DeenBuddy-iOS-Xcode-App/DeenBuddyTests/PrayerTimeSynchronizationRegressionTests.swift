@@ -8,7 +8,6 @@
 import XCTest
 import Combine
 import CoreLocation
-@testable import DeenAssistCore
 
 /// Comprehensive regression test suite to prevent prayer time synchronization bugs
 /// This test suite covers all critical paths and edge cases that could lead to synchronization issues

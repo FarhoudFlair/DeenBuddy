@@ -1,6 +1,5 @@
 import XCTest
 import UserNotifications
-@testable import DeenAssistCore
 
 /// Memory leak detection tests for notification and background services
 @MainActor

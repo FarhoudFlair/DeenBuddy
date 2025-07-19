@@ -9,7 +9,6 @@ import XCTest
 import Combine
 import CoreLocation
 import BackgroundTasks
-@testable import DeenAssistCore
 
 /// Tests for background service synchronization with current settings
 class BackgroundServiceSynchronizationTests: XCTestCase {

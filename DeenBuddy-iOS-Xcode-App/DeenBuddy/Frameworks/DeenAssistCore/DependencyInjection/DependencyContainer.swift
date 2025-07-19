@@ -212,6 +212,10 @@ public class DependencyContainer: ObservableObject {
             if let islamicCalendarService = service as? any IslamicCalendarServiceProtocol {
                 self.islamicCalendarService = islamicCalendarService
             }
+        case is IslamicCacheManager.Type:
+            if let islamicCacheManager = service as? IslamicCacheManager {
+                self.islamicCacheManager = islamicCacheManager
+            }
         default:
             break
         }
@@ -237,6 +241,8 @@ public class DependencyContainer: ObservableObject {
             return tasbihService as? T
         case is any IslamicCalendarServiceProtocol.Type:
             return islamicCalendarService as? T
+        case is IslamicCacheManager.Type:
+            return islamicCacheManager as? T
         default:
             return nil
         }

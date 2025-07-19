@@ -12,11 +12,11 @@ public class BatteryAwareTimerManager: ObservableObject {
     
     // MARK: - Singleton
     
-    nonisolated public static let shared = BatteryAwareTimerManager()
+    public static let shared = BatteryAwareTimerManager()
     
     // MARK: - Timer Types
     
-    public enum TimerType {
+    public enum TimerType: Sendable {
         case prayerUpdate       // Update prayer times every minute
         case countdownUI        // UI countdown updates
         case backgroundRefresh  // Background data refresh
@@ -52,6 +52,24 @@ public class BatteryAwareTimerManager: ObservableObject {
             }
         }
         
+        /// Determines whether timer callbacks should execute on the main thread
+        /// 
+        /// **Main Thread Timers** (shouldRunOnMainThread = true):
+        /// - `.countdownUI`: UI countdown updates - must be on main thread for UI safety
+        /// - `.prayerUpdate`: Prayer time updates - may trigger UI updates, safe for @Published properties
+        ///
+        /// **Background Thread Timers** (shouldRunOnMainThread = false):
+        /// - `.backgroundRefresh`: Background data refresh - network calls, file operations
+        /// - `.memoryMonitoring`: Memory usage monitoring - system calls, no UI impact
+        /// - `.hijriCalendar`: Daily calendar updates - date calculations, no UI impact
+        /// - `.resourceMonitoring`: Resource usage monitoring - system calls, no UI impact
+        /// - `.locationUpdate`: Location service updates - GPS operations, no UI impact
+        /// - `.cacheCleanup`: Periodic cache cleanup - file system operations, no UI impact
+        ///
+        /// **Threading Safety Notes:**
+        /// - Main thread timers can safely perform UI updates and access @MainActor properties
+        /// - Background timers must be thread-safe and avoid UI operations
+        /// - Background timers requiring UI updates should dispatch to main queue
         var shouldRunOnMainThread: Bool {
             switch self {
             case .countdownUI: return true // UI updates must be on main thread
@@ -131,7 +149,38 @@ public class BatteryAwareTimerManager: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Schedule a battery-aware timer
+    /// Schedule a battery-aware timer with automatic thread management
+    ///
+    /// **Threading Behavior:**
+    /// - **Main Thread Timers** (countdownUI, prayerUpdate): Callbacks execute on MainActor, safe for UI updates
+    /// - **Background Thread Timers** (all others): Callbacks execute on background threads, NOT safe for UI updates
+    ///
+    /// **Threading Requirements for Callbacks:**
+    /// - **Main Thread Callbacks**: Can safely perform UI updates, access @MainActor properties, update @Published properties
+    /// - **Background Callbacks**: Must be thread-safe, avoid UI operations, and not access main-actor-isolated properties
+    ///   - For UI updates in background callbacks, use `Task { @MainActor in ... }` or `DispatchQueue.main.async`
+    ///   - For accessing main-actor-isolated properties, use `await MainActor.run { ... }`
+    ///
+    /// **Example Usage:**
+    /// ```swift
+    /// // Main thread timer (safe for UI)
+    /// scheduleTimer(id: "ui-update", type: .countdownUI) {
+    ///     self.updateCountdownLabel() // Safe - runs on main thread
+    /// }
+    ///
+    /// // Background timer (must be thread-safe)
+    /// scheduleTimer(id: "data-refresh", type: .backgroundRefresh) {
+    ///     Task { @MainActor in
+    ///         self.updateUI() // Dispatch UI updates to main thread
+    ///     }
+    ///     // Perform background work here
+    /// }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - id: Unique identifier for the timer
+    ///   - type: Timer type that determines interval, priority, and threading behavior
+    ///   - callback: Closure to execute when timer fires (see threading requirements above)
     public func scheduleTimer(
         id: String,
         type: TimerType,
@@ -352,6 +401,8 @@ public class BatteryAwareTimerManager: ObservableObject {
         return max(minInterval, min(maxInterval, optimizedInterval))
     }
     
+    /// Handle timer fire for main-thread operations (UI updates, main-actor-isolated properties)
+    /// This method runs on the MainActor and is safe for UI operations
     private func handleTimerFire(id: String, type: TimerType) {
         let now = Date()
 
@@ -375,10 +426,13 @@ public class BatteryAwareTimerManager: ObservableObject {
             )
         }
 
-        // Execute callback
+        // Execute callback on main thread (safe for UI operations)
         timerCallbacks[id]?()
     }
     
+    /// Handle timer fire for background operations (non-UI work, network calls, etc.)
+    /// This method runs on background threads and should NOT perform UI updates
+    /// Callbacks should be thread-safe and avoid accessing main-actor-isolated properties
     private func handleTimerFireBackground(id: String, type: TimerType) async {
         let now = Date()
 
@@ -407,6 +461,8 @@ public class BatteryAwareTimerManager: ObservableObject {
         }
 
         // Execute callback on background thread
+        // WARNING: Callbacks should be thread-safe and avoid UI operations
+        // If UI updates are needed, dispatch to main queue or use MainActor
         timerCallbacks[id]?()
     }
     
@@ -421,19 +477,69 @@ public class BatteryAwareTimerManager: ObservableObject {
 // MARK: - Convenience Extensions
 
 extension BatteryAwareTimerManager {
-    /// Quick method to schedule a prayer update timer
+    /// Quick method to schedule a prayer update timer (runs on main thread, safe for UI)
     public func schedulePrayerUpdateTimer(callback: @escaping () -> Void) {
         scheduleTimer(id: "prayer-update", type: .prayerUpdate, callback: callback)
     }
     
-    /// Quick method to schedule a countdown UI timer
+    /// Quick method to schedule a countdown UI timer (runs on main thread, safe for UI)
     public func scheduleCountdownTimer(id: String, callback: @escaping () -> Void) {
         scheduleTimer(id: id, type: .countdownUI, callback: callback)
     }
     
-    /// Quick method to schedule a background refresh timer
+    /// Quick method to schedule a background refresh timer (runs on background thread)
     public func scheduleBackgroundRefreshTimer(callback: @escaping () -> Void) {
         scheduleTimer(id: "background-refresh", type: .backgroundRefresh, callback: callback)
+    }
+    
+    /// Schedule a background timer with automatic UI dispatch for callbacks that need UI updates
+    /// This method ensures UI updates are safely dispatched to the main thread
+    ///
+    /// - Parameters:
+    ///   - id: Unique identifier for the timer
+    ///   - type: Timer type (should be a background type like .backgroundRefresh, .cacheCleanup, etc.)
+    ///   - backgroundWork: Background work to perform (runs on background thread)
+    ///   - uiUpdate: UI update to perform (automatically dispatched to main thread)
+    public func scheduleBackgroundTimerWithUIUpdate(
+        id: String,
+        type: TimerType,
+        backgroundWork: @escaping () -> Void,
+        uiUpdate: @escaping () -> Void
+    ) {
+        scheduleTimer(id: id, type: type) {
+            // Perform background work
+            backgroundWork()
+            
+            // Dispatch UI update to main thread
+            Task { @MainActor in
+                uiUpdate()
+            }
+        }
+    }
+    
+    /// Schedule a background timer with async UI dispatch for callbacks that need async UI updates
+    /// This method ensures async UI updates are safely dispatched to the main actor
+    ///
+    /// - Parameters:
+    ///   - id: Unique identifier for the timer
+    ///   - type: Timer type (should be a background type)
+    ///   - backgroundWork: Background work to perform (runs on background thread)
+    ///   - asyncUIUpdate: Async UI update to perform (automatically dispatched to MainActor)
+    public func scheduleBackgroundTimerWithAsyncUIUpdate(
+        id: String,
+        type: TimerType,
+        backgroundWork: @escaping () -> Void,
+        asyncUIUpdate: @escaping () async -> Void
+    ) {
+        scheduleTimer(id: id, type: type) {
+            // Perform background work
+            backgroundWork()
+            
+            // Dispatch async UI update to MainActor
+            Task { @MainActor in
+                await asyncUIUpdate()
+            }
+        }
     }
 }
 

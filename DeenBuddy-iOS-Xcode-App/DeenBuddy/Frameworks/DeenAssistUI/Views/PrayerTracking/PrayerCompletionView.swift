@@ -67,8 +67,6 @@ public struct PrayerCompletionView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Complete Prayer")
-            .navigationBarTitleDisplayMode(.inline)
         .navigationTitle("Complete Prayer")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -1,9 +1,6 @@
 import XCTest
 import SwiftUI
 import CoreLocation
-@testable import DeenAssistUI
-@testable import DeenAssistCore
-@testable import DeenAssistProtocols
 
 class LocationDiagnosticTests: XCTestCase {
     
