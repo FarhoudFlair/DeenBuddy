@@ -365,6 +365,74 @@ public class BatteryAwareTimerManager: ObservableObject {
             cancelAllTimers()
         }
         cancellables.removeAll()
+        print("🧹 BatteryAwareTimerManager deinit - cleaned up all timers")
+    }
+
+    // MARK: - Performance Optimizations
+
+    /// PERFORMANCE: Consolidate similar timers to reduce resource usage
+    public func consolidateTimers() {
+        let timerGroups = Dictionary(grouping: activeTimers) { $0.value.type.priority }
+
+        for (priority, timers) in timerGroups {
+            if timers.count > 3 && priority == .low {
+                print("⚠️ Found \(timers.count) low-priority timers - consider consolidation")
+                // Automatically consolidate low-priority timers
+                consolidateLowPriorityTimers(timers.map { $0.key })
+            }
+        }
+    }
+
+    /// PERFORMANCE: Batch low-priority timer operations
+    private func consolidateLowPriorityTimers(_ timerIds: [String]) {
+        guard timerIds.count > 2 else { return }
+
+        // Store callbacks before canceling timers
+        var storedCallbacks: [String: () -> Void] = [:]
+        for id in timerIds {
+            if let callback = timerCallbacks[id] {
+                storedCallbacks[id] = callback
+            }
+        }
+
+        // Cancel individual timers
+        for id in timerIds {
+            cancelTimer(id: id)
+        }
+
+        // Create a single consolidated timer
+        let consolidatedId = "consolidated-low-priority"
+        scheduleTimer(id: consolidatedId, type: .resourceMonitoring) { [weak self] in
+            // Execute all low-priority callbacks in batch using stored callbacks
+            for (id, callback) in storedCallbacks {
+                callback()
+            }
+        }
+
+        print("🔄 Consolidated \(timerIds.count) low-priority timers into one")
+    }
+
+    /// PERFORMANCE: Get timer statistics for monitoring
+    public func getTimerStatistics() -> TimerStatistics {
+        let activeCount = activeTimers.count
+        let typeDistribution = Dictionary(grouping: activeTimers.values) { $0.type }
+            .mapValues { $0.count }
+
+        let totalFireCount = activeTimers.values.reduce(0) { $0 + $1.fireCount }
+
+        return TimerStatistics(
+            activeTimerCount: activeCount,
+            typeDistribution: typeDistribution,
+            totalFireCount: totalFireCount,
+            memoryFootprint: calculateMemoryFootprint()
+        )
+    }
+
+    private func calculateMemoryFootprint() -> Int {
+        // Rough estimate of memory usage
+        let timerMemory = timers.count * 64 // Approximate bytes per timer
+        let callbackMemory = timerCallbacks.count * 32 // Approximate bytes per callback
+        return timerMemory + callbackMemory
     }
 }
 
@@ -402,5 +470,24 @@ extension BatteryAwareTimerManager.TimerType: CustomStringConvertible {
         case .locationUpdate: return "Location Update"
         case .cacheCleanup: return "Cache Cleanup"
         }
+    }
+}
+
+// MARK: - Timer Statistics
+
+public struct TimerStatistics {
+    public let activeTimerCount: Int
+    public let typeDistribution: [BatteryAwareTimerManager.TimerType: Int]
+    public let totalFireCount: Int
+    public let memoryFootprint: Int
+
+    public var description: String {
+        return """
+        Timer Statistics:
+        - Active Timers: \(activeTimerCount)
+        - Total Fires: \(totalFireCount)
+        - Memory Footprint: \(memoryFootprint) bytes
+        - Type Distribution: \(typeDistribution)
+        """
     }
 }

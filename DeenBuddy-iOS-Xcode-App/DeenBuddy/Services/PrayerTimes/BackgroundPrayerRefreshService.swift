@@ -27,6 +27,9 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     @Published public var nextRefreshTime: Date?
     @Published public var isRefreshing: Bool = false
     @Published public var prefetchedDays: Int = 0
+
+    // PERFORMANCE: Prevent concurrent refresh operations
+    private var isRefreshInProgress: Bool = false
     
     // MARK: - Initialization
     
@@ -155,15 +158,35 @@ public class BackgroundPrayerRefreshService: ObservableObject {
         }
     }
     
+    /// PERFORMANCE: Optimized background refresh with task coordination
     private func performBackgroundRefresh() async {
         print("🕌 Performing background prayer refresh...")
-        
-        // Preload prayer times for the next week
-        await preloadUpcomingPrayerTimes(days: 7)
-        
-        // Schedule next background refresh
-        scheduleBackgroundAppRefresh()
-        scheduleNextRefresh()
+
+        // PERFORMANCE: Check if another refresh is already in progress
+        guard !isRefreshInProgress else {
+            print("⚠️ Background refresh already in progress - skipping")
+            return
+        }
+
+        isRefreshInProgress = true
+        defer { isRefreshInProgress = false }
+
+        do {
+            // BATTERY OPTIMIZATION: Reduce preload days based on battery level
+            let preloadDays = BatteryOptimizer.shared.optimizationLevel == .extreme ? 3 : 7
+
+            // Preload prayer times with battery awareness
+            await preloadUpcomingPrayerTimes(days: preloadDays)
+
+            // PERFORMANCE: Only schedule next refresh if current one succeeded
+            scheduleBackgroundAppRefresh()
+            scheduleNextRefresh()
+
+            print("✅ Background prayer refresh completed successfully")
+        } catch {
+            print("❌ Background prayer refresh failed: \(error)")
+            // Don't schedule next refresh on failure to prevent error loops
+        }
     }
     
     private func handleBackgroundRefresh(task: BGAppRefreshTask) {

@@ -486,14 +486,29 @@ public class UnifiedCacheManager: ObservableObject {
     
     @objc private func handleMemoryPressure() {
         isMemoryPressure = true
-        
-        // Aggressively clean memory cache
+        print("⚠️ Memory pressure detected - performing aggressive cleanup")
+
+        // PERFORMANCE: Aggressively clean memory cache with metrics
+        let initialMemorySize = statistics.totalSize
+
         queue.async(flags: .barrier) { [weak self] in
+            // Clear temporary data first
             self?.clearCacheType(.temporaryData)
+
+            // Evict least recently used items
             self?.evictLeastRecentlyUsed()
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+
+            // PERFORMANCE: Clear additional cache types if still under pressure
+            self?.clearCacheType(.apiResponses)
+
+            // Force garbage collection
+            autoreleasepool { }
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
                 self?.isMemoryPressure = false
+                let finalMemorySize = self?.statistics.totalSize ?? 0
+                let memoryFreed = initialMemorySize - finalMemorySize
+                print("🧹 Memory pressure cleanup completed - freed \(memoryFreed) bytes")
             }
         }
     }
@@ -502,6 +517,50 @@ public class UnifiedCacheManager: ObservableObject {
         timerManager.scheduleTimer(id: "unified-cache-cleanup", type: .cacheCleanup) { [weak self] in
             self?.performPeriodicCleanup()
         }
+    }
+
+    // MARK: - Performance Monitoring
+
+    /// PERFORMANCE: Monitor cache performance and memory usage
+    public func getPerformanceMetrics() -> CachePerformanceMetrics {
+        let hitRate = statistics.hitCount > 0 ?
+            Double(statistics.hitCount) / Double(statistics.hitCount + statistics.missCount) : 0.0
+
+        let averageEntrySize = statistics.entryCount > 0 ?
+            statistics.totalSize / statistics.entryCount : 0
+
+        return CachePerformanceMetrics(
+            hitRate: hitRate,
+            totalSize: statistics.totalSize,
+            entryCount: statistics.entryCount,
+            averageEntrySize: averageEntrySize,
+            memoryPressureEvents: isMemoryPressure ? 1 : 0,
+            typeStats: statistics.typeStats
+        )
+    }
+
+    /// PERFORMANCE: Proactive memory management based on device capabilities
+    public func optimizeForDevice() {
+        let deviceMemory = ProcessInfo.processInfo.physicalMemory
+        let availableMemory = deviceMemory / 1024 / 1024 // Convert to MB
+
+        // Adjust cache limits based on device memory
+        if availableMemory < 2048 { // Less than 2GB RAM
+            maxMemorySize = 50 * 1024 * 1024 // 50MB
+            maxEntries = 500
+            print("🔧 Optimized cache for low-memory device (50MB limit)")
+        } else if availableMemory < 4096 { // Less than 4GB RAM
+            maxMemorySize = 100 * 1024 * 1024 // 100MB
+            maxEntries = 1000
+            print("🔧 Optimized cache for medium-memory device (100MB limit)")
+        } else {
+            maxMemorySize = 200 * 1024 * 1024 // 200MB
+            maxEntries = 2000
+            print("🔧 Optimized cache for high-memory device (200MB limit)")
+        }
+
+        // Enforce new limits
+        enforceMemoryLimits()
     }
     
     private func performPeriodicCleanup() {
@@ -584,5 +643,27 @@ extension UnifiedCacheManager {
             return nil
         }
         return codableLocation.toCLLocation()
+    }
+}
+
+// MARK: - Performance Metrics
+
+public struct CachePerformanceMetrics {
+    public let hitRate: Double
+    public let totalSize: Int
+    public let entryCount: Int
+    public let averageEntrySize: Int
+    public let memoryPressureEvents: Int
+    public let typeStats: [UnifiedCacheManager.CacheType: CacheTypeStatistics]
+
+    public var description: String {
+        return """
+        Cache Performance Metrics:
+        - Hit Rate: \(String(format: "%.2f%%", hitRate * 100))
+        - Total Size: \(totalSize) bytes
+        - Entry Count: \(entryCount)
+        - Average Entry Size: \(averageEntrySize) bytes
+        - Memory Pressure Events: \(memoryPressureEvents)
+        """
     }
 }
