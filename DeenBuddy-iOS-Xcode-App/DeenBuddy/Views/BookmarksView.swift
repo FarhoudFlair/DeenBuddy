@@ -17,11 +17,11 @@ struct BookmarksView: View {
     }
 
     private var sunniBookmarksCount: String {
-        "\(bookmarkedGuides.filter { $0.madhab == .shafi }.count)"
+        "\(bookmarkedGuides.filter { $0.madhab == .hanafi || $0.madhab == .shafi }.count)"
     }
 
     private var shiaBookmarksCount: String {
-        "\(bookmarkedGuides.filter { $0.madhab == .hanafi }.count)"
+        "\(bookmarkedGuides.filter { $0.madhab == .jafari }.count)"
     }
     
     var body: some View {

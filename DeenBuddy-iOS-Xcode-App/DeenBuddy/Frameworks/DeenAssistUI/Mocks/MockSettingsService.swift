@@ -13,6 +13,7 @@ public class MockSettingsService: SettingsServiceProtocol {
     @Published public var hasCompletedOnboarding: Bool = false
     @Published public var userName: String = ""
     @Published public var overrideBatteryOptimization: Bool = false
+    @Published public var showArabicSymbolInWidget: Bool = true
 
     public var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -35,6 +36,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         print("- Onboarding Complete: \(hasCompletedOnboarding)")
         print("- User Name: \(userName)")
         print("- Override Battery Optimization: \(overrideBatteryOptimization)")
+        print("- Show Arabic Symbol in Widget: \(showArabicSymbolInWidget)")
     }
     
     public func loadSettings() async throws {
@@ -51,7 +53,8 @@ public class MockSettingsService: SettingsServiceProtocol {
         hasCompletedOnboarding = false
         userName = ""
         overrideBatteryOptimization = false
-        
+        showArabicSymbolInWidget = true
+
         print("Mock: Settings loaded")
     }
     
@@ -68,7 +71,28 @@ public class MockSettingsService: SettingsServiceProtocol {
         hasCompletedOnboarding = false
         userName = ""
         overrideBatteryOptimization = false
-        
+        showArabicSymbolInWidget = true
+
         print("Mock: Settings reset to defaults")
+    }
+    
+    public func saveImmediately() async throws {
+        // Mock immediate save (no delay to simulate immediate behavior)
+        print("Mock: Settings saved immediately")
+        print("- Calculation Method: \(calculationMethod.displayName)")
+        print("- Madhab: \(madhab.displayName)")
+        print("- Notifications: \(notificationsEnabled)")
+        print("- Onboarding Complete: \(hasCompletedOnboarding)")
+        print("- User Name: \(userName)")
+    }
+    
+    public func saveOnboardingSettings() async throws {
+        // Mock onboarding save with enhanced logging
+        print("Mock: Saving onboarding settings with enhanced error handling")
+        
+        // Simulate potential save operation
+        try await saveImmediately()
+        
+        print("Mock: Onboarding settings saved successfully")
     }
 }

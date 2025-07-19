@@ -116,16 +116,40 @@ public struct EnhancedOnboardingFlow: View {
         isLoading = true
         
         Task {
-            // Save settings
-            await MainActor.run {
-                settingsService.calculationMethod = selectedCalculationMethod
-                settingsService.madhab = selectedMadhab
-                settingsService.hasCompletedOnboarding = true
-                // Save user name through SettingsService to ensure proper synchronization
-                settingsService.userName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
+            print("🚀 Starting onboarding completion...")
             
-            try? await settingsService.saveSettings()
+            do {
+                // Save settings sequentially to prevent cascading failures
+                await MainActor.run {
+                    print("📝 Setting onboarding properties...")
+                    settingsService.calculationMethod = selectedCalculationMethod
+                    settingsService.madhab = selectedMadhab
+                    settingsService.userName = userName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    // Set this last and most critically
+                    settingsService.hasCompletedOnboarding = true
+                }
+                
+                // Use the new onboarding-specific save method with enhanced error handling
+                try await settingsService.saveOnboardingSettings()
+                print("✅ Onboarding settings saved successfully")
+                
+            } catch {
+                print("⚠️ Error saving onboarding settings: \(error.localizedDescription)")
+                print("🔄 Attempting to continue onboarding despite save error...")
+                
+                // Try to save critical settings individually as fallback
+                do {
+                    await MainActor.run {
+                        // Ensure at minimum that onboarding completion is marked
+                        settingsService.hasCompletedOnboarding = true
+                    }
+                    try await settingsService.saveImmediately()
+                    print("✅ Critical onboarding completion saved as fallback")
+                } catch {
+                    print("❌ Failed to save even critical onboarding settings: \(error.localizedDescription)")
+                    // Continue anyway - we'll let the user proceed and retry later
+                }
+            }
             
             // Track completion
             analyticsService.trackUserAction("onboarding_completed", parameters: [
@@ -135,6 +159,16 @@ public struct EnhancedOnboardingFlow: View {
                 "notification_permission": notificationPermissionGranted,
                 "has_user_name": !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ])
+            
+            // Automatically fetch location if permission was granted
+            if locationPermissionGranted {
+                do {
+                    let _ = try await locationService.requestLocation()
+                    print("📍 Location fetched automatically after onboarding completion")
+                } catch {
+                    print("⚠️ Failed to fetch location after onboarding: \(error)")
+                }
+            }
             
             await MainActor.run {
                 isLoading = false
@@ -476,7 +510,7 @@ private struct NameCollectionStepView: View {
                             .foregroundColor(ColorPalette.textSecondary)
                     }
                     
-                    Text("We'll greet you with \"Salam Alaykum\" followed by your name")
+                    Text("We'll greet you with \"Assalamu Alaykum\" followed by your name")
                         .font(.caption)
                         .foregroundColor(ColorPalette.textSecondary)
                         .multilineTextAlignment(.center)

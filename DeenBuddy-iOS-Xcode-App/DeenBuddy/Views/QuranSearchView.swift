@@ -8,6 +8,7 @@ struct QuranSearchView: View {
     @State private var searchOptions = QuranSearchOptions()
     @State private var selectedVerse: QuranVerse?
     @State private var showingVerseDetail = false
+
     @State private var showingHistory = false
     @State private var showingQueryExpansion = false
     

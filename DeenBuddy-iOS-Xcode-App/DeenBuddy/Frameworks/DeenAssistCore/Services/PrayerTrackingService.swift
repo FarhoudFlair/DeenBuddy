@@ -31,6 +31,7 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     @Published public var todaysCompletedPrayers: Int = 0
     @Published public var todayCompletionRate: Double = 0.0
     @Published public var recentEntries: [PrayerEntry] = []
+    @Published public var totalPrayersCompleted: Int = 0
     @Published public var isTrackingLoading: Bool = false
     @Published public var trackingError: Error? = nil
     
@@ -470,6 +471,9 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         
         todaysCompletedPrayers = todayEntries.count
         
+        // Calculate total prayers completed across all time
+        totalPrayersCompleted = recentEntries.count
+        
         // Calculate completion rate based on expected prayers (5 daily prayers)
         let expectedPrayers = 5
         todayCompletionRate = min(Double(todaysCompletedPrayers) / Double(expectedPrayers), 1.0)
@@ -809,6 +813,7 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         currentStreak = 0
         todaysCompletedPrayers = 0
         todayCompletionRate = 0.0
+        totalPrayersCompleted = 0
     }
 
     public func refreshTrackingData() async {

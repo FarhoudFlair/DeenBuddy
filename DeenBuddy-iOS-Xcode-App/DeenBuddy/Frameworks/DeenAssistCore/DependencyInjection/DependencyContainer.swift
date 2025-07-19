@@ -19,6 +19,7 @@ public class DependencyContainer: ObservableObject {
     @Published public private(set) var islamicCalendarService: any IslamicCalendarServiceProtocol
     @Published public private(set) var backgroundTaskManager: BackgroundTaskManager
     @Published public private(set) var backgroundPrayerRefreshService: BackgroundPrayerRefreshService
+    @Published public private(set) var islamicCacheManager: IslamicCacheManager
     
     // MARK: - Configuration
     
@@ -41,6 +42,7 @@ public class DependencyContainer: ObservableObject {
         islamicCalendarService: any IslamicCalendarServiceProtocol,
         backgroundTaskManager: BackgroundTaskManager,
         backgroundPrayerRefreshService: BackgroundPrayerRefreshService,
+        islamicCacheManager: IslamicCacheManager,
         apiConfiguration: APIConfiguration = .default,
         isTestEnvironment: Bool = true
     ) {
@@ -56,6 +58,7 @@ public class DependencyContainer: ObservableObject {
         self.islamicCalendarService = islamicCalendarService
         self.backgroundTaskManager = backgroundTaskManager
         self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
+        self.islamicCacheManager = islamicCacheManager
         self.apiConfiguration = apiConfiguration
         self.isTestEnvironment = isTestEnvironment
     }
@@ -66,6 +69,7 @@ public class DependencyContainer: ObservableObject {
         notificationService: (any NotificationServiceProtocol)? = nil,
         prayerTimeService: (any PrayerTimeServiceProtocol)? = nil,
         settingsService: (any SettingsServiceProtocol)? = nil,
+        islamicCacheManager: IslamicCacheManager? = nil,
         apiConfiguration: APIConfiguration = .default,
         isTestEnvironment: Bool = false
     ) async -> DependencyContainer {
@@ -95,6 +99,13 @@ public class DependencyContainer: ObservableObject {
         let resolvedErrorHandler: ErrorHandler = await MainActor.run { ErrorHandler(crashReporter: CrashReporter()) }
         let resolvedRetryMechanism: RetryMechanism = await MainActor.run { RetryMechanism(networkMonitor: NetworkMonitor.shared) }
         
+        let resolvedIslamicCacheManager: IslamicCacheManager
+        if let islamicCacheManager = islamicCacheManager {
+            resolvedIslamicCacheManager = islamicCacheManager
+        } else {
+            resolvedIslamicCacheManager = await MainActor.run { IslamicCacheManager() }
+        }
+        
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol
         if let prayerTimeService = prayerTimeService {
             resolvedPrayerTimeService = prayerTimeService
@@ -105,7 +116,8 @@ public class DependencyContainer: ObservableObject {
                 apiClient: resolvedApiClient,
                 errorHandler: resolvedErrorHandler,
                 retryMechanism: resolvedRetryMechanism,
-                networkMonitor: NetworkMonitor.shared
+                networkMonitor: NetworkMonitor.shared,
+                islamicCacheManager: resolvedIslamicCacheManager
             ) }
         }
 
@@ -156,6 +168,7 @@ public class DependencyContainer: ObservableObject {
             islamicCalendarService: resolvedIslamicCalendarService,
             backgroundTaskManager: resolvedBackgroundTaskManager,
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
+            islamicCacheManager: resolvedIslamicCacheManager,
             apiConfiguration: apiConfiguration,
             isTestEnvironment: isTestEnvironment
         )
@@ -298,7 +311,8 @@ public class ServiceFactory {
         apiClient: any APIClientProtocol,
         errorHandler: ErrorHandler,
         retryMechanism: RetryMechanism,
-        networkMonitor: NetworkMonitor
+        networkMonitor: NetworkMonitor,
+        islamicCacheManager: IslamicCacheManager
     ) -> any PrayerTimeServiceProtocol {
         return PrayerTimeService(
             locationService: locationService,
@@ -306,7 +320,8 @@ public class ServiceFactory {
             apiClient: apiClient,
             errorHandler: errorHandler,
             retryMechanism: retryMechanism,
-            networkMonitor: networkMonitor
+            networkMonitor: networkMonitor,
+            islamicCacheManager: islamicCacheManager
         )
     }
 
@@ -327,13 +342,15 @@ public extension DependencyContainer {
         let resolvedSettingsService: any SettingsServiceProtocol = SettingsService()
         let resolvedErrorHandler: ErrorHandler = ErrorHandler(crashReporter: CrashReporter())
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
+        let resolvedIslamicCacheManager = IslamicCacheManager()
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = PrayerTimeService(
             locationService: resolvedLocationService,
             settingsService: resolvedSettingsService,
             apiClient: resolvedApiClient,
             errorHandler: resolvedErrorHandler,
             retryMechanism: resolvedRetryMechanism,
-            networkMonitor: NetworkMonitor.shared
+            networkMonitor: NetworkMonitor.shared,
+            islamicCacheManager: resolvedIslamicCacheManager
         )
 
         let resolvedPrayerTrackingService: any PrayerTrackingServiceProtocol = PrayerTrackingService(
@@ -382,6 +399,7 @@ public extension DependencyContainer {
             islamicCalendarService: resolvedIslamicCalendarService,
             backgroundTaskManager: resolvedBackgroundTaskManager,
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
+            islamicCacheManager: resolvedIslamicCacheManager,
             apiConfiguration: .default,
             isTestEnvironment: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         )
@@ -401,13 +419,15 @@ public extension DependencyContainer {
         let resolvedSettingsService: any SettingsServiceProtocol = settingsService ?? SettingsService()
         let resolvedErrorHandler: ErrorHandler = ErrorHandler(crashReporter: CrashReporter())
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
+        let resolvedIslamicCacheManager = IslamicCacheManager()
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = prayerTimeService ?? PrayerTimeService(
             locationService: resolvedLocationService,
             settingsService: resolvedSettingsService,
             apiClient: resolvedApiClient,
             errorHandler: resolvedErrorHandler,
             retryMechanism: resolvedRetryMechanism,
-            networkMonitor: NetworkMonitor.shared
+            networkMonitor: NetworkMonitor.shared,
+            islamicCacheManager: resolvedIslamicCacheManager
         )
 
         // Create mock background services for testing
@@ -457,6 +477,7 @@ public extension DependencyContainer {
             islamicCalendarService: resolvedIslamicCalendarService,
             backgroundTaskManager: resolvedBackgroundTaskManager,
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
+            islamicCacheManager: resolvedIslamicCacheManager,
             apiConfiguration: .default,
             isTestEnvironment: true
         )

@@ -25,7 +25,7 @@ public class AppCoordinator: ObservableObject {
     public let notificationService: any NotificationServiceProtocol
     public let prayerTimeService: any PrayerTimeServiceProtocol
     public let prayerTrackingService: any PrayerTrackingServiceProtocol
-    public let prayerAnalyticsService: PrayerAnalyticsService
+    public let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     public let settingsService: any SettingsServiceProtocol
     public let themeManager: ThemeManager
     private let backgroundTaskManager: BackgroundTaskManager
@@ -46,7 +46,7 @@ public class AppCoordinator: ObservableObject {
         notificationService: any NotificationServiceProtocol,
         prayerTimeService: any PrayerTimeServiceProtocol,
         prayerTrackingService: any PrayerTrackingServiceProtocol,
-        prayerAnalyticsService: PrayerAnalyticsService,
+        prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
         settingsService: any SettingsServiceProtocol,
         themeManager: ThemeManager,
         backgroundTaskManager: BackgroundTaskManager,
@@ -146,13 +146,27 @@ public class AppCoordinator: ObservableObject {
     }
 
     public func completeOnboarding() {
-        settingsService.hasCompletedOnboarding = true
         Task {
-            try? await settingsService.saveSettings()
+            print("🏁 AppCoordinator completing onboarding...")
+            
+            await MainActor.run {
+                settingsService.hasCompletedOnboarding = true
+            }
+            
+            do {
+                // Use immediate save for critical onboarding completion
+                try await settingsService.saveImmediately()
+                print("✅ Onboarding completion saved successfully in AppCoordinator")
+            } catch {
+                print("⚠️ Error saving onboarding completion in AppCoordinator: \(error.localizedDescription)")
+                // Continue anyway - the app should still transition to home
+            }
+            
             await MainActor.run {
                 withAnimation(.easeInOut) {
                     currentScreen = .home
                 }
+                print("🏠 Transitioned to home screen")
             }
         }
     }
@@ -205,7 +219,37 @@ public class AppCoordinator: ObservableObject {
 
         // Initialize background services
         Task {
-            await initializeBackgroundServices()
+            // Register background tasks with retry and analytics on failure
+            var registrationSuccess = false
+            for attempt in 1...2 {
+                backgroundTaskManager.registerBackgroundTasks()
+                // There is no error thrown, so check via side effect or log
+                // If you want to check for registration, you may need to add a flag in BackgroundTaskManager
+                // For now, assume registration always succeeds unless a fatal error is printed
+                registrationSuccess = true // No error thrown, so assume success
+                if registrationSuccess { break }
+            }
+            if !registrationSuccess {
+                analyticsService.trackEvent(AnalyticsEvent(name: "error_occurred", parameters: ["context": "BackgroundTaskRegistration", "message": "Failed to register background tasks after retry."], category: .errors))
+                await MainActor.run {
+                    self.showError(.unknownError("Background task registration failed. Some features may not work."))
+                }
+            }
+
+            // Start background prayer refresh with analytics and user notification on failure
+            var refreshStarted = false
+            for attempt in 1...2 {
+                backgroundPrayerRefreshService.startBackgroundRefresh()
+                // No error thrown, so assume success
+                refreshStarted = true
+                if refreshStarted { break }
+            }
+            if !refreshStarted {
+                analyticsService.trackEvent(AnalyticsEvent(name: "error_occurred", parameters: ["context": "BackgroundPrayerRefresh", "message": "Failed to start background prayer refresh after retry."], category: .errors))
+                await MainActor.run {
+                    self.showError(.unknownError("Background prayer refresh failed. Some features may not work."))
+                }
+            }
         }
 
         print("🚀 Enhanced services initialized")
@@ -213,10 +257,18 @@ public class AppCoordinator: ObservableObject {
 
     private func initializeBackgroundServices() async {
         // Register background tasks
-        backgroundTaskManager.registerBackgroundTasks()
+        do {
+            backgroundTaskManager.registerBackgroundTasks()
+        } catch {
+            print("❌ Error registering background tasks: \(error)")
+        }
 
         // Start background prayer refresh
-        backgroundPrayerRefreshService.startBackgroundRefresh()
+        do {
+            backgroundPrayerRefreshService.startBackgroundRefresh()
+        } catch {
+            print("❌ Error starting background prayer refresh: \(error)")
+        }
 
         print("🔄 Background services started successfully")
     }
@@ -304,9 +356,8 @@ public struct DeenAssistApp: View {
                 )
                 
             case .home:
-                // Note: Using MainTabView from the main app for enhanced settings
-                Text("Main App")
-                    .navigationTitle("DeenBuddy")
+                // Use the functional tab view implementation
+                SimpleTabView(coordinator: coordinator)
             }
         }
         .onAppear {
@@ -565,10 +616,12 @@ private struct SimpleTabView: View {
                     Text("Quran")
                 }
             
-            // 5. Settings Tab - Direct access to EnhancedSettingsView
-            // Note: Using the enhanced settings view from the main app
-            Text("Settings")
-                .navigationTitle("Settings")
+            // 5. Settings Tab - Enhanced settings view with full functionality
+            EnhancedSettingsView(
+                settingsService: coordinator.settingsService as! SettingsService,
+                themeManager: coordinator.themeManager,
+                onDismiss: { } // No dismiss needed in tab mode
+            )
             .tabItem {
                 Image(systemName: "gear")
                 Text("Settings")

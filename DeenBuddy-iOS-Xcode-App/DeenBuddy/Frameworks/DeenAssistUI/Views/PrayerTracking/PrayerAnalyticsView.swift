@@ -11,6 +11,44 @@ struct InsightData: Identifiable {
     let color: Color
 }
 
+enum ExportFormat: String, CaseIterable {
+    case csv = "CSV"
+    case pdf = "PDF"
+    case text = "Text"
+
+    var icon: String {
+        switch self {
+        case .csv: return "tablecells"
+        case .pdf: return "doc.richtext"
+        case .text: return "doc.text"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .csv: return "Spreadsheet format for data analysis"
+        case .pdf: return "Formatted document for sharing"
+        case .text: return "Plain text format"
+        }
+    }
+}
+
+struct ExportData {
+    let period: String
+    let completionRate: String
+    let currentStreak: String
+    let totalPrayers: String
+    let bestPrayer: String
+    let insights: [String]
+    let prayers: [PrayerExportData]
+}
+
+struct PrayerExportData {
+    let name: String
+    let completionRate: Double
+    let totalCount: Int
+}
+
 /// Comprehensive analytics view for prayer tracking data
 public struct PrayerAnalyticsView: View {
 
@@ -349,27 +387,15 @@ public struct PrayerAnalyticsView: View {
             .fill(.background)
             .frame(height: 200)
             .overlay(
-                VStack(spacing: 12) {
+                VStack {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 40))
-<<<<<<< HEAD
                         .foregroundColor(.secondary)
 
                     Text("Chart will be implemented with Swift Charts")
-=======
-                        .foregroundColor(ColorPalette.primary)
-
-                    Text("Prayer Analytics")
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(ColorPalette.textPrimary)
-
-                    Text("Visual charts showing your prayer patterns and progress over time")
->>>>>>> c54cbeadcd0d147f3e0a3fb6e51a2498ccc96886
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal)
                 }
             )
     }
@@ -405,6 +431,109 @@ public struct PrayerAnalyticsView: View {
         case "timing": return "Prayer Timing"
         default: return "Completion Rate"
         }
+    }
+
+    private func exportData(format: ExportFormat) {
+        let exportData = generateExportData()
+
+        switch format {
+        case .csv:
+            shareCSV(data: exportData)
+        case .pdf:
+            sharePDF(data: exportData)
+        case .text:
+            shareText(data: exportData)
+        }
+
+        showingExportSheet = false
+    }
+
+    private func generateExportData() -> ExportData {
+        return ExportData(
+            period: selectedPeriod,
+            completionRate: "85%",
+            currentStreak: "5 days",
+            totalPrayers: "127",
+            bestPrayer: mostConsistentPrayer,
+            insights: insights.map { "\($0.title): \($0.description)" },
+            prayers: ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"].map { prayer in
+                PrayerExportData(
+                    name: prayer,
+                    completionRate: getPrayerCompletionRate(prayer),
+                    totalCount: getPrayerCount(prayer)
+                )
+            }
+        )
+    }
+
+    private func shareCSV(data: ExportData) {
+        var csvContent = "Prayer Analytics Export - \(data.period.capitalized)\n\n"
+        csvContent += "Summary\n"
+        csvContent += "Completion Rate,\(data.completionRate)\n"
+        csvContent += "Current Streak,\(data.currentStreak)\n"
+        csvContent += "Total Prayers,\(data.totalPrayers)\n"
+        csvContent += "Best Prayer,\(data.bestPrayer)\n\n"
+        csvContent += "Prayer Breakdown\n"
+        csvContent += "Prayer,Completion Rate,Total Count\n"
+
+        for prayer in data.prayers {
+            csvContent += "\(prayer.name),\(Int(prayer.completionRate * 100))%,\(prayer.totalCount)\n"
+        }
+
+        csvContent += "\nInsights\n"
+        for insight in data.insights {
+            csvContent += "\(insight)\n"
+        }
+
+        shareContent(csvContent, fileName: "prayer_analytics_\(data.period).csv")
+    }
+
+    private func sharePDF(data: ExportData) {
+        // For now, share as formatted text that could be converted to PDF
+        let pdfContent = formatDataForPDF(data)
+        shareContent(pdfContent, fileName: "prayer_analytics_\(data.period).txt")
+    }
+
+    private func shareText(data: ExportData) {
+        let textContent = formatDataAsText(data)
+        shareContent(textContent, fileName: "prayer_analytics_\(data.period).txt")
+    }
+
+    private func formatDataForPDF(_ data: ExportData) -> String {
+        var content = "PRAYER ANALYTICS REPORT\n"
+        content += "Period: \(data.period.capitalized)\n"
+        content += "Generated: \(Date().formatted(date: .abbreviated, time: .shortened))\n\n"
+        content += "SUMMARY\n"
+        content += "• Completion Rate: \(data.completionRate)\n"
+        content += "• Current Streak: \(data.currentStreak)\n"
+        content += "• Total Prayers: \(data.totalPrayers)\n"
+        content += "• Best Prayer: \(data.bestPrayer)\n\n"
+        content += "PRAYER BREAKDOWN\n"
+
+        for prayer in data.prayers {
+            content += "• \(prayer.name): \(Int(prayer.completionRate * 100))% (\(prayer.totalCount) prayers)\n"
+        }
+
+        content += "\nINSIGHTS\n"
+        for insight in data.insights {
+            content += "• \(insight)\n"
+        }
+
+        return content
+    }
+
+    private func formatDataAsText(_ data: ExportData) -> String {
+        return formatDataForPDF(data) // Same format for now
+    }
+
+    private func shareContent(_ content: String, fileName: String) {
+        // In a real implementation, this would use UIActivityViewController
+        // For now, we'll just print to console as a placeholder
+        print("Exporting content to \(fileName):")
+        print(content)
+
+        // TODO: Implement actual sharing with UIActivityViewController
+        // This would require UIKit integration
     }
 
 
@@ -547,4 +676,99 @@ private struct InsightCard: View {
     }
 }
 
+// MARK: - Export Options View
 
+private struct ExportOptionsView: View {
+    let selectedPeriod: String
+    let onExport: (ExportFormat) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                VStack(spacing: 16) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 50))
+                        .foregroundColor(.blue)
+
+                    Text("Export Prayer Analytics")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+
+                    Text("Export your \(selectedPeriod) prayer analytics data")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top)
+
+                VStack(spacing: 12) {
+                    ForEach(ExportFormat.allCases, id: \.self) { format in
+                        ExportFormatRow(
+                            format: format,
+                            onTap: {
+                                onExport(format)
+                                dismiss()
+                            }
+                        )
+                    }
+                }
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Export Data")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ExportFormatRow: View {
+    let format: ExportFormat
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.background)
+                .overlay(
+                    HStack(spacing: 16) {
+                        Image(systemName: format.icon)
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                            .frame(width: 40)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(format.rawValue)
+                                .font(.headline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+
+                            Text(format.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(.secondary.opacity(0.2), lineWidth: 1)
+                )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}

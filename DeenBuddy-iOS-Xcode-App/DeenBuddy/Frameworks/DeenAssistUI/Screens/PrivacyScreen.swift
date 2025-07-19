@@ -400,9 +400,9 @@ private struct FullPrivacyPolicyView: View {
         We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy in the app.
         
         ## Contact Us
-        
+
         If you have any questions about this Privacy Policy, please contact us at:
-        Email: privacy@deenassist.app
+        Email: privacy@deenbuddy.app
         
         This policy is effective as of the date listed above.
         """
@@ -415,7 +415,7 @@ public class PrivacyManager: @unchecked Sendable {
     public static let shared = PrivacyManager()
     
     private let userDefaults = UserDefaults.standard
-    private let preferencesKey = "DeenAssist.PrivacyPreferences"
+    private let preferencesKey = "DeenBuddy.PrivacyPreferences"
     
     private init() {}
     

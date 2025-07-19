@@ -8,6 +8,10 @@ import ActivityKit
 /// Real implementation of PrayerTimeServiceProtocol using AdhanSwift
 public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
+    // MARK: - Logger
+    
+    private let logger = AppLogger.prayerTimes
+    
     // MARK: - Published Properties
     
     @Published public var todaysPrayerTimes: [PrayerTime] = []
@@ -36,19 +40,21 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private let timerManager = BatteryAwareTimerManager.shared
     private var updateNextPrayerTask: Task<Void, Never>?
     private let userDefaults = UserDefaults.standard
+    private let islamicCacheManager: IslamicCacheManager
     
     // MARK: - Cache Keys (Now using UnifiedSettingsKeys)
     // Note: CacheKeys enum removed - now using UnifiedSettingsKeys for consistency
     
     // MARK: - Initialization
     
-    public init(locationService: any LocationServiceProtocol, settingsService: any SettingsServiceProtocol, apiClient: any APIClientProtocol, errorHandler: ErrorHandler, retryMechanism: RetryMechanism, networkMonitor: NetworkMonitor) {
+    public init(locationService: any LocationServiceProtocol, settingsService: any SettingsServiceProtocol, apiClient: any APIClientProtocol, errorHandler: ErrorHandler, retryMechanism: RetryMechanism, networkMonitor: NetworkMonitor, islamicCacheManager: IslamicCacheManager) {
         self.locationService = locationService
         self.settingsService = settingsService
         self.apiClient = apiClient
         self.errorHandler = errorHandler
         self.retryMechanism = retryMechanism
         self.networkMonitor = networkMonitor
+        self.islamicCacheManager = islamicCacheManager
         setupLocationObserver()
         setupSettingsObservers()
         startTimer()
@@ -151,7 +157,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                     do {
                         location = try await locationService.requestLocation()
                     } catch {
-                        print("Failed to get location for prayer times: \(error)")
+                        logger.warning("Failed to get location for prayer times: \(error)")
                     }
                 }
             }
@@ -254,7 +260,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
 
     /// Invalidates cached prayer times and triggers recalculation when settings change
     private func invalidateCacheAndRefresh() async {
-        print("Settings changed - invalidating cache and refreshing prayer times")
+        logger.debug("Settings changed - invalidating cache and refreshing prayer times")
 
         // Clear all cached prayer times from all cache systems
         await invalidateAllPrayerTimeCaches()
@@ -265,7 +271,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
 
     /// Comprehensive cache invalidation across all cache systems
     private func invalidateAllPrayerTimeCaches() async {
-        print("🗑️ Starting comprehensive cache invalidation...")
+        logger.debug("Starting comprehensive cache invalidation...")
 
         // 1. Clear local UserDefaults cache (existing implementation)
         clearLocalCachedPrayerTimes()
@@ -276,7 +282,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // 3. Clear IslamicCacheManager prayer times
         await clearIslamicCacheManagerPrayerTimes()
 
-        print("✅ Comprehensive cache invalidation completed")
+        logger.debug("Comprehensive cache invalidation completed")
     }
     
     /// Cancel all pending async tasks
@@ -287,7 +293,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // Cancel all Combine subscriptions
         cancellables.removeAll()
         
-        print("🗑️ All async tasks cancelled")
+        logger.debug("All async tasks cancelled")
     }
     
     /// Manual cleanup for testing or debugging
@@ -298,13 +304,13 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         
         cancelAllTasks()
         
-        print("🧹 PrayerTimeService manually cleaned up")
+        logger.debug("PrayerTimeService manually cleaned up")
     }
     
     /// Manually trigger Dynamic Island for next prayer (for testing/debugging)
     public func triggerDynamicIslandForNextPrayer() async {
         guard let nextPrayer = nextPrayer else {
-            print("❌ No next prayer available to trigger Dynamic Island")
+            logger.debug("No next prayer available to trigger Dynamic Island")
             return
         }
         
@@ -321,25 +327,21 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             if key.hasPrefix(cachePrefix) {
                 userDefaults.removeObject(forKey: key)
                 clearedCount += 1
-                print("Cleared local cached prayer times for key: \(key)")
+                logger.debug("Cleared local cached prayer times for key: \(key)")
             }
         }
 
         userDefaults.removeObject(forKey: UnifiedSettingsKeys.cacheDate)
         userDefaults.synchronize()
 
-        print("✅ Local cache: Cleared \(clearedCount) prayer time cache entries")
+        logger.debug("Local cache: Cleared \(clearedCount) prayer time cache entries")
     }
 
     /// Clears prayer time cache from IslamicCacheManager
     private func clearIslamicCacheManagerPrayerTimes() async {
-        // Create a temporary instance to clear cache
-        // Note: In a production app, this should be injected as a dependency
         await MainActor.run {
-            let cacheManager = IslamicCacheManager()
-            // Clear only prayer time related cache
-            cacheManager.clearPrayerTimeCache()
-            print("IslamicCacheManager prayer times cleared")
+            islamicCacheManager.clearPrayerTimeCache()
+            logger.debug("IslamicCacheManager prayer times cleared")
         }
     }
     
@@ -408,7 +410,14 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 // Check if Live Activities are available and enabled
                 let authInfo = ActivityAuthorizationInfo()
                 guard authInfo.areActivitiesEnabled else {
-                    print("ℹ️ Live Activities are not enabled, skipping Dynamic Island")
+                    logger.debug("Live Activities are not enabled, skipping Dynamic Island")
+                    return
+                }
+
+                // Prevent duplicate Live Activities - check if one is already active
+                let liveActivityManager = PrayerLiveActivityManager.shared
+                if liveActivityManager.isActivityActive {
+                    logger.debug("Live Activity already active, skipping duplicate Dynamic Island creation")
                     return
                 }
 
@@ -424,18 +433,18 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                     calculationMethod: calculationMethod
                 )
 
-                print("✅ Auto-started Dynamic Island for \(prayerTime.prayer.displayName) prayer")
+                logger.info("Auto-started Dynamic Island for \(prayerTime.prayer.displayName) prayer")
             } catch {
                 // Handle specific Live Activity errors gracefully
                 if let activityError = error as? LiveActivityError {
                     switch activityError {
                     case .notAvailable, .permissionDenied:
-                        print("ℹ️ Live Activities not available or permission denied, skipping Dynamic Island")
+                        logger.debug("Live Activities not available or permission denied, skipping Dynamic Island")
                     default:
-                        print("❌ Failed to auto-start Dynamic Island: \(activityError.localizedDescription)")
+                        logger.error("Failed to auto-start Dynamic Island: \(activityError.localizedDescription)")
                     }
                 } else {
-                    print("❌ Failed to auto-start Dynamic Island: \(error)")
+                    logger.error("Failed to auto-start Dynamic Island: \(error)")
                 }
             }
         }
@@ -459,7 +468,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // Save widget data using the shared manager
         WidgetDataManager.shared.saveWidgetData(widgetData)
 
-        print("✅ Widget data updated from PrayerTimeService")
+        logger.debug("Widget data updated from PrayerTimeService")
     }
     
     private func cachePrayerTimes(_ prayerTimes: [PrayerTime], for date: Date) {
@@ -478,7 +487,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             // Check data size before storing (limit to 50KB per cache entry to prevent UserDefaults bloat)
             let maxCacheSize = 50 * 1024 // 50KB
             if data.count > maxCacheSize {
-                print("⚠️ Prayer times data too large (\(data.count) bytes), using file-based cache instead")
+                logger.warning("Prayer times data too large (\(data.count) bytes), using file-based cache instead")
                 cacheToFile(prayerTimes, cacheKey: cacheKey, dateKey: dateKey)
                 return
             }
@@ -488,16 +497,16 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
 
             userDefaults.set(data, forKey: cacheKey)
             userDefaults.set(dateKey, forKey: UnifiedSettingsKeys.cacheDate)
-            print("✅ Cached prayer times for \(dateKey) (\(data.count) bytes)")
+            logger.debug("Cached prayer times for \(dateKey) (\(data.count) bytes)")
         } catch {
-            print("❌ Failed to cache prayer times: \(error)")
+            logger.error("Failed to cache prayer times: \(error)")
         }
     }
 
     /// Cache prayer times to file system for large data
     private func cacheToFile(_ prayerTimes: [PrayerTime], cacheKey: String, dateKey: String) {
         guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            print("❌ Could not access documents directory for file caching")
+            logger.error("Could not access documents directory for file caching")
             return
         }
 
@@ -514,13 +523,13 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             // Store file reference in UserDefaults (much smaller)
             userDefaults.set(fileURL.path, forKey: "\(cacheKey)_file")
             userDefaults.set(dateKey, forKey: UnifiedSettingsKeys.cacheDate)
-            print("✅ Cached prayer times to file: \(fileURL.lastPathComponent)")
+            logger.debug("Cached prayer times to file: \(fileURL.lastPathComponent)")
         } catch {
-            print("❌ Failed to cache prayer times to file: \(error)")
+            logger.error("Failed to cache prayer times to file: \(error)")
         }
     }
 
-    /// Clean old cache entries to prevent UserDefaults bloat
+    /// Clean old cache entries to prevent UserDefaults bloat and remove corresponding files
     private func cleanOldCacheEntries() {
         let calendar = Calendar.current
         let cutoffDate = calendar.date(byAdding: .day, value: -7, to: Date()) ?? Date()
@@ -530,6 +539,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // Get all UserDefaults keys
         let allKeys = userDefaults.dictionaryRepresentation().keys
         var removedCount = 0
+        var removedFileCount = 0
 
         // Find and remove old prayer time cache entries
         for key in allKeys {
@@ -539,6 +549,30 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 if components.count >= 2,
                    let date = dateFormatter.date(from: components[1]),
                    date < cutoffDate {
+
+                    // Check if this is a file-based cache entry
+                    let fileKey = "\(key)_file"
+                    if let filePath = userDefaults.string(forKey: fileKey) {
+                        // Validate that the file path is within the expected cache directory
+                        let fileURL = URL(fileURLWithPath: filePath)
+                        if isFileInCacheDirectory(fileURL) {
+                            // Remove the cached file from disk
+                            do {
+                                try FileManager.default.removeItem(at: fileURL)
+                                removedFileCount += 1
+                                logger.debug("Removed cached file: \(fileURL.lastPathComponent)")
+                            } catch {
+                                logger.warning("Failed to remove cached file \(fileURL.lastPathComponent): \(error)")
+                            }
+                        } else {
+                            logger.warning("Skipping removal of file outside cache directory: \(filePath)")
+                        }
+
+                        // Remove the file reference from UserDefaults regardless
+                        userDefaults.removeObject(forKey: fileKey)
+                    }
+
+                    // Remove the main cache entry
                     userDefaults.removeObject(forKey: key)
                     removedCount += 1
                 }
@@ -546,7 +580,69 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         }
 
         if removedCount > 0 {
-            print("🗑️ Cleaned \(removedCount) old cache entries from UserDefaults")
+            logger.debug("Cleaned \(removedCount) old cache entries from UserDefaults")
+        }
+
+        if removedFileCount > 0 {
+            logger.debug("Cleaned \(removedFileCount) old cache files from disk")
+        }
+
+        // Also clean up any orphaned cache files
+        cleanOrphanedCacheFiles(cutoffDate: cutoffDate, dateFormatter: dateFormatter)
+    }
+
+    /// Validates that a file URL is within the expected cache directory
+    private func isFileInCacheDirectory(_ fileURL: URL) -> Bool {
+        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return false
+        }
+
+        let expectedCacheDirectory = documentsPath.appendingPathComponent("PrayerTimesCache")
+
+        // Resolve any symbolic links and normalize paths
+        let resolvedFileURL = fileURL.resolvingSymlinksInPath()
+        let resolvedCacheDirectory = expectedCacheDirectory.resolvingSymlinksInPath()
+
+        // Check if the file path starts with the cache directory path
+        return resolvedFileURL.path.hasPrefix(resolvedCacheDirectory.path + "/") ||
+               resolvedFileURL.path == resolvedCacheDirectory.path
+    }
+
+    /// Clean up orphaned cache files that may not have UserDefaults references
+    private func cleanOrphanedCacheFiles(cutoffDate: Date, dateFormatter: DateFormatter) {
+        guard let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+
+        let cacheDirectory = documentsPath.appendingPathComponent("PrayerTimesCache")
+
+        do {
+            let fileURLs = try FileManager.default.contentsOfDirectory(at: cacheDirectory, includingPropertiesForKeys: [.creationDateKey])
+            var orphanedCount = 0
+
+            for fileURL in fileURLs {
+                // Extract date from filename if possible
+                let filename = fileURL.deletingPathExtension().lastPathComponent
+                let components = filename.components(separatedBy: "_")
+
+                if components.count >= 2,
+                   let date = dateFormatter.date(from: components[1]),
+                   date < cutoffDate {
+
+                    do {
+                        try FileManager.default.removeItem(at: fileURL)
+                        orphanedCount += 1
+                    } catch {
+                        logger.warning("Failed to remove orphaned cache file \(fileURL.lastPathComponent): \(error)")
+                    }
+                }
+            }
+
+            if orphanedCount > 0 {
+                logger.debug("Cleaned \(orphanedCount) orphaned cache files")
+            }
+        } catch {
+            // Cache directory doesn't exist or can't be read - this is fine
         }
     }
 

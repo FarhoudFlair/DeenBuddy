@@ -10,7 +10,7 @@ public struct PrayerCompletionView: View {
     private let onDismiss: () -> Void
     
     // MARK: - State
-    
+
     @State private var notes: String = ""
     @State private var selectedMood: PrayerMood?
     @State private var selectedMethod: PrayerMethod = .individual
@@ -18,6 +18,8 @@ public struct PrayerCompletionView: View {
     @State private var isQada: Bool = false
     @State private var gratitudeNote: String = ""
     @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+    @State private var showingError: Bool = false
     
     // MARK: - Initialization
     
@@ -34,8 +36,21 @@ public struct PrayerCompletionView: View {
     // MARK: - Body
     
     public var body: some View {
-        NavigationView {
-            ScrollView {
+        if #available(iOS 16.0, *) {
+            NavigationStack {
+                scrollContent
+            }
+        } else {
+            NavigationView {
+                scrollContent
+            }
+            .navigationViewStyle(StackNavigationViewStyle())
+        }
+    }
+
+    @ViewBuilder
+    private var scrollContent: some View {
+        ScrollView {
                 VStack(spacing: 20) {
                     // Prayer Header
                     prayerHeader
@@ -54,21 +69,32 @@ public struct PrayerCompletionView: View {
             }
             .navigationTitle("Complete Prayer")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        onDismiss()
+        .navigationTitle("Complete Prayer")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button("Cancel") {
+                    onDismiss()
+                }
+            }
+
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Save") {
+                    Task {
+                        await saveDetailedCompletion()
                     }
                 }
-                
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") {
-                        Task {
-                            await saveDetailedCompletion()
-                        }
-                    }
-                    .disabled(isLoading)
-                }
+                .disabled(isLoading)
+            }
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK") {
+                showingError = false
+                errorMessage = nil
+            }
+        } message: {
+            if let errorMessage = errorMessage {
+                Text(errorMessage)
             }
         }
     }
@@ -303,32 +329,53 @@ public struct PrayerCompletionView: View {
     
     private func quickComplete() async {
         isLoading = true
-        await prayerTrackingService.logPrayerCompletion(prayer)
-        isLoading = false
-        onDismiss()
+
+        do {
+            await prayerTrackingService.logPrayerCompletion(prayer)
+            await MainActor.run {
+                isLoading = false
+                onDismiss()
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                errorMessage = "Failed to complete prayer: \(error.localizedDescription)"
+                showingError = true
+            }
+        }
     }
-    
+
     private func saveDetailedCompletion() async {
         isLoading = true
-        
-        await prayerTrackingService.logPrayerCompletion(
-            prayer,
-            at: Date(),
-            location: nil,
-            notes: notes.isEmpty ? nil : notes,
-            mood: selectedMood,
-            method: selectedMethod,
-            duration: nil,
-            congregation: selectedCongregation,
-            isQada: isQada,
-            hadithRemembered: nil,
-            gratitudeNote: gratitudeNote.isEmpty ? nil : gratitudeNote,
-            difficulty: nil,
-            tags: []
-        )
-        
-        isLoading = false
-        onDismiss()
+
+        do {
+            await prayerTrackingService.logPrayerCompletion(
+                prayer,
+                at: Date(),
+                location: nil,
+                notes: notes.isEmpty ? nil : notes,
+                mood: selectedMood,
+                method: selectedMethod,
+                duration: nil,
+                congregation: selectedCongregation,
+                isQada: isQada,
+                hadithRemembered: nil,
+                gratitudeNote: gratitudeNote.isEmpty ? nil : gratitudeNote,
+                difficulty: nil,
+                tags: []
+            )
+
+            await MainActor.run {
+                isLoading = false
+                onDismiss()
+            }
+        } catch {
+            await MainActor.run {
+                isLoading = false
+                errorMessage = "Failed to save prayer details: \(error.localizedDescription)"
+                showingError = true
+            }
+        }
     }
 }
 

@@ -97,7 +97,8 @@ private class NotificationPreviewMockSettingsService: SettingsServiceProtocol, O
     @Published var theme: ThemeMode = .dark
     @Published var hasCompletedOnboarding: Bool = false
     @Published var overrideBatteryOptimization: Bool = false
-    
+    @Published var showArabicSymbolInWidget: Bool = true
+
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
@@ -105,5 +106,7 @@ private class NotificationPreviewMockSettingsService: SettingsServiceProtocol, O
     
     func saveSettings() async throws {}
     func loadSettings() async throws {}
-    func resetToDefaults() {}
+    func resetToDefaults() async throws {}
+    func saveImmediately() async throws {}
+    func saveOnboardingSettings() async throws {}
 }

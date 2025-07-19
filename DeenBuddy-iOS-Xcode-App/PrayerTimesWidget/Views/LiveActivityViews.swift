@@ -1,6 +1,12 @@
 import SwiftUI
 import ActivityKit
 
+// MARK: - Widget Settings Helper
+
+private func shouldShowArabicSymbol() -> Bool {
+    return WidgetDataManager.shared.shouldShowArabicSymbol()
+}
+
 // MARK: - Live Activity Views
 
 @available(iOS 16.1, *)
@@ -116,12 +122,16 @@ extension PrayerCountdownLiveActivityView {
     
     func dynamicIslandCompactLeading() -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            // White Arabic Allah symbol
-            Text("الله")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
-            
+            // Configurable Arabic prayer symbol
+            if shouldShowArabicSymbol() {
+                Text(state.prayerSymbol)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .accessibilityLabel("Prayer symbol")
+                    .accessibilityHint("Islamic symbol indicating prayer time")
+            }
+
             Text(state.nextPrayer.displayName)
                 .font(.caption2)
                 .foregroundColor(.primary)
@@ -145,12 +155,16 @@ extension PrayerCountdownLiveActivityView {
     
     func dynamicIslandMinimal() -> some View {
         HStack(spacing: 2) {
-            // White Arabic Allah symbol for minimal persistent display
-            Text("الله")
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
-            
+            // Configurable Arabic prayer symbol for minimal persistent display
+            if shouldShowArabicSymbol() {
+                Text(state.prayerSymbol)
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+                    .accessibilityLabel("Prayer symbol")
+                    .accessibilityHint("Islamic symbol indicating prayer time")
+            }
+
             Text(state.formattedTimeRemaining)
                 .font(.caption2)
                 .foregroundColor(.primary)
@@ -162,15 +176,14 @@ extension PrayerCountdownLiveActivityView {
         VStack(spacing: 8) {
             HStack {
                 HStack(spacing: 6) {
-                    // White Arabic Allah symbol
-                    Text("الله")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                    
-                    Text(state.prayerSymbol)
-                        .font(.title)
-                        .foregroundColor(.accentColor)
+                    // Use only the prayer symbol for consistency
+                    if shouldShowArabicSymbol() {
+                        Text(state.prayerSymbol)
+                            .font(.title)
+                            .foregroundColor(.accentColor)
+                            .accessibilityLabel("Prayer symbol")
+                            .accessibilityHint("Islamic symbol indicating prayer time")
+                    }
                 }
                 
                 Spacer()

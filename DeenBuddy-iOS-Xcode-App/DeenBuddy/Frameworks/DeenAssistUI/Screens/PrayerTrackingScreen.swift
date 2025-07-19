@@ -93,37 +93,40 @@ public struct PrayerTrackingScreen: View {
     
     @ViewBuilder
     private var trackingTabSelector: some View {
-        HStack(spacing: 0) {
-            ForEach(TrackingTab.allCases, id: \.self) { tab in
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        selectedTab = tab
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                ForEach(TrackingTab.allCases, id: \.self) { tab in
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            selectedTab = tab
+                        }
+                    }) {
+                        VStack(spacing: 4) {
+                            Image(systemName: tab.systemImage)
+                                .font(.system(size: 16, weight: .medium))
+
+                            Text(tab.title)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(selectedTab == tab ? ColorPalette.primary : ColorPalette.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                     }
-                }) {
-                    VStack(spacing: 4) {
-                        Image(systemName: tab.systemImage)
-                            .font(.system(size: 16, weight: .medium))
-                        
-                        Text(tab.title)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundColor(selectedTab == tab ? ColorPalette.primary : ColorPalette.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
+            .background(ColorPalette.surface)
+            .overlay(
+                Rectangle()
+                    .fill(ColorPalette.primary)
+                    .frame(height: 2)
+                    .offset(x: tabIndicatorOffset(width: geometry.size.width), y: 0)
+                    .animation(.easeInOut(duration: 0.3), value: selectedTab),
+                alignment: .bottom
+            )
         }
-        .background(ColorPalette.surface)
-        .overlay(
-            Rectangle()
-                .fill(ColorPalette.primary)
-                .frame(height: 2)
-                .offset(x: tabIndicatorOffset, y: 0)
-                .animation(.easeInOut(duration: 0.3), value: selectedTab),
-            alignment: .bottom
-        )
+        .frame(height: 60) // Set explicit height since GeometryReader expands
     }
     
     // MARK: - Tab Views
@@ -172,7 +175,7 @@ public struct PrayerTrackingScreen: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        Text("\(prayerTrackingService.todaysCompletedPrayers) of 5 prayers completed")
+                        Text("\(prayerTrackingService.todaysCompletedPrayers) of \(Prayer.allCases.count) prayers completed")
                             .font(.subheadline)
                             .foregroundColor(ColorPalette.secondary)
                     }
@@ -290,9 +293,9 @@ public struct PrayerTrackingScreen: View {
     
     // MARK: - Helper Methods
     
-    private var tabIndicatorOffset: CGFloat {
-        let tabWidth = UIScreen.main.bounds.width / CGFloat(TrackingTab.allCases.count)
-        return tabWidth * CGFloat(selectedTab.rawValue) - (UIScreen.main.bounds.width / 2) + (tabWidth / 2)
+    private func tabIndicatorOffset(width: CGFloat) -> CGFloat {
+        let tabWidth = width / CGFloat(TrackingTab.allCases.count)
+        return tabWidth * CGFloat(selectedTab.rawValue) - (width / 2) + (tabWidth / 2)
     }
     
     private func isPrayerCompleted(_ prayer: Prayer) -> Bool {

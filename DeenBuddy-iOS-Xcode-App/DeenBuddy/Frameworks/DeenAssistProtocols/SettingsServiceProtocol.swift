@@ -32,7 +32,10 @@ public protocol SettingsServiceProtocol: ObservableObject {
     
     /// Override battery optimization for prayer times
     var overrideBatteryOptimization: Bool { get set }
-    
+
+    /// Whether to show Arabic symbol in widget and Live Activities
+    var showArabicSymbolInWidget: Bool { get set }
+
     /// Save current settings
     func saveSettings() async throws
     
@@ -41,5 +44,11 @@ public protocol SettingsServiceProtocol: ObservableObject {
     
     /// Reset all settings to defaults
     func resetToDefaults() async throws
+    
+    /// Force immediate save without debouncing - critical for onboarding
+    func saveImmediately() async throws
+    
+    /// Save critical onboarding settings with enhanced error handling
+    func saveOnboardingSettings() async throws
 }
 

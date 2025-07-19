@@ -7,6 +7,7 @@ import UIKit
 
 extension Notification.Name {
     static let settingsDidChange = Notification.Name("DeenAssist.SettingsDidChange")
+    static let settingsSaveFailed = Notification.Name("DeenAssist.SettingsSaveFailed")
     static let prayerMarkedAsPrayed = Notification.Name("DeenAssist.PrayerMarkedAsPrayed")
     static let openQiblaRequested = Notification.Name("DeenAssist.OpenQiblaRequested")
     static let openAppRequested = Notification.Name("DeenAssist.OpenAppRequested")
@@ -18,6 +19,10 @@ extension Notification.Name {
 
 @MainActor
 public class NotificationService: NSObject, NotificationServiceProtocol, ObservableObject {
+    
+    // MARK: - Logger
+    
+    private let logger = AppLogger.notifications
     
     // MARK: - Published Properties
     
@@ -46,6 +51,11 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     // Observer management for memory leak prevention
     private static let maxObservers = 10
     private var observerCount = 0
+    
+    // Debouncing for settings changes to prevent excessive updates
+    private var settingsUpdateTask: Task<Void, Never>?
+    private let settingsUpdateDebounceInterval: TimeInterval = 1.0 // 1 second
+    private var lastSettingsUpdateTime: Date?
 
     // MARK: - Settings Keys
 
@@ -80,8 +90,11 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
 
         // Cancel all Combine subscriptions
         cancellables.removeAll()
+        
+        // Cancel any pending settings update task
+        settingsUpdateTask?.cancel()
 
-        print("🧹 NotificationService deinit - cleaned up \(observerCount) observers")
+        logger.debug("NotificationService deinit - cleaned up \(observerCount) observers")
     }
     
     // MARK: - Protocol Implementation
@@ -133,7 +146,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
 
             // Skip if prayer notifications are disabled
             guard prayerConfig.isEnabled else {
-                print("Skipping notifications for \(prayerTime.prayer.displayName) - disabled in settings")
+                logger.debug("Skipping notifications for \(prayerTime.prayer.displayName) - disabled in settings")
                 continue
             }
 
@@ -524,14 +537,49 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         print("📱 NotificationService observers setup - active observers: \(observerCount)/\(Self.maxObservers)")
     }
 
-    /// Handle settings changes that affect notifications
+    /// Handle settings changes that affect notifications with debouncing to prevent excessive updates
     private func handleSettingsChange() async {
-        // Reload settings and reschedule notifications if needed
+        let now = Date()
+        
+        // Check if we should throttle this update
+        if let lastUpdate = lastSettingsUpdateTime,
+           now.timeIntervalSince(lastUpdate) < settingsUpdateDebounceInterval {
+            print("⏱️ Throttling notification settings update (too frequent)")
+            return
+        }
+        
+        // Cancel any pending settings update task
+        settingsUpdateTask?.cancel()
+        
+        // Create a new debounced update task
+        settingsUpdateTask = Task {
+            // Wait for debounce interval
+            await withCheckedContinuation { continuation in
+                DispatchQueue.main.asyncAfter(deadline: .now() + settingsUpdateDebounceInterval) {
+                    continuation.resume()
+                }
+            }
+            
+            // Check if task was cancelled
+            if !Task.isCancelled {
+                await performSettingsUpdate()
+            }
+        }
+    }
+    
+    /// Perform the actual settings update after debouncing
+    private func performSettingsUpdate() async {
+        lastSettingsUpdateTime = Date()
+        
+        // Reload settings
         loadSettings()
-
-        // Note: In a real implementation, you might want to reschedule all notifications
+        
+        // Only reschedule notifications if necessary to avoid excessive rescheduling during onboarding
+        print("🔄 Notification settings updated due to settings change (debounced)")
+        
+        // Note: In a production implementation, you might want to reschedule all notifications
         // when settings change, but this should be done carefully to avoid excessive rescheduling
-        print("🔄 Notification settings updated due to settings change")
+        // during rapid settings changes like onboarding completion
     }
 
     private func updatePermissionStatus() {

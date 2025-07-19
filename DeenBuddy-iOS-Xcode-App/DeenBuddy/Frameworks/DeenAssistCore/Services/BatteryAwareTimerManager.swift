@@ -6,9 +6,13 @@ import Combine
 @MainActor
 public class BatteryAwareTimerManager: ObservableObject {
     
+    // MARK: - Logger
+    
+    private let logger = AppLogger.timer
+    
     // MARK: - Singleton
     
-    public static let shared = BatteryAwareTimerManager()
+    nonisolated public static let shared = BatteryAwareTimerManager()
     
     // MARK: - Timer Types
     
@@ -24,14 +28,14 @@ public class BatteryAwareTimerManager: ObservableObject {
         
         var baseInterval: TimeInterval {
             switch self {
-            case .prayerUpdate: return 60.0
-            case .countdownUI: return 1.5 // Increased from 1.0 to reduce CPU usage
-            case .backgroundRefresh: return 300.0 // 5 minutes
-            case .memoryMonitoring: return 10.0 // Increased from 5.0 to reduce CPU usage
-            case .hijriCalendar: return 86400.0 // 24 hours
-            case .resourceMonitoring: return 30.0 // Increased from 10.0 to reduce CPU usage
-            case .locationUpdate: return 45.0 // Increased from 30.0 to reduce CPU usage
-            case .cacheCleanup: return 10800.0 // 3 hours (increased from 1 hour)
+            case .prayerUpdate: return 120.0 // Increased from 60s to 2 minutes - prayer times don't change often
+            case .countdownUI: return 5.0 // Increased from 1.5s to 5s - reduces excessive UI updates
+            case .backgroundRefresh: return 900.0 // Increased from 5 minutes to 15 minutes
+            case .memoryMonitoring: return 60.0 // Increased from 10s to 1 minute - reduce performance monitoring overhead
+            case .hijriCalendar: return 86400.0 // Keep 24 hours - appropriate for calendar updates
+            case .resourceMonitoring: return 120.0 // Increased from 30s to 2 minutes
+            case .locationUpdate: return 180.0 // Increased from 45s to 3 minutes - location rarely changes
+            case .cacheCleanup: return 21600.0 // Increased from 3 hours to 6 hours
             }
         }
         
@@ -45,6 +49,14 @@ public class BatteryAwareTimerManager: ObservableObject {
             case .resourceMonitoring: return .low
             case .locationUpdate: return .medium
             case .cacheCleanup: return .veryLow
+            }
+        }
+        
+        var shouldRunOnMainThread: Bool {
+            switch self {
+            case .countdownUI: return true // UI updates must be on main thread
+            case .prayerUpdate: return true // May trigger UI updates
+            default: return false // Other operations can run on background thread
             }
         }
     }
@@ -135,8 +147,15 @@ public class BatteryAwareTimerManager: ObservableObject {
         
         // Create new timer
         let timer = Timer.scheduledTimer(withTimeInterval: optimizedInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.handleTimerFire(id: id, type: type)
+            // Execute non-UI timer callbacks on background thread to reduce main thread load
+            if type.shouldRunOnMainThread {
+                Task { @MainActor in
+                    self?.handleTimerFire(id: id, type: type)
+                }
+            } else {
+                Task.detached {
+                    await self?.handleTimerFireBackground(id: id, type: type)
+                }
             }
         }
         
@@ -153,7 +172,7 @@ public class BatteryAwareTimerManager: ObservableObject {
             fireCount: 0
         )
         
-        print("⏰ Scheduled \(type) timer '\(id)' with interval: \(optimizedInterval)s")
+        logger.debug("Scheduled \(type) timer '\(id)' with interval: \(optimizedInterval)s")
     }
     
     /// Cancel a specific timer
@@ -163,7 +182,7 @@ public class BatteryAwareTimerManager: ObservableObject {
         timerCallbacks.removeValue(forKey: id)
         activeTimers.removeValue(forKey: id)
         
-        print("⏰ Cancelled timer '\(id)'")
+        logger.debug("Cancelled timer '\(id)'")
     }
     
     /// Cancel all timers
@@ -175,7 +194,7 @@ public class BatteryAwareTimerManager: ObservableObject {
         timerCallbacks.removeAll()
         activeTimers.removeAll()
         
-        print("⏰ Cancelled all timers")
+        logger.debug("Cancelled all timers")
     }
     
     /// Pause all timers (useful for background transitions)
@@ -194,7 +213,7 @@ public class BatteryAwareTimerManager: ObservableObject {
             }
         }
         timers.removeAll()
-        print("⏸️ Paused all timers")
+        logger.debug("Paused all timers")
     }
     
     /// Resume all paused timers
@@ -204,7 +223,7 @@ public class BatteryAwareTimerManager: ObservableObject {
                 scheduleTimer(id: id, type: info.type, callback: callback)
             }
         }
-        print("▶️ Resumed all timers")
+        logger.debug("Resumed all timers")
     }
     
     /// Update timer intervals based on current conditions
@@ -222,7 +241,7 @@ public class BatteryAwareTimerManager: ObservableObject {
             }
         }
         
-        print("🔄 Updated all timer intervals for current power mode: \(currentPowerMode)")
+        logger.debug("Updated all timer intervals for current power mode: \(currentPowerMode)")
     }
     
     /// Get current timer statistics
@@ -357,6 +376,37 @@ public class BatteryAwareTimerManager: ObservableObject {
         }
 
         // Execute callback
+        timerCallbacks[id]?()
+    }
+    
+    private func handleTimerFireBackground(id: String, type: TimerType) async {
+        let now = Date()
+
+        // Task deduplication: prevent excessive executions
+        if let lastExecution = lastExecutionTimes[id],
+           now.timeIntervalSince(lastExecution) < minimumExecutionInterval {
+            return // Skip this execution to prevent CPU overload
+        }
+
+        await MainActor.run {
+            lastExecutionTimes[id] = now
+        }
+
+        // Update timer info on main thread
+        await MainActor.run {
+            if let info = activeTimers[id] {
+                activeTimers[id] = TimerInfo(
+                    id: info.id,
+                    type: info.type,
+                    currentInterval: info.currentInterval,
+                    isActive: info.isActive,
+                    lastFired: now,
+                    fireCount: info.fireCount + 1
+                )
+            }
+        }
+
+        // Execute callback on background thread
         timerCallbacks[id]?()
     }
     

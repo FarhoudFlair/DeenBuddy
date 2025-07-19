@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import os
 
 // MARK: - Islamic Feature Flags
 
@@ -424,7 +425,10 @@ public extension IslamicFeatureFlags {
     
     /// Emergency rollback - disable all features
     func emergencyRollback() {
-        print("🚨 Emergency rollback: Disabling all Islamic features")
+        #if DEBUG
+        let logger = Logger(subsystem: "com.deenbuddy.app", category: "IslamicFeatureFlags")
+        logger.error("🚨 Emergency rollback: Disabling all Islamic features")
+        #endif
         disableFeatures(IslamicFeature.allCases)
     }
     

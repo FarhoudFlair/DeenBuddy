@@ -104,7 +104,17 @@ public struct EnhancedSettingsView: View {
                         action: { showingTimeFormatPicker = true }
                     )
                 }
-                
+
+                // Widget & Live Activities Section
+                Section("Widget & Live Activities") {
+                    SettingsToggle(
+                        icon: "textformat.arabic",
+                        title: "Show Arabic Symbol",
+                        description: "Display 'الله' in widgets and Live Activities",
+                        isOn: $settingsService.showArabicSymbolInWidget
+                    )
+                }
+
                 // About Section
                 Section("About") {
                     SettingsRow(

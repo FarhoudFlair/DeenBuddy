@@ -12,8 +12,10 @@ public class BackgroundProcessingOptimizer: ObservableObject {
     public static let shared = BackgroundProcessingOptimizer()
     
     private init() {
-        // Don't auto-register background tasks to prevent conflicts with BackgroundTaskManager
-        // Call registerBackgroundTasks() explicitly if needed
+        // Initialize background processing optimizer
+        // IMPORTANT: Call registerBackgroundTasks() from AppDelegate.application(_:didFinishLaunchingWithOptions:)
+        // This should be done BEFORE BackgroundTaskManager initialization to prevent conflicts
+        // Do NOT call registerBackgroundTasks() here to avoid duplicate registrations
         setupBackgroundTasks()
     }
     
@@ -404,11 +406,11 @@ public class BackgroundProcessingOptimizer: ObservableObject {
 // MARK: - Background Task Identifiers
 
 public enum BackgroundTaskIdentifiers {
-    // Use identifiers that match Info.plist configuration
+    // Use unique identifiers that match Info.plist configuration
     public static let prayerTimeUpdate = "com.deenbuddy.app.prayer-update"
-    public static let widgetRefresh = "com.deenbuddy.app.refresh"
-    public static let notificationScheduling = "com.deenbuddy.app.refresh"
-    public static let liveActivityUpdate = "com.deenbuddy.app.refresh"
+    public static let widgetRefresh = "com.deenbuddy.app.widget-refresh"
+    public static let notificationScheduling = "com.deenbuddy.app.notification-scheduling"
+    public static let liveActivityUpdate = "com.deenbuddy.app.live-activity-update"
 }
 
 // MARK: - Task Priority

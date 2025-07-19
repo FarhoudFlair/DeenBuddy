@@ -187,8 +187,6 @@ class WidgetTimelineManager {
     }
     
     private func calculateRelevanceScore(for date: Date, widgetData: WidgetData) -> Float {
-        let now = Date()
-        
         // Higher relevance for times closer to prayer times
         if let nextPrayerTime = widgetData.nextPrayer?.time {
             let timeUntilPrayer = nextPrayerTime.timeIntervalSince(date)

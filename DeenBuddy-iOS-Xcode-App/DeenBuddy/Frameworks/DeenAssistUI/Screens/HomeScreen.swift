@@ -150,13 +150,13 @@ public struct HomeScreen: View {
             // Personalized greeting - always show prominently
             VStack(spacing: 4) {
                 if !settingsService.userName.isEmpty {
-                    Text("Salaam Alaykum, \(settingsService.userName)")
+                    Text("Assalamu Alaykum, \(settingsService.userName)")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(ColorPalette.primary)
                         .multilineTextAlignment(.center)
                 } else {
-                    Text("Salaam Alaykum")
+                    Text("Assalamu Alaykum")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(ColorPalette.primary)

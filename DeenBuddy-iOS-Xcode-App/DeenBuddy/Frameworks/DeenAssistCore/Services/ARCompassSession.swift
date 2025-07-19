@@ -8,6 +8,10 @@ import Combine
 @MainActor
 public class ARCompassSession: NSObject, ObservableObject {
     
+    // MARK: - Logger
+    
+    private let logger = AppLogger.arCompass
+    
     // MARK: - Published Properties
     
     @Published public var trackingState: ARCamera.TrackingState = .notAvailable
@@ -47,10 +51,10 @@ public class ARCompassSession: NSObject, ObservableObject {
         self.arView = arView
         self.arSession = arView.session
         
-        print("🎯 AR Compass: Starting AR session...")
+        logger.info("Starting AR session...")
         
         guard ARWorldTrackingConfiguration.isSupported else {
-            print("❌ AR Compass: ARWorldTrackingConfiguration not supported")
+            logger.error("ARWorldTrackingConfiguration not supported")
             error = .arNotSupported
             return
         }
@@ -59,7 +63,7 @@ public class ARCompassSession: NSObject, ObservableObject {
         configuration.worldAlignment = .gravityAndHeading
         configuration.planeDetection = []
         
-        print("🎯 AR Compass: Configuration created with gravity and heading alignment")
+        logger.debug("Configuration created with gravity and heading alignment")
         
         arView.session.delegate = self
         arView.session.run(configuration)
@@ -67,9 +71,9 @@ public class ARCompassSession: NSObject, ObservableObject {
         setupARScene(arView)
         isSessionRunning = true
         
-        print("🎯 AR Compass: Session started successfully")
-        print("🎯 AR Compass: ARView frame: \(arView.frame)")
-        print("🎯 AR Compass: Scene anchor count: \(arView.scene.anchors.count)")
+        logger.info("Session started successfully")
+        logger.debug("ARView frame: \(arView.frame)")
+        logger.debug("Scene anchor count: \(arView.scene.anchors.count)")
     }
     
     /// Stop the AR session
@@ -83,7 +87,7 @@ public class ARCompassSession: NSObject, ObservableObject {
         anchorEntity = nil
         qiblaIndicator = nil
 
-        print("🎯 AR Compass: Session stopped")
+        logger.info("Session stopped")
     }
     
     /// Update Qibla direction and indicator positioning
@@ -118,44 +122,43 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Add anchor to scene
         arView.scene.addAnchor(anchor)
 
-        print("🎯 AR Compass: AR scene setup complete with floating Qibla sphere")
+        logger.debug("AR scene setup complete with floating Qibla sphere")
 
         // Test with known locations for debugging
         testKnownQiblaDirections()
     }
     
     private func testKnownQiblaDirections() {
-        print("🎯 AR Compass: === Testing Known Qibla Directions ===")
+        logger.debug("=== Testing Known Qibla Directions ===")
         
         // Test NYC (should be ~58° NE)
         let nycCoord = LocationCoordinate(latitude: 40.7128, longitude: -74.0060)
         let nycQibla = QiblaDirection.calculate(from: nycCoord)
-        print("🎯 AR Compass: NYC Test - Expected: ~58°, Calculated: \(Int(nycQibla.direction))°")
+        logger.debug("NYC Test - Expected: ~58°, Calculated: \(Int(nycQibla.direction))°")
         
         // Test London (should be ~118° SE)  
         let londonCoord = LocationCoordinate(latitude: 51.5074, longitude: -0.1278)
         let londonQibla = QiblaDirection.calculate(from: londonCoord)
-        print("🎯 AR Compass: London Test - Expected: ~118°, Calculated: \(Int(londonQibla.direction))°")
+        logger.debug("London Test - Expected: ~118°, Calculated: \(Int(londonQibla.direction))°")
         
         // Test Tokyo (should be ~293° NW)
         let tokyoCoord = LocationCoordinate(latitude: 35.6762, longitude: 139.6503)
         let tokyoQibla = QiblaDirection.calculate(from: tokyoCoord)
-        print("🎯 AR Compass: Tokyo Test - Expected: ~293°, Calculated: \(Int(tokyoQibla.direction))°")
+        logger.debug("Tokyo Test - Expected: ~293°, Calculated: \(Int(tokyoQibla.direction))°")
         
         // Test Sydney (should be ~277° W)
         let sydneyCoord = LocationCoordinate(latitude: -33.8688, longitude: 151.2093)
         let sydneyQibla = QiblaDirection.calculate(from: sydneyCoord)
-        print("🎯 AR Compass: Sydney Test - Expected: ~277°, Calculated: \(Int(sydneyQibla.direction))°")
+        logger.debug("Sydney Test - Expected: ~277°, Calculated: \(Int(sydneyQibla.direction))°")
         
-        print("🎯 AR Compass: === End Known Direction Tests ===")
+        logger.debug("=== End Known Direction Tests ===")
     }
     
     private func setupQiblaIndicator() {
         // Create a glowing green circle (torus) that points toward Qibla direction
-        // Using torus for better circular appearance with glow effect
-        let torusRadius: Float = 0.04 // Main radius of the torus
-        let tubeRadius: Float = 0.008 // Thickness of the torus tube
-        let indicatorMesh = MeshResource.generateTorus(majorRadius: torusRadius, minorRadius: tubeRadius)
+        // Using sphere for Qibla indicator as torus is not available
+        let indicatorRadius: Float = 0.04
+        let indicatorMesh = MeshResource.generateSphere(radius: indicatorRadius)
         let indicatorMaterial = createGlowingQiblaMaterial()
 
         qiblaIndicator = ModelEntity(mesh: indicatorMesh, materials: [indicatorMaterial])
@@ -167,8 +170,8 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Add glowing pulsing animation
         addGlowingAnimation()
 
-        print("🎯 AR Compass: Glowing Qibla circle created with radius \(torusRadius) and scale \(indicatorScale)")
-        print("🎯 AR Compass: Circle will be positioned directly in Qibla direction with glow effect")
+        logger.debug("Glowing Qibla sphere created with radius \(indicatorRadius) and scale \(indicatorScale)")
+        logger.debug("Sphere will be positioned directly in Qibla direction with glow effect")
     }
     
 
@@ -191,9 +194,9 @@ public class ARCompassSession: NSObject, ObservableObject {
         let animationResource = try? AnimationResource.generate(with: scaleAnimation)
         if let animation = animationResource {
             let controller = indicator.playAnimation(animation.repeat())
-            print("🎯 AR Compass: Glowing pulse animation started")
+            logger.debug("Glowing pulse animation started")
         } else {
-            print("🎯 AR Compass: Animation creation failed, using static glow")
+            logger.warning("Animation creation failed, using static glow")
         }
     }
 
@@ -211,12 +214,10 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Islamic green color with enhanced brightness for glow
         let islamicGreen = UIColor(red: 0.0, green: 0.8, blue: 0.3, alpha: 1.0)
 
-        // Set base color and emissive properties for glow effect
-        material.color = .init(tint: islamicGreen)
-
-        // Add emissive glow - this makes it glow even in dark environments
-        material.emissiveColor = .init(color: islamicGreen.withAlphaComponent(0.8))
-        material.emissiveIntensity = 2.0 // Strong glow intensity
+        // Set base color for glow effect
+        // Note: emissiveColor and emissiveIntensity are not available in UnlitMaterial
+        // Using high opacity color for a glowing effect
+        material.color = .init(tint: islamicGreen.withAlphaComponent(0.9))
 
         return material
     }
@@ -237,10 +238,10 @@ public class ARCompassSession: NSObject, ObservableObject {
         guard let direction = qiblaDirection,
               let indicator = qiblaIndicator else { return }
 
-        print("🎯 AR Compass: === Updating Qibla Sphere Position ===")
-        print("🎯 AR Compass: Location: \(direction.location.latitude), \(direction.location.longitude)")
-        print("🎯 AR Compass: Qibla bearing: \(direction.direction)° (\(direction.compassDirection))")
-        print("🎯 AR Compass: Distance to Kaaba: \(direction.formattedDistance)")
+        logger.debug("=== Updating Qibla Sphere Position ===")
+        logger.debug("Location: \(direction.location.latitude), \(direction.location.longitude)")
+        logger.debug("Qibla bearing: \(direction.direction)° (\(direction.compassDirection))")
+        logger.debug("Distance to Kaaba: \(direction.formattedDistance)")
 
         // Convert Qibla direction to 3D position using spherical coordinates
         // ARKit coordinate system: +X = East, +Y = Up, +Z = South (toward user)
@@ -257,13 +258,13 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Position the sphere directly in the Qibla direction
         indicator.position = [x, y, z]
 
-        print("🎯 AR Compass: Sphere positioned at [\(x), \(y), \(z)] for \(direction.direction)° bearing")
-        print("🎯 AR Compass: Distance from user: \(distance)m")
+        logger.debug("Sphere positioned at [\(x), \(y), \(z)] for \(direction.direction)° bearing")
+        logger.debug("Distance from user: \(distance)m")
 
         // Log expected results for known locations
         logExpectedDirection(for: direction)
 
-        print("🎯 AR Compass: === Position Update Complete ===")
+        logger.debug("=== Position Update Complete ===")
     }
     
     private func logExpectedDirection(for direction: QiblaDirection) {
@@ -272,22 +273,22 @@ public class ARCompassSession: NSObject, ObservableObject {
         
         // Check if this is a known location and log expected Qibla direction
         if abs(lat - 40.7128) < 0.1 && abs(lon - (-74.0060)) < 0.1 {
-            print("🎯 AR Compass: *** NYC Location Detected ***")
-            print("🎯 AR Compass: Expected Qibla: ~58° NE (should point northeast)")
-            print("🎯 AR Compass: Calculated: \(Int(direction.direction))°")
+            logger.debug("*** NYC Location Detected ***")
+            logger.debug("Expected Qibla: ~58° NE (should point northeast)")
+            logger.debug("Calculated: \(Int(direction.direction))°")
             if direction.direction > 50 && direction.direction < 70 {
-                print("✅ AR Compass: Direction looks correct for NYC!")
+                logger.debug("Direction looks correct for NYC!")
             } else {
-                print("❌ AR Compass: Direction may be wrong for NYC!")
+                logger.warning("Direction may be wrong for NYC!")
             }
         } else if abs(lat - 51.5074) < 0.1 && abs(lon - (-0.1278)) < 0.1 {
-            print("🎯 AR Compass: *** London Location Detected ***")
-            print("🎯 AR Compass: Expected Qibla: ~118° SE (should point southeast)")
-            print("🎯 AR Compass: Calculated: \(Int(direction.direction))°")
+            logger.debug("*** London Location Detected ***")
+            logger.debug("Expected Qibla: ~118° SE (should point southeast)")
+            logger.debug("Calculated: \(Int(direction.direction))°")
             if direction.direction > 110 && direction.direction < 130 {
-                print("✅ AR Compass: Direction looks correct for London!")
+                logger.debug("Direction looks correct for London!")
             } else {
-                print("❌ AR Compass: Direction may be wrong for London!")
+                logger.warning("Direction may be wrong for London!")
             }
         }
     }
@@ -297,9 +298,9 @@ public class ARCompassSession: NSObject, ObservableObject {
     private func setupLocationObserver() {
         // Subscribe to location updates from the location service
         locationService.locationPublisher
-            .sink { completion in
+            .sink { [weak self] completion in
                 if case .failure(let error) = completion {
-                    print("❌ AR Compass: Location error: \(error)")
+                    self?.logger.error("Location error: \(error)")
                 }
             } receiveValue: { [weak self] location in
                 let coordinate = LocationCoordinate(
@@ -330,7 +331,7 @@ public class ARCompassSession: NSObject, ObservableObject {
         // Clean up Combine subscriptions
         cancellables.removeAll()
 
-        print("🎯 AR Compass: Session cleaned up in deinit")
+        logger.debug("Session cleaned up in deinit")
     }
 }
 
@@ -359,7 +360,7 @@ extension ARCompassSession: @preconcurrency ARSessionDelegate {
         
         // Log accuracy changes
         if oldAccuracy != compassAccuracy {
-            print("🎯 AR Compass: Tracking accuracy changed: \(oldAccuracy.description) -> \(compassAccuracy.description)")
+            logger.debug("Tracking accuracy changed: \(oldAccuracy.description) -> \(compassAccuracy.description)")
         }
         
         // Extract heading from camera transform
@@ -369,34 +370,34 @@ extension ARCompassSession: @preconcurrency ARSessionDelegate {
         
         // Debug logging every 60 frames (roughly once per second)
         if frame.timestamp.truncatingRemainder(dividingBy: 1.0) < 0.017 {
-            print("🎯 AR Compass: Frame update - State: \(camera.trackingState), Accuracy: \(compassAccuracy.description), Heading: \(Int(currentHeading))°")
+            logger.debug("Frame update - State: \(camera.trackingState), Accuracy: \(compassAccuracy.description), Heading: \(Int(currentHeading))°")
             if let arView = arView {
-                print("🎯 AR Compass: Scene has \(arView.scene.anchors.count) anchors")
+                logger.debug("Scene has \(arView.scene.anchors.count) anchors")
             }
         }
     }
     
     nonisolated public func session(_ session: ARSession, didFailWithError error: Error) {
-        print("❌ AR Compass: Session failed with error: \(error)")
         Task { @MainActor [weak self] in
             guard let self = self else { return }
+            self.logger.error("Session failed with error: \(error)")
             self.error = .sessionFailed(error.localizedDescription)
             self.isSessionRunning = false
         }
     }
 
     nonisolated public func sessionWasInterrupted(_ session: ARSession) {
-        print("⚠️ AR Compass: Session was interrupted")
         Task { @MainActor [weak self] in
             guard let self = self else { return }
+            self.logger.warning("Session was interrupted")
             self.isSessionRunning = false
         }
     }
 
     nonisolated public func sessionInterruptionEnded(_ session: ARSession) {
-        print("✅ AR Compass: Session interruption ended")
         Task { @MainActor [weak self] in
             guard let self = self else { return }
+            self.logger.info("Session interruption ended")
             self.isSessionRunning = true
         }
     }

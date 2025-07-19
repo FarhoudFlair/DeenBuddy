@@ -15,7 +15,8 @@ struct LocalizedPrayerTimesView: View {
         apiClient: APIClient(),
         errorHandler: ErrorHandler(crashReporter: CrashReporter()),
         retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
-        networkMonitor: NetworkMonitor.shared
+        networkMonitor: NetworkMonitor.shared,
+        islamicCacheManager: IslamicCacheManager()
     )
     @State private var showingLanguageSettings = false
     

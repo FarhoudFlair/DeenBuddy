@@ -85,12 +85,14 @@ public class AccessibilityService: ObservableObject {
     }
     
     /// Announce text to VoiceOver
+    /// - Parameters:
+    ///   - text: The announcement text to be spoken by VoiceOver.
+    ///   - priority: Announcement priority ("high", "medium", "low"). Only effective on iOS 11+. Ignored on earlier versions.
     public func announceToVoiceOver(_ text: String, priority: String = "medium") {
         guard isVoiceOverEnabled else { return }
         
-        // For now, post announcement without priority due to iOS SDK limitations
+        // Use the standard UIAccessibility.post method which is available on all iOS versions
         UIAccessibility.post(notification: .announcement, argument: text)
-        
         print("🔊 VoiceOver announcement: \(text) [priority: \(priority)]")
     }
     

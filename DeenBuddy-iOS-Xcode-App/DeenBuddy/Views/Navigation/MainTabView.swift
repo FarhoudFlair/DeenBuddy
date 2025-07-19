@@ -50,11 +50,28 @@ public struct MainTabView: View {
                 }
             
             // 5. Settings Tab - Enhanced settings view with profile section
-            EnhancedSettingsView(
-                settingsService: coordinator.settingsService as! SettingsService,
-                themeManager: coordinator.themeManager,
-                onDismiss: { } // No dismiss needed in tab mode
-            )
+            Group {
+                if let settingsService = coordinator.settingsService as? SettingsService {
+                    EnhancedSettingsView(
+                        settingsService: settingsService,
+                        themeManager: coordinator.themeManager,
+                        onDismiss: { } // No dismiss needed in tab mode
+                    )
+                } else {
+                    // Fallback view if casting fails
+                    VStack {
+                        Image(systemName: "gear.badge.xmark")
+                            .font(.largeTitle)
+                            .foregroundColor(.red)
+                        Text("Settings Unavailable")
+                            .font(.headline)
+                        Text("Unable to load settings service")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                }
+            }
             .tabItem {
                 Image(systemName: "gear")
                 Text("Settings")

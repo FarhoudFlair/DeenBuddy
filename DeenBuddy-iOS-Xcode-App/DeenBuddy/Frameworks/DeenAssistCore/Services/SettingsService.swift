@@ -9,63 +9,131 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague {
         didSet {
-            // Notify immediately for UI updates
-            NotificationCenter.default.post(name: .settingsDidChange, object: self)
-            
-            // Debounce the save operation
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.calculationMethod = oldValue }
+                },
+                propertyName: "calculationMethod",
+                oldValue: oldValue.rawValue,
+                newValue: calculationMethod.rawValue
+            )
         }
     }
 
     @Published public var madhab: Madhab = .shafi {
         didSet {
-            // Notify immediately for UI updates
-            NotificationCenter.default.post(name: .settingsDidChange, object: self)
-            
-            // Debounce the save operation
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.madhab = oldValue }
+                },
+                propertyName: "madhab",
+                oldValue: oldValue.rawValue,
+                newValue: madhab.rawValue
+            )
         }
     }
     
     @Published public var notificationsEnabled: Bool = true {
         didSet {
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.notificationsEnabled = oldValue }
+                },
+                propertyName: "notificationsEnabled",
+                oldValue: oldValue,
+                newValue: notificationsEnabled
+            )
         }
     }
-    
+
     @Published public var theme: ThemeMode = .dark {
         didSet {
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.theme = oldValue }
+                },
+                propertyName: "theme",
+                oldValue: oldValue.rawValue,
+                newValue: theme.rawValue
+            )
         }
     }
-    
+
     @Published public var hasCompletedOnboarding: Bool = false {
         didSet {
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.hasCompletedOnboarding = oldValue }
+                },
+                propertyName: "hasCompletedOnboarding",
+                oldValue: oldValue,
+                newValue: hasCompletedOnboarding
+            )
         }
     }
-    
+
     @Published public var userName: String = "" {
         didSet {
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.userName = oldValue }
+                },
+                propertyName: "userName",
+                oldValue: oldValue,
+                newValue: userName
+            )
         }
     }
-    
+
     @Published public var timeFormat: TimeFormat = .twelveHour {
         didSet {
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.timeFormat = oldValue }
+                },
+                propertyName: "timeFormat",
+                oldValue: oldValue.rawValue,
+                newValue: timeFormat.rawValue
+            )
         }
     }
-    
+
     @Published public var notificationOffset: TimeInterval = 300 { // 5 minutes default
         didSet {
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.notificationOffset = oldValue }
+                },
+                propertyName: "notificationOffset",
+                oldValue: oldValue,
+                newValue: notificationOffset
+            )
         }
     }
 
     @Published public var overrideBatteryOptimization: Bool = false {
         didSet {
-            saveSettingsAsync()
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.overrideBatteryOptimization = oldValue }
+                },
+                propertyName: "overrideBatteryOptimization",
+                oldValue: oldValue,
+                newValue: overrideBatteryOptimization
+            )
+        }
+    }
+
+    @Published public var showArabicSymbolInWidget: Bool = true {
+        didSet {
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run { self?.showArabicSymbolInWidget = oldValue }
+                },
+                propertyName: "showArabicSymbolInWidget",
+                oldValue: oldValue,
+                newValue: showArabicSymbolInWidget
+            )
         }
     }
 
@@ -82,6 +150,13 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     private let migrationHelper: SettingsMigration
     private var saveTask: Task<Void, Never>?
     private let saveDebounceInterval: TimeInterval = 0.5
+    
+    // Circuit breaker for preventing infinite rollback loops
+    private var isPerformingRollback = false
+    private var rollbackCount = 0
+    private var lastRollbackTime: Date?
+    private let maxRollbackAttempts = 3
+    private let rollbackCooldownPeriod: TimeInterval = 5.0 // 5 seconds
     
     // MARK: - Settings Keys (Now using UnifiedSettingsKeys)
     // Note: SettingsKeys enum removed - now using UnifiedSettingsKeys for consistency
@@ -106,7 +181,12 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             try await loadSettings()
         }
     }
-    
+
+    deinit {
+        // Cancel any pending save task to prevent memory leaks
+        saveTask?.cancel()
+    }
+
     // MARK: - Protocol Implementation
     
     public func saveSettings() async throws {
@@ -137,6 +217,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             // Save user name
             userDefaults.set(userName, forKey: UnifiedSettingsKeys.userName)
+
+            // Save Arabic symbol widget setting
+            userDefaults.set(showArabicSymbolInWidget, forKey: UnifiedSettingsKeys.showArabicSymbolInWidget)
 
             // Save metadata
             userDefaults.set(Date(), forKey: UnifiedSettingsKeys.lastSyncDate)
@@ -226,6 +309,13 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         // Load user name
         userName = userDefaults.string(forKey: UnifiedSettingsKeys.userName) ?? ""
 
+        // Load Arabic symbol widget setting (default to true for existing users)
+        if userDefaults.object(forKey: UnifiedSettingsKeys.showArabicSymbolInWidget) != nil {
+            showArabicSymbolInWidget = userDefaults.bool(forKey: UnifiedSettingsKeys.showArabicSymbolInWidget)
+        } else {
+            showArabicSymbolInWidget = true // Default to true for backward compatibility
+        }
+
         // Perform comprehensive validation
         try validateSettingsConsistency()
     }
@@ -250,10 +340,8 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
 
         // Check for duplicate or conflicting legacy keys
-        let legacyKeys = ["calculationMethod", "madhab", "prayer_calculation_method", "prayer_madhab"]
         var foundLegacyKeys: [String] = []
-
-        for legacyKey in legacyKeys {
+        for legacyKey in UnifiedSettingsKeys.legacyKeys {
             if userDefaults.object(forKey: legacyKey) != nil {
                 foundLegacyKeys.append(legacyKey)
             }
@@ -332,12 +420,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
 
         // Also clear any legacy keys
-        let legacyKeys = ["calculationMethod", "madhab", "prayer_calculation_method", "prayer_madhab"]
-        for key in legacyKeys {
+        for key in UnifiedSettingsKeys.legacyKeys {
             userDefaults.removeObject(forKey: key)
         }
-
-        userDefaults.synchronize()
+        // Removed deprecated userDefaults.synchronize()
         print("🗑️ All settings cleared")
     }
 
@@ -351,6 +437,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             notificationOffset = 300 // 5 minutes
             overrideBatteryOptimization = false
             hasCompletedOnboarding = false
+            showArabicSymbolInWidget = true
 
             // Save the defaults
             try await saveSettings()
@@ -391,10 +478,11 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         print("✅ Settings synchronization completed")
     }
 
-    /// Get diagnostic information about current settings state
+    /// Get comprehensive diagnostic information about current settings state
     public func getDiagnosticInfo() -> [String: Any] {
         var diagnostics: [String: Any] = [:]
 
+        // Core settings
         diagnostics["calculationMethod"] = calculationMethod.rawValue
         diagnostics["madhab"] = madhab.rawValue
         diagnostics["notificationsEnabled"] = notificationsEnabled
@@ -403,19 +491,82 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         diagnostics["notificationOffset"] = notificationOffset
         diagnostics["overrideBatteryOptimization"] = overrideBatteryOptimization
         diagnostics["hasCompletedOnboarding"] = hasCompletedOnboarding
+        diagnostics["userName"] = userName.isEmpty ? "<empty>" : "<set>"
+        diagnostics["showArabicSymbolInWidget"] = showArabicSymbolInWidget
         diagnostics["settingsVersion"] = userDefaults.integer(forKey: UnifiedSettingsKeys.settingsVersion)
+        
+        // Circuit breaker status
+        diagnostics["rollbackCount"] = rollbackCount
+        diagnostics["maxRollbackAttempts"] = maxRollbackAttempts
+        diagnostics["isPerformingRollback"] = isPerformingRollback
+        diagnostics["lastRollbackTime"] = lastRollbackTime?.timeIntervalSince1970 ?? "never"
+        diagnostics["rollbackCooldownPeriod"] = rollbackCooldownPeriod
+        
+        // Save task status
+        diagnostics["hasPendingSaveTask"] = saveTask != nil && !(saveTask?.isCancelled ?? true)
+        diagnostics["saveDebounceInterval"] = saveDebounceInterval
+        
+        // UserDefaults status
+        diagnostics["userDefaultsSuite"] = suiteName ?? "standard"
+        diagnostics["lastSyncDate"] = lastSyncDate?.timeIntervalSince1970 ?? "never"
+        diagnostics["isValid"] = isValid
 
         // Check for legacy keys
-        let legacyKeys = ["calculationMethod", "madhab", "prayer_calculation_method", "prayer_madhab"]
         var foundLegacyKeys: [String] = []
-        for key in legacyKeys {
+        for key in UnifiedSettingsKeys.legacyKeys {
             if userDefaults.object(forKey: key) != nil {
                 foundLegacyKeys.append(key)
             }
         }
         diagnostics["legacyKeysFound"] = foundLegacyKeys
+        
+        // System info
+        diagnostics["timestamp"] = Date().timeIntervalSince1970
+        diagnostics["diagnosticVersion"] = "1.1"
 
         return diagnostics
+    }
+    
+    /// Print comprehensive diagnostic information for troubleshooting
+    public func printDiagnostics() {
+        let diagnostics = getDiagnosticInfo()
+        print("\n🔍 ===== SETTINGS SERVICE DIAGNOSTICS =====")
+        print("📱 App: DeenBuddy Settings Service")
+        print("⏰ Timestamp: \(Date())")
+        print("")
+        
+        print("🎯 Core Settings:")
+        print("  • Calculation Method: \(diagnostics["calculationMethod"] ?? "unknown")")
+        print("  • Madhab: \(diagnostics["madhab"] ?? "unknown")")
+        print("  • Notifications: \(diagnostics["notificationsEnabled"] ?? "unknown")")
+        print("  • Theme: \(diagnostics["theme"] ?? "unknown")")
+        print("  • Time Format: \(diagnostics["timeFormat"] ?? "unknown")")
+        print("  • Onboarding Complete: \(diagnostics["hasCompletedOnboarding"] ?? "unknown")")
+        print("")
+        
+        print("🔧 Circuit Breaker Status:")
+        print("  • Rollback Count: \(diagnostics["rollbackCount"] ?? "unknown")")
+        print("  • Max Attempts: \(diagnostics["maxRollbackAttempts"] ?? "unknown")")
+        print("  • Currently Rolling Back: \(diagnostics["isPerformingRollback"] ?? "unknown")")
+        print("  • Last Rollback: \(diagnostics["lastRollbackTime"] ?? "never")")
+        print("  • Cooldown Period: \(diagnostics["rollbackCooldownPeriod"] ?? "unknown")s")
+        print("")
+        
+        print("💾 Persistence Status:")
+        print("  • Pending Save Task: \(diagnostics["hasPendingSaveTask"] ?? "unknown")")
+        print("  • Debounce Interval: \(diagnostics["saveDebounceInterval"] ?? "unknown")s")
+        print("  • UserDefaults Suite: \(diagnostics["userDefaultsSuite"] ?? "unknown")")
+        print("  • Last Sync: \(diagnostics["lastSyncDate"] ?? "never")")
+        print("  • Settings Valid: \(diagnostics["isValid"] ?? "unknown")")
+        print("")
+        
+        if let legacyKeys = diagnostics["legacyKeysFound"] as? [String], !legacyKeys.isEmpty {
+            print("⚠️ Legacy Keys Found: \(legacyKeys.joined(separator: ", "))")
+        } else {
+            print("✅ No Legacy Keys Found")
+        }
+        
+        print("==========================================\n")
     }
 
     // MARK: - Additional Methods
@@ -483,29 +634,237 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     // MARK: - Private Methods
     
+    /// Helper to post settingsDidChange notification and call saveSettingsAsync with optional rollback and property info
+    private func notifyAndSaveSettings(
+        rollbackAction: (() async -> Void)? = nil,
+        propertyName: String? = nil,
+        oldValue: Any? = nil,
+        newValue: Any? = nil
+    ) {
+        // Don't post notifications or trigger saves during rollback to prevent cascading
+        if isPerformingRollback {
+            print("🔄 Skipping notification and save during rollback for \(propertyName ?? "unknown property")")
+            return
+        }
+        
+        NotificationCenter.default.post(name: .settingsDidChange, object: self)
+        if let rollback = rollbackAction, let property = propertyName, let oldVal = oldValue, let newVal = newValue {
+            saveSettingsAsync(
+                rollbackAction: rollback,
+                propertyName: property,
+                oldValue: oldVal,
+                newValue: newVal
+            )
+        } else {
+            saveSettingsAsync()
+        }
+    }
+    
     private func saveSettingsAsync() {
         // Cancel any existing save task
         saveTask?.cancel()
-        
-        // Create a new debounced save task
+
+        // Create a new debounced save task with improved error handling
         saveTask = Task {
-            // Wait for the debounce interval
-            try? await Task.sleep(nanoseconds: UInt64(saveDebounceInterval * 1_000_000_000))
-            
-            // Check if the task was cancelled
-            if !Task.isCancelled {
-                try? await saveSettings()
+            do {
+                // Use DispatchQueue for non-cancellable delay instead of Task.sleep
+                await withCheckedContinuation { continuation in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + saveDebounceInterval) {
+                        continuation.resume()
+                    }
+                }
+
+                // Check if the task was cancelled after delay
+                if !Task.isCancelled {
+                    try await saveSettings()
+                    print("✅ Settings saved successfully via debounced operation")
+                }
+            } catch is CancellationError {
+                // Handle cancellation gracefully without triggering rollback
+                print("ℹ️ Settings save operation was cancelled (this is normal for rapid changes)")
+            } catch {
+                // Handle other save errors gracefully
+                print("❌ Failed to save settings: \(error.localizedDescription)")
+
+                // Post notification about save failure for UI to handle
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: .settingsSaveFailed,
+                        object: self,
+                        userInfo: ["error": error]
+                    )
+                }
+            }
+        }
+    }
+
+    /// Save settings with rollback capability on failure and circuit breaker protection
+    private func saveSettingsAsync(
+        rollbackAction: @escaping () async -> Void,
+        propertyName: String,
+        oldValue: Any,
+        newValue: Any
+    ) {
+        // Cancel any existing save task
+        saveTask?.cancel()
+
+        // Create a new debounced save task with rollback capability
+        saveTask = Task {
+            do {
+                // Use DispatchQueue for non-cancellable delay instead of Task.sleep
+                await withCheckedContinuation { continuation in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + saveDebounceInterval) {
+                        continuation.resume()
+                    }
+                }
+
+                // Check if the task was cancelled after delay
+                if !Task.isCancelled {
+                    try await saveSettings()
+                    // Reset rollback counter on successful save
+                    rollbackCount = 0
+                    lastRollbackTime = nil
+                    print("✅ Successfully saved setting: \(propertyName) = \(newValue)")
+                }
+            } catch is CancellationError {
+                // Handle cancellation gracefully without triggering rollback
+                print("ℹ️ Settings save operation for \(propertyName) was cancelled (this is normal for rapid changes)")
+            } catch {
+                // Check circuit breaker before attempting rollback
+                if shouldAttemptRollback() {
+                    print("❌ Failed to save settings for \(propertyName): \(error.localizedDescription)")
+                    print("🔄 Rolling back \(propertyName) from \(newValue) to \(oldValue) (attempt \(rollbackCount + 1)/\(maxRollbackAttempts))")
+
+                    // Increment rollback counter and update timestamp
+                    rollbackCount += 1
+                    lastRollbackTime = Date()
+                    
+                    // Set rollback flag to prevent infinite loops
+                    isPerformingRollback = true
+                    
+                    // Execute rollback action
+                    await rollbackAction()
+                    
+                    // Clear rollback flag
+                    isPerformingRollback = false
+
+                    // Post notification about save failure with rollback info
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: .settingsSaveFailed,
+                            object: self,
+                            userInfo: [
+                                "error": error,
+                                "propertyName": propertyName,
+                                "attemptedValue": newValue,
+                                "rolledBackTo": oldValue,
+                                "rollbackPerformed": true,
+                                "rollbackAttempt": rollbackCount
+                            ]
+                        )
+                    }
+                } else {
+                    // Circuit breaker triggered - give up gracefully
+                    print("🚫 Circuit breaker triggered for \(propertyName) - max rollback attempts reached or cooldown period active")
+                    print("⚠️ Setting \(propertyName) will remain at \(newValue) despite save failure")
+                    
+                    await MainActor.run {
+                        NotificationCenter.default.post(
+                            name: .settingsSaveFailed,
+                            object: self,
+                            userInfo: [
+                                "error": error,
+                                "propertyName": propertyName,
+                                "attemptedValue": newValue,
+                                "rolledBackTo": oldValue,
+                                "rollbackPerformed": false,
+                                "circuitBreakerTriggered": true
+                            ]
+                        )
+                    }
+                }
             }
         }
     }
     
-    /// Force immediate save without debouncing
+    /// Check if rollback should be attempted based on circuit breaker logic
+    private func shouldAttemptRollback() -> Bool {
+        // Don't rollback if already performing rollback (prevents infinite loops)
+        if isPerformingRollback {
+            return false
+        }
+        
+        // Check if we've exceeded maximum rollback attempts
+        if rollbackCount >= maxRollbackAttempts {
+            // Check if enough time has passed to reset the counter
+            if let lastTime = lastRollbackTime, 
+               Date().timeIntervalSince(lastTime) > rollbackCooldownPeriod {
+                // Reset counter after cooldown period
+                rollbackCount = 0
+                lastRollbackTime = nil
+                return true
+            }
+            return false
+        }
+        
+        return true
+    }
+    
+    /// Force immediate save without debouncing - critical for onboarding
     public func saveImmediately() async throws {
         // Cancel any pending debounced save
         saveTask?.cancel()
         
-        // Save immediately
+        print("⚡ Performing immediate save (bypassing debounce)")
+        
+        // Save immediately without rollback mechanism for critical operations
         try await saveSettings()
+        
+        // Reset rollback state on successful immediate save
+        rollbackCount = 0
+        lastRollbackTime = nil
+        
+        print("✅ Immediate save completed successfully")
+    }
+    
+    /// Save critical onboarding settings with enhanced error handling
+    public func saveOnboardingSettings() async throws {
+        print("🚀 Saving onboarding settings with enhanced error handling...")
+        
+        do {
+            try await saveImmediately()
+            print("✅ Onboarding settings saved successfully")
+        } catch {
+            print("⚠️ Failed to save onboarding settings: \(error.localizedDescription)")
+            print("🔧 Attempting recovery by saving individual critical settings...")
+            
+            // Try to save critical settings individually
+            let criticalKeys: [(String, Any)] = [
+                (UnifiedSettingsKeys.hasCompletedOnboarding, hasCompletedOnboarding),
+                (UnifiedSettingsKeys.calculationMethod, calculationMethod.rawValue),
+                (UnifiedSettingsKeys.madhab, madhab.rawValue)
+            ]
+            
+            var savedCount = 0
+            for (key, value) in criticalKeys {
+                do {
+                    userDefaults.set(value, forKey: key)
+                    savedCount += 1
+                    print("✅ Saved critical setting: \(key)")
+                } catch {
+                    print("❌ Failed to save critical setting \(key): \(error.localizedDescription)")
+                }
+            }
+            
+            // Force synchronization
+            userDefaults.synchronize()
+            
+            if savedCount > 0 {
+                print("✅ Recovered by saving \(savedCount) critical settings")
+            } else {
+                throw SettingsError.saveFailed(error)
+            }
+        }
     }
 }
 

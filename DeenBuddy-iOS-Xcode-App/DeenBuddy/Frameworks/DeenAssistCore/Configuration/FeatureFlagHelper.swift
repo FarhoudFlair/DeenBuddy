@@ -238,9 +238,8 @@ public extension View {
 // MARK: - Environment Integration
 
 /// Environment key for feature flags
-@MainActor
 public struct FeatureFlagsEnvironmentKey: EnvironmentKey {
-    public static let defaultValue = IslamicFeatureFlags.shared
+    nonisolated public static let defaultValue = IslamicFeatureFlags.shared
 }
 
 public extension EnvironmentValues {

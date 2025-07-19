@@ -122,7 +122,7 @@ public struct PrayerStreakView: View {
                     StreakHistoryRow(
                         title: "Current Streak",
                         days: prayerTrackingService.currentStreak,
-                        startDate: Date().addingTimeInterval(-Double(prayerTrackingService.currentStreak) * 86400),
+                        startDate: Calendar.current.date(byAdding: .day, value: -prayerTrackingService.currentStreak, to: Date()) ?? Date(),
                         isActive: true
                     )
                     
@@ -233,7 +233,7 @@ public struct PrayerStreakView: View {
                     icon: "diamond.fill",
                     title: "Consistency King",
                     description: "Complete 100 prayers",
-                    isUnlocked: prayerTrackingService.recentEntries.count >= 100,
+                    isUnlocked: prayerTrackingService.totalPrayersCompleted >= 100,
                     color: .blue
                 )
             }
@@ -268,42 +268,61 @@ public struct PrayerStreakView: View {
     @ViewBuilder
     private var calendarGrid: some View {
         let calendar = Calendar.current
-        let monthRange = calendar.range(of: .day, in: .month, for: selectedMonth)!
-        let firstOfMonth = calendar.dateInterval(of: .month, for: selectedMonth)!.start
-        let firstWeekday = calendar.component(.weekday, from: firstOfMonth)
-        
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
-            // Weekday headers
-            ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
-                Text(day)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(.secondary)
-                    .frame(height: 20)
-            }
+        if let monthRange = calendar.range(of: .day, in: .month, for: selectedMonth),
+           let dateInterval = calendar.dateInterval(of: .month, for: selectedMonth) {
             
-            // Empty cells for days before month starts
-            ForEach(0..<(firstWeekday - 1), id: \.self) { _ in
-                Rectangle()
-                    .fill(Color.clear)
-                    .frame(height: 30)
-            }
+            let firstOfMonth = dateInterval.start
+            let firstWeekday = calendar.component(.weekday, from: firstOfMonth)
             
-            // Days of the month
-            ForEach(1...monthRange.count, id: \.self) { day in
-                let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth)!
-                let completionRate = getDayCompletionRate(for: date)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
+                // Weekday headers
+                ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                    Text(day)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.secondary)
+                        .frame(height: 20)
+                }
                 
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(getHeatMapColor(for: completionRate))
-                    .frame(height: 30)
-                    .overlay(
-                        Text("\(day)")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(completionRate > 0.5 ? .white : .primary)
-                    )
+                // Empty cells for days before month starts
+                ForEach(0..<(firstWeekday - 1), id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.clear)
+                        .frame(height: 30)
+                }
+                
+                // Days of the month
+                ForEach(1...monthRange.count, id: \.self) { day in
+                    if let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) {
+                        let completionRate = getDayCompletionRate(for: date)
+
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(getHeatMapColor(for: completionRate))
+                            .frame(height: 30)
+                            .overlay(
+                                Text("\(day)")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(completionRate > 0.5 ? .white : .primary)
+                            )
+                    } else {
+                        // Fallback for invalid dates
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.clear)
+                            .frame(height: 30)
+                            .overlay(
+                                Text("\(day)")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+                            )
+                    }
+                }
             }
+        } else {
+            // Fallback view for invalid calendar operations
+            Text("Calendar unavailable")
+                .foregroundColor(.secondary)
         }
     }
     

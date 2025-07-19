@@ -388,6 +388,7 @@ extension Color {
             prayerTimeService: MockPrayerTimeService(),
             locationService: MockLocationService()
         ),
+        islamicCacheManager: IslamicCacheManager(),
         apiConfiguration: .default,
         isTestEnvironment: true
     ))

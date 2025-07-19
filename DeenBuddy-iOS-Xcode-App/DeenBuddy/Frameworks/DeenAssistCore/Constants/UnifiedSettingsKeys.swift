@@ -42,6 +42,9 @@ public enum UnifiedSettingsKeys {
     
     /// User's preferred name for personalized greetings
     public static let userName = "DeenBuddy.Settings.UserName"
+
+    /// Whether to show Arabic symbol in widget and Live Activities
+    public static let showArabicSymbolInWidget = "DeenBuddy.Settings.ShowArabicSymbolInWidget"
     
     /// Last settings synchronization date
     public static let lastSyncDate = "DeenBuddy.Settings.LastSyncDate"
@@ -70,6 +73,14 @@ public enum UnifiedSettingsKeys {
     
     /// Legacy cache date key from PrayerTimeService
     public static let legacyCacheDate = "DeenBuddy.CacheDate"
+    
+    /// List of legacy UserDefaults keys for migration and cleanup
+    public static let legacyKeys = [
+        "calculationMethod",
+        "madhab",
+        "prayer_calculation_method",
+        "prayer_madhab"
+    ]
 }
 
 // MARK: - Migration Helper

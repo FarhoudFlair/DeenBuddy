@@ -266,21 +266,38 @@ class WidgetDataManager {
     func loadWidgetConfiguration() -> WidgetConfiguration {
         guard let sharedDefaults = sharedDefaults else {
             print("⚠️ Widget: Failed to access shared UserDefaults for configuration")
-            return .default
+            return WidgetConfiguration(
+                showArabicText: shouldShowArabicSymbol(),
+                showCountdown: true,
+                theme: .auto
+            )
         }
 
         guard let data = sharedDefaults.data(forKey: widgetConfigurationKey) else {
-            print("ℹ️ Widget: No widget configuration found, using default")
-            return .default
+            print("ℹ️ Widget: No widget configuration found, using default with Arabic symbol preference")
+            return WidgetConfiguration(
+                showArabicText: shouldShowArabicSymbol(),
+                showCountdown: true,
+                theme: .auto
+            )
         }
 
         do {
             let config = try JSONDecoder().decode(WidgetConfiguration.self, from: data)
             print("✅ Widget: Successfully loaded widget configuration")
-            return config
+            // Override showArabicText with user's preference for Arabic symbols
+            return WidgetConfiguration(
+                showArabicText: shouldShowArabicSymbol(),
+                showCountdown: config.showCountdown,
+                theme: config.theme
+            )
         } catch {
             print("❌ Widget: Failed to decode widget configuration: \(error)")
-            return .default
+            return WidgetConfiguration(
+                showArabicText: shouldShowArabicSymbol(),
+                showCountdown: true,
+                theme: .auto
+            )
         }
     }
     
@@ -289,7 +306,7 @@ class WidgetDataManager {
             print("⚠️ Shared defaults not available, cannot save widget configuration")
             return
         }
-        
+
         do {
             let encodedData = try JSONEncoder().encode(configuration)
             sharedDefaults.set(encodedData, forKey: widgetConfigurationKey)
@@ -301,6 +318,21 @@ class WidgetDataManager {
             }
         } catch {
             print("❌ Failed to save widget configuration: \(error)")
+        }
+    }
+
+    /// Get whether to show Arabic symbol in widgets from user settings
+    func shouldShowArabicSymbol() -> Bool {
+        guard let sharedDefaults = sharedDefaults else {
+            print("⚠️ Shared defaults not available, using default Arabic symbol setting")
+            return true // Default to showing the symbol
+        }
+
+        // Check if the setting exists, if not default to true for backward compatibility
+        if sharedDefaults.object(forKey: "DeenBuddy.Settings.ShowArabicSymbolInWidget") != nil {
+            return sharedDefaults.bool(forKey: "DeenBuddy.Settings.ShowArabicSymbolInWidget")
+        } else {
+            return true // Default to true for existing users
         }
     }
 }

@@ -21,6 +21,9 @@ public protocol PrayerTrackingServiceProtocol: ObservableObject {
     /// Recent prayer entries
     var recentEntries: [PrayerEntry] { get }
     
+    /// Total prayers completed across all time
+    var totalPrayersCompleted: Int { get }
+    
     /// Loading state for tracking operations
     var isTrackingLoading: Bool { get }
     

@@ -7,6 +7,10 @@ import UIKit
 
 public class LocationService: NSObject, LocationServiceProtocol, ObservableObject {
     
+    // MARK: - Logger
+    
+    private let logger = AppLogger.location
+    
     // MARK: - Published Properties
     
     @Published public var authorizationStatus: CLAuthorizationStatus = .notDetermined
@@ -93,38 +97,39 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     private func incrementTaskCount() -> Bool {
         return activeTaskCountQueue.sync(flags: .barrier) {
             guard activeTaskCount < maxConcurrentTasks else {
-                print("⚠️ LocationService: Maximum concurrent tasks (\(maxConcurrentTasks)) reached, rejecting new task")
+                logger.warning("Maximum concurrent tasks (\(maxConcurrentTasks)) reached, rejecting new task")
                 return false
             }
             activeTaskCount += 1
-            print("📊 LocationService: Active tasks: \(activeTaskCount)/\(maxConcurrentTasks)")
+            logger.debug("Active tasks: \(activeTaskCount)/\(maxConcurrentTasks)")
             return true
         }
     }
 
     /// Decrements active task count
     private func decrementTaskCount() {
-        activeTaskCountQueue.async(flags: .barrier) {
+        activeTaskCountQueue.async(flags: .barrier) { [weak self] in
+            guard let self = self else { return }
             self.activeTaskCount = max(0, self.activeTaskCount - 1)
-            print("📊 LocationService: Active tasks: \(self.activeTaskCount)/\(self.maxConcurrentTasks)")
+            self.logger.debug("Active tasks: \(self.activeTaskCount)/\(self.maxConcurrentTasks)")
         }
     }
 
     /// Increments observer count with safety checks
     private func incrementObserverCount() -> Bool {
         guard observerCount < maxObservers else {
-            print("⚠️ LocationService: Maximum observers (\(maxObservers)) reached, rejecting new observer")
+            logger.warning("Maximum observers (\(maxObservers)) reached, rejecting new observer")
             return false
         }
         observerCount += 1
-        print("👁️ LocationService: Active observers: \(observerCount)/\(maxObservers)")
+        logger.debug("Active observers: \(observerCount)/\(maxObservers)")
         return true
     }
 
     /// Decrements observer count
     private func decrementObserverCount() {
         observerCount = max(0, observerCount - 1)
-        print("👁️ LocationService: Active observers: \(observerCount)/\(maxObservers)")
+        logger.debug("Active observers: \(observerCount)/\(maxObservers)")
     }
     
     /// Remove all observers and clean up
@@ -138,7 +143,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // Remove any remaining observers as fallback
         NotificationCenter.default.removeObserver(self)
         
-        print("🧹 All observers cleaned up")
+        logger.debug("All observers cleaned up")
     }
 
     /// Returns current resource usage for debugging
@@ -149,7 +154,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     /// Manual cleanup method for testing or emergency cleanup
     public func manualCleanup() {
-        print("🧹 Manual cleanup requested")
+        logger.debug("Manual cleanup requested")
         timerManager.cancelTimer(id: "location-update")
         performCleanup()
     }
@@ -163,8 +168,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         let hasExcessiveTasks = resourceUsage.activeTasks > 3
         
         if hasExcessiveInstances || hasExcessiveObservers || hasExcessiveTasks {
-            print("⚠️ Potential memory leak detected:")
-            print("   Instances: \(resourceUsage.instances)")
+            logger.warning("Potential memory leak detected: Instances: \(resourceUsage.instances)")
             print("   Observers: \(resourceUsage.observers)")
             print("   Active Tasks: \(resourceUsage.activeTasks)")
             return true
