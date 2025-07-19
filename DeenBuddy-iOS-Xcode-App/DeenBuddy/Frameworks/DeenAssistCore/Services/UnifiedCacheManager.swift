@@ -156,8 +156,9 @@ public class UnifiedCacheManager: ObservableObject {
     private var memoryCache: [String: Any] = [:]
     private var diskCache: [String: Data] = [:]
     private let cacheDirectory: URL
-    private let maxMemorySize: Int = 50 * 1024 * 1024 // 50MB
+    private var maxMemorySize: Int = 50 * 1024 * 1024 // 50MB
     private let maxDiskSize: Int = 200 * 1024 * 1024 // 200MB
+    private var maxEntries: Int = 1000 // Maximum number of cache entries
     
     private let queue = DispatchQueue(label: "UnifiedCacheManager", qos: .utility, attributes: .concurrent)
     private let encodingQueue = DispatchQueue(label: "UnifiedCacheManager.encoding", qos: .utility)
@@ -444,18 +445,30 @@ public class UnifiedCacheManager: ObservableObject {
     }
     
     private func enforceMemoryLimits() {
-        if statistics.totalSize > maxMemorySize || isMemoryPressure {
+        let memoryKeys = Set(memoryCache.keys)
+        let diskKeys = Set(diskCache.keys)
+        let uniqueKeys = memoryKeys.union(diskKeys)
+        let totalEntries = uniqueKeys.count
+        
+        if statistics.totalSize > maxMemorySize || totalEntries > maxEntries || isMemoryPressure {
             evictLeastRecentlyUsed()
         }
     }
     
     private func evictLeastRecentlyUsed() {
         // Implementation would sort by access time and remove oldest entries
-        // This is a simplified version
-        if memoryCache.count > 100 {
-            let keysToRemove = Array(memoryCache.keys.prefix(10))
+        // This is a simplified version that removes entries from both caches
+        let memoryKeys = Set(memoryCache.keys)
+        let diskKeys = Set(diskCache.keys)
+        let uniqueKeys = memoryKeys.union(diskKeys)
+        let totalEntries = uniqueKeys.count
+        
+        if totalEntries > maxEntries {
+            let keysToRemove = Array(uniqueKeys.prefix(10))
             for key in keysToRemove {
                 memoryCache.removeValue(forKey: key)
+                diskCache.removeValue(forKey: key)
+                removeDiskFile(forKey: key)
             }
         }
     }
@@ -523,21 +536,28 @@ public class UnifiedCacheManager: ObservableObject {
 
     /// PERFORMANCE: Monitor cache performance and memory usage
     public func getPerformanceMetrics() -> CachePerformanceMetrics {
-        let hitRate = statistics.totalHits > 0 ?
-            Double(statistics.totalHits) / Double(statistics.totalHits + statistics.totalMisses) : 0.0
-        let entryCount = memoryCache.count + diskCache.count
-        let averageEntrySize = entryCount > 0 ?
-            statistics.totalSize / entryCount : 0
+        return queue.sync {
+            let hitRate = statistics.totalHits > 0 ?
+                Double(statistics.totalHits) / Double(statistics.totalHits + statistics.totalMisses) : 0.0
+            
+            // Calculate unique entry count to avoid double-counting entries stored in both memory and disk
+            let memoryKeys = Set(memoryCache.keys)
+            let diskKeys = Set(diskCache.keys)
+            let uniqueKeys = memoryKeys.union(diskKeys)
+            let entryCount = uniqueKeys.count
+            
+            let averageEntrySize = entryCount > 0 ?
+                statistics.totalSize / entryCount : 0
 
-
-        return CachePerformanceMetrics(
-            hitRate: hitRate,
-            totalSize: statistics.totalSize,
-            entryCount: entryCount,
-            averageEntrySize: averageEntrySize,
-            memoryPressureEvents: isMemoryPressure ? 1 : 0,
-            typeStats: statistics.typeStats
-        )
+            return CachePerformanceMetrics(
+                hitRate: hitRate,
+                totalSize: statistics.totalSize,
+                entryCount: entryCount,
+                averageEntrySize: averageEntrySize,
+                memoryPressureEvents: isMemoryPressure ? 1 : 0,
+                typeStats: statistics.typeStats
+            )
+        }
     }
 
     /// PERFORMANCE: Proactive memory management based on device capabilities
