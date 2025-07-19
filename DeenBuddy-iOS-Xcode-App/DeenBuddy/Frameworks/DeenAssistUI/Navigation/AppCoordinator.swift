@@ -70,8 +70,15 @@ public class AppCoordinator: ObservableObject {
     
     public func start() {
         Task {
+            // PERFORMANCE: Start performance monitoring early
+            PerformanceMonitoringService.shared.startMonitoring()
+
             await loadSettings()
             await determineInitialScreen()
+
+            // PERFORMANCE: Log startup metrics
+            let report = PerformanceMonitoringService.shared.getPerformanceReport()
+            print("🚀 App startup completed - \(report.summary)")
         }
     }
     

@@ -444,34 +444,66 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     /// Start background location updates for traveler mode
     /// This will show the blue location arrow in the status bar
+    /// OPTIMIZED: Uses significant location changes only to reduce battery drain
     public func startBackgroundLocationUpdates() {
         guard authorizationStatus == .authorizedAlways else {
             print("❌ Background location requires 'Always' authorization. Current status: \(authorizationStatus)")
             return
         }
-        
+
         guard isLocationServicesAvailable() else {
             print("❌ Location services not available")
             return
         }
-        
-        // Configure for background updates
-        locationManager.allowsBackgroundLocationUpdates = true
-        locationManager.pausesLocationUpdatesAutomatically = false
-        
-        // Start monitoring significant location changes for battery efficiency
-        locationManager.startMonitoringSignificantLocationChanges()
-        
-        isUpdatingLocation = true
-        print("🌍 Started background location updates for traveler mode")
+
+        // BATTERY OPTIMIZATION: Check if we should enable background updates based on battery level
+        let shouldEnableBackground = batteryOptimizer.shouldEnableBackgroundLocationUpdates()
+
+        if shouldEnableBackground {
+            // Configure for background updates with battery optimization
+            locationManager.allowsBackgroundLocationUpdates = true
+            locationManager.pausesLocationUpdatesAutomatically = true // CHANGED: Allow automatic pausing
+
+            // BATTERY OPTIMIZATION: Use significant location changes only for background
+            locationManager.startMonitoringSignificantLocationChanges()
+
+            isUpdatingLocation = true
+            print("🌍 Started battery-optimized background location updates for traveler mode")
+        } else {
+            // Fallback to significant location changes only
+            startEfficientLocationUpdates()
+            print("🔋 Using efficient location updates due to battery optimization")
+        }
     }
-    
+
+    /// Start efficient location updates without background capability
+    /// BATTERY OPTIMIZATION: Uses significant location changes for minimal battery impact
+    public func startEfficientLocationUpdates() {
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else {
+            print("❌ Location permission required for efficient updates")
+            return
+        }
+
+        guard isLocationServicesAvailable() else {
+            print("❌ Location services not available")
+            return
+        }
+
+        // Use significant location changes for battery efficiency
+        locationManager.startMonitoringSignificantLocationChanges()
+        locationManager.allowsBackgroundLocationUpdates = false
+        locationManager.pausesLocationUpdatesAutomatically = true
+
+        isUpdatingLocation = true
+        print("🔋 Started efficient location updates (significant changes only)")
+    }
+
     /// Stop background location updates
     public func stopBackgroundLocationUpdates() {
         locationManager.allowsBackgroundLocationUpdates = false
         locationManager.pausesLocationUpdatesAutomatically = true
         locationManager.stopMonitoringSignificantLocationChanges()
-        
+
         isUpdatingLocation = false
         print("🌍 Stopped background location updates")
     }
@@ -791,23 +823,29 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         settingsService = DependencyContainer.shared.settingsService
     }
 
+    /// PERFORMANCE OPTIMIZATION: Intelligent location refresh with battery awareness
     private func refreshLocationIfNeeded() async {
         // Check if user has overridden battery optimization
         let userOverride = await MainActor.run {
             settingsService?.overrideBatteryOptimization ?? false
         }
-        
+
         // Check if we should perform location update
         let hasLocationPermission = authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways
         let shouldUpdate = await batteryOptimizer.shouldPerformLocationUpdate(userOverride: userOverride, hasLocationPermission: hasLocationPermission)
-        
+
         if !shouldUpdate {
+            print("🔋 Skipping location update due to battery optimization")
             return
         }
-        
+
+        // PERFORMANCE: Check cache validity with battery-aware intervals
         if let cached = cachedLocation {
             let interval = batteryOptimizer.getOptimizedUpdateInterval()
-            if Date().timeIntervalSince(cached.timestamp) < interval {
+            let timeSinceLastUpdate = Date().timeIntervalSince(cached.timestamp)
+
+            if timeSinceLastUpdate < interval {
+                print("🔋 Using cached location (age: \(Int(timeSinceLastUpdate))s, threshold: \(Int(interval))s)")
                 return
             }
         }
