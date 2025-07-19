@@ -613,23 +613,53 @@ public class UnifiedCacheManager: ObservableObject {
         // Sort by last accessed time (oldest first) for true LRU eviction
         entriesWithAccessTimes.sort { $0.lastAccessed < $1.lastAccessed }
         
-        // Calculate how many entries to remove
+        // Calculate how many entries to remove based on both entry count and memory size
         let totalEntries = entriesWithAccessTimes.count
-        let entriesToRemove = min(10, max(0, totalEntries - maxEntries))
+        let currentTotalSize = statistics.totalSize
+        
+        // Determine eviction criteria
+        let needsEntryCountEviction = totalEntries > maxEntries
+        let needsMemorySizeEviction = currentTotalSize > maxMemorySize
+        
+        // Calculate entries to remove for entry count limit
+        let entriesToRemoveForCount = needsEntryCountEviction ? totalEntries - maxEntries : 0
+        
+        // Calculate entries to remove for memory size limit
+        var entriesToRemoveForSize = 0
+        var cumulativeSize = 0
+        if needsMemorySizeEviction {
+            for entry in entriesWithAccessTimes {
+                cumulativeSize += entry.size
+                entriesToRemoveForSize += 1
+                if currentTotalSize - cumulativeSize <= maxMemorySize {
+                    break
+                }
+            }
+        }
+        
+        // Use the larger of the two eviction counts to ensure both limits are respected
+        let entriesToRemove = max(entriesToRemoveForCount, entriesToRemoveForSize)
         
         // Remove the oldest entries
+        var totalSizeRemoved = 0
         for i in 0..<entriesToRemove {
             let key = entriesWithAccessTimes[i].key
+            let entrySize = entriesWithAccessTimes[i].size
+            
             memoryCache.removeValue(forKey: key)
             diskCache.removeValue(forKey: key)
             removeDiskFile(forKey: key)
             
             // Update statistics
             statistics.totalEvictions += 1
+            totalSizeRemoved += entrySize
         }
         
+        // Decrement total size for removed entries
+        statistics.totalSize = max(0, statistics.totalSize - totalSizeRemoved)
+        
         if entriesToRemove > 0 {
-            print("🧹 LRU eviction: removed \(entriesToRemove) oldest cache entries")
+            print("🧹 LRU eviction: removed \(entriesToRemove) oldest cache entries, freed \(totalSizeRemoved) bytes")
         }
     }
     
