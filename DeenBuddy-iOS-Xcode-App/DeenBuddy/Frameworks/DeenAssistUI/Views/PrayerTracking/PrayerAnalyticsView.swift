@@ -634,8 +634,8 @@ public struct PrayerAnalyticsView: View {
 
             print("✅ File created successfully: \(fileName)")
             print("📁 File location: \(url.path)")
-            print("� File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
-            print("�📤 Content ready for sharing")
+            print("💡 File size: \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))")
+            print("📤 Content ready for sharing")
 
             // Copy to Documents directory for easier access
             copyToDocumentsDirectory(from: url, fileName: fileName)
@@ -669,7 +669,7 @@ public struct PrayerAnalyticsView: View {
 
         } catch {
             print("⚠️ Could not copy to Documents directory: \(error.localizedDescription)")
-            print("� File is still available at: \(sourceURL.path)")
+            print("💡 File is still available at: \(sourceURL.path)")
         }
     }
 

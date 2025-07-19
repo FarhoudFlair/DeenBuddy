@@ -506,6 +506,12 @@ extension BatteryAwareTimerManager {
         backgroundWork: @escaping () -> Void,
         uiUpdate: @escaping () -> Void
     ) {
+        // Validate that the timer type is a background type
+        guard !type.shouldRunOnMainThread else {
+            logger.error("Invalid timer type '\(type)' for background timer. Background timers must not run on main thread. Use scheduleTimer() for main thread timers.")
+            return
+        }
+        
         scheduleTimer(id: id, type: type) {
             // Perform background work
             backgroundWork()
@@ -531,6 +537,12 @@ extension BatteryAwareTimerManager {
         backgroundWork: @escaping () -> Void,
         asyncUIUpdate: @escaping () async -> Void
     ) {
+        // Validate that the timer type is a background type
+        guard !type.shouldRunOnMainThread else {
+            logger.error("Invalid timer type '\(type)' for background timer. Background timers must not run on main thread. Use scheduleTimer() for main thread timers.")
+            return
+        }
+        
         scheduleTimer(id: id, type: type) {
             // Perform background work
             backgroundWork()

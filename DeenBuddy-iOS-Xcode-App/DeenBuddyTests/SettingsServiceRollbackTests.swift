@@ -47,7 +47,7 @@ class SettingsServiceRollbackTests: XCTestCase {
     
     // MARK: - Rollback Tests
     
-    func testNotificationsEnabledRollbackOnSaveFailure() async throws {
+    func testNotificationsEnabledNoRollbackOnSuccessfulSave() async throws {
         // Given: Initial state with successful save
         let initialValue = true
         settingsService.notificationsEnabled = initialValue

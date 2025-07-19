@@ -259,12 +259,12 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
                 recentEntries = Array(recentEntries.suffix(100))
             }
 
-            // Increment all-time prayer counter
+            // Save to UserDefaults first to ensure data consistency
+            try saveEntriesToCache()
+
+            // Only increment all-time prayer counter after successful save
             allTimePrayersCompleted += 1
             userDefaults.set(allTimePrayersCompleted, forKey: CacheKeys.allTimePrayersCompleted)
-
-            // Save to UserDefaults
-            try saveEntriesToCache()
 
             // Update statistics
             calculateTodayStats()
@@ -295,13 +295,14 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         do {
             recentEntries.removeLast()
 
-            // Decrement all-time prayer counter
+            // Save to UserDefaults first to ensure data consistency
+            try saveEntriesToCache()
+
+            // Only decrement all-time prayer counter after successful save
             if allTimePrayersCompleted > 0 {
                 allTimePrayersCompleted -= 1
                 userDefaults.set(allTimePrayersCompleted, forKey: CacheKeys.allTimePrayersCompleted)
             }
-
-            try saveEntriesToCache()
 
             calculateTodayStats()
             calculateCurrentStreak()

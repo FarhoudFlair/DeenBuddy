@@ -223,13 +223,18 @@ public class AppCoordinator: ObservableObject {
 
         // Initialize background services
         Task {
-            // Register background tasks
-            backgroundTaskManager.registerBackgroundTasks()
-            print("📋 Background task registration initiated")
+            do {
+                // Register background tasks
+                backgroundTaskManager.registerBackgroundTasks()
+                print("📋 Background task registration initiated")
 
-            // Start background prayer refresh
-            backgroundPrayerRefreshService.startBackgroundRefresh()
-            print("🕌 Background prayer refresh service started")
+                // Start background prayer refresh
+                backgroundPrayerRefreshService.startBackgroundRefresh()
+                print("🕌 Background prayer refresh service started")
+            } catch {
+                print("❌ Failed to initialize background services: \(error)")
+                // Continue execution - background services are not critical for app functionality
+            }
         }
 
         print("🚀 Enhanced services initialized")

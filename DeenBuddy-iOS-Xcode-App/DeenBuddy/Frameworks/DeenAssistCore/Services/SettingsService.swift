@@ -14,10 +14,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.calculationMethod = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "calculationMethod",
@@ -34,10 +34,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.madhab = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "madhab",
@@ -54,10 +54,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.notificationsEnabled = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "notificationsEnabled",
@@ -74,10 +74,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.theme = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "theme",
@@ -94,10 +94,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.hasCompletedOnboarding = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "hasCompletedOnboarding",
@@ -114,10 +114,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.userName = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "userName",
@@ -134,10 +134,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.timeFormat = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "timeFormat",
@@ -154,10 +154,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.notificationOffset = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "notificationOffset",
@@ -174,10 +174,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.overrideBatteryOptimization = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "overrideBatteryOptimization",
@@ -194,10 +194,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
-                    await MainActor.run { 
+                    await MainActor.run {
                         self?.isRestoring = true
+                        defer { self?.isRestoring = false }
                         self?.showArabicSymbolInWidget = oldValue
-                        self?.isRestoring = false
                     }
                 },
                 propertyName: "showArabicSymbolInWidget",

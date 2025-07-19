@@ -50,11 +50,28 @@ public struct MainTabView: View {
                 }
             
             // 5. Settings Tab - Enhanced settings view with profile section
-            EnhancedSettingsView(
-                settingsService: coordinator.settingsService as! SettingsService,
-                themeManager: coordinator.themeManager,
-                onDismiss: { } // No dismiss needed in tab mode
-            )
+            Group {
+                if let settingsService = coordinator.settingsService as? SettingsService {
+                    EnhancedSettingsView(
+                        settingsService: settingsService,
+                        themeManager: coordinator.themeManager,
+                        onDismiss: { } // No dismiss needed in tab mode
+                    )
+                } else {
+                    // Fallback view in case of cast failure
+                    VStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Text("Settings Unavailable")
+                            .font(.headline)
+                        Text("Unable to load settings service")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                }
+            }
             .tabItem {
                 Image(systemName: "gear")
                 Text("Settings")
@@ -74,7 +91,7 @@ private struct MainAppView: View {
             HomeScreen(
                 prayerTimeService: coordinator.prayerTimeService,
                 locationService: coordinator.locationService,
-                settingsService: coordinator.settingsService as! SettingsService,
+                settingsService: coordinator.settingsService,
                 notificationService: coordinator.notificationService,
                 onCompassTapped: { }, // No action needed - available as tab
                 onGuidesTapped: { }, // No action needed - available as tab
