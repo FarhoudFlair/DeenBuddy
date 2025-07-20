@@ -57,6 +57,7 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         static let prayerBadges = "prayer_tracking_badges"
         static let lastCalculatedDate = "prayer_tracking_last_calculated"
         static let allTimePrayersCompleted = "prayer_tracking_all_time_completed"
+        static let migrationCompleted = "prayer_tracking_migration_completed"
     }
     
     // MARK: - Initialization
@@ -177,11 +178,14 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         allTimePrayersCompleted = userDefaults.integer(forKey: CacheKeys.allTimePrayersCompleted)
 
         // Handle data migration for existing users
-        if allTimePrayersCompleted == 0 && !allEntries.isEmpty {
+        let migrationCompleted = userDefaults.bool(forKey: CacheKeys.migrationCompleted)
+        if !migrationCompleted && !allEntries.isEmpty {
             // First time loading - migrate existing data
+            // All entries in the list are completed prayers (they have completedAt timestamp)
             allTimePrayersCompleted = allEntries.count
             userDefaults.set(allTimePrayersCompleted, forKey: CacheKeys.allTimePrayersCompleted)
-            print("🔄 Migrated prayer tracking data: \(allTimePrayersCompleted) total prayers")
+            userDefaults.set(true, forKey: CacheKeys.migrationCompleted)
+            print("🔄 Migrated prayer tracking data: \(allTimePrayersCompleted) completed prayers")
         }
 
         // Load and calculate current streak

@@ -294,7 +294,7 @@ public class BatteryAwareTimerManager: ObservableObject {
     }
     
     /// Get current timer statistics
-    public func getTimerStatistics() -> String {
+    public func getTimerStatisticsString() -> String {
         var stats = "Timer Statistics:\n"
         stats += "Power Mode: \(currentPowerMode)\n"
         stats += "Background Mode: \(isBackgroundMode)\n"

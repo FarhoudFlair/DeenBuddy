@@ -35,28 +35,28 @@ struct PerformanceDashboardView: View {
             if isExpanded {
                 // Quick Metrics
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
-                    MetricCard(
+                    PerformanceMetricCard(
                         title: "Memory",
                         value: "\(performanceService.currentMetrics.memoryUsage / 1024 / 1024)MB",
                         icon: "memorychip",
                         color: memoryColor
                     )
                     
-                    MetricCard(
+                    PerformanceMetricCard(
                         title: "Battery",
                         value: "\(Int(performanceService.currentMetrics.batteryLevel * 100))%",
                         icon: "battery.100",
                         color: batteryColor
                     )
                     
-                    MetricCard(
+                    PerformanceMetricCard(
                         title: "Timers",
                         value: "\(performanceService.currentMetrics.activeTimerCount)",
                         icon: "timer",
                         color: timerColor
                     )
                     
-                    MetricCard(
+                    PerformanceMetricCard(
                         title: "Cache Hit",
                         value: "\(String(format: "%.1f%%", performanceService.currentMetrics.cacheHitRate * 100))",
                         icon: "externaldrive",
@@ -164,7 +164,7 @@ struct PerformanceDashboardView: View {
 
 // MARK: - Metric Card
 
-struct MetricCard: View {
+struct PerformanceMetricCard: View {
     let title: String
     let value: String
     let icon: String

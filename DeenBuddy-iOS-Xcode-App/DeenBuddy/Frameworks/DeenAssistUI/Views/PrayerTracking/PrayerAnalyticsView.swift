@@ -186,7 +186,7 @@ public struct PrayerAnalyticsView: View {
             }
             
             HStack(spacing: 16) {
-                MetricCard(
+                PrayerMetricCard(
                     title: "Completion Rate",
                     value: "85%",
                     change: "+5%",
@@ -194,7 +194,7 @@ public struct PrayerAnalyticsView: View {
                     icon: "checkmark.circle.fill"
                 )
 
-                MetricCard(
+                PrayerMetricCard(
                     title: "Current Streak",
                     value: "5",
                     change: "+2 days",
@@ -204,7 +204,7 @@ public struct PrayerAnalyticsView: View {
             }
 
             HStack(spacing: 16) {
-                MetricCard(
+                PrayerMetricCard(
                     title: "Total Prayers",
                     value: "127",
                     change: "+12",
@@ -212,7 +212,7 @@ public struct PrayerAnalyticsView: View {
                     icon: "list.bullet"
                 )
 
-                MetricCard(
+                PrayerMetricCard(
                     title: "Best Prayer",
                     value: mostConsistentPrayer,
                     change: "85%",
@@ -678,7 +678,7 @@ public struct PrayerAnalyticsView: View {
 
 // MARK: - Supporting Views
 
-private struct MetricCard: View {
+private struct PrayerMetricCard: View {
     let title: String
     let value: String
     let change: String

@@ -13,7 +13,7 @@ public class PerformanceMonitoringService: ObservableObject {
     
     // MARK: - Published Properties
     
-    @Published public var currentMetrics: PerformanceMetrics = PerformanceMetrics()
+    @Published public var currentMetrics: MonitoringPerformanceMetrics = MonitoringPerformanceMetrics()
     @Published public var isMonitoring: Bool = false
     @Published public var alertLevel: PerformanceAlertLevel = .normal
     
@@ -166,7 +166,7 @@ public class PerformanceMonitoringService: ObservableObject {
         let timerStats = timerManager.getTimerStatistics()
         let cacheMetrics = cacheManager.getPerformanceMetrics()
         
-        currentMetrics = PerformanceMetrics(
+        currentMetrics = MonitoringPerformanceMetrics(
             memoryUsage: memoryUsage,
             batteryLevel: Double(batteryLevel),
             activeTimerCount: timerStats.activeTimerCount,
@@ -241,7 +241,7 @@ public class PerformanceMonitoringService: ObservableObject {
 
 // MARK: - Performance Models
 
-public struct PerformanceMetrics {
+public struct MonitoringPerformanceMetrics {
     public let memoryUsage: Int
     public let batteryLevel: Double
     public let activeTimerCount: Int
@@ -284,7 +284,7 @@ public struct PerformanceReport {
     public let memoryReport: MemoryReport
     public let timerStatistics: TimerStatistics
     public let cacheMetrics: CachePerformanceMetrics
-    public let currentMetrics: PerformanceMetrics
+    public let currentMetrics: MonitoringPerformanceMetrics
     public let alertLevel: PerformanceAlertLevel
     public let recommendations: [String]
     

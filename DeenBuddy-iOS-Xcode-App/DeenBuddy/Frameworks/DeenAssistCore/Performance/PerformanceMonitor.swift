@@ -8,7 +8,7 @@ public class PerformanceMonitor: ObservableObject {
     
     // MARK: - Published Properties
     
-    @Published public var currentMetrics: PerformanceMetrics = PerformanceMetrics()
+    @Published public var currentMetrics: DetailedPerformanceMetrics = DetailedPerformanceMetrics()
     @Published public var isMonitoring = false
     @Published public var performanceIssues: [PerformanceIssue] = []
     
@@ -16,7 +16,7 @@ public class PerformanceMonitor: ObservableObject {
     
     private var metricsTimer: Timer?
     private var operationTimers: [String: Date] = [:]
-    private var performanceHistory: [PerformanceMetrics] = []
+    private var performanceHistory: [DetailedPerformanceMetrics] = []
     private let maxHistoryCount = 100
     private var cancellables = Set<AnyCancellable>()
     
@@ -169,7 +169,7 @@ public class PerformanceMonitor: ObservableObject {
     }
     
     private func updateMetrics() {
-        let newMetrics = PerformanceMetrics(
+        let newMetrics = DetailedPerformanceMetrics(
             timestamp: Date(),
             cpuUsage: getCurrentCPUUsage(),
             memoryUsage: getCurrentMemoryUsage(),
@@ -287,7 +287,7 @@ public class PerformanceMonitor: ObservableObject {
         return Double(device.batteryLevel * 100)
     }
     
-    private func checkForPerformanceIssues(_ metrics: PerformanceMetrics) {
+    private func checkForPerformanceIssues(_ metrics: DetailedPerformanceMetrics) {
         // High CPU usage
         if metrics.cpuUsage > 80 {
             addPerformanceIssue(PerformanceIssue(
@@ -380,7 +380,7 @@ public class PerformanceMonitor: ObservableObject {
 
 // MARK: - Performance Models
 
-public struct PerformanceMetrics: Codable {
+public struct DetailedPerformanceMetrics: Codable {
     public let timestamp: Date
     public let cpuUsage: Double // Percentage
     public let memoryUsage: Double // MB
@@ -788,7 +788,7 @@ extension PerformanceIssue {
 }
 
 public struct PerformanceSummary {
-    public let currentMetrics: PerformanceMetrics
+    public let currentMetrics: DetailedPerformanceMetrics
     public let averageCPU: Double
     public let averageMemory: Double
     public let issueCount: Int
@@ -821,7 +821,7 @@ public struct PerformanceSummary {
 }
 
 public struct PerformanceExport: Codable {
-    public let metrics: [PerformanceMetrics]
+    public let metrics: [DetailedPerformanceMetrics]
     public let issues: [PerformanceIssue]
     public let summary: PerformanceSummary
     public let exportDate: Date
@@ -836,7 +836,7 @@ extension PerformanceSummary: Codable {
     
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        currentMetrics = try container.decode(PerformanceMetrics.self, forKey: .currentMetrics)
+        currentMetrics = try container.decode(DetailedPerformanceMetrics.self, forKey: .currentMetrics)
         averageCPU = try container.decode(Double.self, forKey: .averageCPU)
         averageMemory = try container.decode(Double.self, forKey: .averageMemory)
         issueCount = try container.decode(Int.self, forKey: .issueCount)
