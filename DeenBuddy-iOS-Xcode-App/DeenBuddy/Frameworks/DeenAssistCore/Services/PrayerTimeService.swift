@@ -41,13 +41,14 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private var updateNextPrayerTask: Task<Void, Never>?
     private let userDefaults = UserDefaults.standard
     private let islamicCacheManager: IslamicCacheManager
+    private let islamicCalendarService: any IslamicCalendarServiceProtocol
     
     // MARK: - Cache Keys (Now using UnifiedSettingsKeys)
     // Note: CacheKeys enum removed - now using UnifiedSettingsKeys for consistency
     
     // MARK: - Initialization
     
-    public init(locationService: any LocationServiceProtocol, settingsService: any SettingsServiceProtocol, apiClient: any APIClientProtocol, errorHandler: ErrorHandler, retryMechanism: RetryMechanism, networkMonitor: NetworkMonitor, islamicCacheManager: IslamicCacheManager) {
+    public init(locationService: any LocationServiceProtocol, settingsService: any SettingsServiceProtocol, apiClient: any APIClientProtocol, errorHandler: ErrorHandler, retryMechanism: RetryMechanism, networkMonitor: NetworkMonitor, islamicCacheManager: IslamicCacheManager, islamicCalendarService: any IslamicCalendarServiceProtocol) {
         self.locationService = locationService
         self.settingsService = settingsService
         self.apiClient = apiClient
@@ -55,6 +56,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         self.retryMechanism = retryMechanism
         self.networkMonitor = networkMonitor
         self.islamicCacheManager = islamicCacheManager
+        self.islamicCalendarService = islamicCalendarService
         setupLocationObserver()
         setupSettingsObservers()
         startTimer()
@@ -107,11 +109,37 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
 
             // Convert app's CalculationMethod to Adhan.CalculationMethod
             let adhanMethod = calculationMethod.toAdhanMethod()
-            var params = adhanMethod.params
-            params.madhab = madhab.adhanMadhab()
+            var params: CalculationParameters
+
+            // Use custom parameters for methods not directly supported by Adhan library
+            if let customParams = calculationMethod.customParameters() {
+                params = customParams
+                logger.info("Using custom parameters for \(calculationMethod.rawValue)")
+            } else {
+                params = adhanMethod.params
+            }
+
+            // CRITICAL: Always set madhab AFTER parameter initialization to ensure Asr calculation priority
+            // This ensures Hanafi madhab (2x shadow) takes precedence over any default madhab settings
+            let targetMadhab = madhab.adhanMadhab()
+            params.madhab = targetMadhab
+
+            // Validate that Hanafi madhab is properly applied (critical for Asr timing accuracy)
+            if madhab == .hanafi && params.madhab != .hanafi {
+                logger.error("CRITICAL: Hanafi madhab not properly applied - Asr calculation will be incorrect")
+                params.madhab = .hanafi // Force correction
+            }
+
+            logger.info("Applied madhab: \(params.madhab) for calculation method: \(calculationMethod.rawValue)")
+
+            // Apply Ramadan-specific adjustments for Umm Al-Qura and Qatar methods
+            await applyRamadanAdjustments(to: &params, for: date)
 
             // Apply custom madhab-specific adjustments
             applyMadhabAdjustments(to: &params, madhab: madhab)
+
+            // Final validation to ensure madhab priority is maintained
+            validateMadhabApplication(params: params, expectedMadhab: madhab)
 
             // Use Adhan.PrayerTimes to avoid collision with app's PrayerTimes
             guard let adhanPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: params) else {
@@ -127,7 +155,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             ]
 
             // Apply post-calculation madhab adjustments
-            prayerTimes = applyPostCalculationAdjustments(to: prayerTimes, madhab: madhab)
+            prayerTimes = await applyPostCalculationAdjustments(to: prayerTimes, madhab: madhab)
 
             // Cache the results
             cachePrayerTimes(prayerTimes, for: date)
@@ -704,33 +732,148 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         return AppError.unknownError(error)
     }
 
+    // MARK: - Ramadan Adjustments
+
+    /// Apply Ramadan-specific adjustments for calculation methods that require them
+    private func applyRamadanAdjustments(to params: inout CalculationParameters, for date: Date) async {
+        // Only apply Ramadan adjustments for methods that use fixed Isha intervals
+        guard calculationMethod == .ummAlQura || calculationMethod == .qatar else {
+            return
+        }
+
+        // Check if the date is during Ramadan
+        let isRamadan = await islamicCalendarService.isRamadan()
+
+        if isRamadan {
+            // During Ramadan, extend Isha interval from 90 to 120 minutes for KSA/Qatar methods
+            if calculationMethod == .ummAlQura || calculationMethod == .qatar {
+                params.ishaInterval = 120  // 120 minutes during Ramadan
+                logger.info("Applied Ramadan Isha adjustment: 120 minutes for \(calculationMethod.rawValue)")
+            }
+        }
+    }
+
     // MARK: - Madhab Adjustments
 
     /// Apply madhab-specific adjustments to calculation parameters
+    /// Note: Madhab primarily affects Asr shadow calculation, not twilight angles
+    /// Twilight angles should be determined by the selected calculation method
+    ///
+    /// PRIORITY LOGIC:
+    /// 1. Madhab ALWAYS takes priority for Asr calculation (shadow multiplier)
+    /// 2. Calculation method takes priority for twilight angles (Fajr/Isha)
+    /// 3. Hanafi madhab MUST result in 2x shadow length for Asr
     private func applyMadhabAdjustments(to params: inout CalculationParameters, madhab: Madhab) {
-        // Apply custom twilight angles for Isha prayer
-        params.ishaAngle = madhab.ishaTwilightAngle
+        // CRITICAL: Ensure madhab is properly set for Asr shadow calculation
+        let targetMadhab = madhab.adhanMadhab()
+        params.madhab = targetMadhab
 
-        // For Ja'fari madhab, we need special handling since Adhan doesn't support it directly
+        // Validate Hanafi madhab application (most critical for Asr timing accuracy)
+        if madhab == .hanafi {
+            if params.madhab != .hanafi {
+                logger.error("PRIORITY VIOLATION: Hanafi madhab not applied - forcing correction")
+                params.madhab = .hanafi
+            }
+            logger.info("✅ Hanafi madhab confirmed - Asr will use 2x shadow length calculation")
+        }
+
+        // Apply Ja'fari-specific Maghrib delay if using Ja'fari madhab
         if madhab == .jafari {
-            // Use custom angles for Ja'fari calculations
-            params.fajrAngle = 16.0  // Ja'fari Fajr angle
-            params.ishaAngle = 14.0  // Ja'fari Isha angle
+            // Ja'fari madhab requires a delay after sunset for Maghrib
+            // This will be handled in post-calculation adjustments
+            logger.info("Ja'fari madhab selected - Maghrib delay will be applied post-calculation")
+        }
+
+        // Log final madhab application for debugging
+        logger.info("Final madhab applied: \(params.madhab.rawValue) (requested: \(madhab.rawValue))")
+
+        // Note: Twilight angles are determined by calculation method selection
+        // Users can choose specific calculation methods for twilight angles
+        // The madhab setting ONLY affects Asr prayer timing through shadow length calculation
+    }
+
+    /// Validate that madhab has been correctly applied to calculation parameters
+    /// This is critical for ensuring Hanafi Asr calculation priority is maintained
+    private func validateMadhabApplication(params: CalculationParameters, expectedMadhab: Madhab) {
+        let expectedAdhanMadhab = expectedMadhab.adhanMadhab()
+
+        guard params.madhab == expectedAdhanMadhab else {
+            logger.error("❌ MADHAB PRIORITY VIOLATION: Expected \(expectedAdhanMadhab), got \(params.madhab)")
+            logger.error("This will cause incorrect Asr prayer timing for \(expectedMadhab.displayName) users")
+
+            // This is a critical error that affects prayer timing accuracy
+            assertionFailure("Madhab priority logic failed - Asr calculation will be incorrect")
+            return
+        }
+
+        // Special validation for Hanafi madhab (most critical)
+        if expectedMadhab == .hanafi {
+            logger.info("✅ HANAFI PRIORITY CONFIRMED: Asr will use 2x shadow length (later timing)")
+        } else {
+            logger.info("✅ Madhab priority confirmed: \(expectedMadhab.displayName) applied correctly")
         }
     }
 
     /// Apply post-calculation adjustments for specific madhab requirements
-    private func applyPostCalculationAdjustments(to prayerTimes: [PrayerTime], madhab: Madhab) -> [PrayerTime] {
+    private func applyPostCalculationAdjustments(to prayerTimes: [PrayerTime], madhab: Madhab) async -> [PrayerTime] {
         var adjustedTimes = prayerTimes
 
         // Apply Maghrib delay for Ja'fari madhab
         if madhab == .jafari, let maghribIndex = adjustedTimes.firstIndex(where: { $0.prayer == .maghrib }) {
-            let delayInSeconds = madhab.maghribDelayMinutes * 60
-            let adjustedMaghribTime = adjustedTimes[maghribIndex].time.addingTimeInterval(delayInSeconds)
-            adjustedTimes[maghribIndex] = PrayerTime(prayer: .maghrib, time: adjustedMaghribTime)
+
+            // Check if user prefers astronomical calculation
+            let useAstronomical = await settingsService.useAstronomicalMaghrib
+
+            if useAstronomical, let maghribAngle = madhab.maghribAngle {
+                // Use astronomical calculation (4° below horizon)
+                let adjustedMaghribTime = try? await calculateAstronomicalMaghrib(
+                    for: adjustedTimes[maghribIndex].time,
+                    angle: maghribAngle
+                )
+
+                if let astronomicalTime = adjustedMaghribTime {
+                    adjustedTimes[maghribIndex] = PrayerTime(prayer: .maghrib, time: astronomicalTime)
+                    logger.info("Applied astronomical Ja'fari Maghrib calculation (\(maghribAngle)° below horizon)")
+                } else {
+                    // Fallback to fixed delay if astronomical calculation fails
+                    let delayInSeconds = madhab.maghribDelayMinutes * 60
+                    let adjustedMaghribTime = adjustedTimes[maghribIndex].time.addingTimeInterval(delayInSeconds)
+                    adjustedTimes[maghribIndex] = PrayerTime(prayer: .maghrib, time: adjustedMaghribTime)
+                    logger.warning("Astronomical Maghrib calculation failed, using fixed delay fallback")
+                }
+            } else {
+                // Use fixed delay method (15 minutes)
+                let delayInSeconds = madhab.maghribDelayMinutes * 60
+                let adjustedMaghribTime = adjustedTimes[maghribIndex].time.addingTimeInterval(delayInSeconds)
+                adjustedTimes[maghribIndex] = PrayerTime(prayer: .maghrib, time: adjustedMaghribTime)
+                logger.info("Applied fixed Ja'fari Maghrib delay (\(madhab.maghribDelayMinutes) minutes)")
+            }
         }
 
         return adjustedTimes
+    }
+
+    /// Calculate astronomical Maghrib time when sun is at specified angle below horizon
+    private func calculateAstronomicalMaghrib(for sunsetTime: Date, angle: Double) async throws -> Date {
+        // Get current location
+        let location = try await locationService.requestLocation()
+
+        let coordinates = Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: sunsetTime)
+
+        // Create custom calculation parameters for the specified angle
+        var params = Adhan.CalculationMethod.other.params
+        params.fajrAngle = 18.0
+        params.ishaAngle = angle
+        params.madhab = Adhan.Madhab.shafi // Use Shafi as base
+
+        // Calculate prayer times with custom Isha angle (representing our Maghrib angle)
+        guard let customPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: params) else {
+            throw AppError.serviceUnavailable("Astronomical Maghrib calculation")
+        }
+
+        // Return the Isha time as our astronomical Maghrib time
+        return customPrayerTimes.isha
     }
 }
 
@@ -760,6 +903,35 @@ extension CalculationMethod {
             return .qatar
         case .singapore:
             return .singapore
+        case .jafariLeva:
+            return .other // Custom Ja'fari implementation
+        case .jafariTehran:
+            return .other // Custom Ja'fari implementation
+        case .fcnaCanada:
+            return .other // Custom FCNA implementation
+        }
+    }
+
+    /// Returns custom calculation parameters for methods not directly supported by Adhan library
+    func customParameters() -> CalculationParameters? {
+        switch self {
+        case .jafariLeva:
+            var params = Adhan.CalculationMethod.other.params
+            params.fajrAngle = 16.0
+            params.ishaAngle = 14.0
+            return params
+        case .jafariTehran:
+            var params = Adhan.CalculationMethod.other.params
+            params.fajrAngle = 17.7
+            params.ishaAngle = 14.0
+            return params
+        case .fcnaCanada:
+            var params = Adhan.CalculationMethod.other.params
+            params.fajrAngle = 13.0
+            params.ishaAngle = 13.0
+            return params
+        default:
+            return nil
         }
     }
 }

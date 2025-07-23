@@ -90,6 +90,7 @@ public struct NotificationSettingsView: View {
 private class NotificationPreviewMockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
     @Published var madhab: Madhab = .shafi
+    @Published var useAstronomicalMaghrib: Bool = false
     @Published var notificationsEnabled: Bool = true
     @Published var notificationOffset: TimeInterval = 600
     @Published var userName: String = "Test User"

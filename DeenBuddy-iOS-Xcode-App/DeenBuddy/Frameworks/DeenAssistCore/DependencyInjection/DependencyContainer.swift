@@ -105,7 +105,9 @@ public class DependencyContainer: ObservableObject {
         } else {
             resolvedIslamicCacheManager = await MainActor.run { IslamicCacheManager() }
         }
-        
+
+        let resolvedIslamicCalendarService = await MainActor.run { IslamicCalendarService() }
+
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol
         if let prayerTimeService = prayerTimeService {
             resolvedPrayerTimeService = prayerTimeService
@@ -117,7 +119,8 @@ public class DependencyContainer: ObservableObject {
                 errorHandler: resolvedErrorHandler,
                 retryMechanism: resolvedRetryMechanism,
                 networkMonitor: NetworkMonitor.shared,
-                islamicCacheManager: resolvedIslamicCacheManager
+                islamicCacheManager: resolvedIslamicCacheManager,
+                islamicCalendarService: resolvedIslamicCalendarService
             ) }
         }
 
@@ -152,8 +155,6 @@ public class DependencyContainer: ObservableObject {
         ) }
 
         let resolvedTasbihService = await MainActor.run { TasbihService() }
-
-        let resolvedIslamicCalendarService = await MainActor.run { IslamicCalendarService() }
 
         let container = DependencyContainer(
             locationService: resolvedLocationService,
@@ -318,7 +319,8 @@ public class ServiceFactory {
         errorHandler: ErrorHandler,
         retryMechanism: RetryMechanism,
         networkMonitor: NetworkMonitor,
-        islamicCacheManager: IslamicCacheManager
+        islamicCacheManager: IslamicCacheManager,
+        islamicCalendarService: any IslamicCalendarServiceProtocol
     ) -> any PrayerTimeServiceProtocol {
         return PrayerTimeService(
             locationService: locationService,
@@ -327,7 +329,8 @@ public class ServiceFactory {
             errorHandler: errorHandler,
             retryMechanism: retryMechanism,
             networkMonitor: networkMonitor,
-            islamicCacheManager: islamicCacheManager
+            islamicCacheManager: islamicCacheManager,
+            islamicCalendarService: islamicCalendarService
         )
     }
 
@@ -349,6 +352,8 @@ public extension DependencyContainer {
         let resolvedErrorHandler: ErrorHandler = ErrorHandler(crashReporter: CrashReporter())
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
         let resolvedIslamicCacheManager = IslamicCacheManager()
+        let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
+
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = PrayerTimeService(
             locationService: resolvedLocationService,
             settingsService: resolvedSettingsService,
@@ -356,7 +361,8 @@ public extension DependencyContainer {
             errorHandler: resolvedErrorHandler,
             retryMechanism: resolvedRetryMechanism,
             networkMonitor: NetworkMonitor.shared,
-            islamicCacheManager: resolvedIslamicCacheManager
+            islamicCacheManager: resolvedIslamicCacheManager,
+            islamicCalendarService: resolvedIslamicCalendarService
         )
 
         let resolvedPrayerTrackingService: any PrayerTrackingServiceProtocol = PrayerTrackingService(
@@ -377,8 +383,6 @@ public extension DependencyContainer {
         )
 
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
-
-        let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
 
         // Create background services with proper dependencies
         let resolvedBackgroundTaskManager = BackgroundTaskManager(
@@ -426,6 +430,8 @@ public extension DependencyContainer {
         let resolvedErrorHandler: ErrorHandler = ErrorHandler(crashReporter: CrashReporter())
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
         let resolvedIslamicCacheManager = IslamicCacheManager()
+        let resolvedIslamicCalendarServiceForTesting: any IslamicCalendarServiceProtocol = IslamicCalendarService()
+
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = prayerTimeService ?? PrayerTimeService(
             locationService: resolvedLocationService,
             settingsService: resolvedSettingsService,
@@ -433,7 +439,8 @@ public extension DependencyContainer {
             errorHandler: resolvedErrorHandler,
             retryMechanism: resolvedRetryMechanism,
             networkMonitor: NetworkMonitor.shared,
-            islamicCacheManager: resolvedIslamicCacheManager
+            islamicCacheManager: resolvedIslamicCacheManager,
+            islamicCalendarService: resolvedIslamicCalendarServiceForTesting
         )
 
         // Create mock background services for testing

@@ -587,14 +587,16 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     }
 
     private func updatePermissionStatus() {
-        Task {
-            let settings = await notificationCenter.notificationSettings()
-            
+        Task { [weak self] in
+            guard let self = self else { return }
+
+            let settings = await self.notificationCenter.notificationSettings()
             let status = settings.authorizationStatus
-            
-            await MainActor.run {
-                authorizationStatus = status
-                permissionSubject.send(status)
+
+            await MainActor.run { [weak self] in
+                guard let self = self else { return }
+                self.authorizationStatus = status
+                self.permissionSubject.send(status)
             }
         }
     }

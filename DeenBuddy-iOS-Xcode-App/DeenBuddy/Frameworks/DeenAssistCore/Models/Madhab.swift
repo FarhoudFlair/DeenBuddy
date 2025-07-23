@@ -29,11 +29,22 @@ public enum Madhab: String, CaseIterable, Codable, Identifiable {
     }
 
     /// Delay in minutes after sunset for Maghrib prayer
+    /// For Ja'fari madhab, this represents the time needed for the redness to disappear from the eastern horizon
     public var maghribDelayMinutes: Double {
         switch self {
         case .hanafi: return 0.0   // Hanafi: at sunset
         case .shafi: return 0.0    // Shafi'i: at sunset
-        case .jafari: return 4.0   // Ja'fari: 4 minutes after sunset
+        case .jafari: return 15.0  // Ja'fari: 15 minutes after sunset (conservative approximation)
+        }
+    }
+
+    /// Astronomical angle for Ja'fari Maghrib calculation (degrees below horizon)
+    /// This represents the angle when redness disappears from the eastern horizon
+    public var maghribAngle: Double? {
+        switch self {
+        case .hanafi: return nil   // Hanafi: uses sunset
+        case .shafi: return nil    // Shafi'i: uses sunset
+        case .jafari: return 4.0   // Ja'fari: 4 degrees below horizon for astronomical accuracy
         }
     }
 

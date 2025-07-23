@@ -432,20 +432,45 @@ final class NotificationIntegrationTests: XCTestCase {
 /// Mock settings service for testing
 @MainActor
 class MockSettingsService: SettingsServiceProtocol, ObservableObject {
-    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
-    @Published var madhab: Madhab = .shafi
-    @Published var notificationsEnabled: Bool = true
-    @Published var theme: ThemeMode = .dark
-    @Published var timeFormat: TimeFormat = .twelveHour
-    @Published var notificationOffset: TimeInterval = 300
-    @Published var overrideBatteryOptimization: Bool = false
-    @Published var hasCompletedOnboarding: Bool = false
-    @Published var userName: String = ""
-    @Published var showArabicSymbolInWidget: Bool = true
+    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var madhab: Madhab = .shafi {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var notificationsEnabled: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var theme: ThemeMode = .dark {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var timeFormat: TimeFormat = .twelveHour {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var notificationOffset: TimeInterval = 300 {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var overrideBatteryOptimization: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var hasCompletedOnboarding: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var userName: String = "" {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var showArabicSymbolInWidget: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    /// Send notification when settings change (to match real SettingsService behavior)
+    private func notifySettingsChanged() {
+        NotificationCenter.default.post(name: .settingsDidChange, object: self)
     }
 
     func saveSettings() async throws {}

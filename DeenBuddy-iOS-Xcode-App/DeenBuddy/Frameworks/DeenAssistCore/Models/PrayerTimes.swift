@@ -105,6 +105,9 @@ public enum CalculationMethod: String, CaseIterable, Codable, Identifiable, Send
     case kuwait = "Kuwait"
     case qatar = "Qatar"
     case singapore = "Singapore"
+    case jafariLeva = "JafariLeva"
+    case jafariTehran = "JafariTehran"
+    case fcnaCanada = "FCNACanada"
     
     public var displayName: String {
         switch self {
@@ -118,6 +121,9 @@ public enum CalculationMethod: String, CaseIterable, Codable, Identifiable, Send
         case .kuwait: return "Kuwait"
         case .qatar: return "Qatar"
         case .singapore: return "Singapore"
+        case .jafariLeva: return "Ja'fari (Leva Institute, Qum)"
+        case .jafariTehran: return "Ja'fari (Tehran IOG)"
+        case .fcnaCanada: return "FCNA (Canada)"
         }
     }
     
@@ -143,6 +149,12 @@ public enum CalculationMethod: String, CaseIterable, Codable, Identifiable, Send
             return "Used in Qatar"
         case .singapore:
             return "Used in Singapore"
+        case .jafariLeva:
+            return "Ja'fari method with 16°/14° angles (Leva Institute, Qum)"
+        case .jafariTehran:
+            return "Ja'fari method with 17.7°/14° angles (Tehran Institute of Geophysics)"
+        case .fcnaCanada:
+            return "Fiqh Council of North America method for Canada (13°/13°)"
         }
     }
 }

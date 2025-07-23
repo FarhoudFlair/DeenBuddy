@@ -19,7 +19,10 @@ public enum UnifiedSettingsKeys {
     
     /// Madhab for Asr prayer calculation (Shafi, Hanafi)
     public static let madhab = "DeenBuddy.Settings.Madhab"
-    
+
+    /// Whether to use astronomical calculation for Ja'fari Maghrib (vs fixed delay)
+    public static let useAstronomicalMaghrib = "DeenBuddy.Settings.UseAstronomicalMaghrib"
+
     // MARK: - App Settings (SettingsService)
     
     /// Whether prayer notifications are enabled

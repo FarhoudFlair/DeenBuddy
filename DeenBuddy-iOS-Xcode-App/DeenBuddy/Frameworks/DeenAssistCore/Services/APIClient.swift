@@ -338,6 +338,9 @@ public class APIClient: APIClientProtocol, ObservableObject {
         case .kuwait: return 9
         case .qatar: return 10
         case .singapore: return 11
+        case .jafariLeva: return 99  // Custom method - use fallback ID
+        case .jafariTehran: return 99  // Custom method - use fallback ID
+        case .fcnaCanada: return 99  // Custom method - use fallback ID
         }
     }
 

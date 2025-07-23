@@ -31,7 +31,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         didSet {
             // Skip observer actions during rollback operations
             guard !isRestoring else { return }
-            
+
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
                     await MainActor.run {
@@ -43,6 +43,26 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
                 propertyName: "madhab",
                 oldValue: oldValue.rawValue,
                 newValue: madhab.rawValue
+            )
+        }
+    }
+
+    @Published public var useAstronomicalMaghrib: Bool = false {
+        didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.useAstronomicalMaghrib = oldValue
+                    }
+                },
+                propertyName: "useAstronomicalMaghrib",
+                oldValue: String(oldValue),
+                newValue: String(useAstronomicalMaghrib)
             )
         }
     }
@@ -270,6 +290,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             // Save madhab
             userDefaults.set(madhab.rawValue, forKey: UnifiedSettingsKeys.madhab)
 
+            // Save astronomical Maghrib setting
+            userDefaults.set(useAstronomicalMaghrib, forKey: UnifiedSettingsKeys.useAstronomicalMaghrib)
+
             // Save notifications enabled
             userDefaults.set(notificationsEnabled, forKey: UnifiedSettingsKeys.notificationsEnabled)
 
@@ -351,6 +374,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         } else {
             throw SettingsError.missingRequiredSetting(UnifiedSettingsKeys.madhab)
         }
+
+        // Load astronomical Maghrib setting (defaults to false)
+        useAstronomicalMaghrib = userDefaults.bool(forKey: UnifiedSettingsKeys.useAstronomicalMaghrib)
 
         // Load other settings with defaults
         notificationsEnabled = userDefaults.bool(forKey: UnifiedSettingsKeys.notificationsEnabled)
@@ -511,6 +537,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
                 calculationMethod = .muslimWorldLeague
                 madhab = .shafi
+                useAstronomicalMaghrib = false
                 notificationsEnabled = true
                 theme = .dark
                 timeFormat = .twelveHour

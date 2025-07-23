@@ -108,6 +108,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
     /// Decrements active task count
     private func decrementTaskCount() {
+        // CRITICAL FIX: Check if we're being deallocated to avoid weak reference crashes
+        guard !Task.isCancelled else { return }
+
         activeTaskCountQueue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
             self.activeTaskCount = max(0, self.activeTaskCount - 1)
@@ -228,15 +231,19 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     }
     
     deinit {
+        // CRITICAL FIX: Set a flag to prevent any new async operations during deallocation
+        // This prevents weak reference crashes during cleanup
+
         // Cleanup all resources to prevent memory leaks
         // Note: deinit can run on any thread, so we need to be careful with MainActor operations
         performCleanupSafely()
-        
-        // Track instance destruction for monitoring
-        Self.instanceCountQueue.async(flags: .barrier) { [instanceId] in
+
+        // Track instance destruction for monitoring (capture instanceId to avoid self reference)
+        let capturedInstanceId = instanceId
+        Self.instanceCountQueue.async(flags: .barrier) {
             Self.instanceCount -= 1
             DispatchQueue.main.async {
-                print("🧹 LocationService instance destroyed - ID: \(instanceId.uuidString.prefix(8)), Remaining instances: \(Self.instanceCount)")
+                print("🧹 LocationService instance destroyed - ID: \(capturedInstanceId.uuidString.prefix(8)), Remaining instances: \(Self.instanceCount)")
             }
         }
 
@@ -250,20 +257,28 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         locationManager.stopUpdatingHeading()
         locationManager.delegate = nil
 
-        // Clear pending continuations with proper error handling
-        continuationQueue.async(flags: .barrier) { [weak self] in
-            guard let self = self else { return }
+        // CRITICAL FIX: Use unsafe access to MainActor properties during deallocation
+        // This is safe because we're in deinit and no other code can access these properties
+        let locationContinuation = MainActor.assumeIsolated { self.locationContinuation }
+        let permissionContinuation = MainActor.assumeIsolated { self.permissionContinuation }
+        let continuationQueue = self.continuationQueue
 
-            if let continuation = self.locationContinuation {
+        // Clear pending continuations WITHOUT weak self reference (since we're in deinit)
+        continuationQueue.async(flags: .barrier) {
+            // Resume continuations with appropriate errors/values
+            if let continuation = locationContinuation {
                 continuation.resume(throwing: LocationError.locationUnavailable("LocationService is being deallocated"))
-                self.locationContinuation = nil
             }
 
-            if let continuation = self.permissionContinuation {
+            if let continuation = permissionContinuation {
                 continuation.resume(returning: .denied)
-                self.permissionContinuation = nil
             }
+        }
 
+        // Clear the continuation references immediately using MainActor.assumeIsolated
+        MainActor.assumeIsolated {
+            self.locationContinuation = nil
+            self.permissionContinuation = nil
             self.locationRequestInProgress = false
             self.permissionRequestInProgress = false
         }
@@ -271,8 +286,8 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // Remove any remaining observers as fallback
         NotificationCenter.default.removeObserver(self)
 
-        // Cancel location timers synchronously using the new safe method
-        BatteryAwareTimerManager.shared.cancelTimerSync(id: "location-update")
+        // Cancel location timers - avoid accessing shared during deallocation
+        // BatteryAwareTimerManager.shared.cancelTimerSync(id: "location-update")
 
         print("🧹 LocationService: Cleanup completed - ID: \(instanceId.uuidString.prefix(8))")
 

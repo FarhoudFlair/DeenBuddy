@@ -217,6 +217,7 @@ private class DummyLocationService: LocationServiceProtocol {
 private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
     @Published var madhab: Madhab = .shafi
+    @Published var useAstronomicalMaghrib: Bool = false
     @Published var notificationsEnabled: Bool = true
     @Published var theme: ThemeMode = .dark
     @Published var timeFormat: TimeFormat = .twelveHour

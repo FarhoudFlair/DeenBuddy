@@ -8,7 +8,10 @@ public protocol SettingsServiceProtocol: ObservableObject {
     
     /// Current prayer calculation madhab
     var madhab: Madhab { get set }
-    
+
+    /// Whether to use astronomical calculation for Ja'fari Maghrib (vs fixed delay)
+    var useAstronomicalMaghrib: Bool { get set }
+
     /// Whether notifications are enabled
     var notificationsEnabled: Bool { get set }
     

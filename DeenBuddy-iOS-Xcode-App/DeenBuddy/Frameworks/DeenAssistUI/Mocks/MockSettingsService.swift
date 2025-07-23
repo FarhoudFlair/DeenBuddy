@@ -10,6 +10,9 @@ public class MockSettingsService: SettingsServiceProtocol {
     @Published public var madhab: Madhab = .shafi {
         didSet { notifySettingsChanged() }
     }
+    @Published public var useAstronomicalMaghrib: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
     @Published public var notificationsEnabled: Bool = true {
         didSet { notifySettingsChanged() }
     }

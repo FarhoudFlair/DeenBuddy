@@ -184,7 +184,8 @@ class SettingsUITests: XCTestCase {
 }
 
 // MARK: - Notification Extensions
+// Note: Using the same notification name as defined in NotificationService.swift
 
 extension Notification.Name {
-    static let settingsDidChange = Notification.Name("settingsDidChange")
+    static let settingsDidChange = Notification.Name("DeenAssist.SettingsDidChange")
 }

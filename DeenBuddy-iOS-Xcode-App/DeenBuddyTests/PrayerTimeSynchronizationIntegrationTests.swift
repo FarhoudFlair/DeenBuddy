@@ -144,10 +144,21 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
             prayerTimeService.$todaysPrayerTimes
                 .dropFirst() // Skip initial empty value
                 .sink { prayerTimes in
+                    print("🕌 Test: Received prayer times update with \(prayerTimes.count) times")
                     if !prayerTimes.isEmpty {
                         prayerTimeUpdates.append(prayerTimes)
+                        print("🕌 Test: Fulfilling expectation (\(prayerTimeUpdates.count)/2)")
                         expectation.fulfill()
                     }
+                }
+                .store(in: &cancellables)
+        }
+
+        // Add notification observer for debugging
+        await MainActor.run {
+            NotificationCenter.default.publisher(for: .settingsDidChange)
+                .sink { _ in
+                    print("🔔 Test: Settings change notification received")
                 }
                 .store(in: &cancellables)
         }
@@ -156,8 +167,8 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         // 1. Initial prayer time calculation
         await prayerTimeService.refreshPrayerTimes()
 
-        // Wait for initial calculation (increased for debouncing)
-        try await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds
+        // Wait for initial calculation (account for debouncing + async operations)
+        try await Task.sleep(nanoseconds: 1_200_000_000) // 1.2 seconds
 
         // 2. Change settings (should trigger cache invalidation and recalculation)
         await MainActor.run {
@@ -165,11 +176,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
             settingsService.madhab = Madhab.hanafi
         }
 
-        // Wait for settings change propagation (increased for debouncing + async operations)
-        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
+        // Wait for settings change propagation (account for 300ms debounce + async operations)
+        try await Task.sleep(nanoseconds: 2_000_000_000) // 2.0 seconds
 
         // Then: Verify complete synchronization
-        await fulfillment(of: [expectation], timeout: 15.0)
+        await fulfillment(of: [expectation], timeout: 25.0) // Increased timeout for CI
 
         XCTAssertEqual(prayerTimeUpdates.count, 2, "Should have initial and updated prayer times")
 
@@ -291,31 +302,42 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await MainActor.run {
             prayerTimeService.$todaysPrayerTimes
                 .dropFirst()
-                .sink { _ in
+                .sink { prayerTimes in
                     Task { @MainActor in
-                        calculationMethods.append(self.prayerTimeService.calculationMethod)
+                        let currentMethod = self.prayerTimeService.calculationMethod
+                        calculationMethods.append(currentMethod)
+                        print("🕌 Test: Prayer times updated, method: \(currentMethod.displayName), count: \(calculationMethods.count)")
                         expectation.fulfill()
                     }
                 }
                 .store(in: &cancellables)
         }
 
+        // Add notification observer for debugging
+        await MainActor.run {
+            NotificationCenter.default.publisher(for: .settingsDidChange)
+                .sink { _ in
+                    print("🔔 Test: Settings change notification received")
+                }
+                .store(in: &cancellables)
+        }
+
         // When: User workflow - initial load, then changes method twice
         await prayerTimeService.refreshPrayerTimes()
-        try await Task.sleep(nanoseconds: 800_000_000) // Increased for debouncing
+        try await Task.sleep(nanoseconds: 1_200_000_000) // Account for debouncing + async operations
 
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.egyptian
         }
-        try await Task.sleep(nanoseconds: 1_500_000_000) // Increased for debouncing + async
+        try await Task.sleep(nanoseconds: 2_000_000_000) // Account for 300ms debounce + async operations
 
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.karachi
         }
-        try await Task.sleep(nanoseconds: 1_500_000_000) // Increased for debouncing + async
+        try await Task.sleep(nanoseconds: 2_000_000_000) // Account for 300ms debounce + async operations
 
         // Then: All changes should be reflected
-        await fulfillment(of: [expectation], timeout: 20.0) // Increased timeout
+        await fulfillment(of: [expectation], timeout: 30.0) // Increased timeout for CI
 
         // Defensive check for array bounds
         XCTAssertGreaterThanOrEqual(calculationMethods.count, 3, "Should have at least 3 calculation method changes recorded")
@@ -521,20 +543,46 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 /// Mock settings service for prayer time synchronization tests
 @MainActor
 class PrayerTimeSyncMockSettingsService: SettingsServiceProtocol, ObservableObject {
-    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
-    @Published var madhab: Madhab = .shafi
-    @Published var notificationsEnabled: Bool = true
-    @Published var theme: ThemeMode = .dark
-    @Published var timeFormat: TimeFormat = .twelveHour
-    @Published var notificationOffset: TimeInterval = 300
-    @Published var hasCompletedOnboarding: Bool = false
-    @Published var userName: String = ""
-    @Published var overrideBatteryOptimization: Bool = false
-    @Published var showArabicSymbolInWidget: Bool = true
+    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var madhab: Madhab = .shafi {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var notificationsEnabled: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var theme: ThemeMode = .dark {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var timeFormat: TimeFormat = .twelveHour {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var notificationOffset: TimeInterval = 300 {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var hasCompletedOnboarding: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var userName: String = "" {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var overrideBatteryOptimization: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var showArabicSymbolInWidget: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    /// Send notification when settings change (to match real SettingsService behavior)
+    private func notifySettingsChanged() {
+        print("🔔 Mock: Settings changed, posting notification")
+        NotificationCenter.default.post(name: .settingsDidChange, object: self)
     }
 
     func saveSettings() async throws {

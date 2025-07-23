@@ -49,7 +49,8 @@ class BackgroundServiceSynchronizationTests: XCTestCase {
             errorHandler: ErrorHandler(crashReporter: CrashReporter()),
             retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
             networkMonitor: NetworkMonitor.shared,
-            islamicCacheManager: islamicCacheManager
+            islamicCacheManager: islamicCacheManager,
+            islamicCalendarService: IslamicCalendarService()
         )
 
         // Create background services
@@ -326,6 +327,7 @@ class MockBGTaskScheduler {
 class BackgroundSyncMockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
     @Published var madhab: Madhab = .shafi
+    @Published var useAstronomicalMaghrib: Bool = false
     @Published var notificationsEnabled: Bool = true
     @Published var theme: ThemeMode = .dark
     @Published var timeFormat: TimeFormat = .twelveHour
