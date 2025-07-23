@@ -88,6 +88,11 @@ final class NewCalculationMethodsTests: XCTestCase {
         let prayerTypes = Set(prayerTimes.map { $0.prayer })
         let expectedTypes: Set<Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
         XCTAssertEqual(prayerTypes, expectedTypes, "All prayer types should be present")
+        
+        // Verify times are in chronological order
+        for i in 1..<prayerTimes.count {
+            XCTAssertLessThan(prayerTimes[i-1].time, prayerTimes[i].time, "Prayer times should be in chronological order")
+        }
     }
     
     func testFCNACanadaCalculationMethod() async throws {
@@ -106,6 +111,11 @@ final class NewCalculationMethodsTests: XCTestCase {
         let prayerTypes = Set(prayerTimes.map { $0.prayer })
         let expectedTypes: Set<Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
         XCTAssertEqual(prayerTypes, expectedTypes, "All prayer types should be present")
+        
+        // Verify times are in chronological order
+        for i in 1..<prayerTimes.count {
+            XCTAssertLessThan(prayerTimes[i-1].time, prayerTimes[i].time, "Prayer times should be in chronological order")
+        }
     }
     
     func testJafariMethodsComparison() async throws {
@@ -229,8 +239,13 @@ final class NewCalculationMethodsTests: XCTestCase {
         XCTAssertTrue(allMethods.contains(.jafariTehran), "Ja'fari Tehran should be in allCases")
         XCTAssertTrue(allMethods.contains(.fcnaCanada), "FCNA Canada should be in allCases")
         
-        // Should have at least 13 methods now (10 original + 3 new)
-        XCTAssertGreaterThanOrEqual(allMethods.count, 13, "Should have at least 13 calculation methods")
+        // Validate that all expected new methods are present (more maintainable than hardcoded count)
+        let expectedNewMethods: [CalculationMethod] = [.jafariLeva, .jafariTehran, .fcnaCanada]
+        let hasAllNewMethods = expectedNewMethods.allSatisfy { allMethods.contains($0) }
+        XCTAssertTrue(hasAllNewMethods, "All expected new calculation methods should be included in allCases")
+        
+        // Ensure we have a reasonable number of methods (should be at least the new ones)
+        XCTAssertGreaterThanOrEqual(allMethods.count, expectedNewMethods.count, "Should have at least the expected new calculation methods")
     }
 }
 
@@ -274,5 +289,4 @@ class MockIslamicCalendarService: IslamicCalendarServiceProtocol {
     func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
     func setEventNotifications(_ enabled: Bool) async {}
     func setDefaultReminderTime(_ time: TimeInterval) async {}
-    func refreshCalendarData() async {}
 }

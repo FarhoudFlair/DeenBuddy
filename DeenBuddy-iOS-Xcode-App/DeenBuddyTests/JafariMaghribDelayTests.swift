@@ -7,6 +7,7 @@
 
 import XCTest
 import CoreLocation
+import Adhan
 @testable import DeenBuddy
 
 @MainActor
@@ -58,9 +59,10 @@ final class JafariMaghribDelayTests: XCTestCase {
         
         // When: Prayer times are calculated
         let location = CLLocation(latitude: 34.6401, longitude: 50.8764) // Qom, Iran
-        let prayerTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: Date())
+        let testDate = Date()
+        let prayerTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: testDate)
         
-        // Then: Maghrib should be delayed by 15 minutes from sunset
+        // Then: Maghrib should be delayed by exactly 15 minutes from sunset
         XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated")
         
         // Find Maghrib time
@@ -69,15 +71,30 @@ final class JafariMaghribDelayTests: XCTestCase {
             return
         }
         
-        // Calculate what sunset time would be without delay
-        // We can't easily get the original sunset, but we can verify the delay was applied
-        // by checking that Maghrib is reasonable (not exactly at sunset)
-        XCTAssertNotNil(maghribTime, "Maghrib time should be calculated with Ja'fari delay")
+        // Calculate the actual sunset time using Adhan library directly (without Ja'fari delay)
+        let coordinates = Adhan.Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: testDate)
+        let params = Adhan.CalculationMethod.muslimWorldLeague.params // Use standard method to get pure sunset
         
-        // The delay should result in a reasonable Maghrib time
-        let calendar = Calendar.current
-        let maghribHour = calendar.component(.hour, from: maghribTime)
-        XCTAssertTrue(maghribHour >= 17 && maghribHour <= 20, "Maghrib should be in reasonable evening hours")
+        guard let standardPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: params) else {
+            XCTFail("Unable to calculate standard prayer times for sunset reference")
+            return
+        }
+        
+        let sunsetTime = standardPrayerTimes.maghrib // Standard Maghrib is at sunset
+        let expectedMaghribWithDelay = sunsetTime.addingTimeInterval(15 * 60) // Add 15 minutes
+        
+        // Verify the delay is exactly applied (allow 2-minute tolerance for calculation differences)
+        let timeDifference = abs(maghribTime.timeIntervalSince(expectedMaghribWithDelay))
+        XCTAssertLessThan(timeDifference, 120, "Ja'fari Maghrib should be exactly 15 minutes after sunset (±2 min tolerance)")
+        
+        // Also verify that Maghrib is later than sunset
+        XCTAssertGreaterThan(maghribTime, sunsetTime, "Ja'fari Maghrib should be later than sunset")
+        
+        // Ensure the delay is reasonable (between 10-20 minutes from sunset)
+        let actualDelay = maghribTime.timeIntervalSince(sunsetTime) / 60 // Convert to minutes
+        XCTAssertGreaterThan(actualDelay, 10, "Maghrib delay should be at least 10 minutes")
+        XCTAssertLessThan(actualDelay, 20, "Maghrib delay should not exceed 20 minutes")
     }
     
     func testJafariMaghribAstronomicalCalculation() async throws {
@@ -229,5 +246,4 @@ class MockIslamicCalendarService: IslamicCalendarServiceProtocol {
     func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
     func setEventNotifications(_ enabled: Bool) async {}
     func setDefaultReminderTime(_ time: TimeInterval) async {}
-    func refreshCalendarData() async {}
 }

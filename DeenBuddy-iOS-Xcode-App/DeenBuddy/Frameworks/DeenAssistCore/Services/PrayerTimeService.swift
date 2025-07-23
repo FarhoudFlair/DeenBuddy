@@ -155,7 +155,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             ]
 
             // Apply post-calculation madhab adjustments
-            prayerTimes = await applyPostCalculationAdjustments(to: prayerTimes, madhab: madhab)
+            prayerTimes = await applyPostCalculationAdjustments(to: prayerTimes, madhab: madhab, location: location)
 
             // Cache the results
             cachePrayerTimes(prayerTimes, for: date)
@@ -801,8 +801,17 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             logger.error("❌ MADHAB PRIORITY VIOLATION: Expected \(expectedAdhanMadhab), got \(params.madhab)")
             logger.error("This will cause incorrect Asr prayer timing for \(expectedMadhab.displayName) users")
 
-            // This is a critical error that affects prayer timing accuracy
-            assertionFailure("Madhab priority logic failed - Asr calculation will be incorrect")
+            // Create production-safe error for madhab validation failure
+            let madhabError = AppError.configurationMissing
+
+            // Set error state to notify users about potential timing inaccuracy
+            Task { @MainActor in
+                self.error = madhabError
+                await self.errorHandler.handleError(madhabError)
+            }
+
+            logger.error("🚨 PRODUCTION SAFETY: Continuing execution despite madhab validation failure to prevent app crash")
+            logger.error("📱 User notification: Error state set to inform about potential Asr timing inaccuracy")
             return
         }
 
@@ -815,7 +824,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
 
     /// Apply post-calculation adjustments for specific madhab requirements
-    private func applyPostCalculationAdjustments(to prayerTimes: [PrayerTime], madhab: Madhab) async -> [PrayerTime] {
+    private func applyPostCalculationAdjustments(to prayerTimes: [PrayerTime], madhab: Madhab, location: CLLocation) async -> [PrayerTime] {
         var adjustedTimes = prayerTimes
 
         // Apply Maghrib delay for Ja'fari madhab
@@ -828,7 +837,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 // Use astronomical calculation (4° below horizon)
                 let adjustedMaghribTime = try? await calculateAstronomicalMaghrib(
                     for: adjustedTimes[maghribIndex].time,
-                    angle: maghribAngle
+                    angle: maghribAngle,
+                    location: location
                 )
 
                 if let astronomicalTime = adjustedMaghribTime {
@@ -854,9 +864,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
 
     /// Calculate astronomical Maghrib time when sun is at specified angle below horizon
-    private func calculateAstronomicalMaghrib(for sunsetTime: Date, angle: Double) async throws -> Date {
-        // Get current location
-        let location = try await locationService.requestLocation()
+    private func calculateAstronomicalMaghrib(for sunsetTime: Date, angle: Double, location: CLLocation) async throws -> Date {
+        // Location is now passed as parameter - no need to request it
 
         let coordinates = Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
         let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: sunsetTime)

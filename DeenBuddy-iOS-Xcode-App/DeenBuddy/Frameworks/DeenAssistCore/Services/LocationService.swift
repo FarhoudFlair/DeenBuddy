@@ -286,8 +286,8 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // Remove any remaining observers as fallback
         NotificationCenter.default.removeObserver(self)
 
-        // Cancel location timers - avoid accessing shared during deallocation
-        // BatteryAwareTimerManager.shared.cancelTimerSync(id: "location-update")
+        // Cancel location timers to prevent resource leaks
+        BatteryAwareTimerManager.shared.cancelTimerSync(id: "location-update")
 
         print("🧹 LocationService: Cleanup completed - ID: \(instanceId.uuidString.prefix(8))")
 

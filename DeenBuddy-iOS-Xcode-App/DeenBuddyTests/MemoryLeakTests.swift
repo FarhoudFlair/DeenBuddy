@@ -78,7 +78,7 @@ final class MemoryLeakTests: XCTestCase {
         let memoryDifference = memoryAfterCleanup - memoryAfterCreation
         
         // Memory should not increase significantly after cleanup
-        XCTAssertLessThan(abs(memoryDifference), 5_000_000, "Memory should be cleaned up after service deallocation")
+        XCTAssertLessThan(abs(memoryDifference), 2_000_000, "Memory should be cleaned up after service deallocation")
     }
     
     // MARK: - Widget Service Memory Leak Tests
@@ -187,7 +187,7 @@ final class MemoryLeakTests: XCTestCase {
         let memoryDifference = memoryAfterCleanup - memoryAfterTaskCreation
         
         // Allow for more variance in test environment
-        XCTAssertLessThan(abs(memoryDifference), 5_000_000, "Background tasks should not leak significant memory")
+        XCTAssertLessThan(abs(memoryDifference), 2_000_000, "Background tasks should not leak significant memory")
     }
     
     // MARK: - Observer Pattern Memory Tests
@@ -253,20 +253,44 @@ final class MemoryLeakTests: XCTestCase {
     
     // MARK: - Performance Tests
     
-    func testNotificationSchedulingPerformance() {
+    func testNotificationSchedulingPerformance() async throws {
         let prayerTimes = createMockPrayerTimes()
+        let notificationService = NotificationService()
 
-        measure {
-            Task {
-                do {
-                    let notificationService = NotificationService()
-                    try await notificationService.schedulePrayerNotifications(for: prayerTimes)
-                } catch {
-                    // In test environment, notification scheduling may fail due to permissions
-                    // This is expected and should not fail the performance test
-                    print("⚠️ Notification scheduling failed in test environment: \(error)")
+        // Check notification permission status before running performance test
+        switch notificationService.authorizationStatus {
+        case .authorized, .provisional:
+            // Permissions available: Run full performance test
+            measure {
+                Task {
+                    do {
+                        try await notificationService.schedulePrayerNotifications(for: prayerTimes)
+                    } catch {
+                        XCTFail("Notification scheduling failed with permissions available: \(error)")
+                    }
                 }
             }
+
+        case .denied:
+            // Permissions denied: Run alternative test measuring service initialization
+            measure {
+                Task {
+                    // Test notification service configuration and validation without actual scheduling
+                    let settings = notificationService.getNotificationSettings()
+                    XCTAssertNotNil(settings, "Notification settings should be accessible even without permissions")
+
+                    // Test prayer time validation logic
+                    XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be valid for testing")
+                    XCTAssertEqual(prayerTimes.count, 5, "Should have 5 daily prayers")
+                }
+            }
+
+        case .notDetermined, .ephemeral:
+            // Permissions not determined: Skip test with descriptive message
+            throw XCTSkip("Notification permissions not determined - cannot run meaningful performance test. Please grant notification permissions or run test with denied permissions to test alternative path.")
+
+        @unknown default:
+            throw XCTSkip("Unknown notification permission status - cannot determine appropriate test path.")
         }
     }
     
@@ -346,7 +370,7 @@ extension MemoryLeakTests {
         print("📊 \(description) memory impact: \(memoryIncrease) bytes")
 
         // Flag significant memory increases
-        if memoryIncrease > 5_000_000 { // 5MB threshold
+        if memoryIncrease > 2_000_000 { // 2MB threshold
             XCTFail("\(description) caused significant memory increase: \(memoryIncrease) bytes")
         }
     }
@@ -466,8 +490,8 @@ extension MemoryLeakTests {
         let postOverflowMetrics = cacheManager.getPerformanceMetrics()
         
         // Assert that cache limits are being enforced (entry count shouldn't grow unbounded)
-        // Allow more generous growth for test environment
-        let maxReasonableGrowth = preTestEntryCount + 250 // Allow generous growth for test environment
+        // Allow moderate growth for test environment
+        let maxReasonableGrowth = preTestEntryCount + 100 // Allow moderate growth for test environment
         XCTAssertLessThanOrEqual(postOverflowMetrics.entryCount, maxReasonableGrowth,
                                 "Cache should enforce limits and prevent unbounded growth after optimization")
 

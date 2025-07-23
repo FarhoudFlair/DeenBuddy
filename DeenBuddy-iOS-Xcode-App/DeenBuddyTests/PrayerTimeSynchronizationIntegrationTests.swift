@@ -29,6 +29,9 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
     private var islamicCacheManager: IslamicCacheManager!
     private var cancellables = Set<AnyCancellable>()
 
+    // Test-specific logger for controlled debug output
+    private let testLogger = AppLogger(category: .general)
+
     // MARK: - Setup & Teardown
 
     @MainActor
@@ -144,10 +147,14 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
             prayerTimeService.$todaysPrayerTimes
                 .dropFirst() // Skip initial empty value
                 .sink { prayerTimes in
-                    print("🕌 Test: Received prayer times update with \(prayerTimes.count) times")
+                    #if DEBUG
+                    testLogger.debug("🕌 Test: Received prayer times update with \(prayerTimes.count) times")
+                    #endif
                     if !prayerTimes.isEmpty {
                         prayerTimeUpdates.append(prayerTimes)
-                        print("🕌 Test: Fulfilling expectation (\(prayerTimeUpdates.count)/2)")
+                        #if DEBUG
+                        testLogger.debug("🕌 Test: Fulfilling expectation (\(prayerTimeUpdates.count)/2)")
+                        #endif
                         expectation.fulfill()
                     }
                 }
@@ -168,7 +175,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await prayerTimeService.refreshPrayerTimes()
 
         // Wait for initial calculation (account for debouncing + async operations)
-        try await Task.sleep(nanoseconds: 1_200_000_000) // 1.2 seconds
+        let initialCalculationExpectation = expectation(description: "initial calculation completion")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            initialCalculationExpectation.fulfill()
+        }
+        await fulfillment(of: [initialCalculationExpectation], timeout: 2.0)
 
         // 2. Change settings (should trigger cache invalidation and recalculation)
         await MainActor.run {
@@ -177,7 +188,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
 
         // Wait for settings change propagation (account for 300ms debounce + async operations)
-        try await Task.sleep(nanoseconds: 2_000_000_000) // 2.0 seconds
+        let settingsChangeExpectation = expectation(description: "settings change propagation")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            settingsChangeExpectation.fulfill()
+        }
+        await fulfillment(of: [settingsChangeExpectation], timeout: 3.0)
 
         // Then: Verify complete synchronization
         await fulfillment(of: [expectation], timeout: 25.0) // Increased timeout for CI
@@ -214,7 +229,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
         
         // Wait for cache invalidation
-        try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+        let cacheInvalidationExpectation = expectation(description: "cache invalidation completion")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            cacheInvalidationExpectation.fulfill()
+        }
+        await fulfillment(of: [cacheInvalidationExpectation], timeout: 3.0)
         
         // Then: Old cache should be cleared, new cache should be separate
         let oldAPICache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
@@ -246,7 +265,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
 
         // Wait for propagation
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        let backgroundPropagationExpectation = expectation(description: "background service propagation")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            backgroundPropagationExpectation.fulfill()
+        }
+        await fulfillment(of: [backgroundPropagationExpectation], timeout: 2.0)
 
         // Then: Background services should use new settings
         let currentMethod = await MainActor.run { prayerTimeService.calculationMethod }
@@ -275,7 +298,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
 
         // Wait for propagation
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        let serviceSyncExpectation = expectation(description: "service synchronization")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            serviceSyncExpectation.fulfill()
+        }
+        await fulfillment(of: [serviceSyncExpectation], timeout: 2.0)
 
         // Then: All services should be synchronized
         await MainActor.run {
@@ -324,17 +351,29 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 
         // When: User workflow - initial load, then changes method twice
         await prayerTimeService.refreshPrayerTimes()
-        try await Task.sleep(nanoseconds: 1_200_000_000) // Account for debouncing + async operations
+        let initialLoadExpectation = expectation(description: "initial load completion")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            initialLoadExpectation.fulfill()
+        }
+        await fulfillment(of: [initialLoadExpectation], timeout: 2.0)
 
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.egyptian
         }
-        try await Task.sleep(nanoseconds: 2_000_000_000) // Account for 300ms debounce + async operations
+        let firstChangeExpectation = expectation(description: "first method change debounce")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            firstChangeExpectation.fulfill()
+        }
+        await fulfillment(of: [firstChangeExpectation], timeout: 3.0)
 
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.karachi
         }
-        try await Task.sleep(nanoseconds: 2_000_000_000) // Account for 300ms debounce + async operations
+        let secondChangeExpectation = expectation(description: "second method change debounce")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            secondChangeExpectation.fulfill()
+        }
+        await fulfillment(of: [secondChangeExpectation], timeout: 3.0)
 
         // Then: All changes should be reflected
         await fulfillment(of: [expectation], timeout: 30.0) // Increased timeout for CI
@@ -358,7 +397,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
     func testAppBackgroundingWithSettingsChangeScenario() async throws {
         // Given: App is running with initial settings
         await prayerTimeService.refreshPrayerTimes()
-        try await Task.sleep(nanoseconds: 500_000_000)
+        let appInitializationExpectation = expectation(description: "app initialization")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            appInitializationExpectation.fulfill()
+        }
+        await fulfillment(of: [appInitializationExpectation], timeout: 1.0)
         
         let initialMethod = await prayerTimeService.calculationMethod
         
@@ -372,7 +415,11 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 
         // Simulate background refresh
         await prayerTimeService.refreshTodaysPrayerTimes()
-        try await Task.sleep(nanoseconds: 1_000_000_000)
+        let backgroundRefreshExpectation = expectation(description: "background refresh completion")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            backgroundRefreshExpectation.fulfill()
+        }
+        await fulfillment(of: [backgroundRefreshExpectation], timeout: 2.0)
 
         // Then: Background services should use new settings
         await MainActor.run {
@@ -405,30 +452,50 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 
         // When: Rapid settings changes (these will be debounced)
         await prayerTimeService.refreshPrayerTimes()
-        try await Task.sleep(nanoseconds: 800_000_000) // Wait for initial
+        let initialRapidExpectation = expectation(description: "initial rapid test setup")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            initialRapidExpectation.fulfill()
+        }
+        await fulfillment(of: [initialRapidExpectation], timeout: 1.5)
 
         // Rapid fire changes - these will be debounced to only the final change
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.egyptian
         }
-        try await Task.sleep(nanoseconds: 100_000_000) // Short delay
+        let rapidChange1Expectation = expectation(description: "rapid change 1")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            rapidChange1Expectation.fulfill()
+        }
+        await fulfillment(of: [rapidChange1Expectation], timeout: 0.5)
 
         await MainActor.run {
             settingsService.madhab = Madhab.hanafi
         }
-        try await Task.sleep(nanoseconds: 100_000_000) // Short delay
+        let rapidChange2Expectation = expectation(description: "rapid change 2")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            rapidChange2Expectation.fulfill()
+        }
+        await fulfillment(of: [rapidChange2Expectation], timeout: 0.5)
 
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.karachi
         }
-        try await Task.sleep(nanoseconds: 100_000_000) // Short delay
+        let rapidChange3Expectation = expectation(description: "rapid change 3")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            rapidChange3Expectation.fulfill()
+        }
+        await fulfillment(of: [rapidChange3Expectation], timeout: 0.5)
 
         await MainActor.run {
             settingsService.madhab = Madhab.shafi
         }
 
         // Wait for debouncing to complete
-        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds for debouncing + async
+        let debounceCompletionExpectation = expectation(description: "debounce completion")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            debounceCompletionExpectation.fulfill()
+        }
+        await fulfillment(of: [debounceCompletionExpectation], timeout: 2.5)
 
         // Then: Should handle rapid changes gracefully with debouncing
         await fulfillment(of: [expectation], timeout: 15.0)

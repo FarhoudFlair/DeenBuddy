@@ -92,6 +92,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         
         calculationMethod = .muslimWorldLeague
         madhab = .shafi
+        useAstronomicalMaghrib = false
         notificationsEnabled = true
         theme = .dark
         timeFormat = .twelveHour

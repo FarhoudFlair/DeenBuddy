@@ -147,7 +147,7 @@ public enum Madhab: String, CaseIterable, Codable, Identifiable {
                 "Follows the Twelve Imams",
                 "Emphasizes the authority of the Imam",
                 "Distinct prayer timing calculations",
-                "Maghrib prayer 4 minutes after sunset",
+                "Maghrib prayer 15 minutes after sunset",
                 "Different twilight angles for Fajr and Isha"
             ]
         }
@@ -223,7 +223,7 @@ public enum Madhab: String, CaseIterable, Codable, Identifiable {
                 "Amen said silently after Fatiha",
                 "Feet slightly apart during standing",
                 "Prostration on clay tablet (Turbah)",
-                "Maghrib prayer 4 minutes after sunset"
+                "Maghrib prayer 15 minutes after sunset"
             ]
         }
     }
@@ -236,7 +236,7 @@ public enum Madhab: String, CaseIterable, Codable, Identifiable {
         case .shafi:
             return "Represents Shafi'i, Maliki, and Hanbali timing methods with precise calculations based on Hadith and Quran"
         case .jafari:
-            return "Distinct Shia timing calculations with Maghrib 4 minutes after sunset and may combine Dhuhr with Asr, Maghrib with Isha"
+            return "Distinct Shia timing calculations with Maghrib 15 minutes after sunset and may combine Dhuhr with Asr, Maghrib with Isha"
         }
     }
 

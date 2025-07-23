@@ -430,7 +430,7 @@ public extension DependencyContainer {
         let resolvedErrorHandler: ErrorHandler = ErrorHandler(crashReporter: CrashReporter())
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
         let resolvedIslamicCacheManager = IslamicCacheManager()
-        let resolvedIslamicCalendarServiceForTesting: any IslamicCalendarServiceProtocol = IslamicCalendarService()
+        let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
 
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = prayerTimeService ?? PrayerTimeService(
             locationService: resolvedLocationService,
@@ -440,7 +440,7 @@ public extension DependencyContainer {
             retryMechanism: resolvedRetryMechanism,
             networkMonitor: NetworkMonitor.shared,
             islamicCacheManager: resolvedIslamicCacheManager,
-            islamicCalendarService: resolvedIslamicCalendarServiceForTesting
+            islamicCalendarService: resolvedIslamicCalendarService
         )
 
         // Create mock background services for testing
@@ -474,8 +474,6 @@ public extension DependencyContainer {
         )
 
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
-
-        let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
 
         return DependencyContainer(
             locationService: resolvedLocationService,

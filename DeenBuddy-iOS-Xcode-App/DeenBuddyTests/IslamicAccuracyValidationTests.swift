@@ -45,7 +45,7 @@ final class IslamicAccuracyValidationTests: XCTestCase {
             // Initialize other supporting services with error handling
             crashReporter = CrashReporter()
             errorHandler = ErrorHandler(crashReporter: crashReporter)
-            networkMonitor = NetworkMonitor.shared // Use shared instance
+            networkMonitor = NetworkMonitor() // Create fresh instance for test isolation
             retryMechanism = RetryMechanism(networkMonitor: networkMonitor)
             islamicCacheManager = IslamicCacheManager()
 
@@ -67,7 +67,6 @@ final class IslamicAccuracyValidationTests: XCTestCase {
             )
 
             // Set up location service with a valid location (Mecca for testing)
-            let meccaLocation = CLLocation(latitude: 21.4225, longitude: 39.8262)
             locationService.currentLocation = meccaLocation
 
             // Disable battery optimization for testing

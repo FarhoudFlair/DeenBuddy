@@ -81,8 +81,8 @@ final class HanafiAsrPriorityTests: XCTestCase {
         
         // The difference should be reasonable (typically 30-40 minutes)
         let timeDifference = asrTime.timeIntervalSince(shafiAsrTime)
-        XCTAssertGreaterThan(timeDifference, 1200, "Hanafi Asr should be at least 20 minutes later") // 20 minutes
-        XCTAssertLessThan(timeDifference, 3600, "Hanafi Asr should not be more than 1 hour later") // 1 hour
+        XCTAssertGreaterThan(timeDifference, 1800, "Hanafi Asr should be at least 30 minutes later") // 30 minutes
+        XCTAssertLessThan(timeDifference, 2400, "Hanafi Asr should not be more than 40 minutes later") // 40 minutes
     }
     
     func testHanafiAsrWithCustomCalculationMethod() async throws {
@@ -109,10 +109,10 @@ final class HanafiAsrPriorityTests: XCTestCase {
         // Hanafi madhab should take priority for Asr calculation
         XCTAssertGreaterThan(hanafiAsrTime, shafiAsrTime, "Hanafi madhab should take priority for Asr calculation even with custom method")
         
-        // The difference should be consistent with madhab difference
+        // The difference should be consistent with madhab difference (typically 30-40 minutes)
         let timeDifference = hanafiAsrTime.timeIntervalSince(shafiAsrTime)
-        XCTAssertGreaterThan(timeDifference, 1200, "Madhab difference should be at least 20 minutes")
-        XCTAssertLessThan(timeDifference, 3600, "Madhab difference should not exceed 1 hour")
+        XCTAssertGreaterThan(timeDifference, 1800, "Madhab difference should be at least 30 minutes")
+        XCTAssertLessThan(timeDifference, 2400, "Madhab difference should not exceed 40 minutes")
     }
     
     func testHanafiAsrPriorityWithAllCustomMethods() async throws {
@@ -253,5 +253,4 @@ class MockIslamicCalendarService: IslamicCalendarServiceProtocol {
     func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
     func setEventNotifications(_ enabled: Bool) async {}
     func setDefaultReminderTime(_ time: TimeInterval) async {}
-    func refreshCalendarData() async {}
 }

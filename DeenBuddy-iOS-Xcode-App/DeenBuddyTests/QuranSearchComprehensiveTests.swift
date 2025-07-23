@@ -29,20 +29,51 @@ class QuranSearchComprehensiveTests: XCTestCase {
 
         // Test that the service can be instantiated
         XCTAssertNotNil(searchService, "QuranSearchService should be instantiated")
-
-        // Test that the service has the expected initial state
-        // Note: We don't wait for data loading to avoid test hanging issues
         print("🔧 DEBUG: Service instantiated successfully")
+
+        // Wait for data loading to complete with timeout protection
         print("🔧 DEBUG: Initial data loaded state: \(searchService.isDataLoaded)")
+        await waitForDataLoad()
+        
+        // Verify data loading completed successfully
+        XCTAssertTrue(searchService.isDataLoaded, "Quran data should be loaded after waiting")
+        print("🔧 DEBUG: Data loading completed, isDataLoaded: \(searchService.isDataLoaded)")
 
-        // Test that searchVerses method can be called (even if data isn't loaded yet)
-        await searchService.searchVerses(query: "test")
-        print("🔧 DEBUG: Search completed, results count: \(searchService.searchResults.count)")
-
-        // The test passes if we can call the searchVerses method without crashing
-        XCTAssertTrue(true, "SearchVerses method should be callable")
-
-        print("🔧 DEBUG: Test completed successfully")
+        // Get and validate data completeness status
+        let dataStatus = await searchService.getDataValidationStatus()
+        XCTAssertNotNil(dataStatus, "Data validation status should be available")
+        
+        guard let validation = dataStatus else {
+            XCTFail("Unable to get data validation status")
+            return
+        }
+        
+        print("🔧 DEBUG: Data validation - Total verses: \(validation.totalVerses), Total surahs: \(validation.totalSurahs)")
+        
+        // Verify basic data completeness criteria
+        XCTAssertGreaterThan(validation.totalVerses, 0, "Should have at least some verses loaded")
+        XCTAssertGreaterThan(validation.totalSurahs, 0, "Should have at least some surahs loaded")
+        
+        // Test that search functionality works with loaded data
+        await searchService.searchVerses(query: "Allah")
+        let searchResults = await searchService.searchResults
+        print("🔧 DEBUG: Search for 'Allah' completed, results count: \(searchResults.count)")
+        
+        // Verify search returns meaningful results
+        if validation.totalVerses > 100 {
+            // If we have substantial data, expect search results
+            XCTAssertGreaterThan(searchResults.count, 0, "Search for 'Allah' should return results with substantial data")
+        } else {
+            // If we have limited test data, just verify search completes without crashing
+            print("🔧 DEBUG: Limited test data (\(validation.totalVerses) verses), search completed successfully")
+        }
+        
+        // Verify data integrity by checking if we can retrieve verses from first surah
+        let firstSurahVerses = await searchService.getVersesFromSurah(1)
+        XCTAssertGreaterThan(firstSurahVerses.count, 0, "Should be able to retrieve verses from first surah")
+        
+        print("🔧 DEBUG: Data completeness test completed successfully")
+        print("🔧 DEBUG: Final stats - Verses: \(validation.totalVerses), Surahs: \(validation.totalSurahs), Search results: \(searchResults.count)")
     }
     
     @MainActor
