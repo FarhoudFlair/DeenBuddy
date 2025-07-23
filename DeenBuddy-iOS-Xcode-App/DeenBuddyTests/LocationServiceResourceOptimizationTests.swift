@@ -1,5 +1,6 @@
 import XCTest
 import Combine
+@testable import DeenBuddy
 
 /// Comprehensive tests for LocationService resource optimization fixes
 /// Tests memory leak fixes, task deduplication, and resource monitoring

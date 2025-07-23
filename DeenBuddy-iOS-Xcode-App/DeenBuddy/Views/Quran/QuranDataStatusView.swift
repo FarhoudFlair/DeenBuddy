@@ -205,11 +205,7 @@ struct QuranDataStatusView_Previews: PreviewProvider {
     static var previews: some View {
         VStack {
             // Loading state
-            QuranDataStatusView(searchService: {
-                let service = QuranSearchService()
-                // Simulate loading state
-                return service
-            }())
+            QuranDataStatusView(searchService: QuranSearchService.shared)
             
             Spacer()
         }

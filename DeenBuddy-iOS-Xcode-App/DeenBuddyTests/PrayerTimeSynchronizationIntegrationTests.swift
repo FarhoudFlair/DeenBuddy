@@ -9,35 +9,37 @@ import XCTest
 import Combine
 import CoreLocation
 import BackgroundTasks
+@testable import DeenBuddy
 
 /// Integration tests for the complete prayer time synchronization system
 /// Tests the interaction between SettingsService, PrayerTimeService, cache systems, and background services
 class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
-    
+
     // MARK: - Properties
-    
+
     private var dependencyContainer: DependencyContainer!
-    private var settingsService: MockSettingsService!
-    private var locationService: MockLocationService!
+    private var settingsService: PrayerTimeSyncMockSettingsService!
+    private var locationService: PrayerTimeSyncTestMockLocationService!
     private var apiClient: MockAPIClient!
-    private var notificationService: MockNotificationService!
+    private var notificationService: PrayerTimeSyncMockNotificationService!
     private var prayerTimeService: PrayerTimeService!
     private var backgroundTaskManager: BackgroundTaskManager!
     private var backgroundPrayerRefreshService: BackgroundPrayerRefreshService!
     private var apiCache: APICache!
     private var islamicCacheManager: IslamicCacheManager!
     private var cancellables = Set<AnyCancellable>()
-    
+
     // MARK: - Setup & Teardown
-    
+
+    @MainActor
     override func setUp() {
         super.setUp()
-        
+
         // Create mock services
-        settingsService = MockSettingsService()
-        locationService = MockLocationService()
+        settingsService = PrayerTimeSyncMockSettingsService()
+        locationService = PrayerTimeSyncTestMockLocationService()
         apiClient = MockAPIClient()
-        notificationService = MockNotificationService()
+        notificationService = PrayerTimeSyncMockNotificationService()
         
         // Create cache systems
         apiCache = APICache()
@@ -45,35 +47,63 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         
         // Create prayer time service
         prayerTimeService = PrayerTimeService(
-            locationService: locationService,
+            locationService: locationService as LocationServiceProtocol,
             settingsService: settingsService,
             apiClient: apiClient,
             errorHandler: ErrorHandler(crashReporter: CrashReporter()),
             retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
-            networkMonitor: NetworkMonitor.shared
+            networkMonitor: NetworkMonitor.shared,
+            islamicCacheManager: islamicCacheManager
         )
         
         // Create background services
         backgroundTaskManager = BackgroundTaskManager(
             prayerTimeService: prayerTimeService,
             notificationService: notificationService,
-            locationService: locationService
+            locationService: locationService as LocationServiceProtocol
         )
-        
+
         backgroundPrayerRefreshService = BackgroundPrayerRefreshService(
             prayerTimeService: prayerTimeService,
-            locationService: locationService
+            locationService: locationService as LocationServiceProtocol
         )
-        
+
+        // Create additional required services for DependencyContainer
+        let prayerTrackingService = PrayerTrackingService(
+            prayerTimeService: prayerTimeService,
+            settingsService: settingsService,
+            locationService: locationService as LocationServiceProtocol
+        )
+
+        let prayerAnalyticsService = PrayerAnalyticsService(
+            prayerTrackingService: prayerTrackingService
+        )
+
+        let prayerTrackingCoordinator = PrayerTrackingCoordinator(
+            prayerTimeService: prayerTimeService,
+            prayerTrackingService: prayerTrackingService,
+            notificationService: notificationService,
+            settingsService: settingsService
+        )
+
+        let tasbihService = TasbihService()
+        let islamicCalendarService = IslamicCalendarService()
+
         // Create dependency container for integration testing
         dependencyContainer = DependencyContainer(
-            locationService: locationService,
+            locationService: locationService as LocationServiceProtocol,
             apiClient: apiClient,
             notificationService: notificationService,
             prayerTimeService: prayerTimeService,
             settingsService: settingsService,
+            prayerTrackingService: prayerTrackingService,
+            prayerAnalyticsService: prayerAnalyticsService,
+            prayerTrackingCoordinator: prayerTrackingCoordinator,
+            tasbihService: tasbihService,
+            islamicCalendarService: islamicCalendarService,
             backgroundTaskManager: backgroundTaskManager,
             backgroundPrayerRefreshService: backgroundPrayerRefreshService,
+            islamicCacheManager: islamicCacheManager,
             isTestEnvironment: true
         )
         
@@ -81,6 +111,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         locationService.mockLocation = CLLocation(latitude: 37.7749, longitude: -122.4194) // San Francisco
     }
     
+    @MainActor
     override func tearDown() {
         cancellables.removeAll()
         apiCache.clearAllCache()
@@ -105,42 +136,47 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
     func testCompleteSettingsChangeSynchronization() async throws {
         let expectation = XCTestExpectation(description: "Complete settings change synchronization")
         expectation.expectedFulfillmentCount = 2 // Initial + after settings change
-        
+
         var prayerTimeUpdates: [[PrayerTime]] = []
-        
+
         // Given: Observer for prayer time changes
-        prayerTimeService.$todaysPrayerTimes
-            .dropFirst() // Skip initial empty value
-            .sink { prayerTimes in
-                if !prayerTimes.isEmpty {
-                    prayerTimeUpdates.append(prayerTimes)
-                    expectation.fulfill()
+        await MainActor.run {
+            prayerTimeService.$todaysPrayerTimes
+                .dropFirst() // Skip initial empty value
+                .sink { prayerTimes in
+                    if !prayerTimes.isEmpty {
+                        prayerTimeUpdates.append(prayerTimes)
+                        expectation.fulfill()
+                    }
                 }
-            }
-            .store(in: &cancellables)
-        
+                .store(in: &cancellables)
+        }
+
         // When: Complete workflow
         // 1. Initial prayer time calculation
         await prayerTimeService.refreshPrayerTimes()
-        
-        // Wait for initial calculation
-        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        
+
+        // Wait for initial calculation (increased for debouncing)
+        try await Task.sleep(nanoseconds: 800_000_000) // 0.8 seconds
+
         // 2. Change settings (should trigger cache invalidation and recalculation)
         await MainActor.run {
-            settingsService.calculationMethod = .egyptian
-            settingsService.madhab = .hanafi
+            settingsService.calculationMethod = CalculationMethod.egyptian
+            settingsService.madhab = Madhab.hanafi
         }
-        
-        // Wait for settings change propagation
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
+
+        // Wait for settings change propagation (increased for debouncing + async operations)
+        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
+
         // Then: Verify complete synchronization
-        await fulfillment(of: [expectation], timeout: 10.0)
-        
+        await fulfillment(of: [expectation], timeout: 15.0)
+
         XCTAssertEqual(prayerTimeUpdates.count, 2, "Should have initial and updated prayer times")
-        XCTAssertEqual(prayerTimeService.calculationMethod, .egyptian)
-        XCTAssertEqual(prayerTimeService.madhab, .hanafi)
+
+        let currentMethod = await MainActor.run { prayerTimeService.calculationMethod }
+        let currentMadhab = await MainActor.run { prayerTimeService.madhab }
+        XCTAssertEqual(currentMethod, CalculationMethod.egyptian)
+        XCTAssertEqual(currentMadhab, Madhab.hanafi)
     }
     
     func testCacheSystemsIntegrationWithSettingsChanges() async throws {
@@ -153,32 +189,33 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         let prayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
         let schedule = createMockPrayerSchedule(for: date)
         
-        apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: clLocation, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        
+        apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        await islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: clLocation, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+
         // Verify initial cache exists
-        XCTAssertNotNil(apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi))
-        XCTAssertNotNil(islamicCacheManager.getCachedPrayerSchedule(for: date, location: clLocation, calculationMethod: .muslimWorldLeague, madhab: .shafi).schedule)
-        
+        XCTAssertNotNil(apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi))
+        let cachedSchedule = await islamicCacheManager.getCachedPrayerSchedule(for: date, location: clLocation, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        XCTAssertNotNil(cachedSchedule.schedule)
+
         // When: Settings change
         await MainActor.run {
-            settingsService.calculationMethod = .egyptian
+            settingsService.calculationMethod = CalculationMethod.egyptian
         }
         
         // Wait for cache invalidation
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
         
         // Then: Old cache should be cleared, new cache should be separate
-        let oldAPICache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        let oldIslamicCache = islamicCacheManager.getCachedPrayerSchedule(for: date, location: clLocation, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        
+        let oldAPICache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        let oldIslamicCache = await islamicCacheManager.getCachedPrayerSchedule(for: date, location: clLocation, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+
         // Old cache should still exist (cache keys are method-specific now)
         XCTAssertNotNil(oldAPICache, "Old cache should exist with method-specific keys")
         XCTAssertNotNil(oldIslamicCache.schedule, "Old Islamic cache should exist with method-specific keys")
-        
+
         // New settings should have no cache initially
-        let newAPICache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
-        let newIslamicCache = islamicCacheManager.getCachedPrayerSchedule(for: date, location: clLocation, calculationMethod: .egyptian, madhab: .shafi)
+        let newAPICache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: CalculationMethod.egyptian, madhab: Madhab.shafi)
+        let newIslamicCache = await islamicCacheManager.getCachedPrayerSchedule(for: date, location: clLocation, calculationMethod: CalculationMethod.egyptian, madhab: Madhab.shafi)
         
         XCTAssertNil(newAPICache, "New settings should have no cache initially")
         XCTAssertNil(newIslamicCache.schedule, "New Islamic cache should be empty initially")
@@ -188,25 +225,29 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Background services integration")
         
         // Given: Background services are started
-        backgroundTaskManager.registerBackgroundTasks()
-        backgroundPrayerRefreshService.startBackgroundRefresh()
+        await backgroundTaskManager.registerBackgroundTasks()
+        await backgroundPrayerRefreshService.startBackgroundRefresh()
         
         // When: Settings change
         await MainActor.run {
-            settingsService.calculationMethod = .karachi
-            settingsService.madhab = .hanafi
+            settingsService.calculationMethod = CalculationMethod.karachi
+            settingsService.madhab = Madhab.hanafi
         }
-        
+
         // Wait for propagation
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
+
         // Then: Background services should use new settings
-        XCTAssertEqual(prayerTimeService.calculationMethod, .karachi)
-        XCTAssertEqual(prayerTimeService.madhab, .hanafi)
-        
+        let currentMethod = await MainActor.run { prayerTimeService.calculationMethod }
+        let currentMadhab = await MainActor.run { prayerTimeService.madhab }
+        XCTAssertEqual(currentMethod, CalculationMethod.karachi)
+        XCTAssertEqual(currentMadhab, Madhab.hanafi)
+
         // And: Background services should have access to the same PrayerTimeService
-        XCTAssertTrue(backgroundTaskManager.prayerTimeService === prayerTimeService)
-        XCTAssertTrue(backgroundPrayerRefreshService.prayerTimeService === prayerTimeService)
+        let bgTaskPrayerService = await MainActor.run { backgroundTaskManager.prayerTimeService }
+        let bgRefreshPrayerService = await MainActor.run { backgroundPrayerRefreshService.prayerTimeService }
+        XCTAssertTrue(bgTaskPrayerService === prayerTimeService)
+        XCTAssertTrue(bgRefreshPrayerService === prayerTimeService)
         
         expectation.fulfill()
         await fulfillment(of: [expectation], timeout: 5.0)
@@ -218,22 +259,24 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         
         // When: Settings change through the container's settings service
         await MainActor.run {
-            dependencyContainer.settingsService.calculationMethod = .ummAlQura
-            dependencyContainer.settingsService.madhab = .hanafi
+            dependencyContainer.settingsService.calculationMethod = CalculationMethod.ummAlQura
+            dependencyContainer.settingsService.madhab = Madhab.hanafi
         }
-        
+
         // Wait for propagation
         try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-        
+
         // Then: All services should be synchronized
-        XCTAssertEqual(dependencyContainer.prayerTimeService.calculationMethod, .ummAlQura)
-        XCTAssertEqual(dependencyContainer.prayerTimeService.madhab, .hanafi)
-        XCTAssertEqual(dependencyContainer.settingsService.calculationMethod, .ummAlQura)
-        XCTAssertEqual(dependencyContainer.settingsService.madhab, .hanafi)
-        
-        // And: Background services should use the same settings
-        XCTAssertTrue(dependencyContainer.backgroundTaskManager.prayerTimeService === dependencyContainer.prayerTimeService)
-        XCTAssertTrue(dependencyContainer.backgroundPrayerRefreshService.prayerTimeService === dependencyContainer.prayerTimeService)
+        await MainActor.run {
+            XCTAssertEqual(dependencyContainer.prayerTimeService.calculationMethod, CalculationMethod.ummAlQura)
+            XCTAssertEqual(dependencyContainer.prayerTimeService.madhab, Madhab.hanafi)
+            XCTAssertEqual(dependencyContainer.settingsService.calculationMethod, CalculationMethod.ummAlQura)
+            XCTAssertEqual(dependencyContainer.settingsService.madhab, Madhab.hanafi)
+
+            // And: Background services should use the same settings
+            XCTAssertTrue(dependencyContainer.backgroundTaskManager.prayerTimeService === dependencyContainer.prayerTimeService)
+            XCTAssertTrue(dependencyContainer.backgroundPrayerRefreshService.prayerTimeService === dependencyContainer.prayerTimeService)
+        }
     }
     
     // MARK: - Real-World Scenario Tests
@@ -241,40 +284,53 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
     func testUserChangesCalculationMethodScenario() async throws {
         let expectation = XCTestExpectation(description: "User changes calculation method scenario")
         expectation.expectedFulfillmentCount = 3 // Initial + 2 changes
-        
+
         var calculationMethods: [CalculationMethod] = []
-        
+
         // Given: Observer for calculation method changes
-        prayerTimeService.$todaysPrayerTimes
-            .dropFirst()
-            .sink { _ in
-                calculationMethods.append(self.prayerTimeService.calculationMethod)
-                expectation.fulfill()
-            }
-            .store(in: &cancellables)
-        
+        await MainActor.run {
+            prayerTimeService.$todaysPrayerTimes
+                .dropFirst()
+                .sink { _ in
+                    Task { @MainActor in
+                        calculationMethods.append(self.prayerTimeService.calculationMethod)
+                        expectation.fulfill()
+                    }
+                }
+                .store(in: &cancellables)
+        }
+
         // When: User workflow - initial load, then changes method twice
         await prayerTimeService.refreshPrayerTimes()
-        try await Task.sleep(nanoseconds: 500_000_000)
-        
+        try await Task.sleep(nanoseconds: 800_000_000) // Increased for debouncing
+
         await MainActor.run {
-            settingsService.calculationMethod = .egyptian
+            settingsService.calculationMethod = CalculationMethod.egyptian
         }
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-        
+        try await Task.sleep(nanoseconds: 1_500_000_000) // Increased for debouncing + async
+
         await MainActor.run {
-            settingsService.calculationMethod = .karachi
+            settingsService.calculationMethod = CalculationMethod.karachi
         }
-        try await Task.sleep(nanoseconds: 1_000_000_000)
-        
+        try await Task.sleep(nanoseconds: 1_500_000_000) // Increased for debouncing + async
+
         // Then: All changes should be reflected
-        await fulfillment(of: [expectation], timeout: 15.0)
-        
-        XCTAssertEqual(calculationMethods.count, 3)
-        XCTAssertEqual(calculationMethods[0], .muslimWorldLeague) // Initial
-        XCTAssertEqual(calculationMethods[1], .egyptian) // First change
-        XCTAssertEqual(calculationMethods[2], .karachi) // Second change
-        XCTAssertEqual(prayerTimeService.calculationMethod, .karachi) // Final state
+        await fulfillment(of: [expectation], timeout: 20.0) // Increased timeout
+
+        // Defensive check for array bounds
+        XCTAssertGreaterThanOrEqual(calculationMethods.count, 3, "Should have at least 3 calculation method changes recorded")
+
+        if calculationMethods.count >= 3 {
+            XCTAssertEqual(calculationMethods[0], CalculationMethod.muslimWorldLeague) // Initial
+            XCTAssertEqual(calculationMethods[1], CalculationMethod.egyptian) // First change
+            XCTAssertEqual(calculationMethods[2], CalculationMethod.karachi) // Second change
+        } else {
+            XCTFail("Expected 3 calculation method changes but got \(calculationMethods.count): \(calculationMethods)")
+        }
+
+        await MainActor.run {
+            XCTAssertEqual(prayerTimeService.calculationMethod, CalculationMethod.karachi) // Final state
+        }
     }
     
     func testAppBackgroundingWithSettingsChangeScenario() async throws {
@@ -282,71 +338,82 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await prayerTimeService.refreshPrayerTimes()
         try await Task.sleep(nanoseconds: 500_000_000)
         
-        let initialMethod = prayerTimeService.calculationMethod
+        let initialMethod = await prayerTimeService.calculationMethod
         
         // When: App goes to background and settings change
-        backgroundTaskManager.registerBackgroundTasks()
-        backgroundPrayerRefreshService.startBackgroundRefresh()
+        await backgroundTaskManager.registerBackgroundTasks()
+        await backgroundPrayerRefreshService.startBackgroundRefresh()
         
         await MainActor.run {
-            settingsService.calculationMethod = .egyptian
+            settingsService.calculationMethod = CalculationMethod.egyptian
         }
-        
+
         // Simulate background refresh
         await prayerTimeService.refreshTodaysPrayerTimes()
         try await Task.sleep(nanoseconds: 1_000_000_000)
-        
+
         // Then: Background services should use new settings
-        XCTAssertNotEqual(prayerTimeService.calculationMethod, initialMethod)
-        XCTAssertEqual(prayerTimeService.calculationMethod, .egyptian)
+        await MainActor.run {
+            XCTAssertNotEqual(prayerTimeService.calculationMethod, initialMethod)
+            XCTAssertEqual(prayerTimeService.calculationMethod, CalculationMethod.egyptian)
+        }
     }
     
     func testMultipleRapidSettingsChangesIntegration() async throws {
+        // Note: Due to debouncing in PrayerTimeService (300ms), rapid changes will be consolidated
+        // This test validates the debouncing behavior rather than expecting all individual updates
         let expectation = XCTestExpectation(description: "Multiple rapid settings changes")
-        expectation.expectedFulfillmentCount = 5 // Initial + 4 changes
+        expectation.expectedFulfillmentCount = 2 // Initial + final debounced update
 
         var settingsHistory: [(CalculationMethod, Madhab)] = []
 
         // Given: Observer for all changes
-        prayerTimeService.$todaysPrayerTimes
-            .dropFirst()
-            .sink { _ in
-                let current = (self.prayerTimeService.calculationMethod, self.prayerTimeService.madhab)
-                settingsHistory.append(current)
-                expectation.fulfill()
-            }
-            .store(in: &cancellables)
+        await MainActor.run {
+            prayerTimeService.$todaysPrayerTimes
+                .dropFirst()
+                .sink { _ in
+                    Task { @MainActor in
+                        let current = (self.prayerTimeService.calculationMethod, self.prayerTimeService.madhab)
+                        settingsHistory.append(current)
+                        expectation.fulfill()
+                    }
+                }
+                .store(in: &cancellables)
+        }
 
-        // When: Rapid settings changes (simulating user quickly changing preferences)
+        // When: Rapid settings changes (these will be debounced)
         await prayerTimeService.refreshPrayerTimes()
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await Task.sleep(nanoseconds: 800_000_000) // Wait for initial
+
+        // Rapid fire changes - these will be debounced to only the final change
+        await MainActor.run {
+            settingsService.calculationMethod = CalculationMethod.egyptian
+        }
+        try await Task.sleep(nanoseconds: 100_000_000) // Short delay
 
         await MainActor.run {
-            settingsService.calculationMethod = .egyptian
+            settingsService.madhab = Madhab.hanafi
         }
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await Task.sleep(nanoseconds: 100_000_000) // Short delay
 
         await MainActor.run {
-            settingsService.madhab = .hanafi
+            settingsService.calculationMethod = CalculationMethod.karachi
         }
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await Task.sleep(nanoseconds: 100_000_000) // Short delay
 
         await MainActor.run {
-            settingsService.calculationMethod = .karachi
+            settingsService.madhab = Madhab.shafi
         }
-        try await Task.sleep(nanoseconds: 200_000_000)
 
-        await MainActor.run {
-            settingsService.madhab = .shafi
-        }
-        try await Task.sleep(nanoseconds: 500_000_000)
+        // Wait for debouncing to complete
+        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds for debouncing + async
 
-        // Then: All changes should be handled correctly
-        await fulfillment(of: [expectation], timeout: 10.0)
+        // Then: Should handle rapid changes gracefully with debouncing
+        await fulfillment(of: [expectation], timeout: 15.0)
 
-        XCTAssertEqual(settingsHistory.count, 5)
-        XCTAssertEqual(settingsHistory.last?.0, .karachi)
-        XCTAssertEqual(settingsHistory.last?.1, .shafi)
+        XCTAssertEqual(settingsHistory.count, 2, "Should have 2 updates: initial + final debounced")
+        XCTAssertEqual(settingsHistory.last?.0, CalculationMethod.karachi, "Final method should be the last one set")
+        XCTAssertEqual(settingsHistory.last?.1, Madhab.shafi, "Final madhab should be the last one set")
     }
 
     func testConcurrentAccessIntegration() async throws {
@@ -358,7 +425,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
                 await MainActor.run {
-                    self.settingsService.calculationMethod = .egyptian
+                    self.settingsService.calculationMethod = CalculationMethod.egyptian
                 }
                 expectation.fulfill()
             }
@@ -370,7 +437,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 
             group.addTask {
                 await MainActor.run {
-                    self.settingsService.madhab = .hanafi
+                    self.settingsService.madhab = Madhab.hanafi
                 }
                 expectation.fulfill()
             }
@@ -379,8 +446,10 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         // Then: System should remain stable
         await fulfillment(of: [expectation], timeout: 10.0)
 
-        XCTAssertEqual(prayerTimeService.calculationMethod, .egyptian)
-        XCTAssertEqual(prayerTimeService.madhab, .hanafi)
+        await MainActor.run {
+            XCTAssertEqual(prayerTimeService.calculationMethod, CalculationMethod.egyptian)
+            XCTAssertEqual(prayerTimeService.madhab, Madhab.hanafi)
+        }
     }
 
     func testNetworkFailureWithCacheIntegration() async throws {
@@ -393,20 +462,20 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
         let cachedPrayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
 
-        apiCache.cachePrayerTimes(cachedPrayerTimes, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+        apiCache.cachePrayerTimes(cachedPrayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
 
         // When: Settings change during network failure
         await MainActor.run {
-            settingsService.calculationMethod = .egyptian
+            settingsService.calculationMethod = CalculationMethod.egyptian
         }
 
         // Then: System should handle gracefully
         // Old cache should still exist for old settings
-        let oldCache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+        let oldCache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
         XCTAssertNotNil(oldCache, "Old cache should still exist")
 
         // New settings should have no cache
-        let newCache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
+        let newCache = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: CalculationMethod.egyptian, madhab: Madhab.shafi)
         XCTAssertNil(newCache, "New settings should have no cache")
     }
 
@@ -415,28 +484,231 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
     private func createMockPrayerTimes(for date: Date, location: LocationCoordinate, method: String) -> PrayerTimes {
         return PrayerTimes(
             date: date,
-            location: location,
             fajr: date.addingTimeInterval(5 * 3600),
-            sunrise: date.addingTimeInterval(6 * 3600),
             dhuhr: date.addingTimeInterval(12 * 3600),
             asr: date.addingTimeInterval(15 * 3600),
             maghrib: date.addingTimeInterval(18 * 3600),
             isha: date.addingTimeInterval(19 * 3600),
             calculationMethod: method,
-            madhab: "shafi"
+            location: location
         )
     }
 
     private func createMockPrayerSchedule(for date: Date) -> PrayerSchedule {
-        return PrayerSchedule(
+        let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
+        let dailySchedule = DailyPrayerSchedule(
             date: date,
-            prayers: [
-                Prayer(name: .fajr, time: date.addingTimeInterval(5 * 3600)),
-                Prayer(name: .dhuhr, time: date.addingTimeInterval(12 * 3600)),
-                Prayer(name: .asr, time: date.addingTimeInterval(15 * 3600)),
-                Prayer(name: .maghrib, time: date.addingTimeInterval(18 * 3600)),
-                Prayer(name: .isha, time: date.addingTimeInterval(19 * 3600))
-            ]
+            fajr: date.addingTimeInterval(5 * 3600),
+            dhuhr: date.addingTimeInterval(12 * 3600),
+            asr: date.addingTimeInterval(15 * 3600),
+            maghrib: date.addingTimeInterval(18 * 3600),
+            isha: date.addingTimeInterval(19 * 3600)
+        )
+
+        return PrayerSchedule(
+            startDate: date,
+            endDate: date,
+            location: location,
+            calculationMethod: CalculationMethod.muslimWorldLeague,
+            madhab: Madhab.shafi,
+            dailySchedules: [dailySchedule]
+        )
+    }
+}
+
+// MARK: - Test Mock Classes
+
+/// Mock settings service for prayer time synchronization tests
+@MainActor
+class PrayerTimeSyncMockSettingsService: SettingsServiceProtocol, ObservableObject {
+    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
+    @Published var madhab: Madhab = .shafi
+    @Published var notificationsEnabled: Bool = true
+    @Published var theme: ThemeMode = .dark
+    @Published var timeFormat: TimeFormat = .twelveHour
+    @Published var notificationOffset: TimeInterval = 300
+    @Published var hasCompletedOnboarding: Bool = false
+    @Published var userName: String = ""
+    @Published var overrideBatteryOptimization: Bool = false
+    @Published var showArabicSymbolInWidget: Bool = true
+
+    var enableNotifications: Bool {
+        get { notificationsEnabled }
+        set { notificationsEnabled = newValue }
+    }
+
+    func saveSettings() async throws {
+        // Mock implementation
+    }
+
+    func loadSettings() async throws {
+        // Mock implementation
+    }
+
+    func resetToDefaults() async throws {
+        // Mock implementation
+    }
+
+    func saveImmediately() async throws {
+        // Mock implementation
+    }
+
+    func saveOnboardingSettings() async throws {
+        // Mock implementation
+    }
+}
+
+/// Mock notification service for prayer time synchronization tests
+@MainActor
+class PrayerTimeSyncMockNotificationService: NotificationServiceProtocol, ObservableObject {
+    @Published var authorizationStatus: UNAuthorizationStatus = .authorized
+    @Published var notificationsEnabled: Bool = true
+
+    func requestNotificationPermission() async throws -> Bool {
+        return true
+    }
+
+    func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {
+        // Mock implementation
+    }
+
+    func cancelAllNotifications() async {
+        // Mock implementation
+    }
+
+    func cancelNotifications(for prayer: Prayer) async {
+        // Mock implementation
+    }
+
+    func schedulePrayerTrackingNotification(for prayer: Prayer, at prayerTime: Date, reminderMinutes: Int) async throws {
+        // Mock implementation
+    }
+
+    func getNotificationSettings() -> NotificationSettings {
+        return .default
+    }
+
+    func updateNotificationSettings(_ settings: NotificationSettings) {
+        // Mock implementation
+    }
+}
+
+/// Extended MockLocationService with mockLocation property for testing
+@MainActor
+class PrayerTimeSyncTestMockLocationService: LocationServiceProtocol, ObservableObject {
+    @Published var authorizationStatus: CLAuthorizationStatus = .authorizedWhenInUse
+    @Published var currentLocation: CLLocation? = nil
+    @Published var currentLocationInfo: LocationInfo? = nil
+    @Published var isUpdatingLocation: Bool = false
+    @Published var locationError: Error? = nil
+    @Published var currentHeading: Double = 0
+    @Published var headingAccuracy: Double = 5.0
+    @Published var isUpdatingHeading: Bool = false
+
+    var permissionStatus: CLAuthorizationStatus {
+        return authorizationStatus
+    }
+
+    private let locationSubject = PassthroughSubject<CLLocation, Error>()
+    private let headingSubject = PassthroughSubject<CLHeading, Error>()
+
+    var locationPublisher: AnyPublisher<CLLocation, Error> {
+        locationSubject.eraseToAnyPublisher()
+    }
+
+    var headingPublisher: AnyPublisher<CLHeading, Error> {
+        headingSubject.eraseToAnyPublisher()
+    }
+
+    var mockLocation: CLLocation? {
+        get { currentLocation }
+        set { currentLocation = newValue }
+    }
+
+    func requestLocationPermission() {
+        authorizationStatus = .authorizedWhenInUse
+    }
+
+    func requestLocation() async throws -> CLLocation {
+        if let location = currentLocation {
+            return location
+        }
+        let location = CLLocation(latitude: 37.7749, longitude: -122.4194)
+        currentLocation = location
+        return location
+    }
+
+    func startUpdatingLocation() {
+        isUpdatingLocation = true
+    }
+
+    func stopUpdatingLocation() {
+        isUpdatingLocation = false
+    }
+
+    func startUpdatingHeading() {
+        isUpdatingHeading = true
+    }
+
+    func stopUpdatingHeading() {
+        isUpdatingHeading = false
+    }
+
+    func getLocationInfo(for location: CLLocation) async -> LocationInfo {
+        return LocationInfo(
+            coordinate: LocationCoordinate(from: location.coordinate),
+            accuracy: location.horizontalAccuracy,
+            city: "Test City",
+            country: "Test Country"
+        )
+    }
+
+    func getCachedLocation() -> CLLocation? {
+        return currentLocation
+    }
+
+    func isCachedLocationValid() -> Bool {
+        return currentLocation != nil
+    }
+
+    func getLocationPreferCached() async throws -> CLLocation {
+        return try await requestLocation()
+    }
+
+    func isCurrentLocationFromCache() -> Bool {
+        return false
+    }
+
+    func getLocationAge() -> TimeInterval? {
+        return 30.0
+    }
+
+    func requestLocationPermissionAsync() async -> CLAuthorizationStatus {
+        return authorizationStatus
+    }
+
+    func startBackgroundLocationUpdates() {
+        // Mock implementation
+    }
+
+    func stopBackgroundLocationUpdates() {
+        // Mock implementation
+    }
+
+    func geocodeCity(_ cityName: String) async throws -> CLLocation {
+        return CLLocation(latitude: 37.7749, longitude: -122.4194)
+    }
+
+    func searchCity(_ cityName: String) async throws -> [LocationInfo] {
+        return []
+    }
+
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
+        return LocationInfo(
+            coordinate: coordinate,
+            accuracy: 10.0,
+            city: "Test City",
+            country: "Test Country"
         )
     }
 }

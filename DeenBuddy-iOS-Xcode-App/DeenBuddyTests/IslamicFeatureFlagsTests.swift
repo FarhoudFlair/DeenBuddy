@@ -1,10 +1,12 @@
 import XCTest
+@testable import DeenBuddy
 
 /// Test suite for Islamic Feature Flags system
+@MainActor
 final class IslamicFeatureFlagsTests: XCTestCase {
     
     var featureFlags: IslamicFeatureFlags!
-    
+
     override func setUp() {
         super.setUp()
         // Use a fresh instance for each test
@@ -25,38 +27,38 @@ final class IslamicFeatureFlagsTests: XCTestCase {
         // Test that all features start with their default values
         for feature in IslamicFeature.allCases {
             let isEnabled = featureFlags.isEnabled(feature)
-            XCTAssertEqual(isEnabled, feature.defaultValue, 
+            XCTAssertEqual(isEnabled, feature.defaultValue,
                           "Feature \(feature.rawValue) should default to \(feature.defaultValue)")
         }
     }
-    
+
     func testEnableFeature() {
         // Test enabling a feature
         featureFlags.enable(.enhancedPrayerTracking)
         XCTAssertTrue(featureFlags.isEnabled(.enhancedPrayerTracking))
-        
+
         // Test that other features remain unchanged
         XCTAssertFalse(featureFlags.isEnabled(.digitalTasbih))
     }
-    
+
     func testDisableFeature() {
         // First enable a feature
         featureFlags.enable(.digitalTasbih)
         XCTAssertTrue(featureFlags.isEnabled(.digitalTasbih))
-        
+
         // Then disable it
         featureFlags.disable(.digitalTasbih)
         XCTAssertFalse(featureFlags.isEnabled(.digitalTasbih))
     }
-    
+
     func testResetFeature() {
         // Enable a feature that defaults to false
         featureFlags.enable(.islamicCalendar)
         XCTAssertTrue(featureFlags.isEnabled(.islamicCalendar))
-        
+
         // Reset to default
         featureFlags.reset(.islamicCalendar)
-        XCTAssertEqual(featureFlags.isEnabled(.islamicCalendar), 
+        XCTAssertEqual(featureFlags.isEnabled(.islamicCalendar),
                       IslamicFeature.islamicCalendar.defaultValue)
     }
     
@@ -64,11 +66,11 @@ final class IslamicFeatureFlagsTests: XCTestCase {
     
     func testEnableMultipleFeatures() {
         let features: [IslamicFeature] = [.enhancedPrayerTracking, .digitalTasbih, .islamicCalendar]
-        
+
         featureFlags.enableFeatures(features)
-        
+
         for feature in features {
-            XCTAssertTrue(featureFlags.isEnabled(feature), 
+            XCTAssertTrue(featureFlags.isEnabled(feature),
                          "Feature \(feature.rawValue) should be enabled")
         }
     }

@@ -296,7 +296,7 @@ struct SearchOptionsView_Previews: PreviewProvider {
 
 struct SearchHistoryView_Previews: PreviewProvider {
     static var previews: some View {
-        SearchHistoryView(searchService: QuranSearchService()) { _ in }
+        SearchHistoryView(searchService: QuranSearchService.shared) { _ in }
     }
 }
 #endif

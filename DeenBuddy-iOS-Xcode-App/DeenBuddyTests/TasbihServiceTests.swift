@@ -11,12 +11,13 @@ class TasbihServiceTests: XCTestCase {
     
     // MARK: - Setup & Teardown
     
+    @MainActor
     override func setUpWithError() throws {
         try super.setUpWithError()
-        
+
         sut = TasbihService()
         cancellables = Set<AnyCancellable>()
-        
+
         // Clear any existing data
         Task { @MainActor in
             await sut.clearCache()

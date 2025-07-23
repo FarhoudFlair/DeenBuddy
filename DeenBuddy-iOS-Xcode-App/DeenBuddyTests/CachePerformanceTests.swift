@@ -8,61 +8,64 @@
 import XCTest
 import Combine
 import CoreLocation
-
+@testable import DeenBuddy
 
 /// Performance tests for cache operations and prayer time synchronization
 class CachePerformanceTests: XCTestCase {
-    
+
     // MARK: - Properties
-    
-    private var settingsService: MockSettingsService!
-    private var locationService: MockLocationService!
+
+    private var settingsService: CachePerformanceMockSettingsService!
+    private var locationService: CachePerformanceTestMockLocationService!
     private var apiClient: MockAPIClient!
     private var prayerTimeService: PrayerTimeService!
     private var apiCache: APICache!
     private var islamicCacheManager: IslamicCacheManager!
     private var cancellables = Set<AnyCancellable>()
-    
+
     // MARK: - Setup & Teardown
-    
+
+    @MainActor
     override func setUp() {
         super.setUp()
-        
+
         // Create mock services
-        settingsService = MockSettingsService()
-        locationService = MockLocationService()
+        settingsService = CachePerformanceMockSettingsService()
+        locationService = CachePerformanceTestMockLocationService()
         apiClient = MockAPIClient()
-        
+
         // Create cache systems
         apiCache = APICache()
         islamicCacheManager = IslamicCacheManager()
-        
+
         // Create prayer time service
         prayerTimeService = PrayerTimeService(
-            locationService: locationService,
+            locationService: locationService as LocationServiceProtocol,
             settingsService: settingsService,
             apiClient: apiClient,
             errorHandler: ErrorHandler(crashReporter: CrashReporter()),
             retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
-            networkMonitor: NetworkMonitor.shared
+            networkMonitor: NetworkMonitor.shared,
+            islamicCacheManager: islamicCacheManager
         )
-        
+
         // Set up test location
         locationService.mockLocation = CLLocation(latitude: 37.7749, longitude: -122.4194) // San Francisco
     }
     
+    @MainActor
     override func tearDown() {
         cancellables.removeAll()
         apiCache.clearAllCache()
         islamicCacheManager.clearAllCache()
-        
+
         settingsService = nil
         locationService = nil
         apiClient = nil
         prayerTimeService = nil
         apiCache = nil
         islamicCacheManager = nil
-        
+
         super.tearDown()
     }
     
@@ -78,10 +81,10 @@ class CachePerformanceTests: XCTestCase {
                 let prayerTimes = createMockPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, method: "muslim_world_league")
                 
                 // Test caching performance
-                apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+                apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
                 
                 // Test retrieval performance
-                _ = apiCache.getCachedPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+                _ = apiCache.getCachedPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
             }
         }
     }
@@ -96,14 +99,15 @@ class CachePerformanceTests: XCTestCase {
                 let schedule = createMockPrayerSchedule(for: date.addingTimeInterval(TimeInterval(i * 86400)))
                 
                 // Test caching performance
-                islamicCacheManager.cachePrayerSchedule(schedule, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+                islamicCacheManager.cachePrayerSchedule(schedule, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
                 
                 // Test retrieval performance
-                _ = islamicCacheManager.getCachedPrayerSchedule(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+                _ = islamicCacheManager.getCachedPrayerSchedule(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
             }
         }
     }
     
+    @MainActor
     func testCacheInvalidationPerformance() {
         // Pre-populate cache with data
         let iterations = 100
@@ -115,8 +119,8 @@ class CachePerformanceTests: XCTestCase {
             let prayerTimes = createMockPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, method: "muslim_world_league")
             let schedule = createMockPrayerSchedule(for: date.addingTimeInterval(TimeInterval(i * 86400)))
             
-            apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-            islamicCacheManager.cachePrayerSchedule(schedule, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: clLocation, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+            apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+            islamicCacheManager.cachePrayerSchedule(schedule, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: clLocation, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
         }
         
         // Test cache invalidation performance
@@ -130,8 +134,8 @@ class CachePerformanceTests: XCTestCase {
     
     func testSettingsSynchronizationPerformance() {
         let iterations = 100
-        let methods: [CalculationMethod] = [.muslimWorldLeague, .egyptian, .karachi, .ummAlQura]
-        let madhabs: [Madhab] = [.shafi, .hanafi]
+        let methods: [CalculationMethod] = [CalculationMethod.muslimWorldLeague, CalculationMethod.egyptian, CalculationMethod.karachi, CalculationMethod.ummAlQura]
+        let madhabs: [Madhab] = [Madhab.shafi, Madhab.hanafi]
         
         measure {
             for i in 0..<iterations {
@@ -149,8 +153,8 @@ class CachePerformanceTests: XCTestCase {
         
         measure {
             for i in 0..<iterations {
-                let method: CalculationMethod = i % 2 == 0 ? .egyptian : .muslimWorldLeague
-                let madhab: Madhab = i % 2 == 0 ? .hanafi : .shafi
+                let method: CalculationMethod = i % 2 == 0 ? CalculationMethod.egyptian : CalculationMethod.muslimWorldLeague
+                let madhab: Madhab = i % 2 == 0 ? Madhab.hanafi : Madhab.shafi
                 
                 settingsService.calculationMethod = method
                 settingsService.madhab = madhab
@@ -162,31 +166,55 @@ class CachePerformanceTests: XCTestCase {
     
     func testPrayerTimeCalculationPerformance() async {
         let iterations = 50
-        
-        await measure {
-            for i in 0..<iterations {
-                let method: CalculationMethod = i % 2 == 0 ? .egyptian : .muslimWorldLeague
-                settingsService.calculationMethod = method
-                
-                await prayerTimeService.refreshPrayerTimes()
+
+        // Measure async operations by timing them manually
+        measure {
+            let expectation = XCTestExpectation(description: "Prayer time calculation performance")
+
+            Task {
+                await withTaskGroup(of: Void.self) { group in
+                    for i in 0..<iterations {
+                        group.addTask {
+                            let method: CalculationMethod = i % 2 == 0 ? CalculationMethod.egyptian : CalculationMethod.muslimWorldLeague
+                            await MainActor.run {
+                                self.settingsService.calculationMethod = method
+                            }
+
+                            await self.prayerTimeService.refreshPrayerTimes()
+                        }
+                    }
+                }
+                expectation.fulfill()
             }
+
+            // Wait for async operations to complete within the measure block
+            wait(for: [expectation], timeout: 30.0)
         }
     }
     
     func testConcurrentSettingsChangesPerformance() async {
         let iterations = 20
-        
-        await measure {
-            await withTaskGroup(of: Void.self) { group in
-                for i in 0..<iterations {
-                    group.addTask {
-                        let method: CalculationMethod = i % 2 == 0 ? .egyptian : .muslimWorldLeague
-                        await MainActor.run {
-                            self.settingsService.calculationMethod = method
+
+        // Measure async operations by timing them manually
+        measure {
+            let expectation = XCTestExpectation(description: "Concurrent settings changes performance")
+
+            Task {
+                await withTaskGroup(of: Void.self) { group in
+                    for i in 0..<iterations {
+                        group.addTask {
+                            let method: CalculationMethod = i % 2 == 0 ? CalculationMethod.egyptian : CalculationMethod.muslimWorldLeague
+                            await MainActor.run {
+                                self.settingsService.calculationMethod = method
+                            }
                         }
                     }
                 }
+                expectation.fulfill()
             }
+
+            // Wait for async operations to complete within the measure block
+            wait(for: [expectation], timeout: 10.0)
         }
     }
     
@@ -202,7 +230,7 @@ class CachePerformanceTests: XCTestCase {
             for i in 0..<iterations {
                 let prayerTimes = createMockPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, method: "muslim_world_league")
                 
-                apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+                apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
                 
                 // Periodically clear cache to prevent excessive memory usage
                 if i % 100 == 0 {
@@ -219,8 +247,8 @@ class CachePerformanceTests: XCTestCase {
         
         measure {
             for i in 0..<iterations {
-                let method: CalculationMethod = i % 2 == 0 ? .egyptian : .muslimWorldLeague
-                let madhab: Madhab = i % 2 == 0 ? .hanafi : .shafi
+                let method: CalculationMethod = i % 2 == 0 ? CalculationMethod.egyptian : CalculationMethod.muslimWorldLeague
+                let madhab: Madhab = i % 2 == 0 ? Madhab.hanafi : Madhab.shafi
                 
                 // This tests the performance of cache key generation with method and madhab
                 let prayerTimes = createMockPrayerTimes(for: date, location: location, method: method.rawValue)
@@ -231,9 +259,10 @@ class CachePerformanceTests: XCTestCase {
     
     // MARK: - Background Performance Tests
     
+    @MainActor
     func testBackgroundServicePerformance() {
         let iterations = 100
-        
+
         let backgroundTaskManager = BackgroundTaskManager(
             prayerTimeService: prayerTimeService,
             notificationService: MockNotificationService(),
@@ -242,7 +271,7 @@ class CachePerformanceTests: XCTestCase {
         
         measure {
             for i in 0..<iterations {
-                let method: CalculationMethod = i % 2 == 0 ? .egyptian : .muslimWorldLeague
+                let method: CalculationMethod = i % 2 == 0 ? CalculationMethod.egyptian : CalculationMethod.muslimWorldLeague
                 settingsService.calculationMethod = method
                 
                 // Simulate background task execution
@@ -255,8 +284,8 @@ class CachePerformanceTests: XCTestCase {
     
     func testStressTestRapidSettingsChanges() {
         let iterations = 1000
-        let methods: [CalculationMethod] = [.muslimWorldLeague, .egyptian, .karachi, .ummAlQura]
-        let madhabs: [Madhab] = [.shafi, .hanafi]
+        let methods: [CalculationMethod] = [CalculationMethod.muslimWorldLeague, CalculationMethod.egyptian, CalculationMethod.karachi, CalculationMethod.ummAlQura]
+        let madhabs: [Madhab] = [Madhab.shafi, Madhab.hanafi]
         
         // This test ensures the system can handle rapid settings changes without performance degradation
         measure {
@@ -280,8 +309,8 @@ class CachePerformanceTests: XCTestCase {
         
         measure {
             for i in 0..<iterations {
-                let method: CalculationMethod = i % 2 == 0 ? .egyptian : .muslimWorldLeague
-                let madhab: Madhab = i % 2 == 0 ? .hanafi : .shafi
+                let method: CalculationMethod = i % 2 == 0 ? CalculationMethod.egyptian : CalculationMethod.muslimWorldLeague
+                let madhab: Madhab = i % 2 == 0 ? Madhab.hanafi : Madhab.shafi
                 
                 let prayerTimes = createMockPrayerTimes(for: date, location: location, method: method.rawValue)
                 
@@ -300,28 +329,116 @@ class CachePerformanceTests: XCTestCase {
     private func createMockPrayerTimes(for date: Date, location: LocationCoordinate, method: String) -> PrayerTimes {
         return PrayerTimes(
             date: date,
-            location: location,
             fajr: date.addingTimeInterval(5 * 3600),
-            sunrise: date.addingTimeInterval(6 * 3600),
             dhuhr: date.addingTimeInterval(12 * 3600),
             asr: date.addingTimeInterval(15 * 3600),
             maghrib: date.addingTimeInterval(18 * 3600),
             isha: date.addingTimeInterval(19 * 3600),
             calculationMethod: method,
-            madhab: "shafi"
+            location: location
         )
     }
     
     private func createMockPrayerSchedule(for date: Date) -> PrayerSchedule {
-        return PrayerSchedule(
+        let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
+        let dailySchedule = DailyPrayerSchedule(
             date: date,
-            prayers: [
-                Prayer(name: .fajr, time: date.addingTimeInterval(5 * 3600)),
-                Prayer(name: .dhuhr, time: date.addingTimeInterval(12 * 3600)),
-                Prayer(name: .asr, time: date.addingTimeInterval(15 * 3600)),
-                Prayer(name: .maghrib, time: date.addingTimeInterval(18 * 3600)),
-                Prayer(name: .isha, time: date.addingTimeInterval(19 * 3600))
-            ]
+            fajr: date.addingTimeInterval(5 * 3600),
+            dhuhr: date.addingTimeInterval(12 * 3600),
+            asr: date.addingTimeInterval(15 * 3600),
+            maghrib: date.addingTimeInterval(18 * 3600),
+            isha: date.addingTimeInterval(19 * 3600)
+        )
+
+        return PrayerSchedule(
+            startDate: date,
+            endDate: date,
+            location: location,
+            calculationMethod: CalculationMethod.muslimWorldLeague,
+            madhab: Madhab.shafi,
+            dailySchedules: [dailySchedule]
         )
     }
+}
+
+// MARK: - Test Mock Extensions
+
+/// Extended MockLocationService with mockLocation property for testing
+@MainActor
+class CachePerformanceTestMockLocationService: LocationServiceProtocol, ObservableObject {
+    @Published var authorizationStatus: CLAuthorizationStatus = .authorizedWhenInUse
+    @Published var currentLocation: CLLocation? = nil
+    @Published var currentLocationInfo: LocationInfo? = nil
+    @Published var isUpdatingLocation: Bool = false
+    @Published var locationError: Error? = nil
+    @Published var currentHeading: Double = 0
+    @Published var headingAccuracy: Double = 5.0
+    @Published var isUpdatingHeading: Bool = false
+
+    var permissionStatus: CLAuthorizationStatus { authorizationStatus }
+
+    private let locationSubject = PassthroughSubject<CLLocation, Error>()
+    private let headingSubject = PassthroughSubject<CLHeading, Error>()
+
+    var locationPublisher: AnyPublisher<CLLocation, Error> {
+        locationSubject.eraseToAnyPublisher()
+    }
+
+    var headingPublisher: AnyPublisher<CLHeading, Error> {
+        headingSubject.eraseToAnyPublisher()
+    }
+
+    var mockLocation: CLLocation? {
+        get { currentLocation }
+        set { currentLocation = newValue }
+    }
+
+    func requestLocationPermission() {}
+    func requestLocationPermissionAsync() async -> CLAuthorizationStatus { return .authorizedWhenInUse }
+    func requestLocation() async throws -> CLLocation {
+        return currentLocation ?? CLLocation(latitude: 37.7749, longitude: -122.4194)
+    }
+    func startUpdatingLocation() {}
+    func stopUpdatingLocation() {}
+    func startBackgroundLocationUpdates() {}
+    func stopBackgroundLocationUpdates() {}
+    func startUpdatingHeading() {}
+    func stopUpdatingHeading() {}
+    func geocodeCity(_ cityName: String) async throws -> CLLocation {
+        return CLLocation(latitude: 37.7749, longitude: -122.4194)
+    }
+    func searchCity(_ cityName: String) async throws -> [LocationInfo] { return [] }
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
+        return LocationInfo(coordinate: coordinate, accuracy: 10.0, city: "Test", country: "Test")
+    }
+    func getCachedLocation() -> CLLocation? { return currentLocation }
+    func isCachedLocationValid() -> Bool { return true }
+    func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
+    func isCurrentLocationFromCache() -> Bool { return false }
+    func getLocationAge() -> TimeInterval? { return 30.0 }
+}
+
+@MainActor
+class CachePerformanceMockSettingsService: SettingsServiceProtocol, ObservableObject {
+    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
+    @Published var madhab: Madhab = .shafi
+    @Published var notificationsEnabled: Bool = true
+    @Published var theme: ThemeMode = .dark
+    @Published var timeFormat: TimeFormat = .twelveHour
+    @Published var notificationOffset: TimeInterval = 300
+    @Published var hasCompletedOnboarding: Bool = false
+    @Published var userName: String = ""
+    @Published var overrideBatteryOptimization: Bool = false
+    @Published var showArabicSymbolInWidget: Bool = true
+
+    var enableNotifications: Bool {
+        get { notificationsEnabled }
+        set { notificationsEnabled = newValue }
+    }
+
+    func saveSettings() async throws {}
+    func loadSettings() async throws {}
+    func resetToDefaults() async throws {}
+    func saveImmediately() async throws {}
+    func saveOnboardingSettings() async throws {}
 }

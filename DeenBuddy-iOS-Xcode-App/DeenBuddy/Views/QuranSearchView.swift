@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Comprehensive Quran search interface with advanced search capabilities
 struct QuranSearchView: View {
-    @StateObject private var searchService = QuranSearchService()
+    @StateObject private var searchService = QuranSearchService.shared
     @State private var searchText = ""
     @State private var showingSearchOptions = false
     @State private var searchOptions = QuranSearchOptions()
@@ -22,15 +22,17 @@ struct QuranSearchView: View {
                     // Search header with options
                     searchHeaderView
                     
-                    // Main content
-                    if searchService.isLoading {
+                    // Main content - prioritize welcome view over background loading
+                    if searchService.isLoading && !searchService.lastQuery.isEmpty {
+                        // Only show loading for active user searches, not background data loading
                         loadingView
                     } else if !searchService.enhancedSearchResults.isEmpty {
                         enhancedSearchResultsView
-                    } else if !searchService.lastQuery.isEmpty {
+                    } else if !searchService.lastQuery.isEmpty && !searchService.isLoading {
                         emptyResultsView
                     } else {
-                        welcomeView
+                        // Show welcome view immediately, even during background loading
+                        welcomeViewWithDataStatus
                     }
                 }
             }
@@ -244,88 +246,144 @@ struct QuranSearchView: View {
         ScrollView {
             VStack(spacing: 24) {
                 // Welcome header
-                VStack(spacing: 12) {
-                    Image(systemName: "book.closed")
-                        .font(.system(size: 60))
-                        .foregroundColor(ColorPalette.primary)
-                    
-                    Text("Search the Holy Quran")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(ColorPalette.textPrimary)
-                    
-                    Text("Find verses by keywords, themes, or references")
-                        .font(.body)
-                        .foregroundColor(ColorPalette.textSecondary)
-                        .multilineTextAlignment(.center)
+                welcomeHeader(
+                    title: "Search the Holy Quran",
+                    subtitle: "Find verses by keywords, themes, or references"
+                )
+                
+                // Quick access buttons
+                quickAccessButtonsView
+                
+                // Recent searches
+                recentSearchesView
+            }
+            .padding()
+        }
+    }
+    
+    @ViewBuilder
+    private var welcomeViewWithDataStatus: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Welcome header with enhanced message
+                welcomeHeader(
+                    title: "What's on your mind?",
+                    subtitle: "Find verses that speak to your heart and situation"
+                )
+                
+                // Subtle data loading indicator (only when background loading)
+                if searchService.isBackgroundLoading {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading Quran data...")
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textTertiary)
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .background(ColorPalette.backgroundSecondary)
+                    .cornerRadius(8)
+                    .opacity(0.8)
                 }
                 
                 // Quick access buttons
-                VStack(spacing: 12) {
-                    QuickSearchButton(
-                        title: "Search by Reference",
-                        subtitle: "e.g., 2:255, Al-Fatiha 1",
-                        icon: "number.circle",
-                        color: .blue
-                    ) {
-                        searchText = "2:255"
-                        performSearch()
-                    }
-                    
-                    QuickSearchButton(
-                        title: "Search by Theme",
-                        subtitle: "mercy, guidance, prayer",
-                        icon: "tag.circle",
-                        color: .green
-                    ) {
-                        searchText = "mercy"
-                        performSearch()
-                    }
-                    
-                    QuickSearchButton(
-                        title: "Popular Verses",
-                        subtitle: "Ayat al-Kursi, Al-Ikhlas",
-                        icon: "star.circle",
-                        color: .orange
-                    ) {
-                        searchText = "Ayat al-Kursi"
-                        performSearch()
-                    }
-                }
+                quickAccessButtonsView
                 
                 // Recent searches
-                if !searchService.searchHistory.isEmpty {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Recent Searches")
-                            .font(.headline)
-                            .foregroundColor(ColorPalette.textPrimary)
-                        
-                        ForEach(Array(searchService.searchHistory.prefix(3)), id: \.self) { query in
-                            Button(action: {
-                                searchText = query
-                                performSearch()
-                            }) {
-                                HStack {
-                                    Image(systemName: "clock")
-                                        .foregroundColor(ColorPalette.textTertiary)
-                                    
-                                    Text(query)
-                                        .foregroundColor(ColorPalette.textPrimary)
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "arrow.up.left")
-                                        .foregroundColor(ColorPalette.textTertiary)
-                                }
-                                .padding()
-                                .background(ColorPalette.backgroundSecondary)
-                                .cornerRadius(8)
-                            }
+                recentSearchesView
+            }
+            .padding()
+        }
+    }
+    
+    // MARK: - Reusable Components
+    
+    @ViewBuilder
+    private func welcomeHeader(title: String, subtitle: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "book.closed")
+                .font(.system(size: 60))
+                .foregroundColor(ColorPalette.primary)
+            
+            Text(title)
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(ColorPalette.textPrimary)
+            
+            Text(subtitle)
+                .font(.body)
+                .foregroundColor(ColorPalette.textSecondary)
+                .multilineTextAlignment(.center)
+        }
+    }
+    
+    @ViewBuilder
+    private var quickAccessButtonsView: some View {
+        VStack(spacing: 12) {
+            QuickSearchButton(
+                title: "Search by Reference",
+                subtitle: "e.g., 2:255, Al-Fatiha 1",
+                icon: "number.circle",
+                color: .blue
+            ) {
+                searchText = "2:255"
+                performSearch()
+            }
+            
+            QuickSearchButton(
+                title: "Search by Theme",
+                subtitle: "mercy, guidance, prayer",
+                icon: "tag.circle",
+                color: .green
+            ) {
+                searchText = "mercy"
+                performSearch()
+            }
+            
+            QuickSearchButton(
+                title: "Popular Verses",
+                subtitle: "Ayat al-Kursi, Al-Ikhlas",
+                icon: "star.circle",
+                color: .orange
+            ) {
+                searchText = "Ayat al-Kursi"
+                performSearch()
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var recentSearchesView: some View {
+        if !searchService.searchHistory.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Recent Searches")
+                    .font(.headline)
+                    .foregroundColor(ColorPalette.textPrimary)
+                
+                ForEach(Array(searchService.searchHistory.prefix(3)), id: \.self) { query in
+                    Button(action: {
+                        searchText = query
+                        performSearch()
+                    }) {
+                        HStack {
+                            Image(systemName: "clock")
+                                .foregroundColor(ColorPalette.textTertiary)
+                            
+                            Text(query)
+                                .foregroundColor(ColorPalette.textPrimary)
+                            
+                            Spacer()
+                            
+                            Image(systemName: "arrow.up.left")
+                                .foregroundColor(ColorPalette.textTertiary)
                         }
+                        .padding()
+                        .background(ColorPalette.backgroundSecondary)
+                        .cornerRadius(8)
                     }
                 }
             }
-            .padding()
         }
     }
     

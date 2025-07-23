@@ -15,6 +15,7 @@ class PrayerTrackingServiceTests: XCTestCase {
     
     // MARK: - Setup & Teardown
     
+    @MainActor
     override func setUpWithError() throws {
         try super.setUpWithError()
         
@@ -56,7 +57,7 @@ class PrayerTrackingServiceTests: XCTestCase {
         await sut.markPrayerCompleted(
             prayer,
             notes: "Test prayer",
-            mood: .grateful
+            mood: .excellent
         )
         
         // Then
@@ -64,7 +65,7 @@ class PrayerTrackingServiceTests: XCTestCase {
         XCTAssertFalse(sut.recentEntries.isEmpty)
         XCTAssertEqual(sut.recentEntries.last?.prayer, prayer)
         XCTAssertEqual(sut.recentEntries.last?.notes, "Test prayer")
-        XCTAssertEqual(sut.recentEntries.last?.mood, .grateful)
+        XCTAssertEqual(sut.recentEntries.last?.mood, .excellent)
     }
     
     @MainActor
@@ -150,8 +151,13 @@ class PrayerTrackingServiceTests: XCTestCase {
         
         // Then
         XCTAssertNotNil(streak)
-        XCTAssertEqual(streak?.prayer, .fajr)
-        XCTAssertGreaterThan(streak?.currentStreak ?? 0, 0)
+        XCTAssertGreaterThan(streak?.current ?? 0, 0)
+        XCTAssertGreaterThanOrEqual(streak?.longest ?? 0, streak?.current ?? 0)
+        XCTAssertNotNil(streak?.startDate)
+        XCTAssertTrue(streak?.isActive ?? false)
+        XCTAssertNil(streak?.endDate) // Should be nil for active streaks
+        XCTAssertNotNil(streak?.currentStreakDuration)
+        XCTAssertGreaterThanOrEqual(streak?.currentStreakDays ?? 0, 0)
     }
     
     // MARK: - Journal Tests
@@ -159,17 +165,14 @@ class PrayerTrackingServiceTests: XCTestCase {
     @MainActor
     func testAddPrayerJournalEntry_ShouldStoreEntry() async throws {
         // Given
-        let journal = PrayerJournal(
-            id: UUID(),
+        let journal = PrayerJournalEntry(
+            id: UUID().uuidString,
+            prayer: Prayer.maghrib,
             date: Date(),
-            prayer: .maghrib,
-            reflection: "Test reflection",
-            gratitude: ["Test gratitude"],
-            dua: "Test dua",
-            mood: .peaceful,
-            lessons: ["Test lesson"],
-            challenges: ["Test challenge"],
-            improvements: ["Test improvement"]
+            notes: "Test reflection",
+            mood: PrayerMood.good,
+            hadithRemembered: "Test dua",
+            gratitudeNote: "Test gratitude"
         )
         
         // When
@@ -180,38 +183,36 @@ class PrayerTrackingServiceTests: XCTestCase {
         let entries = await sut.getPrayerJournalEntries(for: period)
         
         XCTAssertFalse(entries.isEmpty)
-        XCTAssertEqual(entries.first?.reflection, "Test reflection")
+        XCTAssertEqual(entries.first?.notes, "Test reflection")
+        XCTAssertEqual(entries.first?.prayer, .maghrib)
+        XCTAssertEqual(entries.first?.mood, .good)
+        XCTAssertEqual(entries.first?.hadithRemembered, "Test dua")
+        XCTAssertEqual(entries.first?.gratitudeNote, "Test gratitude")
     }
     
     @MainActor
     func testUpdatePrayerJournalEntry_ShouldModifyExistingEntry() async throws {
         // Given
-        let originalJournal = PrayerJournal(
-            id: UUID(),
+        let originalJournal = PrayerJournalEntry(
+            id: UUID().uuidString,
+            prayer: Prayer.isha,
             date: Date(),
-            prayer: .isha,
-            reflection: "Original reflection",
-            gratitude: [],
-            dua: "",
-            mood: .neutral,
-            lessons: [],
-            challenges: [],
-            improvements: []
+            notes: "Original reflection",
+            mood: PrayerMood.neutral,
+            hadithRemembered: "",
+            gratitudeNote: ""
         )
         
         await sut.addPrayerJournalEntry(originalJournal)
         
-        let updatedJournal = PrayerJournal(
+        let updatedJournal = PrayerJournalEntry(
             id: originalJournal.id,
-            date: originalJournal.date,
             prayer: originalJournal.prayer,
-            reflection: "Updated reflection",
-            gratitude: originalJournal.gratitude,
-            dua: originalJournal.dua,
+            date: originalJournal.date,
+            notes: "Updated reflection",
             mood: originalJournal.mood,
-            lessons: originalJournal.lessons,
-            challenges: originalJournal.challenges,
-            improvements: originalJournal.improvements
+            hadithRemembered: originalJournal.hadithRemembered,
+            gratitudeNote: originalJournal.gratitudeNote
         )
         
         // When
@@ -221,7 +222,9 @@ class PrayerTrackingServiceTests: XCTestCase {
         let period = DateInterval(start: Date().addingTimeInterval(-3600), end: Date().addingTimeInterval(3600))
         let entries = await sut.getPrayerJournalEntries(for: period)
         
-        XCTAssertEqual(entries.first?.reflection, "Updated reflection")
+        XCTAssertEqual(entries.first?.notes, "Updated reflection")
+        XCTAssertEqual(entries.first?.prayer, .isha)
+        XCTAssertEqual(entries.first?.id, originalJournal.id)
     }
     
     // MARK: - Reminder Tests
@@ -229,14 +232,12 @@ class PrayerTrackingServiceTests: XCTestCase {
     @MainActor
     func testSetPrayerReminder_ShouldStoreReminder() async throws {
         // Given
-        let reminder = PrayerReminder(
+        let reminder = PrayerReminderEntry(
             id: UUID(),
-            prayer: .asr,
+            prayer: Prayer.asr,
             offsetMinutes: -15,
             isEnabled: true,
-            message: "Time for Asr prayer",
-            soundName: "default",
-            repeatDaily: true
+            createdAt: Date()
         )
         
         // When
@@ -246,20 +247,21 @@ class PrayerTrackingServiceTests: XCTestCase {
         let reminders = await sut.getPrayerReminders()
         XCTAssertFalse(reminders.isEmpty)
         XCTAssertEqual(reminders.first?.prayer, .asr)
-        XCTAssertEqual(reminders.first?.message, "Time for Asr prayer")
+        XCTAssertEqual(reminders.first?.offsetMinutes, -15)
+        XCTAssertEqual(reminders.first?.isEnabled, true)
+        XCTAssertNotNil(reminders.first?.id)
+        XCTAssertNotNil(reminders.first?.createdAt)
     }
     
     @MainActor
     func testDeletePrayerReminder_ShouldRemoveReminder() async throws {
         // Given
-        let reminder = PrayerReminder(
+        let reminder = PrayerReminderEntry(
             id: UUID(),
-            prayer: .maghrib,
+            prayer: Prayer.maghrib,
             offsetMinutes: 0,
             isEnabled: true,
-            message: "Maghrib time",
-            soundName: "default",
-            repeatDaily: true
+            createdAt: Date()
         )
         
         await sut.setPrayerReminder(reminder)
@@ -278,17 +280,16 @@ class PrayerTrackingServiceTests: XCTestCase {
     func testSetPrayerGoal_ShouldStoreGoal() async throws {
         // Given
         let goal = PrayerGoal(
-            id: UUID(),
-            prayer: .fajr,
-            targetCount: 30,
-            currentCount: 0,
-            targetDate: Calendar.current.date(byAdding: .month, value: 1, to: Date())!,
-            createdAt: Date(),
+            id: UUID().uuidString,
+            title: "Fajr Goal",
             description: "Pray Fajr for 30 days",
-            isCompleted: false
+            type: .streak,
+            targetValue: 30.0,
+            currentValue: 0.0,
+            endDate: Calendar.current.date(byAdding: .month, value: 1, to: Date())!
         )
         
-        let period = DateInterval(start: Date(), end: goal.targetDate)
+        let period = DateInterval(start: Date(), end: goal.endDate)
         
         // When
         await sut.setPrayerGoal(goal, for: period)
@@ -296,25 +297,31 @@ class PrayerTrackingServiceTests: XCTestCase {
         // Then
         let goals = await sut.getCurrentGoals()
         XCTAssertFalse(goals.isEmpty)
-        XCTAssertEqual(goals.first?.prayer, .fajr)
-        XCTAssertEqual(goals.first?.targetCount, 30)
+        XCTAssertEqual(goals.first?.targetValue, 30.0)
+        XCTAssertEqual(goals.first?.title, "Fajr Goal")
+        XCTAssertEqual(goals.first?.description, "Pray Fajr for 30 days")
+        XCTAssertEqual(goals.first?.type, .streak)
+        XCTAssertNotNil(goals.first?.id)
+        XCTAssertNotNil(goals.first?.prayers)
+        XCTAssertEqual(goals.first?.prayers, Set(Prayer.allCases))
+        XCTAssertEqual(goals.first?.currentValue, 0.0)
+        XCTAssertEqual(goals.first?.isActive, true)
     }
     
     @MainActor
     func testGetGoalProgress_ShouldReturnProgress() async throws {
         // Given
         let goal = PrayerGoal(
-            id: UUID(),
-            prayer: .dhuhr,
-            targetCount: 10,
-            currentCount: 0,
-            targetDate: Calendar.current.date(byAdding: .week, value: 2, to: Date())!,
-            createdAt: Date(),
+            id: UUID().uuidString,
+            title: "Dhuhr Goal",
             description: "Test goal",
-            isCompleted: false
+            type: .consistency,
+            targetValue: 10.0,
+            currentValue: 0.0,
+            endDate: Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date())!
         )
         
-        let period = DateInterval(start: Date(), end: goal.targetDate)
+        let period = DateInterval(start: Date(), end: goal.endDate)
         await sut.setPrayerGoal(goal, for: period)
         
         // Complete some prayers
@@ -326,7 +333,7 @@ class PrayerTrackingServiceTests: XCTestCase {
         
         // Then
         XCTAssertFalse(progress.isEmpty)
-        XCTAssertGreaterThan(progress.first?.progress ?? 0, 0)
+        XCTAssertGreaterThan(progress.first?.completionRate ?? 0, 0)
     }
     
     // MARK: - Export Tests
@@ -385,7 +392,7 @@ class PrayerTrackingServiceTests: XCTestCase {
         // Then
         XCTAssertFalse(tips.isEmpty)
         XCTAssertNotNil(tips.first?.title)
-        XCTAssertNotNil(tips.first?.content)
+        XCTAssertNotNil(tips.first?.description)
     }
     
     // MARK: - Cache Tests

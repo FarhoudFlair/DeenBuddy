@@ -52,7 +52,7 @@ let performanceServicePath = "DeenBuddy/Frameworks/DeenAssistCore/Services/Perfo
 validationResults["PerformanceMonitoringService"] = validateFileExists(performanceServicePath, description: "Performance Monitoring Service")
 
 if validationResults["PerformanceMonitoringService"] == true {
-    validationResults["PerformanceMetrics"] = validateFileContains(performanceServicePath, searchString: "struct PerformanceMetrics", description: "Performance Metrics Structure")
+    validationResults["PerformanceMetrics"] = validateFileContains(performanceServicePath, searchString: "struct MonitoringPerformanceMetrics", description: "Performance Metrics Structure")
     validationResults["PerformanceOptimization"] = validateFileContains(performanceServicePath, searchString: "optimizePerformance()", description: "Performance Optimization Method")
 }
 

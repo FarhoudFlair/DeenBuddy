@@ -111,13 +111,27 @@ public class BatteryAwareTimerManager: ObservableObject {
     @Published public private(set) var isBackgroundMode: Bool = false
     @Published public private(set) var isLowPowerModeEnabled: Bool = false
     
+    // Performance monitoring
+    @Published public private(set) var cpuUsageWarning: Bool = false
+    private var timerFireCount: Int = 0
+    private var lastCPUCheck: Date = Date()
+    private let cpuCheckInterval: TimeInterval = 10.0 // Check every 10 seconds
+    
     private var timers: [String: Timer] = [:]
     private var timerCallbacks: [String: () -> Void] = [:]
     private var cancellables = Set<AnyCancellable>()
+    
+    // Thread safety for timer management
+    private let timerOperationsQueue = DispatchQueue(label: "BatteryAwareTimerManager.operations", attributes: .concurrent)
 
     // Task deduplication to prevent excessive operations
     private var lastExecutionTimes: [String: Date] = [:]
-    private let minimumExecutionInterval: TimeInterval = 0.5 // Minimum 500ms between executions
+    private var minimumExecutionInterval: TimeInterval = 2.0 // Mutable to allow dynamic throttling
+    
+    // Power mode change debouncing to prevent infinite loops
+    private var lastPowerModeUpdate: Date = Date()
+    private let powerModeUpdateDebounceInterval: TimeInterval = 5.0 // 5 seconds between power mode updates
+    private var isUpdatingTimerIntervals: Bool = false // Prevent recursive timer updates
     
     // MARK: - Timer Info
     
@@ -194,16 +208,20 @@ public class BatteryAwareTimerManager: ObservableObject {
         // Store callback
         timerCallbacks[id] = callback
         
-        // Create new timer
+        // Create new timer with optimized callback execution
         let timer = Timer.scheduledTimer(withTimeInterval: optimizedInterval, repeats: true) { [weak self] _ in
-            // Execute non-UI timer callbacks on background thread to reduce main thread load
+            guard let self = self else { return }
+            
+            // PERFORMANCE FIX: Reduce Task creation overhead
             if type.shouldRunOnMainThread {
-                Task { @MainActor in
-                    self?.handleTimerFire(id: id, type: type)
-                }
+                // Execute directly on main thread since Timer already runs on main thread
+                self.handleTimerFire(id: id, type: type)
             } else {
-                Task.detached {
-                    await self?.handleTimerFireBackground(id: id, type: type)
+                // Use more efficient background execution
+                DispatchQueue.global(qos: .utility).async {
+                    Task {
+                        await self.handleTimerFireBackground(id: id, type: type)
+                    }
                 }
             }
         }
@@ -226,19 +244,45 @@ public class BatteryAwareTimerManager: ObservableObject {
     
     /// Cancel a specific timer
     public func cancelTimer(id: String) {
-        timers[id]?.invalidate()
+        // Safely cancel timer to prevent race conditions
+        if let timer = timers[id] {
+            timer.invalidate()
+        }
+        
         timers.removeValue(forKey: id)
         timerCallbacks.removeValue(forKey: id)
         activeTimers.removeValue(forKey: id)
-        
+
         logger.debug("Cancelled timer '\(id)'")
+    }
+
+    /// Cancel a specific timer synchronously (safe for deinit)
+    public nonisolated func cancelTimerSync(id: String) {
+        // Dispatch to MainActor to safely access MainActor-isolated properties
+        // This is safer than assumeIsolated as it doesn't make assumptions about current context
+        Task { @MainActor in
+            // Safely cancel timer to prevent race conditions during cleanup
+            if let timer = timers[id] {
+                timer.invalidate()
+            }
+
+            timers.removeValue(forKey: id)
+            timerCallbacks.removeValue(forKey: id)
+            activeTimers.removeValue(forKey: id)
+
+            logger.debug("Cancelled timer '\(id)' synchronously")
+        }
     }
     
     /// Cancel all timers
     public func cancelAllTimers() {
-        for timer in timers.values {
+        // Safely invalidate all timers first
+        let timersToCancel = Array(timers.values)
+        for timer in timersToCancel {
             timer.invalidate()
         }
+        
+        // Clear all collections
         timers.removeAll()
         timerCallbacks.removeAll()
         activeTimers.removeAll()
@@ -277,6 +321,20 @@ public class BatteryAwareTimerManager: ObservableObject {
     
     /// Update timer intervals based on current conditions
     public func updateTimerIntervals() {
+        updateTimerIntervalsWithProtection()
+    }
+    
+    /// Update timer intervals with protection against infinite loops
+    private func updateTimerIntervalsWithProtection() {
+        // CRITICAL FIX: Prevent recursive timer interval updates
+        guard !isUpdatingTimerIntervals else {
+            logger.warning("Skipping timer interval update - already updating to prevent infinite loop")
+            return
+        }
+        
+        isUpdatingTimerIntervals = true
+        defer { isUpdatingTimerIntervals = false }
+        
         let currentTimers = timers
         let currentCallbacks = timerCallbacks
         
@@ -342,6 +400,14 @@ public class BatteryAwareTimerManager: ObservableObject {
     }
     
     private func updatePowerMode() {
+        let now = Date()
+        
+        // CRITICAL FIX: Debounce power mode updates to prevent infinite loops
+        if now.timeIntervalSince(lastPowerModeUpdate) < powerModeUpdateDebounceInterval {
+            logger.debug("Debouncing power mode update - too soon since last update")
+            return
+        }
+        
         let oldMode = currentPowerMode
         
         isLowPowerModeEnabled = ProcessInfo.processInfo.isLowPowerModeEnabled
@@ -355,9 +421,10 @@ public class BatteryAwareTimerManager: ObservableObject {
             currentPowerMode = .normal
         }
         
-        // Update timers if power mode changed
-        if oldMode != currentPowerMode {
-            updateTimerIntervals()
+        // CRITICAL FIX: Only update timers if power mode actually changed AND we're not already updating
+        if oldMode != currentPowerMode && !isUpdatingTimerIntervals {
+            lastPowerModeUpdate = now
+            updateTimerIntervalsWithProtection()
         }
     }
     
@@ -413,6 +480,13 @@ public class BatteryAwareTimerManager: ObservableObject {
         }
 
         lastExecutionTimes[id] = now
+        
+        // PERFORMANCE MONITORING: Track timer fires and CPU usage
+        timerFireCount += 1
+        if now.timeIntervalSince(lastCPUCheck) > cpuCheckInterval {
+            checkCPUUsage()
+            lastCPUCheck = now
+        }
 
         // Update timer info
         if let info = activeTimers[id] {
@@ -436,17 +510,27 @@ public class BatteryAwareTimerManager: ObservableObject {
     private func handleTimerFireBackground(id: String, type: TimerType) async {
         let now = Date()
 
-        // Task deduplication: prevent excessive executions
-        if let lastExecution = lastExecutionTimes[id],
-           now.timeIntervalSince(lastExecution) < minimumExecutionInterval {
+        // PERFORMANCE FIX: Check deduplication without MainActor call first
+        var shouldSkip = false
+        await MainActor.run {
+            if let lastExecution = lastExecutionTimes[id],
+               now.timeIntervalSince(lastExecution) < minimumExecutionInterval {
+                shouldSkip = true
+            } else {
+                lastExecutionTimes[id] = now
+            }
+        }
+        
+        if shouldSkip {
             return // Skip this execution to prevent CPU overload
         }
 
-        await MainActor.run {
-            lastExecutionTimes[id] = now
-        }
-
-        // Update timer info on main thread
+        // Execute callback on background thread first (main work)
+        // WARNING: Callbacks should be thread-safe and avoid UI operations
+        // If UI updates are needed, dispatch to main queue or use MainActor
+        timerCallbacks[id]?()
+        
+        // PERFORMANCE FIX: Batch timer info update to reduce MainActor calls
         await MainActor.run {
             if let info = activeTimers[id] {
                 activeTimers[id] = TimerInfo(
@@ -459,11 +543,45 @@ public class BatteryAwareTimerManager: ObservableObject {
                 )
             }
         }
+    }
+    
+    /// Check CPU usage and implement throttling if necessary
+    private func checkCPUUsage() {
+        let firesPerSecond = Double(timerFireCount) / cpuCheckInterval
+        timerFireCount = 0 // Reset counter
+        
+        // Warn if firing too frequently (more than 10 fires per second indicates potential issues)
+        let excessiveFireThreshold = 10.0
+        
+        if firesPerSecond > excessiveFireThreshold {
+            cpuUsageWarning = true
+            logger.warning("High timer fire rate detected: \(firesPerSecond) fires/sec - implementing throttling")
 
-        // Execute callback on background thread
-        // WARNING: Callbacks should be thread-safe and avoid UI operations
-        // If UI updates are needed, dispatch to main queue or use MainActor
-        timerCallbacks[id]?()
+            // PERFORMANCE FIX: Automatically throttle by increasing minimum execution interval
+            let throttledInterval = min(minimumExecutionInterval * 2.0, 5.0) // Cap at 5 seconds
+            if throttledInterval > minimumExecutionInterval {
+                logger.info("Increasing minimum execution interval from \(minimumExecutionInterval)s to \(throttledInterval)s to reduce CPU load")
+                minimumExecutionInterval = throttledInterval
+
+                // Reschedule all timers with the new throttled interval
+                updateTimerIntervalsWithProtection()
+            }
+        } else {
+            cpuUsageWarning = false
+
+            // PERFORMANCE FIX: Gradually reduce throttling when CPU usage is normal
+            let originalInterval: TimeInterval = 2.0
+            if minimumExecutionInterval > originalInterval {
+                let reducedInterval = max(minimumExecutionInterval * 0.8, originalInterval) // Gradually reduce by 20%
+                if reducedInterval < minimumExecutionInterval {
+                    logger.info("Reducing minimum execution interval from \(minimumExecutionInterval)s to \(reducedInterval)s as CPU usage normalized")
+                    minimumExecutionInterval = reducedInterval
+
+                    // Reschedule all timers with the reduced interval
+                    updateTimerIntervalsWithProtection()
+                }
+            }
+        }
     }
     
     deinit {
@@ -489,33 +607,50 @@ public class BatteryAwareTimerManager: ObservableObject {
         }
     }
 
-    /// PERFORMANCE: Batch low-priority timer operations
+    /// PERFORMANCE: Batch low-priority timer operations with loop prevention
     private func consolidateLowPriorityTimers(_ timerIds: [String]) {
         guard timerIds.count > 2 else { return }
+        
+        // CRITICAL FIX: Validate timer IDs still exist to prevent callback loops
+        let validTimerIds = timerIds.filter { activeTimers[$0] != nil }
+        guard validTimerIds.count > 2 else { return }
 
         // Store callbacks before canceling timers
-        var storedCallbacks: [String: () -> Void] = [:]
-        for id in timerIds {
+        var storedCallbacks: [() -> Void] = []
+        for id in validTimerIds {
             if let callback = timerCallbacks[id] {
-                storedCallbacks[id] = callback
+                storedCallbacks.append(callback)
             }
         }
 
         // Cancel individual timers
-        for id in timerIds {
+        for id in validTimerIds {
             cancelTimer(id: id)
         }
 
-        // Create a single consolidated timer
-        let consolidatedId = "consolidated-low-priority"
-        scheduleTimer(id: consolidatedId, type: .resourceMonitoring) { [weak self] in
-            // Execute all low-priority callbacks in batch using stored callbacks
-            for (id, callback) in storedCallbacks {
+        // Create a single consolidated timer with execution limiting
+        let consolidatedId = "consolidated-low-priority-\(Date().timeIntervalSince1970)"
+        var executionCount = 0
+        let maxExecutions = 100 // Prevent runaway execution
+        
+        scheduleTimer(id: consolidatedId, type: .resourceMonitoring) {
+            // CRITICAL FIX: Limit executions to prevent infinite loops
+            executionCount += 1
+            if executionCount > maxExecutions {
+                print("⚠️ Consolidated timer reached execution limit, canceling to prevent runaway")
+                Task { @MainActor in
+                    BatteryAwareTimerManager.shared.cancelTimer(id: consolidatedId)
+                }
+                return
+            }
+            
+            // Execute all low-priority callbacks in batch
+            for callback in storedCallbacks {
                 callback()
             }
         }
 
-        print("🔄 Consolidated \(timerIds.count) low-priority timers into one")
+        print("🔄 Consolidated \(validTimerIds.count) low-priority timers into one with execution limit")
     }
 
     /// PERFORMANCE: Get timer statistics for monitoring

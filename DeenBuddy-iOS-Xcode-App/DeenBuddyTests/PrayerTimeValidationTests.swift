@@ -7,14 +7,16 @@
 
 import XCTest
 import CoreLocation
+import Combine
+@testable import DeenBuddy
 
 /// Validation tests for prayer time accuracy across different calculation methods and real locations
 class PrayerTimeValidationTests: XCTestCase {
     
     // MARK: - Properties
     
-    private var settingsService: MockSettingsService!
-    private var locationService: MockLocationService!
+    private var settingsService: PrayerValidationMockSettingsService!
+    private var locationService: PrayerValidationMockLocationService!
     private var apiClient: MockAPIClient!
     private var prayerTimeService: PrayerTimeService!
     
@@ -29,14 +31,15 @@ class PrayerTimeValidationTests: XCTestCase {
     
     // MARK: - Setup & Teardown
     
+    @MainActor
     override func setUp() {
         super.setUp()
         
         // Create mock services
-        settingsService = MockSettingsService()
-        locationService = MockLocationService()
+        settingsService = PrayerValidationMockSettingsService()
+        locationService = PrayerValidationMockLocationService()
         apiClient = MockAPIClient()
-        
+
         // Create prayer time service
         prayerTimeService = PrayerTimeService(
             locationService: locationService,
@@ -44,7 +47,8 @@ class PrayerTimeValidationTests: XCTestCase {
             apiClient: apiClient,
             errorHandler: ErrorHandler(crashReporter: CrashReporter()),
             retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
-            networkMonitor: NetworkMonitor.shared
+            networkMonitor: NetworkMonitor.shared,
+            islamicCacheManager: IslamicCacheManager()
         )
     }
     
@@ -59,6 +63,7 @@ class PrayerTimeValidationTests: XCTestCase {
     
     // MARK: - Real Location Validation Tests
     
+    @MainActor
     func testPrayerTimesForNewYork() async throws {
         // Given: New York location and specific date
         let location = testLocations[0] // New York
@@ -68,57 +73,67 @@ class PrayerTimeValidationTests: XCTestCase {
         
         // Test different calculation methods
         for method in CalculationMethod.allCases {
-            settingsService.calculationMethod = method
-            
+            await MainActor.run {
+                settingsService.calculationMethod = method
+            }
+
             // When: Prayer times are calculated
             await prayerTimeService.refreshPrayerTimes()
-            
+
             // Then: Prayer times should be reasonable for New York
-            let prayerTimes = prayerTimeService.todaysPrayerTimes
+            let prayerTimes = await prayerTimeService.todaysPrayerTimes
             XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated for \(method.rawValue)")
-            
+
             // Validate prayer time ranges for New York in summer
             validatePrayerTimeRanges(prayerTimes, location: location, method: method, season: .summer)
         }
     }
     
+    @MainActor
     func testPrayerTimesForMecca() async throws {
         // Given: Mecca location (should have consistent times across methods)
         let location = testLocations[1] // Mecca
         let testDate = createTestDate(year: 2024, month: 3, day: 20) // Spring equinox
         
         locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        
+
         // Test with Muslim World League method (most appropriate for Mecca)
-        settingsService.calculationMethod = .muslimWorldLeague
+        await MainActor.run {
+            settingsService.calculationMethod = .muslimWorldLeague
+        }
         
         // When: Prayer times are calculated
         await prayerTimeService.refreshPrayerTimes()
         
         // Then: Prayer times should be reasonable for Mecca
-        let prayerTimes = prayerTimeService.todaysPrayerTimes
+        let prayerTimes = await prayerTimeService.todaysPrayerTimes
         XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated for Mecca")
         
         // Validate prayer time ranges for Mecca
         validatePrayerTimeRanges(prayerTimes, location: location, method: .muslimWorldLeague, season: .spring)
     }
     
+    @MainActor
     func testMadhabDifferencesInAsrTime() async throws {
         // Given: Cairo location (good for testing madhab differences)
         let location = testLocations[4] // Cairo
         locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        settingsService.calculationMethod = .muslimWorldLeague
-        
-        // Test Shafi madhab
-        settingsService.madhab = .shafi
+        await MainActor.run {
+            settingsService.calculationMethod = .muslimWorldLeague
+
+            // Test Shafi madhab
+            settingsService.madhab = .shafi
+        }
         await prayerTimeService.refreshPrayerTimes()
-        let shafiPrayerTimes = prayerTimeService.todaysPrayerTimes
+        let shafiPrayerTimes = await prayerTimeService.todaysPrayerTimes
         let shafiAsrTime = shafiPrayerTimes.first { $0.prayer == .asr }?.time
         
         // Test Hanafi madhab
-        settingsService.madhab = .hanafi
+        await MainActor.run {
+            settingsService.madhab = .hanafi
+        }
         await prayerTimeService.refreshPrayerTimes()
-        let hanafiPrayerTimes = prayerTimeService.todaysPrayerTimes
+        let hanafiPrayerTimes = await prayerTimeService.todaysPrayerTimes
         let hanafiAsrTime = hanafiPrayerTimes.first { $0.prayer == .asr }?.time
         
         // Then: Hanafi Asr should be later than Shafi Asr
@@ -135,23 +150,28 @@ class PrayerTimeValidationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testJafariMadhabTimingDifferences() async throws {
         // Given: Tehran location (good for testing Ja'fari madhab)
         let tehranLocation = CLLocation(latitude: 35.6892, longitude: 51.3890)
         locationService.mockLocation = tehranLocation
-        settingsService.calculationMethod = .muslimWorldLeague
+        await MainActor.run {
+            settingsService.calculationMethod = .muslimWorldLeague
 
-        // Test Shafi madhab (baseline)
-        settingsService.madhab = .shafi
+            // Test Shafi madhab (baseline)
+            settingsService.madhab = .shafi
+        }
         await prayerTimeService.refreshPrayerTimes()
-        let shafiPrayerTimes = prayerTimeService.todaysPrayerTimes
+        let shafiPrayerTimes = await prayerTimeService.todaysPrayerTimes
         let shafiMaghribTime = shafiPrayerTimes.first { $0.prayer == .maghrib }?.time
         let shafiIshaTime = shafiPrayerTimes.first { $0.prayer == .isha }?.time
 
         // Test Ja'fari madhab
-        settingsService.madhab = .jafari
+        await MainActor.run {
+            settingsService.madhab = .jafari
+        }
         await prayerTimeService.refreshPrayerTimes()
-        let jafariPrayerTimes = prayerTimeService.todaysPrayerTimes
+        let jafariPrayerTimes = await prayerTimeService.todaysPrayerTimes
         let jafariMaghribTime = jafariPrayerTimes.first { $0.prayer == .maghrib }?.time
         let jafariIshaTime = jafariPrayerTimes.first { $0.prayer == .isha }?.time
 
@@ -176,6 +196,7 @@ class PrayerTimeValidationTests: XCTestCase {
         }
     }
 
+    @MainActor
     func testMadhabTimingProperties() {
         // Test Hanafi properties
         let hanafi = Madhab.hanafi
@@ -208,6 +229,7 @@ class PrayerTimeValidationTests: XCTestCase {
         XCTAssertTrue(jafari.delaysMaghrib, "Ja'fari should delay Maghrib")
     }
 
+    @MainActor
     func testCalculationMethodDifferences() async throws {
         // Given: London location (good for testing method differences)
         let location = testLocations[2] // London
@@ -217,9 +239,11 @@ class PrayerTimeValidationTests: XCTestCase {
         
         // Calculate prayer times for different methods
         for method in [CalculationMethod.muslimWorldLeague, .egyptian, .karachi] {
-            settingsService.calculationMethod = method
+            await MainActor.run {
+                settingsService.calculationMethod = method
+            }
             await prayerTimeService.refreshPrayerTimes()
-            methodResults[method] = prayerTimeService.todaysPrayerTimes
+            methodResults[method] = await prayerTimeService.todaysPrayerTimes
         }
         
         // Then: Different methods should produce different times
@@ -245,6 +269,7 @@ class PrayerTimeValidationTests: XCTestCase {
     
     // MARK: - Edge Case Tests
     
+    @MainActor
     func testHighLatitudeLocation() async throws {
         // Given: High latitude location (Oslo, Norway)
         let osloLocation = TestLocation(name: "Oslo", latitude: 59.9139, longitude: 10.7522)
@@ -258,24 +283,27 @@ class PrayerTimeValidationTests: XCTestCase {
         await prayerTimeService.refreshPrayerTimes()
         
         // Then: Prayer times should be calculated (may use special high-latitude rules)
-        let prayerTimes = prayerTimeService.todaysPrayerTimes
+        let prayerTimes = await prayerTimeService.todaysPrayerTimes
         XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated even for high latitudes")
         
         // Validate that times are in logical order
         validatePrayerTimeOrder(prayerTimes)
     }
     
+    @MainActor
     func testSouthernHemisphereLocation() async throws {
         // Given: Southern hemisphere location (Jakarta)
         let location = testLocations[3] // Jakarta
         locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        settingsService.calculationMethod = .muslimWorldLeague
+        await MainActor.run {
+            settingsService.calculationMethod = .muslimWorldLeague
+        }
         
         // When: Prayer times are calculated
         await prayerTimeService.refreshPrayerTimes()
         
         // Then: Prayer times should be reasonable for southern hemisphere
-        let prayerTimes = prayerTimeService.todaysPrayerTimes
+        let prayerTimes = await prayerTimeService.todaysPrayerTimes
         XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated for southern hemisphere")
         
         validatePrayerTimeOrder(prayerTimes)
@@ -284,6 +312,7 @@ class PrayerTimeValidationTests: XCTestCase {
     
     // MARK: - Performance Validation
     
+    @MainActor
     func testPrayerTimeCalculationPerformance() async {
         // Given: Multiple locations and methods
         let location = testLocations[0] // New York
@@ -293,7 +322,9 @@ class PrayerTimeValidationTests: XCTestCase {
         let startTime = Date()
         
         for method in CalculationMethod.allCases {
-            settingsService.calculationMethod = method
+            await MainActor.run {
+                settingsService.calculationMethod = method
+            }
             await prayerTimeService.refreshPrayerTimes()
         }
         
@@ -358,4 +389,85 @@ struct TestLocation {
 
 enum Season {
     case spring, summer, fall, winter
+}
+
+// MARK: - Mock Classes
+
+@MainActor
+class PrayerValidationMockSettingsService: SettingsServiceProtocol, ObservableObject {
+    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
+    @Published var madhab: Madhab = .shafi
+    @Published var notificationsEnabled: Bool = true
+    @Published var theme: ThemeMode = .dark
+    @Published var timeFormat: TimeFormat = .twelveHour
+    @Published var notificationOffset: TimeInterval = 300
+    @Published var hasCompletedOnboarding: Bool = false
+    @Published var userName: String = ""
+    @Published var overrideBatteryOptimization: Bool = false
+    @Published var showArabicSymbolInWidget: Bool = true
+
+    var enableNotifications: Bool {
+        get { notificationsEnabled }
+        set { notificationsEnabled = newValue }
+    }
+
+    func saveSettings() async throws {}
+    func loadSettings() async throws {}
+    func resetToDefaults() async throws {}
+    func saveImmediately() async throws {}
+    func saveOnboardingSettings() async throws {}
+}
+
+@MainActor
+class PrayerValidationMockLocationService: LocationServiceProtocol, ObservableObject {
+    @Published var authorizationStatus: CLAuthorizationStatus = .authorizedWhenInUse
+    @Published var currentLocation: CLLocation? = nil
+    @Published var currentLocationInfo: LocationInfo? = nil
+    @Published var isUpdatingLocation: Bool = false
+    @Published var locationError: Error? = nil
+    @Published var currentHeading: Double = 0
+    @Published var headingAccuracy: Double = 5.0
+    @Published var isUpdatingHeading: Bool = false
+
+    var permissionStatus: CLAuthorizationStatus { authorizationStatus }
+
+    private let locationSubject = PassthroughSubject<CLLocation, Error>()
+    private let headingSubject = PassthroughSubject<CLHeading, Error>()
+
+    var locationPublisher: AnyPublisher<CLLocation, Error> {
+        locationSubject.eraseToAnyPublisher()
+    }
+
+    var headingPublisher: AnyPublisher<CLHeading, Error> {
+        headingSubject.eraseToAnyPublisher()
+    }
+
+    var mockLocation: CLLocation? {
+        get { currentLocation }
+        set { currentLocation = newValue }
+    }
+
+    func requestLocationPermission() {}
+    func requestLocationPermissionAsync() async -> CLAuthorizationStatus { return .authorizedWhenInUse }
+    func requestLocation() async throws -> CLLocation {
+        return currentLocation ?? CLLocation(latitude: 37.7749, longitude: -122.4194)
+    }
+    func startUpdatingLocation() {}
+    func stopUpdatingLocation() {}
+    func startBackgroundLocationUpdates() {}
+    func stopBackgroundLocationUpdates() {}
+    func startUpdatingHeading() {}
+    func stopUpdatingHeading() {}
+    func geocodeCity(_ cityName: String) async throws -> CLLocation {
+        return CLLocation(latitude: 37.7749, longitude: -122.4194)
+    }
+    func searchCity(_ cityName: String) async throws -> [LocationInfo] { return [] }
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
+        return LocationInfo(coordinate: coordinate, accuracy: 10.0, city: "Test", country: "Test")
+    }
+    func getCachedLocation() -> CLLocation? { return currentLocation }
+    func isCachedLocationValid() -> Bool { return true }
+    func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
+    func isCurrentLocationFromCache() -> Bool { return false }
+    func getLocationAge() -> TimeInterval? { return 30.0 }
 }

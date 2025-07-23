@@ -84,9 +84,8 @@ public class ResourceMonitor: ObservableObject {
     }
     
     deinit {
-        MainActor.assumeIsolated {
-            stopMonitoring()
-        }
+        // Cancel timer synchronously using the safe deinit method
+        timerManager.cancelTimerSync(id: "resource-monitoring")
         NotificationCenter.default.removeObserver(self)
     }
     

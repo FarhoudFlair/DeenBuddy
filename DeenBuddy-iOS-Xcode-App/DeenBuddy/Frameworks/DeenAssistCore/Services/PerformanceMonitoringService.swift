@@ -248,7 +248,7 @@ public struct MonitoringPerformanceMetrics {
     public let cacheHitRate: Double
     public let cacheSize: Int
     public let timestamp: Date
-    
+
     public init(
         memoryUsage: Int = 0,
         batteryLevel: Double = 1.0,
@@ -265,6 +265,12 @@ public struct MonitoringPerformanceMetrics {
         self.timestamp = timestamp
     }
 }
+
+// MARK: - Backward Compatibility
+
+/// Backward compatibility typealias for the renamed PerformanceMetrics type
+@available(*, deprecated, renamed: "MonitoringPerformanceMetrics")
+public typealias PerformanceMetrics = MonitoringPerformanceMetrics
 
 public enum PerformanceAlertLevel {
     case normal

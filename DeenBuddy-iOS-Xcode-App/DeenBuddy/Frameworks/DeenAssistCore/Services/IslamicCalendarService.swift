@@ -42,22 +42,22 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
     }
     
     deinit {
-        MainActor.assumeIsolated {
-            cancelPeriodicOperation("hijri-calendar-daily")
-            cancelPeriodicOperation("hijri-calendar-hourly")
-        }
+        // Cancel timers synchronously using the safe deinit method
+        timerManager.cancelTimerSync(id: "\(serviceName)-hijri-calendar-daily")
+        timerManager.cancelTimerSync(id: "\(serviceName)-hijri-calendar-hourly")
     }
     
     // MARK: - Setup Methods
     
     private func setupDefaultEvents() {
+        let currentYear = currentHijriDate.year
         let defaultEvents = [
             // Major Islamic Events
             IslamicEvent(
                 name: "Islamic New Year",
                 arabicName: "رأس السنة الهجرية",
                 description: "The beginning of the Islamic lunar year",
-                hijriDate: HijriDate(day: 1, month: .muharram, year: 1445),
+                hijriDate: HijriDate(day: 1, month: .muharram, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Reflection on the Hijra", "Prayers for the new year"],
@@ -67,7 +67,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Day of Ashura",
                 arabicName: "يوم عاشوراء",
                 description: "The 10th day of Muharram, a day of fasting and remembrance",
-                hijriDate: HijriDate(day: 10, month: .muharram, year: 1445),
+                hijriDate: HijriDate(day: 10, month: .muharram, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Fasting", "Charity", "Remembrance of martyrs"],
@@ -77,7 +77,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Mawlid an-Nabi",
                 arabicName: "المولد النبوي",
                 description: "Birthday of Prophet Muhammad (peace be upon him)",
-                hijriDate: HijriDate(day: 12, month: .rabiAlAwwal, year: 1445),
+                hijriDate: HijriDate(day: 12, month: .rabiAlAwwal, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Recitation of Quran", "Sending blessings on the Prophet", "Charity"],
@@ -87,7 +87,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Isra and Mi'raj",
                 arabicName: "الإسراء والمعراج",
                 description: "The Night Journey and Ascension of Prophet Muhammad",
-                hijriDate: HijriDate(day: 27, month: .rajab, year: 1445),
+                hijriDate: HijriDate(day: 27, month: .rajab, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Night prayers", "Recitation of Quran", "Reflection"],
@@ -97,7 +97,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Laylat al-Bara'at",
                 arabicName: "ليلة البراءة",
                 description: "The Night of Forgiveness",
-                hijriDate: HijriDate(day: 15, month: .shaban, year: 1445),
+                hijriDate: HijriDate(day: 15, month: .shaban, year: currentYear),
                 category: .religious,
                 significance: .moderate,
                 observances: ["Night prayers", "Seeking forgiveness", "Charity"],
@@ -107,7 +107,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "First Day of Ramadan",
                 arabicName: "أول رمضان",
                 description: "Beginning of the holy month of fasting",
-                hijriDate: HijriDate(day: 1, month: .ramadan, year: 1445),
+                hijriDate: HijriDate(day: 1, month: .ramadan, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Fasting begins", "Increased prayers", "Charity"],
@@ -117,7 +117,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Laylat al-Qadr",
                 arabicName: "ليلة القدر",
                 description: "The Night of Power",
-                hijriDate: HijriDate(day: 27, month: .ramadan, year: 1445),
+                hijriDate: HijriDate(day: 27, month: .ramadan, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Night prayers", "Recitation of Quran", "Seeking Laylat al-Qadr"],
@@ -127,7 +127,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Eid al-Fitr",
                 arabicName: "عيد الفطر",
                 description: "Festival of Breaking the Fast",
-                hijriDate: HijriDate(day: 1, month: .shawwal, year: 1445),
+                hijriDate: HijriDate(day: 1, month: .shawwal, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Eid prayers", "Charity (Zakat al-Fitr)", "Celebration", "Family gatherings"],
@@ -137,7 +137,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Day of Arafah",
                 arabicName: "يوم عرفة",
                 description: "The most important day of Hajj pilgrimage",
-                hijriDate: HijriDate(day: 9, month: .dhulHijjah, year: 1445),
+                hijriDate: HijriDate(day: 9, month: .dhulHijjah, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Fasting (for non-pilgrims)", "Prayers", "Remembrance of Allah"],
@@ -147,7 +147,7 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
                 name: "Eid al-Adha",
                 arabicName: "عيد الأضحى",
                 description: "Festival of Sacrifice",
-                hijriDate: HijriDate(day: 10, month: .dhulHijjah, year: 1445),
+                hijriDate: HijriDate(day: 10, month: .dhulHijjah, year: currentYear),
                 category: .religious,
                 significance: .major,
                 observances: ["Eid prayers", "Animal sacrifice", "Charity", "Family gatherings"],

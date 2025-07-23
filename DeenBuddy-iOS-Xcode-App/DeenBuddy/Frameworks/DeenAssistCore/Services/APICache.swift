@@ -38,9 +38,8 @@ public class APICache: APICacheProtocol {
     }
     
     deinit {
-        MainActor.assumeIsolated {
-            timerManager.cancelTimer(id: "api-cache-cleanup")
-        }
+        // Use the synchronous timer cancellation method designed for deinit
+        timerManager.cancelTimerSync(id: "api-cache-cleanup")
     }
     
     // MARK: - Protocol Implementation
@@ -123,6 +122,14 @@ public class APICache: APICacheProtocol {
         }
     }
 
+    /// Synchronously waits for all pending cache operations to complete
+    /// This is useful for testing to ensure cache writes have finished
+    public func waitForPendingOperations() {
+        queue.sync(flags: .barrier) {
+            // This will wait for all pending operations to complete
+        }
+    }
+
     public func clearPrayerTimeCache() {
         queue.async(flags: .barrier) {
             print("🗑️ Clearing APICache prayer time entries...")
@@ -180,13 +187,19 @@ public class APICache: APICacheProtocol {
     private func prayerTimesCacheKey(for date: Date, location: LocationCoordinate, calculationMethod: CalculationMethod, madhab: Madhab) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
         let dateString = formatter.string(from: date)
+
+        // Round coordinates to reduce cache fragmentation and avoid floating-point precision issues
+        let roundedLat = round(location.latitude * 10000) / 10000  // 4 decimal places (~11m precision)
+        let roundedLon = round(location.longitude * 10000) / 10000
 
         // Include calculation method and madhab in cache key for method-specific caching
         let methodKey = calculationMethod.rawValue
         let madhabKey = madhab.rawValue
 
-        return "\(CacheKeys.prayerTimesPrefix)\(dateString)_\(location.latitude)_\(location.longitude)_\(methodKey)_\(madhabKey)"
+        return "\(CacheKeys.prayerTimesPrefix)\(dateString)_\(roundedLat)_\(roundedLon)_\(methodKey)_\(madhabKey)"
     }
     
     private func qiblaDirectionCacheKey(for location: LocationCoordinate) -> String {
@@ -314,7 +327,7 @@ public class APICache: APICacheProtocol {
     
     private func schedulePeriodicCleanup() {
         // Schedule cleanup using battery-aware timer
-        MainActor.assumeIsolated {
+        Task { @MainActor in
             timerManager.scheduleTimer(id: "api-cache-cleanup", type: .cacheCleanup) { [weak self] in
                 self?.clearExpiredCache()
             }

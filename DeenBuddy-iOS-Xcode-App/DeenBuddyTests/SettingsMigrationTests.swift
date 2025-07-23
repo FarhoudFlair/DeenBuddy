@@ -10,8 +10,9 @@ import XCTest
 @testable import DeenBuddy
 
 class SettingsMigrationTests: XCTestCase {
-    
+
     private var testUserDefaults: UserDefaults!
+    private var testSuiteName: String!
     private var settingsMigration: SettingsMigration!
     private var settingsValidator: SettingsValidator!
     
@@ -19,11 +20,11 @@ class SettingsMigrationTests: XCTestCase {
         super.setUp()
         
         // Create test UserDefaults with unique suite name
-        let suiteName = "test.settings.migration.\(UUID().uuidString)"
-        testUserDefaults = UserDefaults(suiteName: suiteName)!
-        
+        testSuiteName = "test.settings.migration.\(UUID().uuidString)"
+        testUserDefaults = UserDefaults(suiteName: testSuiteName)!
+
         // Clear any existing data
-        testUserDefaults.removePersistentDomain(forName: suiteName)
+        testUserDefaults.removePersistentDomain(forName: testSuiteName)
         
         settingsMigration = SettingsMigration(userDefaults: testUserDefaults)
         settingsValidator = SettingsValidator(userDefaults: testUserDefaults)
@@ -31,14 +32,15 @@ class SettingsMigrationTests: XCTestCase {
     
     override func tearDown() {
         // Clean up test data
-        if let suiteName = testUserDefaults.persistentDomain(forName: testUserDefaults.suiteName ?? "") {
-            testUserDefaults.removePersistentDomain(forName: testUserDefaults.suiteName ?? "")
+        if testSuiteName != nil {
+            testUserDefaults.removePersistentDomain(forName: testSuiteName)
         }
-        
+
         testUserDefaults = nil
+        testSuiteName = nil
         settingsMigration = nil
         settingsValidator = nil
-        
+
         super.tearDown()
     }
     
@@ -115,13 +117,14 @@ class SettingsMigrationTests: XCTestCase {
         XCTAssertEqual(madhab, "Hanafi")
     }
     
+    @MainActor
     func testSettingsServiceIntegration() {
         // Given: SettingsService with test UserDefaults
-        let settingsService = SettingsService(suiteName: testUserDefaults.suiteName)
-        
+        let settingsService = SettingsService(suiteName: testSuiteName)
+
         // When: Settings are changed
-        settingsService.calculationMethod = .karachi
-        settingsService.madhab = .hanafi
+        settingsService.calculationMethod = CalculationMethod.karachi
+        settingsService.madhab = Madhab.hanafi
         
         // Then: Settings are persisted with unified keys
         // Note: This test would need async handling in real implementation

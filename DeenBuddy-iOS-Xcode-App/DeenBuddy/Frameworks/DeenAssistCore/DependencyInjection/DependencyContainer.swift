@@ -77,7 +77,7 @@ public class DependencyContainer: ObservableObject {
         if let locationService = locationService {
             resolvedLocationService = locationService
         } else {
-            resolvedLocationService = await MainActor.run { LocationService() }
+            resolvedLocationService = await MainActor.run { ServiceFactory.createLocationService() }
         }
         
         let resolvedApiClient = apiClient ?? APIClient(configuration: apiConfiguration)
@@ -342,7 +342,7 @@ public class ServiceFactory {
 public extension DependencyContainer {
     @MainActor
     static var shared: DependencyContainer = {
-        let resolvedLocationService = LocationService()
+        let resolvedLocationService = ServiceFactory.createLocationService()
         let resolvedApiClient = APIClient(configuration: .default)
         let resolvedNotificationService: any NotificationServiceProtocol = NotificationService()
         let resolvedSettingsService: any SettingsServiceProtocol = SettingsService()
@@ -419,7 +419,7 @@ public extension DependencyContainer {
         prayerTimeService: (any PrayerTimeServiceProtocol)? = nil,
         settingsService: (any SettingsServiceProtocol)? = nil
     ) -> DependencyContainer {
-        let resolvedLocationService = locationService ?? LocationService()
+        let resolvedLocationService = locationService ?? ServiceFactory.createLocationService()
         let resolvedApiClient = apiClient ?? APIClient(configuration: .default)
         let resolvedNotificationService: any NotificationServiceProtocol = notificationService ?? NotificationService()
         let resolvedSettingsService: any SettingsServiceProtocol = settingsService ?? SettingsService()

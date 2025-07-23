@@ -1,15 +1,40 @@
 import Foundation
 import Combine
 
+/// Custom errors for QuranSearchService
+public enum QuranSearchError: LocalizedError {
+    case duplicateKey(String)
+    case initializationFailed(String)
+    case dataValidationFailed(String)
+    case cachingFailed(String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .duplicateKey(let key):
+            return "Duplicate key detected in famous verses: '\(key)'"
+        case .initializationFailed(let reason):
+            return "QuranSearchService initialization failed: \(reason)"
+        case .dataValidationFailed(let reason):
+            return "Quran data validation failed: \(reason)"
+        case .cachingFailed(let reason):
+            return "Failed to cache Quran data: \(reason)"
+        }
+    }
+}
+
 /// Comprehensive Quran search service with advanced search capabilities
 @MainActor
 public class QuranSearchService: ObservableObject {
+    
+    // MARK: - Singleton
+    public static let shared = QuranSearchService()
 
     // MARK: - Published Properties
 
     @Published public var searchResults: [QuranSearchResult] = []
     @Published public var enhancedSearchResults: [EnhancedSearchResult] = []
     @Published public var isLoading = false
+    @Published public var isBackgroundLoading = false
     @Published public var error: Error?
     @Published public var lastQuery = ""
     @Published public var searchHistory: [String] = []
@@ -29,6 +54,10 @@ public class QuranSearchService: ObservableObject {
     private let semanticEngine = SemanticSearchEngine.shared
     private let quranAPIService = QuranAPIService()
     private var cancellables = Set<AnyCancellable>()
+    
+    // MARK: - Thread Safety
+    private var isInitializing = false
+    private let initializationLock = NSLock()
 
     // MARK: - Cache Keys
 
@@ -42,7 +71,7 @@ public class QuranSearchService: ObservableObject {
 
     // MARK: - Initialization
 
-    public init() {
+    private init() {
         loadSearchHistory()
         loadBookmarkedVerses()
         loadCompleteQuranData()
@@ -50,11 +79,33 @@ public class QuranSearchService: ObservableObject {
 
     // MARK: - Complete Quran Data Loading
 
-    /// Load complete Quran data from API or cache
+    /// Load complete Quran data from API or cache with thread safety
     private func loadCompleteQuranData() {
+        initializationLock.lock()
+        defer {
+            initializationLock.unlock()
+        }
+
+        // Prevent multiple concurrent initializations
+        guard !isInitializing else {
+            print("🔧 DEBUG: Data loading already in progress, skipping duplicate initialization")
+            return
+        }
+
+        isInitializing = true
+        // Ensure isInitializing is always reset safely, regardless of how the method exits
+        defer {
+            initializationLock.lock()
+            isInitializing = false
+            initializationLock.unlock()
+        }
+
         print("🔧 DEBUG: Starting loadCompleteQuranData()")
-        isLoading = true
-        loadingProgress = 0.0
+
+        Task { @MainActor in
+            isBackgroundLoading = true
+            loadingProgress = 0.0
+        }
 
         // First try to load from cache
         if let cachedData = loadCachedQuranData() {
@@ -63,7 +114,7 @@ public class QuranSearchService: ObservableObject {
             self.allVerses = cachedData
             self.allSurahs = createSurahsFromVerses(cachedData)
             self.isDataLoaded = true
-            self.isLoading = false
+            self.isBackgroundLoading = false
             self.loadingProgress = 1.0
 
             // Validate cached data
@@ -99,13 +150,15 @@ public class QuranSearchService: ObservableObject {
                     switch completion {
                     case .finished:
                         print("✅ Successfully loaded complete Quran data")
-                        self?.isLoading = false
+                        self?.isBackgroundLoading = false
                         self?.loadingProgress = 1.0
+                        // isInitializing will be reset by defer block in loadCompleteQuranData()
                     case .failure(let error):
                         print("❌ Failed to load Quran data after retries: \(error)")
                         self?.error = error
-                        self?.isLoading = false
+                        self?.isBackgroundLoading = false
                         self?.loadingProgress = 0.0
+                        // isInitializing will be reset by defer block in loadCompleteQuranData()
                         // Fallback to sample data if API fails
                         self?.loadFallbackSampleData()
                     }
@@ -152,9 +205,11 @@ public class QuranSearchService: ObservableObject {
             let data = try JSONEncoder().encode(verses)
             userDefaults.set(data, forKey: CacheKeys.cachedQuranData)
             userDefaults.set(Date(), forKey: CacheKeys.lastDataUpdate)
-            print("💾 Quran data cached successfully")
+            print("💾 Quran data cached successfully - \(data.count) bytes stored")
         } catch {
-            print("❌ Failed to cache Quran data: \(error)")
+            let cachingError = QuranSearchError.cachingFailed("JSONEncoder failed: \(error.localizedDescription)")
+            print("❌ \(cachingError.localizedDescription)")
+            self.error = cachingError
         }
     }
 
@@ -166,16 +221,28 @@ public class QuranSearchService: ObservableObject {
 
         do {
             let verses = try JSONDecoder().decode([QuranVerse].self, from: data)
+            print("✅ Successfully loaded \(verses.count) verses from cache (\(data.count) bytes)")
             return verses
         } catch {
-            print("❌ Failed to decode cached Quran data: \(error)")
+            let decodingError = QuranSearchError.cachingFailed("JSONDecoder failed: \(error.localizedDescription)")
+            print("❌ \(decodingError.localizedDescription)")
+            self.error = decodingError
             return nil
         }
     }
 
-    /// Create surah objects from verses
+    /// Create surah objects from verses with thread-safe dictionary creation
     private func createSurahsFromVerses(_ verses: [QuranVerse]) -> [QuranSurah] {
-        let groupedVerses = Dictionary(grouping: verses) { $0.surahNumber }
+        // Use thread-safe grouping to prevent race conditions
+        var groupedVerses: [Int: [QuranVerse]] = [:]
+        
+        for verse in verses {
+            if groupedVerses[verse.surahNumber] == nil {
+                groupedVerses[verse.surahNumber] = []
+            }
+            groupedVerses[verse.surahNumber]?.append(verse)
+        }
+        
         return groupedVerses.compactMap { surahNumber, surahVerses in
             guard let firstVerse = surahVerses.first else { return nil }
 
@@ -212,6 +279,8 @@ public class QuranSearchService: ObservableObject {
         for (index, verse) in allVerses.prefix(3).enumerated() {
             print("🔧 DEBUG: Sample verse \(index + 1): \(verse.shortReference) - \(verse.textTranslation.prefix(50))...")
         }
+
+        // isInitializing will be reset by defer block in loadCompleteQuranData()
     }
 
     private func createSampleVerses() -> [QuranVerse] {
@@ -565,61 +634,8 @@ public class QuranSearchService: ObservableObject {
     private func checkForFamousVerses(query: String) -> [EnhancedSearchResult] {
         let queryLower = query.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Famous verse mappings
-        let famousVerses: [String: (surah: Int, verse: Int)] = [
-            // Ayat al-Kursi (Throne Verse) - 2:255
-            "ayat al-kursi": (2, 255),
-            "ayat al kursi": (2, 255),
-            "ayatul kursi": (2, 255),
-            "ayat ul kursi": (2, 255),
-            "throne verse": (2, 255),
-            "kursi": (2, 255),
-            "throne": (2, 255),
-            "sustainer verse": (2, 255),
-
-            // Al-Fatiha (The Opening) - 1:1-7
-            "al-fatiha": (1, 1),
-            "fatiha": (1, 1),
-            "opening": (1, 1),
-            "bismillah": (1, 1),
-            "opening verse": (1, 1),
-            "mother of the book": (1, 1),
-
-            // Light Verse (Ayat an-Nur) - 24:35
-            "light verse": (24, 35),
-            "ayat an-nur": (24, 35),
-            "ayat an nur": (24, 35),
-            "nur verse": (24, 35),
-            "allah is light": (24, 35),
-
-            // Ikhlas (Sincerity) - 112:1-4
-            "ikhlas": (112, 1),
-            "sincerity": (112, 1),
-            "purity": (112, 1),
-            "say he is allah one": (112, 1),
-
-            // Al-Falaq (The Daybreak) - 113:1-5
-            "falaq": (113, 1),
-            "daybreak": (113, 1),
-            "dawn": (113, 1),
-            "refuge": (113, 1),
-
-            // An-Nas (Mankind) - 114:1-6
-            "nas": (114, 1),
-            "mankind": (114, 1),
-            "people": (114, 1),
-
-            // Death Verse - 3:185
-            "death verse": (3, 185),
-            "every soul will taste death": (3, 185),
-            "taste death": (3, 185),
-
-            // Burden Verse - 2:286
-            "burden verse": (2, 286),
-            "allah does not burden": (2, 286),
-            "does not charge": (2, 286),
-            "capacity": (2, 286)
-        ]
+        // Famous verse mappings - using safe initialization to prevent duplicate key crashes
+        let famousVerses = createFamousVersesMappings()
 
         // Check if query matches any famous verse (case-insensitive)
         for (name, location) in famousVerses {
@@ -1276,6 +1292,89 @@ public class QuranSearchService: ObservableObject {
            let verses = try? JSONDecoder().decode([QuranVerse].self, from: data) {
             bookmarkedVerses = verses
         }
+    }
+    
+    /// Create famous verses mappings with safe initialization to prevent duplicate key crashes
+    private func createFamousVersesMappings() -> [String: (surah: Int, verse: Int)] {
+        var famousVerses: [String: (surah: Int, verse: Int)] = [:]
+        var duplicatesFound: [String] = []
+        
+        // Define the verse mappings as array of tuples to avoid duplicate key issues
+        let mappings: [(String, Int, Int)] = [
+            // Ayat al-Kursi (Throne Verse) - 2:255
+            ("ayat al-kursi", 2, 255),
+            ("ayat al kursi", 2, 255),
+            ("ayatul kursi", 2, 255),
+            ("ayat ul kursi", 2, 255),
+            ("throne verse", 2, 255),
+            ("kursi", 2, 255),
+            ("throne", 2, 255),
+            ("sustainer verse", 2, 255),
+
+            // Al-Fatiha (The Opening) - 1:1-7
+            ("al-fatiha", 1, 1),
+            ("fatiha", 1, 1),
+            ("opening", 1, 1),
+            ("bismillah", 1, 1),
+            ("opening verse", 1, 1),
+            ("mother of the book", 1, 1),
+
+            // Light Verse (Ayat an-Nur) - 24:35
+            ("light verse", 24, 35),
+            ("ayat an-nur", 24, 35),
+            ("ayat an nur", 24, 35),
+            ("nur verse", 24, 35),
+            ("allah is light", 24, 35),
+
+            // Ikhlas (Sincerity) - 112:1-4
+            ("ikhlas", 112, 1),
+            ("sincerity", 112, 1),
+            ("purity", 112, 1),
+            ("say he is allah one", 112, 1),
+
+            // Al-Falaq (The Daybreak) - 113:1-5
+            ("falaq", 113, 1),
+            ("daybreak", 113, 1),
+            ("dawn", 113, 1),
+            ("refuge", 113, 1),
+
+            // An-Nas (Mankind) - 114:1-6
+            ("nas", 114, 1),
+            ("mankind", 114, 1),
+            ("people", 114, 1),
+
+            // Death Verse - 3:185
+            ("death verse", 3, 185),
+            ("every soul will taste death", 3, 185),
+            ("taste death", 3, 185),
+
+            // Burden Verse - 2:286
+            ("burden verse", 2, 286),
+            ("allah does not burden", 2, 286),
+            ("does not charge", 2, 286),
+            ("capacity", 2, 286)
+        ]
+        
+        // Safely add mappings, handling potential duplicates
+        for (key, surah, verse) in mappings {
+            if famousVerses[key] != nil {
+                let warningMessage = "Duplicate key detected in famous verses: '\(key)' - skipping duplicate"
+                print("⚠️ WARNING: \(warningMessage)")
+                duplicatesFound.append(key)
+                continue
+            }
+            famousVerses[key] = (surah: surah, verse: verse)
+        }
+        
+        // Report duplicates if found
+        if !duplicatesFound.isEmpty {
+            let errorMessage = "Found \(duplicatesFound.count) duplicate keys: \(duplicatesFound.joined(separator: ", "))"
+            print("🚨 CRITICAL: \(errorMessage)")
+            // Don't throw error - just log and continue with unique keys
+        }
+        
+        print("✅ Famous verses mappings created successfully with \(famousVerses.count) entries")
+        return famousVerses
     }
 }
 

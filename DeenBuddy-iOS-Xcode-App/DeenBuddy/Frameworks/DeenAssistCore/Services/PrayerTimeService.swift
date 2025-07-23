@@ -67,10 +67,18 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
     
     deinit {
-        MainActor.assumeIsolated {
-            timerManager.cancelTimer(id: "prayer-update")
-        }
+        // Cancel all tasks first
         updateNextPrayerTask?.cancel()
+        updateNextPrayerTask = nil
+
+        // Cancel all Combine subscriptions
+        cancellables.removeAll()
+
+        // Cancel timer synchronously to avoid retain cycles
+        // Note: This is safe because timerManager is designed to handle cross-actor calls
+        timerManager.cancelTimerSync(id: "prayer-update")
+
+        print("🧹 PrayerTimeService deinit completed")
     }
     
     // MARK: - Protocol Implementation
@@ -251,14 +259,19 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             .receive(on: DispatchQueue.main)
             .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
-                Task {
-                    await self?.invalidateCacheAndRefresh()
+                // Execute directly on main queue instead of creating a new Task
+                // This ensures immediate execution in test environments
+                DispatchQueue.main.async {
+                    Task { @MainActor in
+                        await self?.invalidateCacheAndRefresh()
+                    }
                 }
             }
             .store(in: &cancellables)
     }
 
     /// Invalidates cached prayer times and triggers recalculation when settings change
+    @MainActor
     private func invalidateCacheAndRefresh() async {
         logger.debug("Settings changed - invalidating cache and refreshing prayer times")
 
@@ -298,12 +311,12 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
     /// Manual cleanup for testing or debugging
     public func cleanup() {
-        MainActor.assumeIsolated {
-            timerManager.cancelTimer(id: "prayer-update")
-        }
-        
+        // Cancel timer synchronously for consistent cleanup behavior
+        timerManager.cancelTimerSync(id: "prayer-update")
+
+        // Cancel all tasks and subscriptions
         cancelAllTasks()
-        
+
         logger.debug("PrayerTimeService manually cleaned up")
     }
     
@@ -365,20 +378,26 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             checkAndTriggerDynamicIslandForPrayer(next)
         } else {
             // No more prayers today, get tomorrow's Fajr
-            Task {
+            updateNextPrayerTask?.cancel()
+            updateNextPrayerTask = Task { [weak self] in
+                guard let self = self else { return }
                 let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
-                if let location = locationService.currentLocation {
+                if let location = self.locationService.currentLocation {
                     do {
-                        let tomorrowPrayers = try await calculatePrayerTimes(for: location, date: tomorrow)
+                        let tomorrowPrayers = try await self.calculatePrayerTimes(for: location, date: tomorrow)
                         if let fajr = tomorrowPrayers.first(where: { $0.prayer == .fajr }) {
-                            nextPrayer = fajr
-                            timeUntilNextPrayer = fajr.time.timeIntervalSince(now)
-                            
+                            await MainActor.run {
+                                self.nextPrayer = fajr
+                                self.timeUntilNextPrayer = fajr.time.timeIntervalSince(now)
+                            }
+
                             // Auto-trigger Dynamic Island for tomorrow's Fajr
-                            checkAndTriggerDynamicIslandForPrayer(fajr)
+                            self.checkAndTriggerDynamicIslandForPrayer(fajr)
                         }
                     } catch {
-                        self.error = error
+                        await MainActor.run {
+                            self.error = error
+                        }
                     }
                 }
             }

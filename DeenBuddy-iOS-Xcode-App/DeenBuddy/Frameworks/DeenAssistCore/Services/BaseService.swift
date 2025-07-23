@@ -93,11 +93,13 @@ open class BaseService: ObservableObject {
     }
     
     deinit {
-        // Cleanup synchronously without await
-        MainActor.assumeIsolated {
-            syncCleanup()
+        // Ensure all external resources are properly cleaned up
+        // Note: Cannot call cleanup() directly from deinit as it's main actor isolated
+        // Cancel all tasks directly
+        for (_, task) in currentTasks {
+            task.cancel()
         }
-        
+
         if configuration.enableLogging {
             logger.info("🧹 \(self.serviceName) deinitialized")
         }
@@ -163,8 +165,9 @@ open class BaseService: ObservableObject {
         
         // Create task for cleanup tracking
         let task = Task {
-            defer {
-                Task { @MainActor in
+            do {
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
                     self.currentTasks.removeValue(forKey: taskId)
                     self.isLoading = self.currentTasks.isEmpty ? false : self.isLoading
                 }
@@ -358,17 +361,7 @@ open class BaseService: ObservableObject {
         logger.info("🧹 \(self.serviceName) cleanup completed")
     }
     
-    /// Synchronous cleanup for deinit
-    private func syncCleanup() {
-        // Cancel all tasks synchronously
-        for (_, task) in currentTasks {
-            task.cancel()
-        }
-        currentTasks.removeAll()
-        
-        // Clear subscriptions
-        cancellables.removeAll()
-    }
+
     
     /// Simple retry mechanism
     private func performWithSimpleRetry<T>(

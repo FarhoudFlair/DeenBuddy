@@ -18,8 +18,8 @@ public class BackgroundTaskManager: ObservableObject {
     private let prayerUpdateIdentifier = "com.deenbuddy.app.prayer-update"
     
     // MARK: - Dependencies
-    
-    private let prayerTimeService: (any PrayerTimeServiceProtocol)?
+
+    internal let prayerTimeService: (any PrayerTimeServiceProtocol)?
     private let notificationService: (any NotificationServiceProtocol)?
     private let locationService: (any LocationServiceProtocol)?
     

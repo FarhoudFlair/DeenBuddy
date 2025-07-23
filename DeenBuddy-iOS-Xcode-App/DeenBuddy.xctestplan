@@ -1,0 +1,43 @@
+{
+  "configurations" : [
+    {
+      "id" : "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
+      "name" : "Configuration 1",
+      "options" : {
+        "maximumTestExecutionTimeAllowance" : 600,
+        "maximumTestRepetitions" : 1,
+        "testExecutionOrdering" : "random",
+        "testTimeoutsEnabled" : true,
+        "maximumParallelTestingWorkers" : 1,
+        "testRepetitionMode" : "none"
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "maximumTestExecutionTimeAllowance" : 600,
+    "maximumTestRepetitions" : 1,
+    "testExecutionOrdering" : "random",
+    "testTimeoutsEnabled" : true,
+    "maximumParallelTestingWorkers" : 1,
+    "testRepetitionMode" : "none"
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:DeenBuddy.xcodeproj",
+        "identifier" : "23F09F042E17292B00E25D2F",
+        "name" : "DeenBuddyTests"
+      }
+    },
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:DeenBuddy.xcodeproj",
+        "identifier" : "23F09F0E2E17292B00E25D2F",
+        "name" : "DeenBuddyUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

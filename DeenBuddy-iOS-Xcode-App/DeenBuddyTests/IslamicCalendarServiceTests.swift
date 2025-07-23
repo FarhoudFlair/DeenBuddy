@@ -4,23 +4,22 @@ import Combine
 
 /// Comprehensive tests for IslamicCalendarService
 class IslamicCalendarServiceTests: XCTestCase {
-    
+
     // MARK: - Test Properties
     private var sut: IslamicCalendarService!
     private var cancellables: Set<AnyCancellable>!
-    
+
     // MARK: - Setup & Teardown
-    
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        
+
+    @MainActor
+    override func setUp() async throws {
+        try await super.setUp()
+
         sut = IslamicCalendarService()
         cancellables = Set<AnyCancellable>()
-        
-        // Clear any existing data
-        Task { @MainActor in
-            await sut.clearCache()
-        }
+
+        // Clear any existing data - await to ensure completion before tests run
+        await sut.clearCache()
     }
     
     override func tearDownWithError() throws {
@@ -382,12 +381,30 @@ class IslamicCalendarServiceTests: XCTestCase {
     func testGetEventsObservedThisYear_ShouldReturnCurrentYearEvents() async throws {
         // When
         let thisYearEvents = await sut.getEventsObservedThisYear()
-        
+        let currentYear = sut.currentHijriDate.year
+
         // Then
-        XCTAssertFalse(thisYearEvents.isEmpty)
-        XCTAssertTrue(thisYearEvents.allSatisfy { $0.hijriDate.year == sut.currentHijriDate.year })
+        XCTAssertFalse(thisYearEvents.isEmpty, "Should return events for the current Hijri year")
+        XCTAssertTrue(thisYearEvents.allSatisfy { $0.hijriDate.year == currentYear }, "All events should be from the current Hijri year")
     }
-    
+
+    @MainActor
+    func testGetEventsObservedThisYear_ShouldReturnDefaultEvents() async throws {
+        // Given - clear cache to reset to default state
+        await sut.clearCache()
+
+        // When
+        let thisYearEvents = await sut.getEventsObservedThisYear()
+
+        // Then - should have default Islamic events for this year
+        XCTAssertFalse(thisYearEvents.isEmpty, "Should return default Islamic events")
+
+        // Verify we have major Islamic events
+        let eventNames = thisYearEvents.map { $0.name }
+        XCTAssertTrue(eventNames.contains("Eid al-Fitr") || eventNames.contains("Eid al-Adha"),
+                     "Should contain major Islamic events")
+    }
+
     @MainActor
     func testGetMostActiveMonth_ShouldReturnValidMonth() async throws {
         // When
@@ -472,8 +489,8 @@ class IslamicCalendarServiceTests: XCTestCase {
     @MainActor
     func testRefreshCalendarData_ShouldUpdateInfo() async throws {
         // Given
-        let initialUpcomingCount = sut.upcomingEvents.count
-        
+        let _ = sut.upcomingEvents.count // Store initial count for potential future use
+
         // When
         await sut.refreshCalendarData()
         

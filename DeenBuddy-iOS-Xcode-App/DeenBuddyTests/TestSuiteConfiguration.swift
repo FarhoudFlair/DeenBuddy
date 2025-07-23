@@ -6,6 +6,7 @@
 //
 
 import XCTest
+@testable import DeenBuddy
 
 /// Configuration and organization for the complete prayer time synchronization test suite
 class TestSuiteConfiguration: NSObject {
@@ -74,8 +75,8 @@ class TestSuiteConfiguration: NSObject {
             "2024-09-22"  // Fall equinox
         ]
         
-        static let calculationMethods = CalculationMethod.allCases
-        static let madhabs = Madhab.allCases
+        static let calculationMethods: [String] = CalculationMethod.allCases.map { $0.rawValue }
+        static let madhabs: [String] = Madhab.allCases.map { $0.rawValue }
     }
     
     // MARK: - Test Execution Helpers
@@ -143,7 +144,7 @@ class TestSuiteConfiguration: NSObject {
     
     // MARK: - Private Helpers
     
-    private static func runTestSuite(_ testClasses: [XCTestCase.Type], name: String) -> Bool {
+    static func runTestSuite(_ testClasses: [XCTestCase.Type], name: String) -> Bool {
         print("\n🔍 Running \(name)...")
         print("-" * 40)
         
@@ -152,14 +153,14 @@ class TestSuiteConfiguration: NSObject {
         for testClass in testClasses {
             let testSuite = XCTestSuite(forTestCaseClass: testClass)
             let testRun = XCTestSuiteRun(test: testSuite)
-            
-            testSuite.run(testRun)
-            
+
+            testSuite.run()
+
             let passed = testRun.testCaseCount == testRun.executionCount && testRun.failureCount == 0
             let status = passed ? "✅" : "❌"
-            
+
             print("\(status) \(testClass) - \(testRun.executionCount) tests, \(testRun.failureCount) failures")
-            
+
             if !passed {
                 allPassed = false
             }

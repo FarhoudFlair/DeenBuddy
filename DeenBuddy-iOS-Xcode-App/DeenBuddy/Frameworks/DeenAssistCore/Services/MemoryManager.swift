@@ -28,9 +28,8 @@ public class MemoryManager: ObservableObject {
     }
     
     deinit {
-        MainActor.assumeIsolated {
-            timerManager.cancelTimer(id: "memory-monitoring")
-        }
+        // Use the synchronous timer cancellation method designed for deinit
+        timerManager.cancelTimerSync(id: "memory-monitoring")
     }
     
     // MARK: - Public Methods

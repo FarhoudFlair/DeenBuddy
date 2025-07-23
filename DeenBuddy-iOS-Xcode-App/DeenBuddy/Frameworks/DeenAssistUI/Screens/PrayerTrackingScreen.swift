@@ -71,17 +71,24 @@ public struct PrayerTrackingScreen: View {
                     }
                 }
             }
-            .sheet(isPresented: $showingPrayerCompletion) {
-                if let prayer = selectedPrayer {
-                    PrayerCompletionView(
-                        prayer: prayer,
-                        prayerTrackingService: prayerTrackingService,
-                        onDismiss: {
-                            showingPrayerCompletion = false
-                            selectedPrayer = nil
-                        }
-                    )
+            .sheet(item: Binding<PrayerSheetItem?>(
+                get: { 
+                    guard showingPrayerCompletion, let prayer = selectedPrayer else { return nil }
+                    return PrayerSheetItem(prayer: prayer)
+                },
+                set: { _ in
+                    showingPrayerCompletion = false
+                    selectedPrayer = nil
                 }
+            )) { item in
+                PrayerCompletionView(
+                    prayer: item.prayer,
+                    prayerTrackingService: prayerTrackingService,
+                    onDismiss: {
+                        showingPrayerCompletion = false
+                        selectedPrayer = nil
+                    }
+                )
             }
             .onAppear {
                 loadStatistics()
@@ -241,8 +248,7 @@ public struct PrayerTrackingScreen: View {
                             prayer: prayer,
                             isCompleted: isPrayerCompleted(prayer),
                             onTap: {
-                                selectedPrayer = prayer
-                                showingPrayerCompletion = true
+                                showPrayerCompletion(for: prayer)
                             }
                         )
                     }
@@ -298,6 +304,11 @@ public struct PrayerTrackingScreen: View {
         return tabWidth * CGFloat(selectedTab.rawValue) - (width / 2) + (tabWidth / 2)
     }
     
+    private func showPrayerCompletion(for prayer: Prayer) {
+        selectedPrayer = prayer
+        showingPrayerCompletion = true
+    }
+    
     private func isPrayerCompleted(_ prayer: Prayer) -> Bool {
         // Check if prayer is completed today
         let today = Calendar.current.startOfDay(for: Date())
@@ -340,6 +351,13 @@ public struct PrayerTrackingScreen: View {
         let days = max(currentStreak.current, currentStreak.longest)
         return "\(days) days"
     }
+}
+
+// MARK: - Supporting Types
+
+private struct PrayerSheetItem: Identifiable {
+    let id = UUID()
+    let prayer: Prayer
 }
 
 // MARK: - Tracking Tab Enum

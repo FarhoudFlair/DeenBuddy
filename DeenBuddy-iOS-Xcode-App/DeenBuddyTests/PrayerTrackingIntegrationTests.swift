@@ -84,7 +84,11 @@ final class PrayerTrackingIntegrationTests: XCTestCase {
         
         let lastEntry = recentEntries.last
         XCTAssertEqual(lastEntry?.prayer, testPrayer)
-        XCTAssertEqual(lastEntry?.completedAt.timeIntervalSince1970, completionDate.timeIntervalSince1970, accuracy: 1.0)
+        if let lastEntry = lastEntry {
+            XCTAssertEqual(lastEntry.completedAt.timeIntervalSince1970, completionDate.timeIntervalSince1970, accuracy: 1.0)
+        } else {
+            XCTFail("Expected to find a prayer tracking entry")
+        }
     }
     
     func testPrayerTrackingCoordinatorIntegration() async throws {

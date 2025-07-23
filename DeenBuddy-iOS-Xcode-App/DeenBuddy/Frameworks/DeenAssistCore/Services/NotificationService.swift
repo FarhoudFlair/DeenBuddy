@@ -39,7 +39,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     
     // MARK: - Private Properties
 
-    private let notificationCenter = UNUserNotificationCenter.current()
+    private var notificationCenter: UNUserNotificationCenter
     private let userDefaults = UserDefaults.standard
     private var notificationSettings = NotificationSettings()
 
@@ -51,10 +51,15 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     // Observer management for memory leak prevention
     private static let maxObservers = 10
     private var observerCount = 0
-    
+
     // Debouncing for settings changes to prevent excessive updates
     private var settingsUpdateTask: Task<Void, Never>?
     private let settingsUpdateDebounceInterval: TimeInterval = 1.0 // 1 second
+
+    // Testing support
+    #if DEBUG
+    private var mockNotificationCenter: Any?
+    #endif
 
     // MARK: - Settings Keys
 
@@ -66,6 +71,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     // MARK: - Initialization
 
     public override init() {
+        self.notificationCenter = UNUserNotificationCenter.current()
         super.init()
         setupNotificationCenter()
         loadSettings()
@@ -100,8 +106,16 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     
     /// Request notification permission from user
     public func requestNotificationPermission() async throws -> Bool {
+        #if DEBUG
+        if mockNotificationCenter != nil {
+            // In test mode, always return authorized
+            self.authorizationStatus = .authorized
+            return true
+        }
+        #endif
+
         let settings = await notificationCenter.notificationSettings()
-        
+
         switch settings.authorizationStatus {
         case .authorized, .provisional:
             return true
@@ -228,7 +242,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
         do {
-            try await notificationCenter.add(request)
+            try await addNotificationRequest(request)
             let timingDesc = reminderMinutes == 0 ? "at prayer time" : "\(reminderMinutes) minutes before"
             print("Scheduled notification for \(prayer.displayName) \(timingDesc) at \(notificationTime)")
         } catch {
@@ -259,7 +273,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     }
     
     public func cancelAllNotifications() async {
-        notificationCenter.removeAllPendingNotificationRequests()
+        removeAllPendingNotificationRequests()
         print("Cancelled all prayer notifications")
     }
 
@@ -321,7 +335,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     }
     
     public func cancelNotifications(for prayer: Prayer) async {
-        let requests = await notificationCenter.pendingNotificationRequests()
+        let requests = await getPendingNotificationRequests()
         let identifiersToCancel = requests.compactMap { request -> String? in
             guard let prayerString = request.content.userInfo["prayer"] as? String,
                   prayerString == prayer.rawValue else {
@@ -329,9 +343,9 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             }
             return request.identifier
         }
-        
+
         if !identifiersToCancel.isEmpty {
-            notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+            removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
             print("Cancelled \(identifiersToCancel.count) notifications for \(prayer.displayName)")
         }
     }
@@ -628,7 +642,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         }
         
         if !identifiersToCancel.isEmpty {
-            notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+            removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
             print("Cancelled \(identifiersToCancel.count) notifications for \(date)")
         }
     }
@@ -908,7 +922,7 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
         }
 
         if !identifiersToCancel.isEmpty {
-            notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
+            removePendingNotificationRequests(withIdentifiers: identifiersToCancel)
             print("🗑️ Cancelled \(identifiersToCancel.count) notifications for \(prayer.displayName)")
         }
     }
@@ -918,9 +932,100 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
     #if DEBUG
     /// Set mock notification center for testing
     internal func setMockNotificationCenter(_ mockCenter: Any) {
-        // This would be implemented to support testing
-        // In a real implementation, you might use dependency injection
-        print("Mock notification center set for testing")
+        self.mockNotificationCenter = mockCenter
+        // Update authorization status to authorized for testing
+        self.authorizationStatus = .authorized
+        print("Mock notification center set for testing with authorized status")
     }
     #endif
+
+    // MARK: - Helper Methods
+
+    // Helper methods to use mock when available - available in all builds
+    private func addNotificationRequest(_ request: UNNotificationRequest) async throws {
+        #if DEBUG
+        if let mockCenter = mockNotificationCenter as? MockUNUserNotificationCenter {
+            // In test mode, add to mock center
+            try await mockCenter.add(request)
+            print("Mock: Added notification request \(request.identifier)")
+            return
+        }
+        #endif
+        try await notificationCenter.add(request)
+    }
+
+    private func removeAllPendingNotificationRequests() {
+        #if DEBUG
+        if let mockCenter = mockNotificationCenter as? MockUNUserNotificationCenter {
+            mockCenter.removeAllPendingNotificationRequests()
+            print("Mock: Removed all pending notification requests")
+            return
+        }
+        #endif
+        notificationCenter.removeAllPendingNotificationRequests()
+    }
+
+    private func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
+        #if DEBUG
+        if let mockCenter = mockNotificationCenter as? MockUNUserNotificationCenter {
+            mockCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+            print("Mock: Removed notification requests with identifiers: \(identifiers)")
+            return
+        }
+        #endif
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    private func getPendingNotificationRequests() async -> [UNNotificationRequest] {
+        #if DEBUG
+        if let mockCenter = mockNotificationCenter as? MockUNUserNotificationCenter {
+            // Return mock requests for testing
+            return await mockCenter.pendingNotificationRequests()
+        }
+        #endif
+        return await notificationCenter.pendingNotificationRequests()
+    }
 }
+
+#if DEBUG
+/// Mock UNUserNotificationCenter for testing
+public class MockUNUserNotificationCenter {
+    public var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    public var scheduledRequests: [UNNotificationRequest] = []
+
+    public init() {}
+
+    public func add(_ request: UNNotificationRequest) async throws {
+        scheduledRequests.append(request)
+    }
+
+    public func removeAllPendingNotificationRequests() {
+        scheduledRequests.removeAll()
+    }
+
+    public func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
+        scheduledRequests.removeAll { request in
+            identifiers.contains(request.identifier)
+        }
+    }
+
+    public func pendingNotificationRequests() async -> [UNNotificationRequest] {
+        return scheduledRequests
+    }
+
+    public func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+        authorizationStatus = .authorized
+        return true
+    }
+
+    public func getNotificationSettings() async -> UNNotificationSettings {
+        // Mock implementation - create a mock settings object
+        // Since UNNotificationSettings can't be subclassed, we return the real settings
+        // The mock authorization status is handled in the authorizationStatus property above
+        return await UNUserNotificationCenter.current().notificationSettings()
+    }
+}
+
+// Note: UNNotificationSettings cannot be subclassed, so we use the real settings
+// and override the authorization status check in the service methods instead
+#endif

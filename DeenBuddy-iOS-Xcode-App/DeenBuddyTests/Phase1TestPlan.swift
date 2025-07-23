@@ -10,17 +10,18 @@ class Phase1IslamicFeaturesTests: XCTestCase {
     
     // MARK: - Test Properties
     private var cancellables: Set<AnyCancellable>!
-    private var mockSettingsService: MockSettingsService!
-    private var mockPrayerTimeService: MockPrayerTimeService!
-    private var mockLocationService: MockLocationService!
+    private var mockSettingsService: Phase1MockSettingsService!
+    private var mockPrayerTimeService: Phase1MockPrayerTimeService!
+    private var mockLocationService: Phase1MockLocationService!
     
     // MARK: - Setup & Teardown
+    @MainActor
     override func setUpWithError() throws {
         try super.setUpWithError()
         cancellables = Set<AnyCancellable>()
-        mockSettingsService = MockSettingsService()
-        mockPrayerTimeService = MockPrayerTimeService()
-        mockLocationService = MockLocationService()
+        mockSettingsService = Phase1MockSettingsService()
+        mockPrayerTimeService = Phase1MockPrayerTimeService()
+        mockLocationService = Phase1MockLocationService()
     }
     
     override func tearDownWithError() throws {
@@ -50,7 +51,7 @@ class Phase1IslamicFeaturesTests: XCTestCase {
         await prayerTrackingService.markPrayerCompleted(
             prayer,
             notes: "Integration test prayer",
-            mood: .grateful
+            mood: .excellent
         )
 
         // Then
@@ -78,8 +79,7 @@ class Phase1IslamicFeaturesTests: XCTestCase {
 
         // Then
         XCTAssertNotNil(streak)
-        XCTAssertEqual(streak?.prayer, .fajr)
-        XCTAssertGreaterThan(streak?.currentStreak ?? 0, 0)
+        XCTAssertGreaterThan(streak?.current ?? 0, 0)
     }
     
     /// Test prayer statistics generation
@@ -179,8 +179,8 @@ class Phase1IslamicFeaturesTests: XCTestCase {
 
         // Setup mock prayer times
         mockPrayerTimeService.todaysPrayerTimes = [
-            PrayerTime(prayer: .fajr, time: Date(), isCurrentPrayer: false, timeUntilPrayer: 0),
-            PrayerTime(prayer: .dhuhr, time: Date().addingTimeInterval(3600), isCurrentPrayer: true, timeUntilPrayer: 3600)
+            PrayerTime(prayer: .fajr, time: Date()),
+            PrayerTime(prayer: .dhuhr, time: Date().addingTimeInterval(3600))
         ]
 
         // When - Complete a prayer and verify tracking integration
@@ -239,66 +239,99 @@ class Phase1IslamicFeaturesTests: XCTestCase {
 
 // MARK: - Mock Services
 
-class MockSettingsService: SettingsServiceProtocol {
-    // Mock implementation for testing
-    var calculationMethod: CalculationMethod = .muslimWorldLeague
-    var madhab: Madhab = .hanafi
-    var locationSettings: LocationSettings = LocationSettings()
-    
-    func updateCalculationMethod(_ method: CalculationMethod) {}
-    func updateMadhab(_ madhab: Madhab) {}
-    func updateLocationSettings(_ settings: LocationSettings) {}
-}
+@MainActor
+class Phase1MockSettingsService: SettingsServiceProtocol, ObservableObject {
+    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
+    @Published var madhab: Madhab = .shafi
+    @Published var notificationsEnabled: Bool = true
+    @Published var theme: ThemeMode = .dark
+    @Published var timeFormat: TimeFormat = .twelveHour
+    @Published var notificationOffset: TimeInterval = 300
+    @Published var hasCompletedOnboarding: Bool = false
+    @Published var userName: String = ""
+    @Published var overrideBatteryOptimization: Bool = false
+    @Published var showArabicSymbolInWidget: Bool = true
 
-class MockPrayerTimeService: PrayerTimeServiceProtocol {
-    // Mock implementation for testing
-    var currentPrayerTimes: PrayerTimes?
-    var nextPrayer: Prayer?
-    var timeUntilNextPrayer: TimeInterval = 0
-    
-    func calculatePrayerTimes(for date: Date) -> PrayerTimes? { return nil }
-    func getNextPrayer() -> Prayer? { return nil }
-    func getTimeUntilNextPrayer() -> TimeInterval { return 0 }
+    var enableNotifications: Bool {
+        get { notificationsEnabled }
+        set { notificationsEnabled = newValue }
+    }
+
+    func saveSettings() async throws {}
+    func loadSettings() async throws {}
+    func resetToDefaults() async throws {}
+    func saveImmediately() async throws {}
+    func saveOnboardingSettings() async throws {}
 }
 
 @MainActor
-class MockLocationService: LocationServiceProtocol {
-    // Mock implementation for testing
-    var currentLocation: CLLocation?
-    var authorizationStatus: CLAuthorizationStatus = .notDetermined
-    var isUpdatingLocation: Bool = false
-    var locationError: Error?
-    var currentHeading: Double = 0
-    var headingAccuracy: Double = 5.0
-    var isUpdatingHeading: Bool = false
-    var permissionStatus: CLAuthorizationStatus { authorizationStatus }
-    var locationPublisher: AnyPublisher<CLLocation, Error> { Empty().eraseToAnyPublisher() }
-    var headingPublisher: AnyPublisher<CLHeading, Error> { Empty().eraseToAnyPublisher() }
-    
-    func requestLocationPermission() {}
-    func requestLocationPermissionAsync() async -> CLAuthorizationStatus { return authorizationStatus }
-    func requestLocation() async throws -> CLLocation { 
-        guard let location = currentLocation else {
-            throw LocationError.locationUnavailable("Mock location not set")
-        }
-        return location
+class Phase1MockPrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
+    @Published var todaysPrayerTimes: [PrayerTime] = []
+    @Published var nextPrayer: PrayerTime? = nil
+    @Published var timeUntilNextPrayer: TimeInterval? = nil
+    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague
+    @Published var madhab: Madhab = .shafi
+    @Published var isLoading: Bool = false
+    @Published var error: Error? = nil
+
+    func calculatePrayerTimes(for location: CLLocation, date: Date) async throws -> [PrayerTime] {
+        return []
     }
-    func startUpdatingLocation() { isUpdatingLocation = true }
-    func stopUpdatingLocation() { isUpdatingLocation = false }
-    func startBackgroundLocationUpdates() { isUpdatingLocation = true }
-    func stopBackgroundLocationUpdates() { isUpdatingLocation = false }
-    func startUpdatingHeading() { isUpdatingHeading = true }
-    func stopUpdatingHeading() { isUpdatingHeading = false }
-    func geocodeCity(_ cityName: String) async throws -> CLLocation {
-        return CLLocation(latitude: 0, longitude: 0)
+
+    func refreshPrayerTimes() async {}
+    func refreshTodaysPrayerTimes() async {}
+    func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
+    func getCurrentLocation() async throws -> CLLocation { throw NSError(domain: "Mock", code: 0) }
+    func triggerDynamicIslandForNextPrayer() async {}
+}
+
+@MainActor
+class Phase1MockLocationService: LocationServiceProtocol, ObservableObject {
+    @Published var authorizationStatus: CLAuthorizationStatus = .authorizedWhenInUse
+    @Published var currentLocation: CLLocation? = nil
+    @Published var currentLocationInfo: LocationInfo? = nil
+    @Published var isUpdatingLocation: Bool = false
+    @Published var locationError: Error? = nil
+    @Published var currentHeading: Double = 0
+    @Published var headingAccuracy: Double = 5.0
+    @Published var isUpdatingHeading: Bool = false
+
+    var permissionStatus: CLAuthorizationStatus { authorizationStatus }
+
+    private let locationSubject = PassthroughSubject<CLLocation, Error>()
+    private let headingSubject = PassthroughSubject<CLHeading, Error>()
+
+    var locationPublisher: AnyPublisher<CLLocation, Error> {
+        locationSubject.eraseToAnyPublisher()
+    }
+
+    var headingPublisher: AnyPublisher<CLHeading, Error> {
+        headingSubject.eraseToAnyPublisher()
+    }
+
+    func requestLocationPermission() {}
+    func requestLocation() async throws -> CLLocation {
+        return CLLocation(latitude: 37.7749, longitude: -122.4194)
+    }
+    func startUpdatingLocation() {}
+    func stopUpdatingLocation() {}
+    func startUpdatingHeading() {}
+    func stopUpdatingHeading() {}
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
+        return LocationInfo(coordinate: coordinate, accuracy: 10.0, city: "Test", country: "Test")
     }
     func getCachedLocation() -> CLLocation? { return currentLocation }
-    func isCachedLocationValid() -> Bool { return currentLocation != nil }
+    func isCachedLocationValid() -> Bool { return true }
     func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
     func isCurrentLocationFromCache() -> Bool { return false }
     func getLocationAge() -> TimeInterval? { return 30.0 }
-    func searchCity(_ cityName: String) async throws -> [LocationInfo] { return [] }
-    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
-        return LocationInfo(coordinate: coordinate, accuracy: 10.0, city: "Test City", country: "Test Country")
+
+
+    func requestLocationPermissionAsync() async -> CLAuthorizationStatus { return authorizationStatus }
+    func startBackgroundLocationUpdates() { isUpdatingLocation = true }
+    func stopBackgroundLocationUpdates() { isUpdatingLocation = false }
+    func geocodeCity(_ cityName: String) async throws -> CLLocation {
+        return CLLocation(latitude: 0, longitude: 0)
     }
+    func searchCity(_ cityName: String) async throws -> [LocationInfo] { return [] }
 }

@@ -117,19 +117,23 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
     /// Increments observer count with safety checks
     private func incrementObserverCount() -> Bool {
-        guard observerCount < maxObservers else {
-            logger.warning("Maximum observers (\(maxObservers)) reached, rejecting new observer")
-            return false
+        return activeTaskCountQueue.sync(flags: .barrier) {
+            guard observerCount < maxObservers else {
+                logger.warning("Maximum observers (\(maxObservers)) reached, rejecting new observer")
+                return false
+            }
+            observerCount += 1
+            logger.debug("Active observers: \(observerCount)/\(maxObservers)")
+            return true
         }
-        observerCount += 1
-        logger.debug("Active observers: \(observerCount)/\(maxObservers)")
-        return true
     }
 
     /// Decrements observer count
     private func decrementObserverCount() {
-        observerCount = max(0, observerCount - 1)
-        logger.debug("Active observers: \(observerCount)/\(maxObservers)")
+        activeTaskCountQueue.sync(flags: .barrier) {
+            observerCount = max(0, observerCount - 1)
+            logger.debug("Active observers: \(observerCount)/\(maxObservers)")
+        }
     }
     
     /// Remove all observers and clean up
@@ -137,7 +141,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         if let observer = appLifecycleObserver {
             NotificationCenter.default.removeObserver(observer)
             appLifecycleObserver = nil
-            observerCount = max(0, observerCount - 1)
+            decrementObserverCount()
         }
         
         // Remove any remaining observers as fallback
@@ -148,8 +152,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
     /// Returns current resource usage for debugging
     public func getResourceUsage() -> (activeTasks: Int, observers: Int, instances: Int) {
-        let tasks = activeTaskCountQueue.sync { activeTaskCount }
-        return (activeTasks: tasks, observers: observerCount, instances: Self.getCurrentInstanceCount())
+        return activeTaskCountQueue.sync { 
+            (activeTasks: activeTaskCount, observers: observerCount, instances: Self.getCurrentInstanceCount())
+        }
     }
     
     /// Manual cleanup method for testing or emergency cleanup
@@ -224,65 +229,61 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     
     deinit {
         // Cleanup all resources to prevent memory leaks
-        MainActor.assumeIsolated {
-            performCleanup()
-        }
+        // Note: deinit can run on any thread, so we need to be careful with MainActor operations
+        performCleanupSafely()
         
         // Track instance destruction for monitoring
-        Self.instanceCountQueue.async(flags: .barrier) {
+        Self.instanceCountQueue.async(flags: .barrier) { [instanceId] in
             Self.instanceCount -= 1
             DispatchQueue.main.async {
-                print("🧹 LocationService instance destroyed - ID: \(self.instanceId.uuidString.prefix(8)), Remaining instances: \(Self.instanceCount)")
+                print("🧹 LocationService instance destroyed - ID: \(instanceId.uuidString.prefix(8)), Remaining instances: \(Self.instanceCount)")
             }
         }
 
         print("🧹 LocationService deinitialized - all resources cleaned up")
     }
     
-    /// Comprehensive cleanup of all resources
-    private func performCleanup() {
-        // Stop location updates
+    /// Thread-safe cleanup that can be called from deinit
+    private nonisolated func performCleanupSafely() {
+        // Stop location updates - these are thread-safe
         locationManager.stopUpdatingLocation()
         locationManager.stopUpdatingHeading()
         locationManager.delegate = nil
-        
+
         // Clear pending continuations with proper error handling
         continuationQueue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
-            
+
             if let continuation = self.locationContinuation {
                 continuation.resume(throwing: LocationError.locationUnavailable("LocationService is being deallocated"))
                 self.locationContinuation = nil
             }
-            
+
             if let continuation = self.permissionContinuation {
                 continuation.resume(returning: .denied)
                 self.permissionContinuation = nil
             }
-            
+
             self.locationRequestInProgress = false
             self.permissionRequestInProgress = false
-        }
-        
-        // Remove specific observer to prevent memory leak
-        if let observer = appLifecycleObserver {
-            NotificationCenter.default.removeObserver(observer)
-            appLifecycleObserver = nil
-            // Decrement observer count synchronously in deinit
-            observerCount = max(0, observerCount - 1)
-            print("👁️ LocationService: Removed app lifecycle observer")
         }
 
         // Remove any remaining observers as fallback
         NotificationCenter.default.removeObserver(self)
-        
-        // Cancel location timers
-        timerManager.cancelTimer(id: "location-update")
-        
-        // Clear cached data to prevent memory retention
-        cachedLocation = nil
-        
+
+        // Cancel location timers synchronously using the new safe method
+        BatteryAwareTimerManager.shared.cancelTimerSync(id: "location-update")
+
+        print("🧹 LocationService: Cleanup completed - ID: \(instanceId.uuidString.prefix(8))")
+
         print("🧹 LocationService cleanup completed")
+    }
+    
+    /// MainActor-dependent cleanup for use within the class (not in deinit)
+    @MainActor
+    private func performCleanup() {
+        // This method can call MainActor methods safely when called from MainActor context
+        performCleanupSafely()
     }
     
     // MARK: - Protocol Implementation
@@ -749,8 +750,11 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
         defer {
             decrementTaskCount()
-            Task { @MainActor in
-                self.isUpdatingAvailability = false
+            // Avoid weak reference issues by checking if we can safely access self
+            if !Task.isCancelled {
+                Task { @MainActor [weak self] in
+                    self?.isUpdatingAvailability = false
+                }
             }
         }
 
@@ -864,8 +868,8 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             // Handle cancellation gracefully - this is normal if the task is cancelled
             print("ℹ️ Location refresh was cancelled")
         } catch {
-            Task { @MainActor in
-                errorHandler.handleError(error)
+            Task { @MainActor [weak self] in
+                self?.errorHandler.handleError(error)
             }
         }
     }

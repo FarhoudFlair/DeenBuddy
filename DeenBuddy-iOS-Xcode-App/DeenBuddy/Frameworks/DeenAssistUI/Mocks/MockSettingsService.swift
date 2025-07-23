@@ -4,16 +4,36 @@ import Combine
 /// Mock implementation of SettingsServiceProtocol for UI development
 @MainActor
 public class MockSettingsService: SettingsServiceProtocol {
-    @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague
-    @Published public var madhab: Madhab = .shafi
-    @Published public var notificationsEnabled: Bool = true
-    @Published public var theme: ThemeMode = .dark
-    @Published public var timeFormat: TimeFormat = .twelveHour
-    @Published public var notificationOffset: TimeInterval = 300
-    @Published public var hasCompletedOnboarding: Bool = false
-    @Published public var userName: String = ""
-    @Published public var overrideBatteryOptimization: Bool = false
-    @Published public var showArabicSymbolInWidget: Bool = true
+    @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var madhab: Madhab = .shafi {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var notificationsEnabled: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var theme: ThemeMode = .dark {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var timeFormat: TimeFormat = .twelveHour {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var notificationOffset: TimeInterval = 300 {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var hasCompletedOnboarding: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var userName: String = "" {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var overrideBatteryOptimization: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var showArabicSymbolInWidget: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
 
     public var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -21,7 +41,12 @@ public class MockSettingsService: SettingsServiceProtocol {
     }
     
     public init() {}
-    
+
+    /// Send notification when settings change (to match real SettingsService behavior)
+    private func notifySettingsChanged() {
+        NotificationCenter.default.post(name: .settingsDidChange, object: self)
+    }
+
     public func saveSettings() async throws {
         // Simulate save delay
         try await Task.sleep(nanoseconds: 200_000_000)

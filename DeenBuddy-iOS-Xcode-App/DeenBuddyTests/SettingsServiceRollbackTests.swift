@@ -9,32 +9,33 @@ class SettingsServiceRollbackTests: XCTestCase {
     
     private var settingsService: SettingsService!
     private var testUserDefaults: UserDefaults!
+    private var testSuiteName: String!
     private var cancellables: Set<AnyCancellable>!
     
     override func setUp() async throws {
         try await super.setUp()
         
         // Create test UserDefaults with unique suite name
-        let suiteName = "test.settings.rollback.\(UUID().uuidString)"
+        testSuiteName = "test.settings.rollback.\(UUID().uuidString)"
         
         // Safely initialize UserDefaults with proper error handling
-        guard let userDefaults = UserDefaults(suiteName: suiteName) else {
-            throw XCTSkip("Failed to create UserDefaults with suite name: \(suiteName). This may indicate a system-level issue with UserDefaults initialization.")
+        guard let userDefaults = UserDefaults(suiteName: testSuiteName) else {
+            throw XCTSkip("Failed to create UserDefaults with suite name: \(testSuiteName). This may indicate a system-level issue with UserDefaults initialization.")
         }
         
         testUserDefaults = userDefaults
         
         // Clear any existing data
-        testUserDefaults.removePersistentDomain(forName: suiteName)
+        testUserDefaults.removePersistentDomain(forName: testSuiteName)
         
         // Initialize settings service with test UserDefaults
-        settingsService = SettingsService(suiteName: suiteName)
+        settingsService = SettingsService(suiteName: testSuiteName)
         cancellables = Set<AnyCancellable>()
     }
     
     override func tearDown() async throws {
         // Clean up test data
-        if let suiteName = testUserDefaults.suiteName {
+        if let suiteName = testSuiteName {
             testUserDefaults.removePersistentDomain(forName: suiteName)
         }
         
@@ -416,7 +417,7 @@ class SettingsServiceRollbackTests: XCTestCase {
                 XCTAssertTrue(userInfo["rollbackPerformed"] as? Bool == true, "Rollback should be performed")
                 
                 // Verify the notification object is the settings service
-                XCTAssertEqual(notification.object as? SettingsService, settingsService, "Notification object should be the settings service")
+                XCTAssertTrue(notification.object as? SettingsService === self.settingsService, "Notification object should be the settings service")
                 
                 expectation.fulfill()
             }

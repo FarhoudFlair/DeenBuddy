@@ -485,6 +485,8 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             UnifiedSettingsKeys.notificationOffset,
             UnifiedSettingsKeys.overrideBatteryOptimization,
             UnifiedSettingsKeys.hasCompletedOnboarding,
+            UnifiedSettingsKeys.userName,
+            UnifiedSettingsKeys.showArabicSymbolInWidget,
             UnifiedSettingsKeys.settingsVersion
         ]
 
@@ -502,20 +504,27 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
     public func resetToDefaults() async throws {
         do {
-            calculationMethod = .muslimWorldLeague
-            madhab = .shafi
-            notificationsEnabled = true
-            theme = .dark
-            timeFormat = .twelveHour
-            notificationOffset = 300 // 5 minutes
-            overrideBatteryOptimization = false
-            hasCompletedOnboarding = false
-            showArabicSymbolInWidget = true
+            await MainActor.run {
+                // Set the isRestoring flag to prevent didSet observers from interfering
+                isRestoring = true
+                defer { isRestoring = false }
+
+                calculationMethod = .muslimWorldLeague
+                madhab = .shafi
+                notificationsEnabled = true
+                theme = .dark
+                timeFormat = .twelveHour
+                notificationOffset = 300 // 5 minutes
+                overrideBatteryOptimization = false
+                hasCompletedOnboarding = false
+                userName = "" // Reset user name to empty string
+                showArabicSymbolInWidget = true
+            }
 
             // Save the defaults
             try await saveSettings()
 
-            print("Settings reset to defaults")
+            print("Settings reset to defaults - userName is now: '\(userName)'")
 
         } catch {
             print("Failed to reset settings: \(error)")

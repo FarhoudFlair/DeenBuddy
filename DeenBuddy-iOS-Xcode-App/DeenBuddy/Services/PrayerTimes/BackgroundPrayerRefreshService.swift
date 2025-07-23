@@ -15,10 +15,12 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     
     private static let backgroundTaskIdentifier = "com.deenbuddy.prayer-refresh"
     private static let refreshInterval: TimeInterval = 6 * 60 * 60 // 6 hours
+    private static let batteryOptimizedPreloadDays = 3
+    private static let normalPreloadDays = 7
     
     // MARK: - Properties
-    
-    private let prayerTimeService: any PrayerTimeServiceProtocol
+
+    internal let prayerTimeService: any PrayerTimeServiceProtocol
     private let locationService: any LocationServiceProtocol
     private var refreshTimer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -181,7 +183,7 @@ public class BackgroundPrayerRefreshService: ObservableObject {
 
         do {
             // BATTERY OPTIMIZATION: Reduce preload days based on battery level
-            let preloadDays = BatteryOptimizer.shared.optimizationLevel == .extreme ? 3 : 7
+            let preloadDays = BatteryOptimizer.shared.optimizationLevel == .extreme ? Self.batteryOptimizedPreloadDays : Self.normalPreloadDays
 
             // Preload prayer times with battery awareness
             await preloadUpcomingPrayerTimes(days: preloadDays)

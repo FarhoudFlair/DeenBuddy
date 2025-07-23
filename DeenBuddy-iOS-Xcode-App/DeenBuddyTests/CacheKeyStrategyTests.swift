@@ -7,34 +7,37 @@
 
 import XCTest
 import CoreLocation
+@testable import DeenBuddy
 
 /// Tests for enhanced cache key strategy that includes calculation method and madhab
 class CacheKeyStrategyTests: XCTestCase {
-    
+
     // MARK: - Properties
-    
+
     private var apiCache: APICache!
     private var islamicCacheManager: IslamicCacheManager!
     private var mockAPIClient: MockAPIClient!
     
     // MARK: - Setup & Teardown
     
+    @MainActor
     override func setUp() {
         super.setUp()
-        
+
         apiCache = APICache()
         islamicCacheManager = IslamicCacheManager()
         mockAPIClient = MockAPIClient()
     }
-    
+
+    @MainActor
     override func tearDown() {
         apiCache.clearAllCache()
         islamicCacheManager.clearAllCache()
-        
+
         apiCache = nil
         islamicCacheManager = nil
         mockAPIClient = nil
-        
+
         super.tearDown()
     }
     
@@ -67,15 +70,25 @@ class CacheKeyStrategyTests: XCTestCase {
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
         let prayerTimes1 = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
         let prayerTimes2 = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
-        
+
         // When: Caching with different madhabs
         apiCache.cachePrayerTimes(prayerTimes1, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
         apiCache.cachePrayerTimes(prayerTimes2, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .hanafi)
-        
+
+        // Wait for cache operations to complete
+        apiCache.waitForPendingOperations()
+
+        // Add a small delay to ensure cache operations are complete
+        Thread.sleep(forTimeInterval: 0.1)
+
         // Then: Both cache entries should exist independently
         let cachedShafi = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
         let cachedHanafi = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .hanafi)
-        
+
+        // Debug output
+        print("DEBUG: Cached Shafi: \(cachedShafi != nil)")
+        print("DEBUG: Cached Hanafi: \(cachedHanafi != nil)")
+
         XCTAssertNotNil(cachedShafi, "Shafi cache should exist")
         XCTAssertNotNil(cachedHanafi, "Hanafi cache should exist")
     }
@@ -107,38 +120,38 @@ class CacheKeyStrategyTests: XCTestCase {
     
     // MARK: - IslamicCacheManager Key Strategy Tests
     
-    func testIslamicCacheManagerKeyIncludesCalculationMethod() {
+    func testIslamicCacheManagerKeyIncludesCalculationMethod() async {
         // Given: Same date and location, different calculation methods
         let date = Date()
         let location = CLLocation(latitude: 37.7749, longitude: -122.4194)
         let schedule = createMockPrayerSchedule(for: date)
-        
+
         // When: Caching with different calculation methods
-        islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
-        
+        await islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        await islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: CalculationMethod.egyptian, madhab: Madhab.shafi)
+
         // Then: Both cache entries should exist independently
-        let cachedMWL = islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        let cachedEgyptian = islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
-        
+        let cachedMWL = await islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        let cachedEgyptian = await islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: CalculationMethod.egyptian, madhab: Madhab.shafi)
+
         XCTAssertNotNil(cachedMWL.schedule, "MWL cache should exist")
         XCTAssertNotNil(cachedEgyptian.schedule, "Egyptian cache should exist")
     }
     
-    func testIslamicCacheManagerKeyIncludesMadhab() {
+    func testIslamicCacheManagerKeyIncludesMadhab() async {
         // Given: Same date, location, and method, different madhabs
         let date = Date()
         let location = CLLocation(latitude: 37.7749, longitude: -122.4194)
         let schedule = createMockPrayerSchedule(for: date)
-        
+
         // When: Caching with different madhabs
-        islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .hanafi)
-        
+        await islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        await islamicCacheManager.cachePrayerSchedule(schedule, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.hanafi)
+
         // Then: Both cache entries should exist independently
-        let cachedShafi = islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        let cachedHanafi = islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .hanafi)
-        
+        let cachedShafi = await islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        let cachedHanafi = await islamicCacheManager.getCachedPrayerSchedule(for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.hanafi)
+
         XCTAssertNotNil(cachedShafi.schedule, "Shafi cache should exist")
         XCTAssertNotNil(cachedHanafi.schedule, "Hanafi cache should exist")
     }
@@ -169,40 +182,65 @@ class CacheKeyStrategyTests: XCTestCase {
     // MARK: - Cache Isolation Tests
     
     func testCacheIsolationBetweenSettings() {
-        // Given: Different settings combinations
-        let date = Date()
+        // Given: Different settings combinations - use fixed date to avoid timing issues
+        let calendar = Calendar.current
+        let dateComponents = DateComponents(year: 2024, month: 6, day: 15, hour: 0, minute: 0, second: 0)
+        let date = calendar.date(from: dateComponents)!
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
-        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
-        
+
+        // Create PrayerTimes with the correct calculationMethod string that matches the enum
+        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
+
         // When: Caching with one setting
         apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        
+
+        // Wait for all pending cache operations to complete
+        apiCache.waitForPendingOperations()
+
         // Then: Other settings should not have cached data
         let cachedDifferentMethod = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
         let cachedDifferentMadhab = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .hanafi)
         let cachedBothDifferent = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .egyptian, madhab: .hanafi)
-        
+
         XCTAssertNil(cachedDifferentMethod, "Different method should not have cache")
         XCTAssertNil(cachedDifferentMadhab, "Different madhab should not have cache")
         XCTAssertNil(cachedBothDifferent, "Different method+madhab should not have cache")
-        
+
         // But original setting should still have cache
         let cachedOriginal = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+
         XCTAssertNotNil(cachedOriginal, "Original setting should have cache")
+
+        // Additional verification: check if the cached data matches what we stored
+        if let cached = cachedOriginal {
+            XCTAssertEqual(cached.date, prayerTimes.date, "Cached date should match")
+            XCTAssertEqual(cached.calculationMethod, prayerTimes.calculationMethod, "Cached method should match")
+            XCTAssertEqual(cached.location.latitude, prayerTimes.location.latitude, accuracy: 0.0001, "Cached location should match")
+            XCTAssertEqual(cached.location.longitude, prayerTimes.location.longitude, accuracy: 0.0001, "Cached location should match")
+        }
     }
     
     func testCacheKeyConsistencyAcrossRestarts() {
-        // Given: Cache entry
-        let date = Date()
+        // Given: Cache entry - use fixed date to avoid timing issues
+        let calendar = Calendar.current
+        let dateComponents = DateComponents(year: 2024, month: 6, day: 15, hour: 0, minute: 0, second: 0)
+        let date = calendar.date(from: dateComponents)!
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
-        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
-        
+        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
+
         // When: Caching data
         apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        
+
+        // Wait for the cache operation to complete
+        let expectation = XCTestExpectation(description: "Cache write completion")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+
         // And: Creating new cache instance (simulating app restart)
         let newApiCache = APICache()
-        
+
         // Then: Cache should still be accessible with same key
         let cached = newApiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
         XCTAssertNotNil(cached, "Cache should persist across restarts")
@@ -213,28 +251,34 @@ class CacheKeyStrategyTests: XCTestCase {
     private func createMockPrayerTimes(for date: Date, location: LocationCoordinate, method: String) -> PrayerTimes {
         return PrayerTimes(
             date: date,
-            location: location,
             fajr: date.addingTimeInterval(5 * 3600), // 5 AM
-            sunrise: date.addingTimeInterval(6 * 3600), // 6 AM
             dhuhr: date.addingTimeInterval(12 * 3600), // 12 PM
             asr: date.addingTimeInterval(15 * 3600), // 3 PM
             maghrib: date.addingTimeInterval(18 * 3600), // 6 PM
             isha: date.addingTimeInterval(19 * 3600), // 7 PM
             calculationMethod: method,
-            madhab: "shafi"
+            location: location
         )
     }
-    
+
     private func createMockPrayerSchedule(for date: Date) -> PrayerSchedule {
-        return PrayerSchedule(
+        let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
+        let dailySchedule = DailyPrayerSchedule(
             date: date,
-            prayers: [
-                Prayer(name: .fajr, time: date.addingTimeInterval(5 * 3600)),
-                Prayer(name: .dhuhr, time: date.addingTimeInterval(12 * 3600)),
-                Prayer(name: .asr, time: date.addingTimeInterval(15 * 3600)),
-                Prayer(name: .maghrib, time: date.addingTimeInterval(18 * 3600)),
-                Prayer(name: .isha, time: date.addingTimeInterval(19 * 3600))
-            ]
+            fajr: date.addingTimeInterval(5 * 3600),
+            dhuhr: date.addingTimeInterval(12 * 3600),
+            asr: date.addingTimeInterval(15 * 3600),
+            maghrib: date.addingTimeInterval(18 * 3600),
+            isha: date.addingTimeInterval(19 * 3600)
+        )
+
+        return PrayerSchedule(
+            startDate: date,
+            endDate: date,
+            location: location,
+            calculationMethod: CalculationMethod.muslimWorldLeague,
+            madhab: Madhab.shafi,
+            dailySchedules: [dailySchedule]
         )
     }
 }

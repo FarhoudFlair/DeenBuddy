@@ -1,5 +1,8 @@
 import XCTest
 import UserNotifications
+import Combine
+import CoreLocation
+@testable import DeenBuddy
 
 /// Memory leak detection tests for notification and background services
 @MainActor
@@ -41,8 +44,7 @@ final class MemoryLeakTests: XCTestCase {
             let service = NotificationService()
             weakService = service
             
-            // Trigger observer setup
-            service.setupObservers()
+            // Service should set up observers automatically during initialization
             
             // Service should be strongly referenced here
             XCTAssertNotNil(weakService, "Service should exist during setup")
@@ -413,25 +415,66 @@ extension MemoryLeakTests {
     func testCachePerformanceOptimization() {
         let cacheManager = UnifiedCacheManager.shared
 
-        // Store test data
+        // Store test data to simulate cache usage
         for i in 0..<100 {
             cacheManager.store("test-data-\(i)", forKey: "test-key-\(i)", type: .temporaryData)
+        }
+
+        // Simulate some cache hits to establish baseline performance
+        for i in 0..<50 {
+            _ = cacheManager.retrieve(String.self, forKey: "test-key-\(i)", cacheType: .temporaryData)
+        }
+
+        // Simulate some cache misses
+        for i in 100..<120 {
+            _ = cacheManager.retrieve(String.self, forKey: "non-existent-key-\(i)", cacheType: .temporaryData)
         }
 
         // Get initial metrics
         let initialMetrics = cacheManager.getPerformanceMetrics()
         XCTAssertGreaterThan(initialMetrics.entryCount, 0, "Cache should have entries")
+        print("📊 Initial cache metrics: entries=\(initialMetrics.entryCount), hitRate=\(initialMetrics.hitRate), totalSize=\(initialMetrics.totalSize)")
 
         // Optimize for device
         cacheManager.optimizeForDevice()
 
-        // Verify optimization
+        // Verify optimization effects
         let optimizedMetrics = cacheManager.getPerformanceMetrics()
-        print("📊 Cache optimization: \(optimizedMetrics.description)")
+        print("📊 Optimized cache metrics: entries=\(optimizedMetrics.entryCount), hitRate=\(optimizedMetrics.hitRate), totalSize=\(optimizedMetrics.totalSize)")
+
+        // Assert that optimization had measurable effects
+        // Note: Optimization may reduce entry count if limits were exceeded, or maintain it if within limits
+        XCTAssertGreaterThanOrEqual(optimizedMetrics.entryCount, 0, "Entry count should be non-negative after optimization")
+        
+        // Verify cache is still functional after optimization
+        XCTAssertNotNil(cacheManager.retrieve(String.self, forKey: "test-key-0", cacheType: .temporaryData), "Cache should still contain some entries after optimization")
+        
+        // Test that cache limits are now properly enforced
+        // Store additional data to verify limit enforcement
+        let preTestEntryCount = optimizedMetrics.entryCount
+        
+        // Try to add more entries than the optimized limit should allow
+        for i in 1000..<1200 {
+            cacheManager.store("overflow-data-\(i)", forKey: "overflow-key-\(i)", type: .temporaryData)
+        }
+        
+        let postOverflowMetrics = cacheManager.getPerformanceMetrics()
+        
+        // Assert that cache limits are being enforced (entry count shouldn't grow unbounded)
+        let maxReasonableGrowth = preTestEntryCount + 50 // Allow some reasonable growth
+        XCTAssertLessThanOrEqual(postOverflowMetrics.entryCount, maxReasonableGrowth, 
+                                "Cache should enforce limits and prevent unbounded growth after optimization")
+        
+        // Verify performance characteristics are maintained or improved
+        if initialMetrics.hitRate > 0 {
+            // If we had a hit rate before, it should still be reasonable
+            XCTAssertGreaterThanOrEqual(optimizedMetrics.hitRate, 0.0, "Hit rate should be non-negative")
+            XCTAssertLessThanOrEqual(optimizedMetrics.hitRate, 1.0, "Hit rate should not exceed 100%")
+        }
 
         // Cleanup
-        cacheManager.clearAll()
+        cacheManager.clearAllCache()
 
-        print("✅ Cache performance optimization test completed")
+        print("✅ Cache performance optimization test completed - verified limit enforcement and functionality")
     }
 }

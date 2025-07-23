@@ -34,7 +34,9 @@ platform :ios do
       clean: true,
       code_coverage: true,
       output_directory: "./test_output",
-      output_types: "html,junit"
+      output_types: "html,junit",
+      max_concurrent_simulators: 2,
+      xcargs: "-maximum-parallel-testing-workers 2"
     )
   end
 
