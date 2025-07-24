@@ -192,44 +192,5 @@ final class RamadanIshaOverrideTests: XCTestCase {
     }
 }
 
-// MARK: - Mock Islamic Calendar Service
-
-@MainActor
-class MockIslamicCalendarService: IslamicCalendarServiceProtocol {
-    var mockIsRamadan: Bool = false
-    
-    // Required published properties
-    @Published var currentHijriDate: HijriDate = HijriDate(from: Date())
-    @Published var todayInfo: IslamicCalendarDay = IslamicCalendarDay(gregorianDate: Date(), hijriDate: HijriDate(from: Date()))
-    @Published var upcomingEvents: [IslamicEvent] = []
-    @Published var allEvents: [IslamicEvent] = []
-    @Published var statistics: IslamicCalendarStatistics = IslamicCalendarStatistics()
-    @Published var isLoading: Bool = false
-    @Published var error: Error? = nil
-    
-    // Mock implementation
-    func isRamadan() async -> Bool {
-        return mockIsRamadan
-    }
-    
-    // Stub implementations for other required methods
-    func refreshCalendarData() async {}
-    func getUpcomingEvents(limit: Int) async -> [IslamicEvent] { return [] }
-    func addCustomEvent(_ event: IslamicEvent) async {}
-    func removeCustomEvent(_ event: IslamicEvent) async {}
-    func getEventsForDate(_ date: Date) async -> [IslamicEvent] { return [] }
-    func getEventsForMonth(_ month: HijriMonth, year: Int) async -> [IslamicEvent] { return [] }
-    func getStatistics() async -> IslamicCalendarStatistics { return IslamicCalendarStatistics() }
-    func isHolyMonth() async -> Bool { return false }
-    func getCurrentHolyMonthInfo() async -> HolyMonthInfo? { return nil }
-    func getRamadanPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
-    func getHajjPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
-    func setEventReminder(_ event: IslamicEvent, reminderTime: TimeInterval) async {}
-    func removeEventReminder(_ event: IslamicEvent) async {}
-    func getEventReminders() async -> [EventReminder] { return [] }
-    func exportCalendar(format: CalendarExportFormat) async throws -> Data { return Data() }
-    func importEvents(from data: Data, format: CalendarImportFormat) async throws {}
-    func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
-    func setEventNotifications(_ enabled: Bool) async {}
-    func setDefaultReminderTime(_ time: TimeInterval) async {}
-}
+// MARK: - Mock Services
+// Note: Using shared MockIslamicCalendarService from other test files to avoid duplication

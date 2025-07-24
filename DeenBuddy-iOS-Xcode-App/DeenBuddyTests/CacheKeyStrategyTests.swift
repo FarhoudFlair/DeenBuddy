@@ -53,6 +53,7 @@ class CacheKeyStrategyTests: XCTestCase {
         // When: Caching with different calculation methods
         apiCache.cachePrayerTimes(prayerTimes1, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
         apiCache.cachePrayerTimes(prayerTimes2, for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
+        apiCache.waitForPendingOperations() // Wait for cache operations to complete
         
         // Then: Both cache entries should exist independently
         let cachedMWL = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
@@ -108,6 +109,7 @@ class CacheKeyStrategyTests: XCTestCase {
                 apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: method, madhab: madhab)
             }
         }
+        apiCache.waitForPendingOperations() // Wait for all cache operations to complete
         
         // Then: All combinations should be cached independently
         for method in methods {
@@ -230,13 +232,7 @@ class CacheKeyStrategyTests: XCTestCase {
 
         // When: Caching data
         apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-
-        // Wait for the cache operation to complete
-        let expectation = XCTestExpectation(description: "Cache write completion")
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.1) {
-            expectation.fulfill()
-        }
-        wait(for: [expectation], timeout: 1.0)
+        apiCache.waitForPendingOperations() // Wait for cache operation to complete
 
         // And: Creating new cache instance (simulating app restart)
         let newApiCache = APICache()

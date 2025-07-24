@@ -441,6 +441,9 @@ class MockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var notificationsEnabled: Bool = true {
         didSet { notifySettingsChanged() }
     }
+    @Published var useAstronomicalMaghrib: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
     @Published var theme: ThemeMode = .dark {
         didSet { notifySettingsChanged() }
     }

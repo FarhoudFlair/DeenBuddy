@@ -13,7 +13,12 @@ public class MockLocationService: LocationServiceProtocol {
     @Published public var currentHeading: Double = 0
     @Published public var headingAccuracy: Double = 5.0
     @Published public var isUpdatingHeading: Bool = false
-    
+
+    // MARK: - Test Support Properties
+
+    /// Mock location for testing - when set, this location will be returned by requestLocation()
+    public var mockLocation: CLLocation? = nil
+
     // MARK: - Protocol Compliance Properties
     
     public var permissionStatus: CLAuthorizationStatus {
@@ -52,18 +57,21 @@ public class MockLocationService: LocationServiceProtocol {
     public func requestLocation() async throws -> CLLocation {
         // Simulate getting location
         try await Task.sleep(nanoseconds: 1_000_000_000)
-        
-        // Mock location: New York City
-        let location = CLLocation(latitude: 40.7128, longitude: -74.0060)
+
+        // Use mockLocation if set, otherwise default to New York City
+        let location = mockLocation ?? CLLocation(latitude: 40.7128, longitude: -74.0060)
         currentLocation = location
 
         // Mock location info
         let coordinate = LocationCoordinate(from: location.coordinate)
+        let cityName = mockLocation != nil ? "Mock City" : "New York"
+        let countryName = mockLocation != nil ? "Mock Country" : "United States"
+
         currentLocationInfo = LocationInfo(
             coordinate: coordinate,
             accuracy: location.horizontalAccuracy,
-            city: "New York",
-            country: "United States"
+            city: cityName,
+            country: countryName
         )
 
         locationSubject.send(location)

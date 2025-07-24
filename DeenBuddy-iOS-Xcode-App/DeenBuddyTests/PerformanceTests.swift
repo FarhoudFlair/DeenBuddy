@@ -54,7 +54,7 @@ final class PerformanceTests: XCTestCase {
         }
 
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            let expectation = expectation(description: "Notification scheduling")
+            let expectation = XCTestExpectation(description: "Notification scheduling")
 
             Task {
                 do {
@@ -85,7 +85,7 @@ final class PerformanceTests: XCTestCase {
         }
 
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric(), XCTCPUMetric()]) {
-            let expectation = expectation(description: "Bulk notification scheduling")
+            let expectation = XCTestExpectation(description: "Bulk notification scheduling")
 
             Task {
                 for dayPrayerTimes in bulkPrayerTimes {
@@ -114,7 +114,7 @@ final class PerformanceTests: XCTestCase {
         let expectedTime = devicePerformanceProfile.expectedActionHandlingTime
 
         measure(metrics: [XCTClockMetric()]) {
-            let expectation = expectation(description: "Notification action handling")
+            let expectation = XCTestExpectation(description: "Notification action handling")
 
             notificationService.userNotificationCenter(
                 UNUserNotificationCenter.current(),
@@ -133,7 +133,7 @@ final class PerformanceTests: XCTestCase {
         let expectedTime = devicePerformanceProfile.expectedWidgetUpdateTime
         
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            let expectation = expectation(description: "Widget data update")
+            let expectation = XCTestExpectation(description: "Widget data update")
             
             Task {
                 await widgetService.updateWidgetData()
@@ -175,7 +175,7 @@ final class PerformanceTests: XCTestCase {
         let expectedTime = devicePerformanceProfile.expectedLiveActivityTime
         
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric()]) {
-            let expectation = expectation(description: "Live Activity creation")
+            let expectation = XCTestExpectation(description: "Live Activity creation")
             
             Task {
                 do {
@@ -263,7 +263,7 @@ final class PerformanceTests: XCTestCase {
         }
 
         measure(metrics: [XCTClockMetric(), XCTCPUMetric()]) {
-            let expectation = expectation(description: "Concurrent operations")
+            let expectation = XCTestExpectation(description: "Concurrent operations")
             let dispatchGroup = DispatchGroup()
             var operationErrors: [Error] = []
             let errorLock = NSLock()
@@ -319,7 +319,7 @@ final class PerformanceTests: XCTestCase {
         let prayerTimes = createMockPrayerTimes(count: 3) // Reduced load
 
         measure(metrics: [XCTClockMetric()]) {
-            let expectation = expectation(description: "Low-end device performance")
+            let expectation = XCTestExpectation(description: "Low-end device performance")
 
             Task {
                 do {
@@ -353,7 +353,7 @@ final class PerformanceTests: XCTestCase {
         let prayerTimes = createBulkMockPrayerTimes(days: 7) // Increased load
 
         measure(metrics: [XCTClockMetric(), XCTMemoryMetric(), XCTCPUMetric()]) {
-            let expectation = expectation(description: "High-end device performance")
+            let expectation = XCTestExpectation(description: "High-end device performance")
 
             Task {
                 for dayPrayerTimes in prayerTimes {

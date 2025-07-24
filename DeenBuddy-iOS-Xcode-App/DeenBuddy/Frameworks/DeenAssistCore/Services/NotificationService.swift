@@ -590,6 +590,18 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         Task { [weak self] in
             guard let self = self else { return }
 
+            #if DEBUG
+            // In test mode with mock notification center, use mock status
+            if let mockCenter = self.mockNotificationCenter as? MockUNUserNotificationCenter {
+                await MainActor.run { [weak self] in
+                    guard let self = self else { return }
+                    self.authorizationStatus = mockCenter.authorizationStatus
+                    self.permissionSubject.send(mockCenter.authorizationStatus)
+                }
+                return
+            }
+            #endif
+
             let settings = await self.notificationCenter.notificationSettings()
             let status = settings.authorizationStatus
 
@@ -935,9 +947,16 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
     /// Set mock notification center for testing
     internal func setMockNotificationCenter(_ mockCenter: Any) {
         self.mockNotificationCenter = mockCenter
-        // Update authorization status to authorized for testing
-        self.authorizationStatus = .authorized
-        print("Mock notification center set for testing with authorized status")
+
+        // Synchronize authorization status with mock center
+        if let mockCenter = mockCenter as? MockUNUserNotificationCenter {
+            self.authorizationStatus = mockCenter.authorizationStatus
+            print("Mock notification center set for testing with status: \(mockCenter.authorizationStatus)")
+        } else {
+            // Fallback to authorized for other mock types
+            self.authorizationStatus = .authorized
+            print("Mock notification center set for testing with authorized status")
+        }
     }
     #endif
 

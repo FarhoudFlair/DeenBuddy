@@ -7,6 +7,7 @@
 
 import XCTest
 import CoreLocation
+import Adhan
 @testable import DeenBuddy
 
 @MainActor
@@ -63,7 +64,7 @@ final class NewCalculationMethodsTests: XCTestCase {
         
         // Verify all prayer types are present
         let prayerTypes = Set(prayerTimes.map { $0.prayer })
-        let expectedTypes: Set<Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
+        let expectedTypes: Set<DeenBuddy.Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
         XCTAssertEqual(prayerTypes, expectedTypes, "All prayer types should be present")
         
         // Verify times are in chronological order
@@ -86,7 +87,7 @@ final class NewCalculationMethodsTests: XCTestCase {
         
         // Verify all prayer types are present
         let prayerTypes = Set(prayerTimes.map { $0.prayer })
-        let expectedTypes: Set<Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
+        let expectedTypes: Set<DeenBuddy.Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
         XCTAssertEqual(prayerTypes, expectedTypes, "All prayer types should be present")
         
         // Verify times are in chronological order
@@ -109,7 +110,7 @@ final class NewCalculationMethodsTests: XCTestCase {
         
         // Verify all prayer types are present
         let prayerTypes = Set(prayerTimes.map { $0.prayer })
-        let expectedTypes: Set<Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
+        let expectedTypes: Set<DeenBuddy.Prayer> = [.fajr, .dhuhr, .asr, .maghrib, .isha]
         XCTAssertEqual(prayerTypes, expectedTypes, "All prayer types should be present")
         
         // Verify times are in chronological order
@@ -119,33 +120,467 @@ final class NewCalculationMethodsTests: XCTestCase {
     }
     
     func testJafariMethodsComparison() async throws {
-        // Test that the two Ja'fari methods produce different results
-        
+        // Test that the two Ja'fari methods produce different results with STRICT validation
+
         let location = CLLocation(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
-        
+        let testDate = Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 15))! // Fixed date for consistency
+
+        // Ensure we're using Jafari madhab for both tests
+        mockSettingsService.madhab = .jafari
+
+        // Debug: Verify custom parameters are different
+        let levaParams = CalculationMethod.jafariLeva.customParameters()
+        let tehranParams = CalculationMethod.jafariTehran.customParameters()
+
+        XCTAssertNotNil(levaParams, "Leva method should have custom parameters")
+        XCTAssertNotNil(tehranParams, "Tehran method should have custom parameters")
+        XCTAssertEqual(levaParams?.fajrAngle, 16.0, "Leva method should use 16° Fajr angle")
+        XCTAssertEqual(tehranParams?.fajrAngle, 17.7, "Tehran method should use 17.7° Fajr angle")
+        XCTAssertNotEqual(levaParams?.fajrAngle, tehranParams?.fajrAngle, "Methods should have different Fajr angles")
+
+        print("🔧 Leva custom params: Fajr=\(levaParams?.fajrAngle ?? -1)°, Isha=\(levaParams?.ishaAngle ?? -1)°")
+        print("🔧 Tehran custom params: Fajr=\(tehranParams?.fajrAngle ?? -1)°, Isha=\(tehranParams?.ishaAngle ?? -1)°")
+
         // Calculate with Leva method (16°/14°)
         mockSettingsService.calculationMethod = .jafariLeva
-        let levaTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: Date())
-        
+        let levaTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: testDate)
+
         // Calculate with Tehran method (17.7°/14°)
         mockSettingsService.calculationMethod = .jafariTehran
-        let tehranTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: Date())
-        
+        let tehranTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: testDate)
+
+        // Verify both methods calculated times successfully
+        XCTAssertEqual(levaTimes.count, 5, "Leva method should calculate 5 prayer times")
+        XCTAssertEqual(tehranTimes.count, 5, "Tehran method should calculate 5 prayer times")
+
         // Find Fajr times for comparison
         guard let levaFajr = levaTimes.first(where: { $0.prayer == .fajr })?.time,
               let tehranFajr = tehranTimes.first(where: { $0.prayer == .fajr })?.time else {
             XCTFail("Both methods should calculate Fajr times")
             return
         }
-        
-        // Tehran method (17.7°) should have later Fajr than Leva method (16°)
-        // Higher angle = later Fajr time
-        XCTAssertGreaterThan(tehranFajr, levaFajr, "Tehran IOG method (17.7°) should have later Fajr than Leva method (16°)")
-        
-        // The difference should be reasonable (not too extreme)
+
+        // Log the times for debugging
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+        formatter.dateStyle = .short
+        print("🌅 Leva Fajr (16°): \(formatter.string(from: levaFajr))")
+        print("🌅 Tehran Fajr (17.7°): \(formatter.string(from: tehranFajr))")
+
+        // Calculate the difference
         let fajrDifference = tehranFajr.timeIntervalSince(levaFajr)
-        XCTAssertLessThan(fajrDifference, 1800, "Fajr time difference should be less than 30 minutes")
-        XCTAssertGreaterThan(fajrDifference, 60, "Fajr time difference should be more than 1 minute")
+        let differenceMinutes = fajrDifference / 60
+        print("⏰ Fajr difference: \(String(format: "%.2f", differenceMinutes)) minutes")
+
+        // STRICT ASSERTION: Tehran (17.7°) MUST have later Fajr than Leva (16°)
+        // Higher Fajr angle = sun needs to be further below horizon = later time
+        XCTAssertGreaterThan(tehranFajr, levaFajr,
+            "CRITICAL: Tehran IOG method (17.7°) MUST have later Fajr than Leva method (16°). " +
+            "Tehran: \(formatter.string(from: tehranFajr)), Leva: \(formatter.string(from: levaFajr)). " +
+            "If this fails, custom parameters are not being applied correctly.")
+
+        // The difference should be meaningful (at least 2 minutes for 1.7° difference)
+        XCTAssertGreaterThan(fajrDifference, 120,
+            "Fajr time difference should be at least 2 minutes for 1.7° angle difference, got \(String(format: "%.2f", differenceMinutes)) minutes")
+
+        // But not too extreme (should be less than 15 minutes for 1.7° difference)
+        XCTAssertLessThan(fajrDifference, 900,
+            "Fajr time difference should be less than 15 minutes for 1.7° angle difference, got \(String(format: "%.2f", differenceMinutes)) minutes")
+
+        print("✅ Tehran method correctly calculates later Fajr time (+\(String(format: "%.2f", differenceMinutes)) minutes)")
+    }
+
+    func testJafariMethodsDetailedComparison() async throws {
+        // Comprehensive test to verify both Fajr and Isha calculations are working correctly
+
+        let location = CLLocation(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
+        let testDate = Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 15))! // Fixed date
+
+        mockSettingsService.madhab = .jafari
+
+        // Test Leva method
+        mockSettingsService.calculationMethod = .jafariLeva
+        let levaTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: testDate)
+
+        // Test Tehran method
+        mockSettingsService.calculationMethod = .jafariTehran
+        let tehranTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: testDate)
+
+        // Extract all prayer times for comparison
+        let levaFajr = levaTimes.first(where: { $0.prayer == .fajr })?.time
+        let levaIsha = levaTimes.first(where: { $0.prayer == .isha })?.time
+        let tehranFajr = tehranTimes.first(where: { $0.prayer == .fajr })?.time
+        let tehranIsha = tehranTimes.first(where: { $0.prayer == .isha })?.time
+
+        XCTAssertNotNil(levaFajr, "Leva method should calculate Fajr time")
+        XCTAssertNotNil(levaIsha, "Leva method should calculate Isha time")
+        XCTAssertNotNil(tehranFajr, "Tehran method should calculate Fajr time")
+        XCTAssertNotNil(tehranIsha, "Tehran method should calculate Isha time")
+
+        guard let lFajr = levaFajr, let lIsha = levaIsha,
+              let tFajr = tehranFajr, let tIsha = tehranIsha else {
+            XCTFail("All prayer times should be calculated")
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+
+        // Log all times for debugging
+        print("📊 DETAILED COMPARISON:")
+        print("   Leva (16°/14°):   Fajr: \(formatter.string(from: lFajr)), Isha: \(formatter.string(from: lIsha))")
+        print("   Tehran (17.7°/14°): Fajr: \(formatter.string(from: tFajr)), Isha: \(formatter.string(from: tIsha))")
+
+        // Calculate differences
+        let fajrDiff = tFajr.timeIntervalSince(lFajr) / 60 // minutes
+        let ishaDiff = tIsha.timeIntervalSince(lIsha) / 60 // minutes
+
+        print("   Differences: Fajr: +\(String(format: "%.2f", fajrDiff))min, Isha: +\(String(format: "%.2f", ishaDiff))min")
+
+        // CRITICAL ASSERTIONS:
+
+        // 1. Fajr: Tehran (17.7°) should be later than Leva (16°)
+        XCTAssertGreaterThan(tFajr, lFajr, "Tehran Fajr (17.7°) must be later than Leva Fajr (16°)")
+        XCTAssertGreaterThan(fajrDiff, 1.0, "Fajr difference should be at least 1 minute")
+
+        // 2. Isha: Both use 14°, so they should be very close (within 1 minute)
+        XCTAssertLessThan(abs(ishaDiff), 1.0, "Isha times should be nearly identical (both use 14°), difference: \(String(format: "%.2f", ishaDiff))min")
+
+        // 3. Verify the methods are actually different
+        XCTAssertNotEqual(lFajr, tFajr, "Fajr times must be different between methods")
+
+        print("✅ Both methods calculate correctly with expected differences")
+    }
+
+    func testDebugJafariCalculation() async throws {
+        // Debug test using REAL Adhan library calculation (not mock)
+
+        let location = CLLocation(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
+        let testDate = Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 15))!
+
+        print("🔍 DEBUG: Testing Jafari calculation methods with REAL Adhan library")
+
+        // Test 1: Verify custom parameters exist and are different
+        let levaParams = DeenBuddy.CalculationMethod.jafariLeva.customParameters()
+        let tehranParams = DeenBuddy.CalculationMethod.jafariTehran.customParameters()
+
+        print("📋 Custom Parameters:")
+        print("   Leva: Fajr=\(levaParams?.fajrAngle ?? -1)°, Isha=\(levaParams?.ishaAngle ?? -1)°, Madhab=\(levaParams?.madhab.rawValue ?? -1)")
+        print("   Tehran: Fajr=\(tehranParams?.fajrAngle ?? -1)°, Isha=\(tehranParams?.ishaAngle ?? -1)°, Madhab=\(tehranParams?.madhab.rawValue ?? -1)")
+
+        XCTAssertNotEqual(levaParams?.fajrAngle, tehranParams?.fajrAngle, "Custom parameters should be different")
+
+        // Test 2: Calculate times using REAL Adhan library (bypass mock)
+        let coordinates = Adhan.Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: testDate)
+
+        // Calculate with Leva parameters (16°/14°)
+        guard var levaCalculationParams = levaParams else {
+            XCTFail("Leva custom parameters should exist")
+            return
+        }
+
+        // IMPORTANT: Set madhab to Jafari for proper Asr calculation
+        levaCalculationParams.madhab = .shafi // Use Shafi as base (1x shadow) since Jafari uses 1x shadow like Shafi
+
+        guard let levaAdhanTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: levaCalculationParams) else {
+            XCTFail("Failed to calculate Leva prayer times with Adhan library")
+            return
+        }
+
+        // Calculate with Tehran parameters (17.7°/14°)
+        guard var tehranCalculationParams = tehranParams else {
+            XCTFail("Tehran custom parameters should exist")
+            return
+        }
+
+        // IMPORTANT: Set madhab to Jafari for proper Asr calculation
+        tehranCalculationParams.madhab = .shafi // Use Shafi as base (1x shadow) since Jafari uses 1x shadow like Shafi
+
+        guard let tehranAdhanTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: tehranCalculationParams) else {
+            XCTFail("Failed to calculate Tehran prayer times with Adhan library")
+            return
+        }
+
+        // Test 3: Compare results
+        let levaFajr = levaAdhanTimes.fajr
+        let tehranFajr = tehranAdhanTimes.fajr
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+
+        print("🌅 REAL Calculated Times:")
+        print("   Leva Fajr (16°): \(formatter.string(from: levaFajr))")
+        print("   Tehran Fajr (17.7°): \(formatter.string(from: tehranFajr))")
+
+        let difference = tehranFajr.timeIntervalSince(levaFajr) / 60
+        print("   Difference: \(String(format: "%.2f", difference)) minutes")
+
+        // Test 4: Verify they're different and in correct order
+        XCTAssertNotEqual(levaFajr, tehranFajr, "Fajr times should be different between methods")
+        XCTAssertGreaterThan(tehranFajr, levaFajr, "Tehran Fajr (17.7°) should be later than Leva Fajr (16°)")
+        XCTAssertGreaterThan(difference, 1.0, "Difference should be at least 1 minute")
+        XCTAssertLessThan(difference, 15.0, "Difference should be less than 15 minutes")
+
+        print("✅ REAL calculation works correctly - Tehran is \(String(format: "%.2f", difference)) minutes later than Leva")
+    }
+
+    func testCustomParametersAreDifferent() {
+        // Test to verify that customParameters() method returns different values
+
+        print("🔍 TESTING: customParameters() method")
+
+        let levaParams = DeenBuddy.CalculationMethod.jafariLeva.customParameters()
+        let tehranParams = DeenBuddy.CalculationMethod.jafariTehran.customParameters()
+
+        XCTAssertNotNil(levaParams, "Leva should have custom parameters")
+        XCTAssertNotNil(tehranParams, "Tehran should have custom parameters")
+
+        guard let leva = levaParams, let tehran = tehranParams else {
+            XCTFail("Both methods should return custom parameters")
+            return
+        }
+
+        print("📋 Custom Parameters Retrieved:")
+        print("   Leva: Fajr=\(leva.fajrAngle)°, Isha=\(leva.ishaAngle)°, Madhab=\(leva.madhab.rawValue)")
+        print("   Tehran: Fajr=\(tehran.fajrAngle)°, Isha=\(tehran.ishaAngle)°, Madhab=\(tehran.madhab.rawValue)")
+
+        // Test that Fajr angles are different
+        XCTAssertNotEqual(leva.fajrAngle, tehran.fajrAngle, "Fajr angles should be different")
+        XCTAssertEqual(leva.fajrAngle, 16.0, "Leva should use 16.0° Fajr angle")
+        XCTAssertEqual(tehran.fajrAngle, 17.7, "Tehran should use 17.7° Fajr angle")
+
+        // Test that Isha angles are the same
+        XCTAssertEqual(leva.ishaAngle, tehran.ishaAngle, "Isha angles should be the same")
+        XCTAssertEqual(leva.ishaAngle, 14.0, "Both should use 14.0° Isha angle")
+        XCTAssertEqual(tehran.ishaAngle, 14.0, "Both should use 14.0° Isha angle")
+
+        // Check default madhab settings
+        print("   Default Madhab Settings: Leva=\(leva.madhab.rawValue), Tehran=\(tehran.madhab.rawValue)")
+
+        print("✅ Custom parameters are correctly different")
+    }
+
+    func testAdhanLibraryBaseParameters() {
+        // Test to understand what Adhan.CalculationMethod.other.params returns by default
+
+        print("🔍 TESTING: Adhan.CalculationMethod.other.params defaults")
+
+        let baseParams = Adhan.CalculationMethod.other.params
+
+        print("📋 Base Parameters from Adhan.CalculationMethod.other:")
+        print("   Fajr Angle: \(baseParams.fajrAngle)°")
+        print("   Isha Angle: \(baseParams.ishaAngle)°")
+        print("   Madhab: \(baseParams.madhab.rawValue)")
+        print("   Method: \(baseParams.method.rawValue)")
+
+        // Test creating two separate instances
+        var params1 = Adhan.CalculationMethod.other.params
+        params1.fajrAngle = 16.0
+        params1.ishaAngle = 14.0
+
+        var params2 = Adhan.CalculationMethod.other.params
+        params2.fajrAngle = 17.7
+        params2.ishaAngle = 14.0
+
+        print("📋 Modified Parameters:")
+        print("   Params1: Fajr=\(params1.fajrAngle)°, Isha=\(params1.ishaAngle)°, Madhab=\(params1.madhab.rawValue)")
+        print("   Params2: Fajr=\(params2.fajrAngle)°, Isha=\(params2.ishaAngle)°, Madhab=\(params2.madhab.rawValue)")
+
+        XCTAssertNotEqual(params1.fajrAngle, params2.fajrAngle, "Parameters should be independent")
+
+        print("✅ Adhan library base parameters work correctly")
+    }
+
+    func testRealPrayerTimeServiceCalculation() async throws {
+        // Test the actual PrayerTimeService with real services (no mocks)
+
+        print("🔍 TESTING: Real PrayerTimeService calculation")
+
+        // Create real services (no mocks)
+        let realSettingsService = SettingsService()
+        let realLocationService = LocationService()
+        let realCacheManager = IslamicCacheManager()
+
+        // Create real PrayerTimeService with all required dependencies
+        let realPrayerTimeService = PrayerTimeService(
+            locationService: realLocationService,
+            settingsService: realSettingsService,
+            apiClient: MockAPIClient(), // Still use mock API to avoid network calls
+            errorHandler: ErrorHandler(crashReporter: CrashReporter()),
+            retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
+            networkMonitor: NetworkMonitor.shared,
+            islamicCacheManager: realCacheManager,
+            islamicCalendarService: mockIslamicCalendarService // Use existing mock
+        )
+
+        let location = CLLocation(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
+        let testDate = Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 15))!
+
+        // Test with Leva method
+        realSettingsService.calculationMethod = DeenBuddy.CalculationMethod.jafariLeva
+        realSettingsService.madhab = DeenBuddy.Madhab.jafari
+        let levaTimes = try await realPrayerTimeService.calculatePrayerTimes(
+            for: location,
+            date: testDate
+        )
+
+        // Test with Tehran method
+        realSettingsService.calculationMethod = DeenBuddy.CalculationMethod.jafariTehran
+        realSettingsService.madhab = DeenBuddy.Madhab.jafari
+        let tehranTimes = try await realPrayerTimeService.calculatePrayerTimes(
+            for: location,
+            date: testDate
+        )
+
+        // Extract Fajr times from the arrays
+        guard let levaFajr = levaTimes.first(where: { $0.prayer == .fajr })?.time,
+              let tehranFajr = tehranTimes.first(where: { $0.prayer == .fajr })?.time else {
+            XCTFail("Could not find Fajr times in results")
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+
+        print("🌅 REAL PrayerTimeService Results:")
+        print("   Leva Fajr (16°): \(formatter.string(from: levaFajr))")
+        print("   Tehran Fajr (17.7°): \(formatter.string(from: tehranFajr))")
+
+        let difference = tehranFajr.timeIntervalSince(levaFajr) / 60
+        print("   Difference: \(String(format: "%.2f", difference)) minutes")
+
+        // Verify they're different and in correct order
+        XCTAssertNotEqual(levaFajr, tehranFajr, "Fajr times should be different between methods")
+        XCTAssertGreaterThan(tehranFajr, levaFajr, "Tehran Fajr (17.7°) should be later than Leva Fajr (16°)")
+        XCTAssertGreaterThan(difference, 1.0, "Difference should be at least 1 minute")
+        XCTAssertLessThan(difference, 15.0, "Difference should be less than 15 minutes")
+
+        print("✅ REAL PrayerTimeService calculation works correctly - Tehran is \(String(format: "%.2f", difference)) minutes later than Leva")
+    }
+
+    func testDirectAdhanLibraryWithCustomParameters() throws {
+        // Test the Adhan library directly with our custom parameters to isolate the issue
+
+        print("🔍 TESTING: Direct Adhan library with custom parameters")
+
+        let coordinates = Adhan.Coordinates(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
+        let dateComponents = DateComponents(year: 2024, month: 6, day: 15)
+
+        // Test with Leva parameters (16°, 14°)
+        var levaParams = Adhan.CalculationMethod.other.params
+        levaParams.fajrAngle = 16.0
+        levaParams.ishaAngle = 14.0
+        levaParams.madhab = .shafi // Ja'fari maps to Shafi in Adhan library
+
+        // Test with Tehran parameters (17.7°, 14°)
+        var tehranParams = Adhan.CalculationMethod.other.params
+        tehranParams.fajrAngle = 17.7
+        tehranParams.ishaAngle = 14.0
+        tehranParams.madhab = .shafi // Ja'fari maps to Shafi in Adhan library
+
+        // Calculate prayer times with both parameter sets
+        guard let levaPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: levaParams),
+              let tehranPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: tehranParams) else {
+            XCTFail("Failed to calculate prayer times with Adhan library")
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+
+        print("🌅 DIRECT Adhan Library Results:")
+        print("   Leva Fajr (16°): \(formatter.string(from: levaPrayerTimes.fajr))")
+        print("   Tehran Fajr (17.7°): \(formatter.string(from: tehranPrayerTimes.fajr))")
+
+        let difference = tehranPrayerTimes.fajr.timeIntervalSince(levaPrayerTimes.fajr) / 60
+        print("   Difference: \(String(format: "%.2f", difference)) minutes")
+
+        // Verify they're different and in correct order
+        XCTAssertNotEqual(levaPrayerTimes.fajr, tehranPrayerTimes.fajr, "Fajr times should be different between methods")
+        XCTAssertGreaterThan(tehranPrayerTimes.fajr, levaPrayerTimes.fajr, "Tehran Fajr (17.7°) should be later than Leva Fajr (16°)")
+        XCTAssertGreaterThan(difference, 1.0, "Difference should be at least 1 minute")
+        XCTAssertLessThan(difference, 15.0, "Difference should be less than 15 minutes")
+
+        print("✅ DIRECT Adhan library works correctly - Tehran is \(String(format: "%.2f", difference)) minutes later than Leva")
+    }
+
+    func testSimpleAdhanLibraryDebug() throws {
+        // Simple test to debug the Adhan library issue
+
+        print("🔍 TESTING: Simple Adhan library debug")
+
+        let coordinates = Adhan.Coordinates(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
+        let dateComponents = DateComponents(year: 2024, month: 6, day: 15)
+
+        // Test with basic parameters first
+        let basicParams = Adhan.CalculationMethod.muslimWorldLeague.params
+
+        guard let basicPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: basicParams) else {
+            print("❌ Failed to calculate basic prayer times")
+            XCTFail("Failed to calculate basic prayer times with Adhan library")
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+
+        print("🌅 BASIC Adhan Library Results:")
+        print("   Basic Fajr: \(formatter.string(from: basicPrayerTimes.fajr))")
+        print("   Basic Dhuhr: \(formatter.string(from: basicPrayerTimes.dhuhr))")
+        print("   Basic Asr: \(formatter.string(from: basicPrayerTimes.asr))")
+        print("   Basic Maghrib: \(formatter.string(from: basicPrayerTimes.maghrib))")
+        print("   Basic Isha: \(formatter.string(from: basicPrayerTimes.isha))")
+
+        print("✅ Basic Adhan library test completed successfully")
+    }
+
+    func testPrayerTimeServiceDirectDebug() async throws {
+        // Test the PrayerTimeService directly to see what's happening
+
+        print("🔍 TESTING: PrayerTimeService direct debug")
+
+        let location = CLLocation(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
+        let testDate = Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 15))!
+
+        // Test with Leva method
+        mockSettingsService.calculationMethod = DeenBuddy.CalculationMethod.jafariLeva
+        mockSettingsService.madhab = DeenBuddy.Madhab.jafari
+
+        let levaTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: testDate)
+
+        // Test with Tehran method
+        mockSettingsService.calculationMethod = DeenBuddy.CalculationMethod.jafariTehran
+        mockSettingsService.madhab = DeenBuddy.Madhab.jafari
+
+        let tehranTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: testDate)
+
+        // Extract Fajr times
+        guard let levaFajr = levaTimes.first(where: { $0.prayer == .fajr })?.time,
+              let tehranFajr = tehranTimes.first(where: { $0.prayer == .fajr })?.time else {
+            XCTFail("Could not find Fajr times in results")
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.timeStyle = .medium
+
+        print("🌅 PrayerTimeService Direct Results:")
+        print("   Leva Fajr (16°): \(formatter.string(from: levaFajr))")
+        print("   Tehran Fajr (17.7°): \(formatter.string(from: tehranFajr))")
+
+        let difference = tehranFajr.timeIntervalSince(levaFajr) / 60
+        print("   Difference: \(String(format: "%.2f", difference)) minutes")
+
+        if abs(difference) < 0.1 {
+            print("❌ PROBLEM CONFIRMED: Both methods produce identical results!")
+            print("   This confirms the Tehran method is NOT working correctly")
+        } else {
+            print("✅ Methods produce different results as expected")
+        }
+
+        // Don't fail the test, just report the findings
+        print("✅ PrayerTimeService direct debug completed")
     }
     
     func testFCNAvsISNAComparison() async throws {
@@ -233,14 +668,14 @@ final class NewCalculationMethodsTests: XCTestCase {
     
     func testAllNewMethodsInCaseIterable() async throws {
         // Test that all new methods are included in CaseIterable
-        let allMethods = CalculationMethod.allCases
-        
+        let allMethods = DeenBuddy.CalculationMethod.allCases
+
         XCTAssertTrue(allMethods.contains(.jafariLeva), "Ja'fari Leva should be in allCases")
         XCTAssertTrue(allMethods.contains(.jafariTehran), "Ja'fari Tehran should be in allCases")
         XCTAssertTrue(allMethods.contains(.fcnaCanada), "FCNA Canada should be in allCases")
-        
+
         // Validate that all expected new methods are present (more maintainable than hardcoded count)
-        let expectedNewMethods: [CalculationMethod] = [.jafariLeva, .jafariTehran, .fcnaCanada]
+        let expectedNewMethods: [DeenBuddy.CalculationMethod] = [.jafariLeva, .jafariTehran, .fcnaCanada]
         let hasAllNewMethods = expectedNewMethods.allSatisfy { allMethods.contains($0) }
         XCTAssertTrue(hasAllNewMethods, "All expected new calculation methods should be included in allCases")
         
@@ -249,44 +684,5 @@ final class NewCalculationMethodsTests: XCTestCase {
     }
 }
 
-// MARK: - Mock Islamic Calendar Service (if not already defined elsewhere)
-
-@MainActor
-class MockIslamicCalendarService: IslamicCalendarServiceProtocol {
-    var mockIsRamadan: Bool = false
-    
-    // Required published properties
-    @Published var currentHijriDate: HijriDate = HijriDate(from: Date())
-    @Published var todayInfo: IslamicCalendarDay = IslamicCalendarDay(gregorianDate: Date(), hijriDate: HijriDate(from: Date()))
-    @Published var upcomingEvents: [IslamicEvent] = []
-    @Published var allEvents: [IslamicEvent] = []
-    @Published var statistics: IslamicCalendarStatistics = IslamicCalendarStatistics()
-    @Published var isLoading: Bool = false
-    @Published var error: Error? = nil
-    
-    // Mock implementation
-    func isRamadan() async -> Bool {
-        return mockIsRamadan
-    }
-    
-    // Stub implementations for other required methods
-    func refreshCalendarData() async {}
-    func getUpcomingEvents(limit: Int) async -> [IslamicEvent] { return [] }
-    func addCustomEvent(_ event: IslamicEvent) async {}
-    func removeCustomEvent(_ event: IslamicEvent) async {}
-    func getEventsForDate(_ date: Date) async -> [IslamicEvent] { return [] }
-    func getEventsForMonth(_ month: HijriMonth, year: Int) async -> [IslamicEvent] { return [] }
-    func getStatistics() async -> IslamicCalendarStatistics { return IslamicCalendarStatistics() }
-    func isHolyMonth() async -> Bool { return false }
-    func getCurrentHolyMonthInfo() async -> HolyMonthInfo? { return nil }
-    func getRamadanPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
-    func getHajjPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
-    func setEventReminder(_ event: IslamicEvent, reminderTime: TimeInterval) async {}
-    func removeEventReminder(_ event: IslamicEvent) async {}
-    func getEventReminders() async -> [EventReminder] { return [] }
-    func exportCalendar(format: CalendarExportFormat) async throws -> Data { return Data() }
-    func importEvents(from data: Data, format: CalendarImportFormat) async throws {}
-    func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
-    func setEventNotifications(_ enabled: Bool) async {}
-    func setDefaultReminderTime(_ time: TimeInterval) async {}
-}
+// MARK: - Mock Services
+// Note: Using shared MockIslamicCalendarService from other test files to avoid duplication

@@ -56,7 +56,8 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
             errorHandler: ErrorHandler(crashReporter: CrashReporter()),
             retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
             networkMonitor: NetworkMonitor.shared,
-            islamicCacheManager: islamicCacheManager
+            islamicCacheManager: islamicCacheManager,
+            islamicCalendarService: IntegrationMockIslamicCalendarService()
         )
         
         // Create background services
@@ -148,12 +149,12 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
                 .dropFirst() // Skip initial empty value
                 .sink { prayerTimes in
                     #if DEBUG
-                    testLogger.debug("🕌 Test: Received prayer times update with \(prayerTimes.count) times")
+                    self.testLogger.debug("🕌 Test: Received prayer times update with \(prayerTimes.count) times")
                     #endif
                     if !prayerTimes.isEmpty {
                         prayerTimeUpdates.append(prayerTimes)
                         #if DEBUG
-                        testLogger.debug("🕌 Test: Fulfilling expectation (\(prayerTimeUpdates.count)/2)")
+                        self.testLogger.debug("🕌 Test: Fulfilling expectation (\(prayerTimeUpdates.count)/2)")
                         #endif
                         expectation.fulfill()
                     }
@@ -175,7 +176,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await prayerTimeService.refreshPrayerTimes()
 
         // Wait for initial calculation (account for debouncing + async operations)
-        let initialCalculationExpectation = expectation(description: "initial calculation completion")
+        let initialCalculationExpectation = XCTestExpectation(description: "initial calculation completion")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             initialCalculationExpectation.fulfill()
         }
@@ -188,7 +189,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
 
         // Wait for settings change propagation (account for 300ms debounce + async operations)
-        let settingsChangeExpectation = expectation(description: "settings change propagation")
+        let settingsChangeExpectation = XCTestExpectation(description: "settings change propagation")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             settingsChangeExpectation.fulfill()
         }
@@ -229,7 +230,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
         
         // Wait for cache invalidation
-        let cacheInvalidationExpectation = expectation(description: "cache invalidation completion")
+        let cacheInvalidationExpectation = XCTestExpectation(description: "cache invalidation completion")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             cacheInvalidationExpectation.fulfill()
         }
@@ -265,7 +266,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
 
         // Wait for propagation
-        let backgroundPropagationExpectation = expectation(description: "background service propagation")
+        let backgroundPropagationExpectation = XCTestExpectation(description: "background service propagation")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             backgroundPropagationExpectation.fulfill()
         }
@@ -298,7 +299,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
 
         // Wait for propagation
-        let serviceSyncExpectation = expectation(description: "service synchronization")
+        let serviceSyncExpectation = XCTestExpectation(description: "service synchronization")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             serviceSyncExpectation.fulfill()
         }
@@ -351,7 +352,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 
         // When: User workflow - initial load, then changes method twice
         await prayerTimeService.refreshPrayerTimes()
-        let initialLoadExpectation = expectation(description: "initial load completion")
+        let initialLoadExpectation = XCTestExpectation(description: "initial load completion")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             initialLoadExpectation.fulfill()
         }
@@ -360,7 +361,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.egyptian
         }
-        let firstChangeExpectation = expectation(description: "first method change debounce")
+        let firstChangeExpectation = XCTestExpectation(description: "first method change debounce")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             firstChangeExpectation.fulfill()
         }
@@ -369,7 +370,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.karachi
         }
-        let secondChangeExpectation = expectation(description: "second method change debounce")
+        let secondChangeExpectation = XCTestExpectation(description: "second method change debounce")
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             secondChangeExpectation.fulfill()
         }
@@ -397,7 +398,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
     func testAppBackgroundingWithSettingsChangeScenario() async throws {
         // Given: App is running with initial settings
         await prayerTimeService.refreshPrayerTimes()
-        let appInitializationExpectation = expectation(description: "app initialization")
+        let appInitializationExpectation = XCTestExpectation(description: "app initialization")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             appInitializationExpectation.fulfill()
         }
@@ -415,7 +416,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 
         // Simulate background refresh
         await prayerTimeService.refreshTodaysPrayerTimes()
-        let backgroundRefreshExpectation = expectation(description: "background refresh completion")
+        let backgroundRefreshExpectation = XCTestExpectation(description: "background refresh completion")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             backgroundRefreshExpectation.fulfill()
         }
@@ -452,7 +453,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
 
         // When: Rapid settings changes (these will be debounced)
         await prayerTimeService.refreshPrayerTimes()
-        let initialRapidExpectation = expectation(description: "initial rapid test setup")
+        let initialRapidExpectation = XCTestExpectation(description: "initial rapid test setup")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
             initialRapidExpectation.fulfill()
         }
@@ -462,7 +463,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.egyptian
         }
-        let rapidChange1Expectation = expectation(description: "rapid change 1")
+        let rapidChange1Expectation = XCTestExpectation(description: "rapid change 1")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             rapidChange1Expectation.fulfill()
         }
@@ -471,7 +472,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await MainActor.run {
             settingsService.madhab = Madhab.hanafi
         }
-        let rapidChange2Expectation = expectation(description: "rapid change 2")
+        let rapidChange2Expectation = XCTestExpectation(description: "rapid change 2")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             rapidChange2Expectation.fulfill()
         }
@@ -480,7 +481,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         await MainActor.run {
             settingsService.calculationMethod = CalculationMethod.karachi
         }
-        let rapidChange3Expectation = expectation(description: "rapid change 3")
+        let rapidChange3Expectation = XCTestExpectation(description: "rapid change 3")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             rapidChange3Expectation.fulfill()
         }
@@ -491,7 +492,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         }
 
         // Wait for debouncing to complete
-        let debounceCompletionExpectation = expectation(description: "debounce completion")
+        let debounceCompletionExpectation = XCTestExpectation(description: "debounce completion")
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             debounceCompletionExpectation.fulfill()
         }
@@ -614,6 +615,9 @@ class PrayerTimeSyncMockSettingsService: SettingsServiceProtocol, ObservableObje
         didSet { notifySettingsChanged() }
     }
     @Published var madhab: Madhab = .shafi {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var useAstronomicalMaghrib: Bool = false {
         didSet { notifySettingsChanged() }
     }
     @Published var notificationsEnabled: Bool = true {
@@ -826,4 +830,76 @@ class PrayerTimeSyncTestMockLocationService: LocationServiceProtocol, Observable
             country: "Test Country"
         )
     }
+}
+
+// MARK: - Mock Islamic Calendar Service
+
+@MainActor
+class IntegrationMockIslamicCalendarService: IslamicCalendarServiceProtocol {
+    var mockIsRamadan: Bool = false
+    
+    // Required published properties
+    @Published var currentHijriDate: HijriDate = HijriDate(from: Date())
+    @Published var todayInfo: IslamicCalendarDay = IslamicCalendarDay(gregorianDate: Date(), hijriDate: HijriDate(from: Date()))
+    @Published var upcomingEvents: [IslamicEvent] = []
+    @Published var allEvents: [IslamicEvent] = []
+    @Published var statistics: IslamicCalendarStatistics = IslamicCalendarStatistics()
+    @Published var isLoading: Bool = false
+    @Published var error: Error? = nil
+    
+    // Mock implementation
+    func isRamadan() async -> Bool {
+        return mockIsRamadan
+    }
+
+    // Core protocol methods
+    func convertToHijri(_ gregorianDate: Date) async -> HijriDate { return HijriDate(from: gregorianDate) }
+    func convertToGregorian(_ hijriDate: HijriDate) async -> Date { return Date() }
+    func getCurrentHijriDate() async -> HijriDate { return HijriDate(from: Date()) }
+    func isDate(_ gregorianDate: Date, equalToHijri hijriDate: HijriDate) async -> Bool { return false }
+    func getCalendarInfo(for date: Date) async -> IslamicCalendarDay { return IslamicCalendarDay(gregorianDate: date, hijriDate: HijriDate(from: date)) }
+    func getCalendarInfo(for period: DateInterval) async -> [IslamicCalendarDay] { return [] }
+    func getMonthInfo(month: HijriMonth, year: Int) async -> [IslamicCalendarDay] { return [] }
+    func isHolyDay(_ date: Date) async -> Bool { return false }
+    func getMoonPhase(for date: Date) async -> MoonPhase? { return nil }
+    func getAllEvents() async -> [IslamicEvent] { return [] }
+    func getEvents(for date: Date) async -> [IslamicEvent] { return [] }
+    func getEvents(for period: DateInterval) async -> [IslamicEvent] { return [] }
+
+    // Stub implementations for other required methods
+    func refreshCalendarData() async {}
+    func getUpcomingEvents(limit: Int) async -> [IslamicEvent] { return [] }
+    func addCustomEvent(_ event: IslamicEvent) async {}
+    func removeCustomEvent(_ event: IslamicEvent) async {}
+    func getEventsForDate(_ date: Date) async -> [IslamicEvent] { return [] }
+    func getEventsForMonth(_ month: HijriMonth, year: Int) async -> [IslamicEvent] { return [] }
+    func getStatistics() async -> IslamicCalendarStatistics { return IslamicCalendarStatistics() }
+    func isHolyMonth() async -> Bool { return false }
+    func getCurrentHolyMonthInfo() async -> HolyMonthInfo? { return nil }
+    func getRamadanPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
+    func getHajjPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
+    func setEventReminder(_ event: IslamicEvent, reminderTime: TimeInterval) async {}
+    func removeEventReminder(_ event: IslamicEvent) async {}
+    func getEventReminders() async -> [EventReminder] { return [] }
+    func exportCalendarData(for period: DateInterval) async -> String { return "" }
+    func importEvents(from jsonData: String) async throws {}
+    func exportAsICalendar(_ events: [IslamicEvent]) async -> String { return "" }
+    func getEventFrequencyByCategory() async -> [EventCategory: Int] { return [:] }
+    func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
+    func setEventNotifications(_ enabled: Bool) async {}
+    func setDefaultReminderTime(_ time: TimeInterval) async {}
+    
+    // Additional required protocol methods
+    func getEvents(by category: EventCategory) async -> [IslamicEvent] { return [] }
+    func getEvents(by significance: EventSignificance) async -> [IslamicEvent] { return [] }
+    func searchEvents(_ query: String) async -> [IslamicEvent] { return [] }
+    func updateEvent(_ event: IslamicEvent) async {}
+    func deleteEvent(_ eventId: UUID) async {}
+    func getDaysRemainingInMonth() async -> Int { return 30 }
+    func getActiveReminders() async -> [EventReminder] { return [] }
+    func cancelEventReminder(_ reminderId: UUID) async {}
+    func getEventsObservedThisYear() async -> [IslamicEvent] { return [] }
+    func getMostActiveMonth() async -> HijriMonth? { return nil }
+    func clearCache() async {}
+    func updateFromExternalSources() async {}
 }

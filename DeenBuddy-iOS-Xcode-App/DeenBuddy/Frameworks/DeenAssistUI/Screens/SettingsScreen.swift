@@ -11,6 +11,7 @@ public struct SettingsScreen: View {
     @State private var showingMadhabPicker = false
     @State private var showingThemePicker = false
     @State private var showingAbout = false
+    @State private var showingCalculationSources = false
     @State private var showingResetConfirmation = false
     @State private var showingNotificationSettings = false
     @State private var showingTimeFormatPicker = false
@@ -125,7 +126,14 @@ public struct SettingsScreen: View {
                         value: "",
                         action: { showingAbout = true }
                     )
-                    
+
+                    SettingsRow(
+                        icon: "doc.text.magnifyingglass",
+                        title: "Calculation Methods & Sources",
+                        value: "",
+                        action: { showingCalculationSources = true }
+                    )
+
                     SettingsRow(
                         icon: "doc.text.fill",
                         title: "Version",
@@ -171,6 +179,9 @@ public struct SettingsScreen: View {
         }
         .sheet(isPresented: $showingAbout) {
             AboutView(onDismiss: { showingAbout = false })
+        }
+        .sheet(isPresented: $showingCalculationSources) {
+            CalculationMethodsSourcesView()
         }
         .sheet(isPresented: $showingNotificationSettings) {
             // Note: NotificationSettingsView is now in the main app

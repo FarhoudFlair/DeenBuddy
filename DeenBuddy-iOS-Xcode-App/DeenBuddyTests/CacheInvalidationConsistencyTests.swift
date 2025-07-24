@@ -54,7 +54,8 @@ class CacheInvalidationConsistencyTests: XCTestCase {
             errorHandler: ErrorHandler(crashReporter: CrashReporter()),
             retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
             networkMonitor: NetworkMonitor.shared,
-            islamicCacheManager: islamicCacheManager
+            islamicCacheManager: islamicCacheManager,
+            islamicCalendarService: CacheInvalidationConsistencyMockIslamicCalendarService()
         )
 
         // Create background services
@@ -108,6 +109,7 @@ class CacheInvalidationConsistencyTests: XCTestCase {
         
         // Cache in all systems
         apiCache.cachePrayerTimes(initialPrayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        apiCache.waitForPendingOperations() // Wait for cache operation to complete
         await islamicCacheManager.cachePrayerSchedule(initialSchedule, for: date, location: clLocation, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
 
         // Verify initial cache exists
@@ -147,6 +149,7 @@ class CacheInvalidationConsistencyTests: XCTestCase {
         
         // Cache with Shafi madhab
         apiCache.cachePrayerTimes(initialPrayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        apiCache.waitForPendingOperations() // Wait for cache operation to complete
         await islamicCacheManager.cachePrayerSchedule(initialSchedule, for: date, location: clLocation, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
 
         // When: Madhab changes
@@ -177,6 +180,7 @@ class CacheInvalidationConsistencyTests: XCTestCase {
         // Cache in APICache
         let prayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
         apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
+        apiCache.waitForPendingOperations() // Wait for cache operation to complete
 
         // Cache in IslamicCacheManager
         let schedule = createMockPrayerSchedule(for: date)
@@ -321,6 +325,15 @@ class CacheInvalidationConsistencyMockSettingsService: SettingsServiceProtocol, 
         didSet {
             if notificationsEnabled != oldValue {
                 print("DEBUG: CacheInvalidationConsistencyMockSettingsService - notificationsEnabled changed to \(notificationsEnabled)")
+                notifySettingsChanged()
+            }
+        }
+    }
+    
+    @Published var useAstronomicalMaghrib: Bool = false {
+        didSet {
+            if useAstronomicalMaghrib != oldValue {
+                print("DEBUG: CacheInvalidationConsistencyMockSettingsService - useAstronomicalMaghrib changed to \(useAstronomicalMaghrib)")
                 notifySettingsChanged()
             }
         }
@@ -505,4 +518,76 @@ class CacheInvalidationTestMockLocationService: LocationServiceProtocol, Observa
     func getLocationAge() -> TimeInterval? {
         return 30.0
     }
+}
+
+// MARK: - Mock Islamic Calendar Service
+
+@MainActor
+class CacheInvalidationConsistencyMockIslamicCalendarService: IslamicCalendarServiceProtocol {
+    var mockIsRamadan: Bool = false
+    
+    // Required published properties
+    @Published var currentHijriDate: HijriDate = HijriDate(from: Date())
+    @Published var todayInfo: IslamicCalendarDay = IslamicCalendarDay(gregorianDate: Date(), hijriDate: HijriDate(from: Date()))
+    @Published var upcomingEvents: [IslamicEvent] = []
+    @Published var allEvents: [IslamicEvent] = []
+    @Published var statistics: IslamicCalendarStatistics = IslamicCalendarStatistics()
+    @Published var isLoading: Bool = false
+    @Published var error: Error? = nil
+    
+    // Mock implementation
+    func isRamadan() async -> Bool {
+        return mockIsRamadan
+    }
+    
+    // Core protocol methods
+    func convertToHijri(_ gregorianDate: Date) async -> HijriDate { return HijriDate(from: gregorianDate) }
+    func convertToGregorian(_ hijriDate: HijriDate) async -> Date { return Date() }
+    func getCurrentHijriDate() async -> HijriDate { return HijriDate(from: Date()) }
+    func isDate(_ gregorianDate: Date, equalToHijri hijriDate: HijriDate) async -> Bool { return false }
+    func getCalendarInfo(for date: Date) async -> IslamicCalendarDay { return IslamicCalendarDay(gregorianDate: date, hijriDate: HijriDate(from: date)) }
+    func getCalendarInfo(for period: DateInterval) async -> [IslamicCalendarDay] { return [] }
+    func getMonthInfo(month: HijriMonth, year: Int) async -> [IslamicCalendarDay] { return [] }
+    func isHolyDay(_ date: Date) async -> Bool { return false }
+    func getMoonPhase(for date: Date) async -> MoonPhase? { return nil }
+    func getAllEvents() async -> [IslamicEvent] { return [] }
+    func getEvents(for date: Date) async -> [IslamicEvent] { return [] }
+    func getEvents(for period: DateInterval) async -> [IslamicEvent] { return [] }
+    
+    // Stub implementations for other required methods
+    func refreshCalendarData() async {}
+    func getUpcomingEvents(limit: Int) async -> [IslamicEvent] { return [] }
+    func addCustomEvent(_ event: IslamicEvent) async {}
+    func removeCustomEvent(_ event: IslamicEvent) async {}
+    func getEventsForDate(_ date: Date) async -> [IslamicEvent] { return [] }
+    func getEventsForMonth(_ month: HijriMonth, year: Int) async -> [IslamicEvent] { return [] }
+    func getStatistics() async -> IslamicCalendarStatistics { return IslamicCalendarStatistics() }
+    func isHolyMonth() async -> Bool { return false }
+    func getCurrentHolyMonthInfo() async -> HolyMonthInfo? { return nil }
+    func getRamadanPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
+    func getHajjPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
+    func setEventReminder(_ event: IslamicEvent, reminderTime: TimeInterval) async {}
+    func removeEventReminder(_ event: IslamicEvent) async {}
+    func getEventReminders() async -> [EventReminder] { return [] }
+    func exportCalendarData(for period: DateInterval) async -> String { return "" }
+    func importEvents(from jsonData: String) async throws {}
+    func exportAsICalendar(_ events: [IslamicEvent]) async -> String { return "" }
+    func getEventFrequencyByCategory() async -> [EventCategory: Int] { return [:] }
+    func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
+    func setEventNotifications(_ enabled: Bool) async {}
+    func setDefaultReminderTime(_ time: TimeInterval) async {}
+    
+    // Additional required protocol methods
+    func getEvents(by category: EventCategory) async -> [IslamicEvent] { return [] }
+    func getEvents(by significance: EventSignificance) async -> [IslamicEvent] { return [] }
+    func searchEvents(_ query: String) async -> [IslamicEvent] { return [] }
+    func updateEvent(_ event: IslamicEvent) async {}
+    func deleteEvent(_ eventId: UUID) async {}
+    func getDaysRemainingInMonth() async -> Int { return 30 }
+    func getActiveReminders() async -> [EventReminder] { return [] }
+    func cancelEventReminder(_ reminderId: UUID) async {}
+    func getEventsObservedThisYear() async -> [IslamicEvent] { return [] }
+    func getMostActiveMonth() async -> HijriMonth? { return nil }
+    func clearCache() async {}
+    func updateFromExternalSources() async {}
 }

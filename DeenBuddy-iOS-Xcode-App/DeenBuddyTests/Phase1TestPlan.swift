@@ -247,6 +247,9 @@ class Phase1MockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var madhab: Madhab = .shafi {
         didSet { notifySettingsChanged() }
     }
+    @Published var useAstronomicalMaghrib: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
     @Published var notificationsEnabled: Bool = true {
         didSet { notifySettingsChanged() }
     }

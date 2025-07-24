@@ -233,19 +233,62 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
     ) -> PrayerTimes {
         let calendar = Calendar.current
         let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
-        
-        // Generate realistic prayer times based on location
-        // This is a simplified calculation for mock purposes
-        let baseHour = 6 // Start with Fajr around 6 AM
-        
+
+        // Generate different prayer times based on calculation method
+        // This simulates how different methods produce different times
+        let fajrMinute: Int
+        let ishaMinute: Int
+
+        switch calculationMethod {
+        case .muslimWorldLeague:
+            fajrMinute = 30  // 5:30 AM for Muslim World League
+            ishaMinute = 45  // 7:45 PM
+        case .egyptian:
+            fajrMinute = 15  // 5:15 AM for Egyptian method
+            ishaMinute = 30  // 7:30 PM
+        case .karachi:
+            fajrMinute = 45  // 5:45 AM for Karachi method
+            ishaMinute = 0   // 8:00 PM
+        case .northAmerica:
+            fajrMinute = 20  // 5:20 AM for North America method
+            ishaMinute = 15  // 7:15 PM
+        case .jafariLeva:
+            fajrMinute = 10  // 5:10 AM for Ja'fari Leva method
+            ishaMinute = 50  // 7:50 PM
+        case .ummAlQura:
+            fajrMinute = 25  // 5:25 AM for Umm Al-Qura method
+            ishaMinute = 35  // 7:35 PM
+        case .dubai:
+            fajrMinute = 35  // 5:35 AM for Dubai method
+            ishaMinute = 25  // 7:25 PM
+        case .moonsightingCommittee:
+            fajrMinute = 40  // 5:40 AM for Moonsighting Committee method
+            ishaMinute = 20  // 7:20 PM
+        case .kuwait:
+            fajrMinute = 5   // 5:05 AM for Kuwait method
+            ishaMinute = 55  // 7:55 PM
+        case .qatar:
+            fajrMinute = 50  // 5:50 AM for Qatar method
+            ishaMinute = 10  // 7:10 PM
+        case .singapore:
+            fajrMinute = 55  // 5:55 AM for Singapore method
+            ishaMinute = 5   // 7:05 PM
+        case .jafariTehran:
+            fajrMinute = 0   // 5:00 AM for Ja'fari Tehran method
+            ishaMinute = 40  // 7:40 PM
+        case .fcnaCanada:
+            fajrMinute = 12  // 5:12 AM for FCNA Canada method
+            ishaMinute = 48  // 7:48 PM
+        }
+
         let fajr = calendar.date(from: DateComponents(
             year: dateComponents.year,
             month: dateComponents.month,
             day: dateComponents.day,
-            hour: baseHour,
-            minute: 0
+            hour: 5,  // All methods use 5 AM base hour
+            minute: fajrMinute
         )) ?? date
-        
+
         let dhuhr = calendar.date(from: DateComponents(
             year: dateComponents.year,
             month: dateComponents.month,
@@ -253,7 +296,7 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
             hour: 12,
             minute: 30
         )) ?? date
-        
+
         let asr = calendar.date(from: DateComponents(
             year: dateComponents.year,
             month: dateComponents.month,
@@ -261,7 +304,7 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
             hour: 15,
             minute: madhab == .hanafi ? 45 : 30
         )) ?? date
-        
+
         let maghrib = calendar.date(from: DateComponents(
             year: dateComponents.year,
             month: dateComponents.month,
@@ -269,15 +312,15 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
             hour: 18,
             minute: 15
         )) ?? date
-        
+
         let isha = calendar.date(from: DateComponents(
             year: dateComponents.year,
             month: dateComponents.month,
             day: dateComponents.day,
             hour: 19,
-            minute: 45
+            minute: ishaMinute
         )) ?? date
-        
+
         return PrayerTimes(
             date: date,
             fajr: fajr,

@@ -18,6 +18,7 @@ final class IslamicAccuracyValidationTests: XCTestCase {
     private var retryMechanism: RetryMechanism!
     private var networkMonitor: NetworkMonitor!
     private var islamicCacheManager: IslamicCacheManager!
+    private var islamicCalendarService: IslamicCalendarService!
     private var crashReporter: CrashReporter!
     
     // Reference locations for testing
@@ -48,6 +49,7 @@ final class IslamicAccuracyValidationTests: XCTestCase {
             networkMonitor = NetworkMonitor() // Create fresh instance for test isolation
             retryMechanism = RetryMechanism(networkMonitor: networkMonitor)
             islamicCacheManager = IslamicCacheManager()
+            islamicCalendarService = IslamicCalendarService()
 
             // Initialize notification service with proper mock setup
             notificationService = NotificationService()
@@ -63,7 +65,8 @@ final class IslamicAccuracyValidationTests: XCTestCase {
                 errorHandler: errorHandler,
                 retryMechanism: retryMechanism,
                 networkMonitor: networkMonitor,
-                islamicCacheManager: islamicCacheManager
+                islamicCacheManager: islamicCacheManager,
+                islamicCalendarService: islamicCalendarService
             )
 
             // Set up location service with a valid location (Mecca for testing)
@@ -97,6 +100,7 @@ final class IslamicAccuracyValidationTests: XCTestCase {
         retryMechanism = nil
         networkMonitor = nil
         islamicCacheManager = nil
+        islamicCalendarService = nil
         crashReporter = nil
 
         // Force garbage collection
@@ -560,14 +564,20 @@ final class IslamicAccuracyValidationTests: XCTestCase {
     private func validateQiblaAccuracy(for location: CLLocation, locationName: String) async {
         // Calculate bearing to Mecca
         let bearing = location.bearing(to: meccaLocation)
-        
+
         // Validate bearing is reasonable (0-360 degrees)
         XCTAssertTrue(bearing >= 0 && bearing <= 360, "Qibla bearing should be valid for \(locationName)")
-        
+
         // Validate distance to Mecca is reasonable
         let distance = location.distance(from: meccaLocation)
-        XCTAssertGreaterThan(distance, 0, "Distance to Mecca should be positive for \(locationName)")
-        
+
+        // For Mecca itself, distance should be very small (but not exactly 0 due to precision)
+        if locationName == "Mecca" {
+            XCTAssertLessThan(distance, 1000, "Distance from Mecca to itself should be less than 1km for \(locationName)")
+        } else {
+            XCTAssertGreaterThan(distance, 1000, "Distance to Mecca should be greater than 1km for \(locationName)")
+        }
+
         print("🧭 \(locationName) Qibla: \(Int(bearing))° (\(Int(distance/1000))km to Mecca)")
     }
     
