@@ -172,12 +172,12 @@ final class NewCalculationMethodsTests: XCTestCase {
         let differenceMinutes = fajrDifference / 60
         print("⏰ Fajr difference: \(String(format: "%.2f", differenceMinutes)) minutes")
 
-        // STRICT ASSERTION: Tehran (17.7°) MUST have later Fajr than Leva (16°)
-        // Higher Fajr angle = sun needs to be further below horizon = later time
-        XCTAssertGreaterThan(tehranFajr, levaFajr,
-            "CRITICAL: Tehran IOG method (17.7°) MUST have later Fajr than Leva method (16°). " +
+        // CORRECTED ASSERTION: Tehran (17.7°) MUST have EARLIER Fajr than Leva (16°)
+        // Higher Fajr angle = sun needs to be further below horizon = EARLIER time
+        XCTAssertLessThan(tehranFajr, levaFajr,
+            "CRITICAL: Tehran IOG method (17.7°) MUST have EARLIER Fajr than Leva method (16°). " +
             "Tehran: \(formatter.string(from: tehranFajr)), Leva: \(formatter.string(from: levaFajr)). " +
-            "If this fails, custom parameters are not being applied correctly.")
+            "Higher angle = earlier time is the correct Islamic calculation.")
 
         // The difference should be meaningful (at least 2 minutes for 1.7° difference)
         XCTAssertGreaterThan(fajrDifference, 120,
@@ -239,9 +239,9 @@ final class NewCalculationMethodsTests: XCTestCase {
 
         // CRITICAL ASSERTIONS:
 
-        // 1. Fajr: Tehran (17.7°) should be later than Leva (16°)
-        XCTAssertGreaterThan(tFajr, lFajr, "Tehran Fajr (17.7°) must be later than Leva Fajr (16°)")
-        XCTAssertGreaterThan(fajrDiff, 1.0, "Fajr difference should be at least 1 minute")
+        // 1. Fajr: Tehran (17.7°) should be EARLIER than Leva (16°)
+        XCTAssertLessThan(tFajr, lFajr, "Tehran Fajr (17.7°) must be EARLIER than Leva Fajr (16°) - higher angle = earlier time")
+        XCTAssertLessThan(fajrDiff, -1.0, "Fajr difference should be at least 1 minute earlier")
 
         // 2. Isha: Both use 14°, so they should be very close (within 1 minute)
         XCTAssertLessThan(abs(ishaDiff), 1.0, "Isha times should be nearly identical (both use 14°), difference: \(String(format: "%.2f", ishaDiff))min")
@@ -318,11 +318,11 @@ final class NewCalculationMethodsTests: XCTestCase {
 
         // Test 4: Verify they're different and in correct order
         XCTAssertNotEqual(levaFajr, tehranFajr, "Fajr times should be different between methods")
-        XCTAssertGreaterThan(tehranFajr, levaFajr, "Tehran Fajr (17.7°) should be later than Leva Fajr (16°)")
-        XCTAssertGreaterThan(difference, 1.0, "Difference should be at least 1 minute")
-        XCTAssertLessThan(difference, 15.0, "Difference should be less than 15 minutes")
+        XCTAssertLessThan(tehranFajr, levaFajr, "Tehran Fajr (17.7°) should be EARLIER than Leva Fajr (16°) - higher angle = earlier time")
+        XCTAssertLessThan(difference, -1.0, "Difference should be at least 1 minute earlier")
+        XCTAssertGreaterThan(difference, -15.0, "Difference should be less than 15 minutes earlier")
 
-        print("✅ REAL calculation works correctly - Tehran is \(String(format: "%.2f", difference)) minutes later than Leva")
+        print("✅ REAL calculation works correctly - Tehran is \(String(format: "%.2f", difference)) minutes earlier than Leva")
     }
 
     func testCustomParametersAreDifferent() {
@@ -362,24 +362,26 @@ final class NewCalculationMethodsTests: XCTestCase {
     }
 
     func testAdhanLibraryBaseParameters() {
-        // Test to understand what Adhan.CalculationMethod.other.params returns by default
+        // Test to understand what Adhan.CalculationMethod.muslimWorldLeague.params returns by default
 
-        print("🔍 TESTING: Adhan.CalculationMethod.other.params defaults")
+        print("🔍 TESTING: Adhan.CalculationMethod.muslimWorldLeague.params defaults (FIXED approach)")
 
-        let baseParams = Adhan.CalculationMethod.other.params
+        let baseParams = Adhan.CalculationMethod.muslimWorldLeague.params
 
-        print("📋 Base Parameters from Adhan.CalculationMethod.other:")
+        print("📋 Base Parameters from Adhan.CalculationMethod.muslimWorldLeague (FIXED approach):")
         print("   Fajr Angle: \(baseParams.fajrAngle)°")
         print("   Isha Angle: \(baseParams.ishaAngle)°")
         print("   Madhab: \(baseParams.madhab.rawValue)")
         print("   Method: \(baseParams.method.rawValue)")
 
-        // Test creating two separate instances
-        var params1 = Adhan.CalculationMethod.other.params
+        // Test creating two separate instances using FIXED approach
+        var params1 = Adhan.CalculationMethod.muslimWorldLeague.params
+        params1.method = .other
         params1.fajrAngle = 16.0
         params1.ishaAngle = 14.0
 
-        var params2 = Adhan.CalculationMethod.other.params
+        var params2 = Adhan.CalculationMethod.muslimWorldLeague.params
+        params2.method = .other
         params2.fajrAngle = 17.7
         params2.ishaAngle = 14.0
 
@@ -452,11 +454,11 @@ final class NewCalculationMethodsTests: XCTestCase {
 
         // Verify they're different and in correct order
         XCTAssertNotEqual(levaFajr, tehranFajr, "Fajr times should be different between methods")
-        XCTAssertGreaterThan(tehranFajr, levaFajr, "Tehran Fajr (17.7°) should be later than Leva Fajr (16°)")
-        XCTAssertGreaterThan(difference, 1.0, "Difference should be at least 1 minute")
-        XCTAssertLessThan(difference, 15.0, "Difference should be less than 15 minutes")
+        XCTAssertLessThan(tehranFajr, levaFajr, "Tehran Fajr (17.7°) should be EARLIER than Leva Fajr (16°) - higher angle = earlier time")
+        XCTAssertLessThan(difference, -1.0, "Difference should be at least 1 minute earlier")
+        XCTAssertGreaterThan(difference, -15.0, "Difference should be less than 15 minutes earlier")
 
-        print("✅ REAL PrayerTimeService calculation works correctly - Tehran is \(String(format: "%.2f", difference)) minutes later than Leva")
+        print("✅ REAL PrayerTimeService calculation works correctly - Tehran is \(String(format: "%.2f", difference)) minutes earlier than Leva")
     }
 
     func testDirectAdhanLibraryWithCustomParameters() throws {
@@ -467,14 +469,16 @@ final class NewCalculationMethodsTests: XCTestCase {
         let coordinates = Adhan.Coordinates(latitude: 35.6892, longitude: 51.3890) // Tehran, Iran
         let dateComponents = DateComponents(year: 2024, month: 6, day: 15)
 
-        // Test with Leva parameters (16°, 14°)
-        var levaParams = Adhan.CalculationMethod.other.params
+        // Test with Leva parameters (16°, 14°) using ULTIMATE approach (different base methods)
+        var levaParams = Adhan.CalculationMethod.egyptian.params  // Different base for independence
+        levaParams.method = .other
         levaParams.fajrAngle = 16.0
         levaParams.ishaAngle = 14.0
         levaParams.madhab = .shafi // Ja'fari maps to Shafi in Adhan library
 
-        // Test with Tehran parameters (17.7°, 14°)
-        var tehranParams = Adhan.CalculationMethod.other.params
+        // Test with Tehran parameters (17.7°, 14°) using ULTIMATE approach (different base methods)
+        var tehranParams = Adhan.CalculationMethod.karachi.params  // Different base for independence
+        tehranParams.method = .other
         tehranParams.fajrAngle = 17.7
         tehranParams.ishaAngle = 14.0
         tehranParams.madhab = .shafi // Ja'fari maps to Shafi in Adhan library
@@ -498,11 +502,11 @@ final class NewCalculationMethodsTests: XCTestCase {
 
         // Verify they're different and in correct order
         XCTAssertNotEqual(levaPrayerTimes.fajr, tehranPrayerTimes.fajr, "Fajr times should be different between methods")
-        XCTAssertGreaterThan(tehranPrayerTimes.fajr, levaPrayerTimes.fajr, "Tehran Fajr (17.7°) should be later than Leva Fajr (16°)")
-        XCTAssertGreaterThan(difference, 1.0, "Difference should be at least 1 minute")
-        XCTAssertLessThan(difference, 15.0, "Difference should be less than 15 minutes")
+        XCTAssertLessThan(tehranPrayerTimes.fajr, levaPrayerTimes.fajr, "Tehran Fajr (17.7°) should be EARLIER than Leva Fajr (16°) - higher angle = earlier time")
+        XCTAssertLessThan(difference, -1.0, "Difference should be at least 1 minute earlier")
+        XCTAssertGreaterThan(difference, -15.0, "Difference should be less than 15 minutes earlier")
 
-        print("✅ DIRECT Adhan library works correctly - Tehran is \(String(format: "%.2f", difference)) minutes later than Leva")
+        print("✅ DIRECT Adhan library works correctly - Tehran is \(String(format: "%.2f", difference)) minutes earlier than Leva")
     }
 
     func testSimpleAdhanLibraryDebug() throws {

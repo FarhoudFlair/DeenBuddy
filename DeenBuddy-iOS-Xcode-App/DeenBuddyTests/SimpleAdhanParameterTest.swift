@@ -11,8 +11,8 @@ class SimpleAdhanParameterTest: XCTestCase {
         let coordinates = Coordinates(latitude: 35.6892, longitude: 51.3890)
         let dateComponents = DateComponents(year: 2024, month: 1, day: 15)
         
-        // Method 1: Create first params using FIXED approach (independent object creation)
-        var params1 = Adhan.CalculationMethod.muslimWorldLeague.params
+        // Method 1: Create first params using ULTIMATE approach (different base methods for independence)
+        var params1 = Adhan.CalculationMethod.karachi.params  // Different base for independence
         params1.method = .other
         params1.fajrAngle = 17.7
         params1.ishaAngle = 14.0
@@ -20,8 +20,8 @@ class SimpleAdhanParameterTest: XCTestCase {
         
         print("📐 PARAMS1 (Tehran): fajrAngle=\(params1.fajrAngle)°, ishaAngle=\(params1.ishaAngle)°")
         
-        // Method 2: Create second params using FIXED approach (independent object creation)
-        var params2 = Adhan.CalculationMethod.muslimWorldLeague.params
+        // Method 2: Create second params using ULTIMATE approach (different base methods for independence)
+        var params2 = Adhan.CalculationMethod.egyptian.params  // Different base for independence
         params2.method = .other
         params2.fajrAngle = 16.0
         params2.ishaAngle = 14.0
