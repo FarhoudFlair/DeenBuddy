@@ -86,14 +86,14 @@ public class DependencyContainer: ObservableObject {
         if let notificationService = notificationService {
             resolvedNotificationService = notificationService
         } else {
-            resolvedNotificationService = await MainActor.run { NotificationService() }
+            resolvedNotificationService = await MainActor.run { ServiceFactory.createNotificationService() }
         }
         
         let resolvedSettingsService: any SettingsServiceProtocol
         if let settingsService = settingsService {
             resolvedSettingsService = settingsService
         } else {
-            resolvedSettingsService = await MainActor.run { SettingsService() }
+            resolvedSettingsService = await MainActor.run { ServiceFactory.createSettingsService() }
         }
         
         let resolvedErrorHandler: ErrorHandler = await MainActor.run { ErrorHandler(crashReporter: CrashReporter()) }
@@ -103,16 +103,16 @@ public class DependencyContainer: ObservableObject {
         if let islamicCacheManager = islamicCacheManager {
             resolvedIslamicCacheManager = islamicCacheManager
         } else {
-            resolvedIslamicCacheManager = await MainActor.run { IslamicCacheManager() }
+            resolvedIslamicCacheManager = await MainActor.run { ServiceFactory.createIslamicCacheManager() }
         }
 
-        let resolvedIslamicCalendarService = await MainActor.run { IslamicCalendarService() }
+        let resolvedIslamicCalendarService = await MainActor.run { ServiceFactory.createIslamicCalendarService() }
 
         let resolvedPrayerTimeService: any PrayerTimeServiceProtocol
         if let prayerTimeService = prayerTimeService {
             resolvedPrayerTimeService = prayerTimeService
         } else {
-            resolvedPrayerTimeService = await MainActor.run { PrayerTimeService(
+            resolvedPrayerTimeService = await MainActor.run { ServiceFactory.createPrayerTimeService(
                 locationService: resolvedLocationService,
                 settingsService: resolvedSettingsService,
                 apiClient: resolvedApiClient,
@@ -282,9 +282,24 @@ public class DependencyContainer: ObservableObject {
 // MARK: - Service Factory
 
 public class ServiceFactory {
-    // Singleton instances to prevent service multiplication
+    // CRITICAL FIX: Singleton instances for ALL services to prevent service multiplication
     @MainActor
     private static var _locationServiceInstance: LocationService?
+    
+    @MainActor
+    private static var _notificationServiceInstance: NotificationService?
+    
+    @MainActor
+    private static var _settingsServiceInstance: SettingsService?
+    
+    @MainActor
+    private static var _prayerTimeServiceInstance: PrayerTimeService?
+    
+    @MainActor
+    private static var _islamicCacheManagerInstance: IslamicCacheManager?
+    
+    @MainActor
+    private static var _islamicCalendarServiceInstance: IslamicCalendarService?
 
     @MainActor
     public static func createLocationService() -> any LocationServiceProtocol {
@@ -299,18 +314,59 @@ public class ServiceFactory {
         print("🏗️ Created new LocationService singleton instance")
         return newInstance
     }
-
-    public static func createAPIClient(
-        configuration: APIConfiguration = .default
-    ) -> any APIClientProtocol {
-        return APIClient(configuration: configuration)
-    }
-
+    
     @MainActor
     public static func createNotificationService() -> any NotificationServiceProtocol {
-        return NotificationService()
+        if let existingInstance = _notificationServiceInstance {
+            print("🔄 Reusing existing NotificationService instance")
+            return existingInstance
+        }
+        
+        let newInstance = NotificationService()
+        _notificationServiceInstance = newInstance
+        print("🏗️ Created new NotificationService singleton instance")
+        return newInstance
     }
-
+    
+    @MainActor
+    public static func createSettingsService() -> any SettingsServiceProtocol {
+        if let existingInstance = _settingsServiceInstance {
+            print("🔄 Reusing existing SettingsService instance")
+            return existingInstance
+        }
+        
+        let newInstance = SettingsService()
+        _settingsServiceInstance = newInstance
+        print("🏗️ Created new SettingsService singleton instance")
+        return newInstance
+    }
+    
+    @MainActor
+    public static func createIslamicCacheManager() -> IslamicCacheManager {
+        if let existingInstance = _islamicCacheManagerInstance {
+            print("🔄 Reusing existing IslamicCacheManager instance")
+            return existingInstance
+        }
+        
+        let newInstance = IslamicCacheManager()
+        _islamicCacheManagerInstance = newInstance
+        print("🏗️ Created new IslamicCacheManager singleton instance")
+        return newInstance
+    }
+    
+    @MainActor
+    public static func createIslamicCalendarService() -> any IslamicCalendarServiceProtocol {
+        if let existingInstance = _islamicCalendarServiceInstance {
+            print("🔄 Reusing existing IslamicCalendarService instance")
+            return existingInstance
+        }
+        
+        let newInstance = IslamicCalendarService()
+        _islamicCalendarServiceInstance = newInstance
+        print("🏗️ Created new IslamicCalendarService singleton instance")
+        return newInstance
+    }
+    
     @MainActor
     public static func createPrayerTimeService(
         locationService: any LocationServiceProtocol,
@@ -322,7 +378,15 @@ public class ServiceFactory {
         islamicCacheManager: IslamicCacheManager,
         islamicCalendarService: any IslamicCalendarServiceProtocol
     ) -> any PrayerTimeServiceProtocol {
-        return PrayerTimeService(
+        // Only create singleton if services match existing instances
+        if let existingInstance = _prayerTimeServiceInstance,
+           existingInstance.locationService === locationService,
+           existingInstance.settingsService === settingsService {
+            print("🔄 Reusing existing PrayerTimeService instance")
+            return existingInstance
+        }
+        
+        let newInstance = PrayerTimeService(
             locationService: locationService,
             settingsService: settingsService,
             apiClient: apiClient,
@@ -332,11 +396,15 @@ public class ServiceFactory {
             islamicCacheManager: islamicCacheManager,
             islamicCalendarService: islamicCalendarService
         )
+        _prayerTimeServiceInstance = newInstance
+        print("🏗️ Created new PrayerTimeService singleton instance")
+        return newInstance
     }
 
-    @MainActor 
-    public static func createSettingsService() -> any SettingsServiceProtocol {
-        return SettingsService()
+    public static func createAPIClient(
+        configuration: APIConfiguration = .default
+    ) -> any APIClientProtocol {
+        return APIClient(configuration: configuration)
     }
 }
 
@@ -345,16 +413,19 @@ public class ServiceFactory {
 public extension DependencyContainer {
     @MainActor
     static var shared: DependencyContainer = {
+        print("🏗️ Creating shared DependencyContainer singleton")
+        
+        // CRITICAL FIX: Use ServiceFactory singleton methods to prevent multiple service instances
         let resolvedLocationService = ServiceFactory.createLocationService()
         let resolvedApiClient = APIClient(configuration: .default)
-        let resolvedNotificationService: any NotificationServiceProtocol = NotificationService()
-        let resolvedSettingsService: any SettingsServiceProtocol = SettingsService()
+        let resolvedNotificationService = ServiceFactory.createNotificationService()
+        let resolvedSettingsService = ServiceFactory.createSettingsService()
         let resolvedErrorHandler: ErrorHandler = ErrorHandler(crashReporter: CrashReporter())
         let resolvedRetryMechanism: RetryMechanism = RetryMechanism(networkMonitor: NetworkMonitor.shared)
-        let resolvedIslamicCacheManager = IslamicCacheManager()
-        let resolvedIslamicCalendarService: any IslamicCalendarServiceProtocol = IslamicCalendarService()
+        let resolvedIslamicCacheManager = ServiceFactory.createIslamicCacheManager()
+        let resolvedIslamicCalendarService = ServiceFactory.createIslamicCalendarService()
 
-        let resolvedPrayerTimeService: any PrayerTimeServiceProtocol = PrayerTimeService(
+        let resolvedPrayerTimeService = ServiceFactory.createPrayerTimeService(
             locationService: resolvedLocationService,
             settingsService: resolvedSettingsService,
             apiClient: resolvedApiClient,

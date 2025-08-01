@@ -310,7 +310,8 @@ class PrayerTrackingServiceTests: XCTestCase {
     
     @MainActor
     func testGetGoalProgress_ShouldReturnProgress() async throws {
-        // Given
+        // Given - set goal start date slightly in the past to avoid timing issues
+        let goalStartDate = Date().addingTimeInterval(-60) // 1 minute ago
         let goal = PrayerGoal(
             id: UUID().uuidString,
             title: "Dhuhr Goal",
@@ -318,10 +319,11 @@ class PrayerTrackingServiceTests: XCTestCase {
             type: .consistency,
             targetValue: 10.0,
             currentValue: 0.0,
+            startDate: goalStartDate,
             endDate: Calendar.current.date(byAdding: .weekOfYear, value: 2, to: Date())!
         )
         
-        let period = DateInterval(start: Date(), end: goal.endDate)
+        let period = DateInterval(start: goalStartDate, end: goal.endDate)
         await sut.setPrayerGoal(goal, for: period)
         
         // Complete some prayers

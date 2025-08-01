@@ -37,6 +37,9 @@ public class MockSettingsService: SettingsServiceProtocol {
     @Published public var showArabicSymbolInWidget: Bool = true {
         didSet { notifySettingsChanged() }
     }
+    @Published public var liveActivitiesEnabled: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
 
     public var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -65,6 +68,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         print("- User Name: \(userName)")
         print("- Override Battery Optimization: \(overrideBatteryOptimization)")
         print("- Show Arabic Symbol in Widget: \(showArabicSymbolInWidget)")
+        print("- Live Activities Enabled: \(liveActivitiesEnabled)")
     }
     
     public func loadSettings() async throws {

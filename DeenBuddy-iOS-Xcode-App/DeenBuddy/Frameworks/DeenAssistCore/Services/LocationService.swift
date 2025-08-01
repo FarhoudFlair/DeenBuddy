@@ -62,6 +62,13 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     private let userDefaults = UserDefaults.standard
     private var settingsService: (any SettingsServiceProtocol)?
     
+    // MARK: - "Allow Once" Permission Tracking
+    
+    private var previousAuthorizationStatus: CLAuthorizationStatus = .notDetermined
+    private var allowOnceLocationCaptured: CLLocation?
+    private var allowOnceTimestamp: Date?
+    private var isLikelyAllowOnce: Bool = false
+    
     // MARK: - Location Services Availability Cache
     
     @Published private var cachedLocationServicesEnabled: Bool = true
@@ -199,6 +206,8 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         static let cachedLocation = "DeenAssist.CachedLocation"
         static let cachedLocationInfo = "DeenAssist.CachedLocationInfo"
         static let cacheTimestamp = "DeenAssist.CacheTimestamp"
+        static let allowOnceLocation = "DeenAssist.AllowOnceLocation"
+        static let allowOnceTimestamp = "DeenAssist.AllowOnceTimestamp"
     }
     
     // MARK: - Initialization
@@ -219,6 +228,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
         setupLocationManagerSync()
         loadCachedLocation()
+        loadAllowOnceCache()
 
         Task { @MainActor in
             self.setupBatteryOptimization()
@@ -257,39 +267,19 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         locationManager.stopUpdatingHeading()
         locationManager.delegate = nil
 
-        // CRITICAL FIX: Use unsafe access to MainActor properties during deallocation
-        // This is safe because we're in deinit and no other code can access these properties
-        let locationContinuation = MainActor.assumeIsolated { self.locationContinuation }
-        let permissionContinuation = MainActor.assumeIsolated { self.permissionContinuation }
-        let continuationQueue = self.continuationQueue
-
-        // Clear pending continuations WITHOUT weak self reference (since we're in deinit)
-        continuationQueue.async(flags: .barrier) {
-            // Resume continuations with appropriate errors/values
-            if let continuation = locationContinuation {
-                continuation.resume(throwing: LocationError.locationUnavailable("LocationService is being deallocated"))
-            }
-
-            if let continuation = permissionContinuation {
-                continuation.resume(returning: .denied)
-            }
-        }
-
-        // Clear the continuation references immediately using MainActor.assumeIsolated
-        MainActor.assumeIsolated {
-            self.locationContinuation = nil
-            self.permissionContinuation = nil
-            self.locationRequestInProgress = false
-            self.permissionRequestInProgress = false
-        }
-
         // Remove any remaining observers as fallback
         NotificationCenter.default.removeObserver(self)
 
         // Cancel location timers to prevent resource leaks
         BatteryAwareTimerManager.shared.cancelTimerSync(id: "location-update")
 
-        print("🧹 LocationService: Cleanup completed - ID: \(instanceId.uuidString.prefix(8))")
+        // Schedule cleanup of MainActor properties on the main queue
+        // We cannot safely access MainActor properties during deinit, so we schedule cleanup
+        // Note: During deallocation, this may not execute if the main queue is busy,
+        // but that's acceptable since the instance is being destroyed anyway
+        DispatchQueue.main.async { [instanceId] in
+            print("🧹 LocationService: Cleanup completed - ID: \(instanceId.uuidString.prefix(8))")
+        }
 
         print("🧹 LocationService cleanup completed")
     }
@@ -297,8 +287,38 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     /// MainActor-dependent cleanup for use within the class (not in deinit)
     @MainActor
     private func performCleanup() {
-        // This method can call MainActor methods safely when called from MainActor context
+        // Clear pending continuations safely on MainActor
+        let continuationQueue = self.continuationQueue
+        
+        // Capture continuations to clear them
+        let locationContinuation = self.locationContinuation
+        let permissionContinuation = self.permissionContinuation
+        
+        // Clear references immediately
+        self.locationContinuation = nil
+        self.permissionContinuation = nil
+        self.locationRequestInProgress = false
+        self.permissionRequestInProgress = false
+        
+        // Resume continuations with appropriate errors on background queue
+        continuationQueue.async {
+            if let continuation = locationContinuation {
+                continuation.resume(throwing: LocationError.locationUnavailable("LocationService is being cleaned up"))
+            }
+            
+            if let continuation = permissionContinuation {
+                continuation.resume(returning: .denied)
+            }
+        }
+        
+        // Perform the rest of cleanup
         performCleanupSafely()
+    }
+    
+    /// Public cleanup method for explicit cleanup before deallocation
+    @MainActor
+    public func cleanup() {
+        performCleanup()
     }
     
     // MARK: - Protocol Implementation
@@ -386,6 +406,12 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         if let cached = getCachedLocation(), isLocationRecent(cached) && cached.horizontalAccuracy < minimumAccuracy {
             print("📍 Returning cached location from \(cached.timestamp)")
             return cached
+        }
+        
+        // Check for "Allow Once" cached location if permission might have expired
+        if let allowOnceLocation = getAllowOnceLocation(), isAllowOnceLocationValid() {
+            print("📍 Returning 'Allow Once' cached location from \(allowOnceLocation.timestamp)")
+            return allowOnceLocation
         }
         
         // Check if user has overridden battery optimization
@@ -740,6 +766,9 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         userDefaults.removeObject(forKey: CacheKeys.cachedLocation)
         userDefaults.removeObject(forKey: CacheKeys.cachedLocationInfo)
         userDefaults.removeObject(forKey: CacheKeys.cacheTimestamp)
+        
+        // Also clear "Allow Once" cache
+        clearAllowOnceCache()
     }
     
     // MARK: - Private Methods
@@ -900,6 +929,11 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
         // Cache the location
         cacheLocation(clLocation)
+        
+        // If this might be "Allow Once", aggressively cache this location
+        if isLikelyAllowOnce || authorizationStatus == .authorizedWhenInUse {
+            cacheAllowOnceLocation(clLocation)
+        }
 
         // Notify subscribers
         locationSubject.send(clLocation)
@@ -1081,6 +1115,120 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         }
         return cacheExpirationTime
     }
+    
+    // MARK: - "Allow Once" Permission Handling
+    
+    /// Detect if the user selected "Allow Once" based on authorization status changes
+    private func detectAllowOnceScenario(previousStatus: CLAuthorizationStatus, newStatus: CLAuthorizationStatus) {
+        // "Allow Once" pattern: .notDetermined → .authorizedWhenInUse → .denied
+        // Or: .authorizedWhenInUse → .denied (if permission was temporary)
+        
+        if (previousStatus == .authorizedWhenInUse && newStatus == .denied) ||
+           (previousStatus == .notDetermined && newStatus == .denied && allowOnceLocationCaptured != nil) {
+            print("📍 Detected likely 'Allow Once' scenario: \(previousStatus) → \(newStatus)")
+            isLikelyAllowOnce = true
+            
+            // If we have a location from when permission was granted, preserve it
+            if let allowOnceLocation = allowOnceLocationCaptured {
+                print("📍 Preserving 'Allow Once' location for extended caching")
+                cacheAllowOnceLocation(allowOnceLocation)
+            }
+        }
+    }
+    
+    /// Cache location with extended expiration for "Allow Once" scenarios
+    private func cacheAllowOnceLocation(_ location: CLLocation) {
+        allowOnceLocationCaptured = location
+        allowOnceTimestamp = Date()
+        
+        // Store in UserDefaults for persistence
+        let locationData = [
+            "latitude": location.coordinate.latitude,
+            "longitude": location.coordinate.longitude,
+            "accuracy": location.horizontalAccuracy,
+            "timestamp": location.timestamp.timeIntervalSince1970
+        ]
+        
+        if let data = try? JSONSerialization.data(withJSONObject: locationData) {
+            userDefaults.set(data, forKey: CacheKeys.allowOnceLocation)
+            userDefaults.set(allowOnceTimestamp?.timeIntervalSince1970, forKey: CacheKeys.allowOnceTimestamp)
+        }
+        
+        print("📍 Cached 'Allow Once' location with extended expiration")
+    }
+    
+    /// Load "Allow Once" cached location from UserDefaults
+    private func loadAllowOnceCache() {
+        guard let data = userDefaults.data(forKey: CacheKeys.allowOnceLocation),
+              let locationData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let latitude = locationData["latitude"] as? Double,
+              let longitude = locationData["longitude"] as? Double,
+              let accuracy = locationData["accuracy"] as? Double,
+              let timestamp = locationData["timestamp"] as? TimeInterval else {
+            return
+        }
+        
+        let cacheTimestamp = userDefaults.double(forKey: CacheKeys.allowOnceTimestamp)
+        let cacheDate = Date(timeIntervalSince1970: cacheTimestamp)
+        
+        // Check if "Allow Once" cache is still valid (longer expiration)
+        let allowOnceExpirationTime: TimeInterval = 86400 // 24 hours for "Allow Once"
+        if Date().timeIntervalSince(cacheDate) < allowOnceExpirationTime {
+            let location = CLLocation(
+                coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                altitude: 0,
+                horizontalAccuracy: accuracy,
+                verticalAccuracy: -1,
+                timestamp: Date(timeIntervalSince1970: timestamp)
+            )
+            allowOnceLocationCaptured = location
+            allowOnceTimestamp = cacheDate
+            
+            print("📍 Loaded 'Allow Once' cached location from \(cacheDate)")
+        } else {
+            clearAllowOnceCache()
+        }
+    }
+    
+    /// Get "Allow Once" cached location
+    private func getAllowOnceLocation() -> CLLocation? {
+        return allowOnceLocationCaptured
+    }
+    
+    /// Check if "Allow Once" cached location is still valid
+    private func isAllowOnceLocationValid() -> Bool {
+        guard let allowOnceLocation = allowOnceLocationCaptured,
+              let timestamp = allowOnceTimestamp else {
+            return false
+        }
+        
+        // Extended expiration time for "Allow Once" scenarios (24 hours)
+        let allowOnceExpirationTime: TimeInterval = 86400
+        let isRecent = Date().timeIntervalSince(timestamp) < allowOnceExpirationTime
+        let isAccurate = allowOnceLocation.horizontalAccuracy < minimumAccuracy * 2 // More lenient for "Allow Once"
+        
+        return isRecent && isAccurate
+    }
+    
+    /// Clear "Allow Once" cache
+    private func clearAllowOnceCache() {
+        allowOnceLocationCaptured = nil
+        allowOnceTimestamp = nil
+        isLikelyAllowOnce = false
+        userDefaults.removeObject(forKey: CacheKeys.allowOnceLocation)
+        userDefaults.removeObject(forKey: CacheKeys.allowOnceTimestamp)
+    }
+    
+    /// Get user-friendly message for "Allow Once" scenarios
+    public func getAllowOnceMessage() -> String? {
+        guard isLikelyAllowOnce else { return nil }
+        
+        if isAllowOnceLocationValid() {
+            return "Using your last known location. For real-time updates, please enable location access in Settings."
+        } else {
+            return "Location access is limited. For accurate prayer times, please enable location access in Settings or manually select your city."
+        }
+    }
 }
 
 // MARK: - CLLocationManagerDelegate
@@ -1108,6 +1256,12 @@ extension LocationService: @preconcurrency CLLocationManagerDelegate {
     
     public func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         print("📍 Location authorization changed to: \(status)")
+        
+        // Detect "Allow Once" scenario: authorized → denied transition
+        detectAllowOnceScenario(previousStatus: previousAuthorizationStatus, newStatus: status)
+        
+        // Update tracking
+        previousAuthorizationStatus = authorizationStatus
         updatePermissionStatus(with: status)
 
         // Complete pending permission request with thread safety

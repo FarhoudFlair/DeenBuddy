@@ -83,11 +83,12 @@ class CacheInvalidationTests: XCTestCase {
         // Given: Different calculation methods
         let date = Date()
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
-        let prayerTimes = createMockPrayerTimes(for: date, location: location)
+        let mwlPrayerTimes = createMockPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague)
+        let egyptianPrayerTimes = createMockPrayerTimes(for: date, location: location, calculationMethod: .egyptian)
         
         // When: Caching with different calculation methods
-        apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
-        apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
+        apiCache.cachePrayerTimes(mwlPrayerTimes, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
+        apiCache.cachePrayerTimes(egyptianPrayerTimes, for: date, location: location, calculationMethod: .egyptian, madhab: .shafi)
         apiCache.waitForPendingOperations() // Wait for cache operations to complete
         
         // Then: Different cache entries should exist
@@ -98,8 +99,8 @@ class CacheInvalidationTests: XCTestCase {
         XCTAssertNotNil(cachedEgyptian, "Egyptian cache should exist")
         
         // And: Cache entries should be separate
-        XCTAssertEqual(cachedMWL?.calculationMethod, "muslim_world_league")
-        XCTAssertEqual(cachedEgyptian?.calculationMethod, "egyptian")
+        XCTAssertEqual(cachedMWL?.calculationMethod, "MuslimWorldLeague")
+        XCTAssertEqual(cachedEgyptian?.calculationMethod, "Egyptian")
     }
     
     func testCacheKeysIncludeMadhab() {
@@ -215,7 +216,7 @@ class CacheInvalidationTests: XCTestCase {
     
     // MARK: - Helper Methods
     
-    private func createMockPrayerTimes(for date: Date, location: LocationCoordinate) -> PrayerTimes {
+    private func createMockPrayerTimes(for date: Date, location: LocationCoordinate, calculationMethod: CalculationMethod = .muslimWorldLeague) -> PrayerTimes {
         return PrayerTimes(
             date: date,
             fajr: date.addingTimeInterval(5 * 3600), // 5 AM
@@ -223,7 +224,7 @@ class CacheInvalidationTests: XCTestCase {
             asr: date.addingTimeInterval(15 * 3600), // 3 PM
             maghrib: date.addingTimeInterval(18 * 3600), // 6 PM
             isha: date.addingTimeInterval(19 * 3600), // 7 PM
-            calculationMethod: "muslim_world_league",
+            calculationMethod: calculationMethod.rawValue,
             location: location
         )
     }

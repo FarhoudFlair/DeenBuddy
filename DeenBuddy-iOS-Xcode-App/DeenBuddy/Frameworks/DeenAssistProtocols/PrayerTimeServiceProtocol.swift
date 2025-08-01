@@ -37,6 +37,9 @@ public protocol PrayerTimeServiceProtocol: ObservableObject {
     /// Get prayer times for a date range
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]]
 
+    /// Get tomorrow's prayer times with caching optimization (for widgets)
+    func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime]
+
     /// Get current location (for background services)
     func getCurrentLocation() async throws -> CLLocation
     

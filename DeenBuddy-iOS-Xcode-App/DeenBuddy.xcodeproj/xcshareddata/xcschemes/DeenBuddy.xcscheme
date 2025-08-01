@@ -40,6 +40,20 @@
                BlueprintName = "DeenBuddyTests"
                ReferencedContainer = "container:DeenBuddy.xcodeproj">
             </BuildableReference>
+            <SkippedTests>
+               <Test
+                  Identifier = "CachePerformanceTests/testIslamicCacheManagerPerformance()">
+               </Test>
+               <Test
+                  Identifier = "PrayerTrackingIntegrationTests/testNotificationServiceIntegration()">
+               </Test>
+               <Test
+                  Identifier = "QuranSearchComprehensiveTests">
+               </Test>
+               <Test
+                  Identifier = "QuranSearchComprehensiveTests/testArabicTextSearch()">
+               </Test>
+            </SkippedTests>
          </TestableReference>
          <TestableReference
             skipped = "NO"

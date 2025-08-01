@@ -99,6 +99,7 @@ private class NotificationPreviewMockSettingsService: SettingsServiceProtocol, O
     @Published var hasCompletedOnboarding: Bool = false
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }

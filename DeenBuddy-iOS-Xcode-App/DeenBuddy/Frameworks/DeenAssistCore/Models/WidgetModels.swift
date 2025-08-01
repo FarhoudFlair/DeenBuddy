@@ -6,7 +6,7 @@ import WidgetKit
 /// Shared data structure for widget content
 public struct WidgetData: Codable, Sendable {
     public let nextPrayer: PrayerTime?
-    public let timeUntilNextPrayer: TimeInterval?
+    public var timeUntilNextPrayer: TimeInterval?
     public let todaysPrayerTimes: [PrayerTime]
     public let hijriDate: HijriDate
     public let location: String

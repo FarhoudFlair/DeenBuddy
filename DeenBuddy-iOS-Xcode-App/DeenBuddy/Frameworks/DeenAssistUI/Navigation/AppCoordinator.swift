@@ -73,6 +73,9 @@ public class AppCoordinator: ObservableObject {
             // PERFORMANCE: Start performance monitoring early
             PerformanceMonitoringService.shared.startMonitoring()
 
+            // TODO: Start app launch Live Activity with Allah symbol in Dynamic Island
+            // await startAppLaunchActivity()
+
             await loadSettings()
             await determineInitialScreen()
 
@@ -204,6 +207,7 @@ public class AppCoordinator: ObservableObject {
     private func setupInitialState() {
         currentScreen = .loading
     }
+
 
     private func setupEnhancedServices() {
         // Start performance monitoring

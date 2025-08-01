@@ -47,8 +47,8 @@ class CacheKeyStrategyTests: XCTestCase {
         // Given: Same date and location, different calculation methods
         let date = Date()
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
-        let prayerTimes1 = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
-        let prayerTimes2 = createMockPrayerTimes(for: date, location: location, method: "egyptian")
+        let prayerTimes1 = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
+        let prayerTimes2 = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.egyptian.rawValue)
         
         // When: Caching with different calculation methods
         apiCache.cachePrayerTimes(prayerTimes1, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
@@ -61,16 +61,16 @@ class CacheKeyStrategyTests: XCTestCase {
         
         XCTAssertNotNil(cachedMWL, "MWL cache should exist")
         XCTAssertNotNil(cachedEgyptian, "Egyptian cache should exist")
-        XCTAssertEqual(cachedMWL?.calculationMethod, "muslim_world_league")
-        XCTAssertEqual(cachedEgyptian?.calculationMethod, "egyptian")
+        XCTAssertEqual(cachedMWL?.calculationMethod, CalculationMethod.muslimWorldLeague.rawValue)
+        XCTAssertEqual(cachedEgyptian?.calculationMethod, CalculationMethod.egyptian.rawValue)
     }
     
     func testAPICacheKeyIncludesMadhab() {
         // Given: Same date, location, and method, different madhabs
         let date = Date()
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
-        let prayerTimes1 = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
-        let prayerTimes2 = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
+        let prayerTimes1 = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
+        let prayerTimes2 = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
 
         // When: Caching with different madhabs
         apiCache.cachePrayerTimes(prayerTimes1, for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
@@ -78,9 +78,13 @@ class CacheKeyStrategyTests: XCTestCase {
 
         // Wait for cache operations to complete
         apiCache.waitForPendingOperations()
-
-        // Add a small delay to ensure cache operations are complete
-        Thread.sleep(forTimeInterval: 0.1)
+        
+        // Add additional synchronization to ensure cache writes are complete
+        let expectation = XCTestExpectation(description: "Cache operations complete")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
 
         // Then: Both cache entries should exist independently
         let cachedShafi = apiCache.getCachedPrayerTimes(for: date, location: location, calculationMethod: .muslimWorldLeague, madhab: .shafi)
@@ -98,7 +102,7 @@ class CacheKeyStrategyTests: XCTestCase {
         // Given: All possible combinations
         let date = Date()
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
-        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
+        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
         
         let methods: [CalculationMethod] = [.muslimWorldLeague, .egyptian, .karachi]
         let madhabs: [Madhab] = [.shafi, .hanafi]

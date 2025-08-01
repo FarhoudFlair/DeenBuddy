@@ -213,7 +213,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         let clLocation = CLLocation(latitude: 37.7749, longitude: -122.4194)
         
         // Cache data in all systems with initial settings
-        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
+        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
         let schedule = createMockPrayerSchedule(for: date)
         
         apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
@@ -550,7 +550,7 @@ class PrayerTimeSynchronizationIntegrationTests: XCTestCase {
         // Cache some data first
         let date = Date()
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
-        let cachedPrayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
+        let cachedPrayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
 
         apiCache.cachePrayerTimes(cachedPrayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
 
@@ -642,6 +642,9 @@ class PrayerTimeSyncMockSettingsService: SettingsServiceProtocol, ObservableObje
         didSet { notifySettingsChanged() }
     }
     @Published var showArabicSymbolInWidget: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var liveActivitiesEnabled: Bool = true {
         didSet { notifySettingsChanged() }
     }
 

@@ -465,6 +465,9 @@ class MockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var showArabicSymbolInWidget: Bool = true {
         didSet { notifySettingsChanged() }
     }
+    @Published var liveActivitiesEnabled: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
 
     var enableNotifications: Bool {
         get { notificationsEnabled }

@@ -130,6 +130,7 @@ class LocationDiagnosticMockSettingsService: SettingsServiceProtocol, Observable
     @Published var userName: String = ""
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -160,6 +161,7 @@ class LocationDiagnosticMockPrayerTimeService: PrayerTimeServiceProtocol, Observ
     func refreshPrayerTimes() async {}
     func refreshTodaysPrayerTimes() async {}
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
+    func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] { return [] }
     func getCurrentLocation() async throws -> CLLocation {
         return CLLocation(latitude: 37.7749, longitude: -122.4194)
     }

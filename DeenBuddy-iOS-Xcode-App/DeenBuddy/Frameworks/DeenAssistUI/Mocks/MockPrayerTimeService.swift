@@ -67,6 +67,14 @@ public class MockPrayerTimeService: PrayerTimeServiceProtocol {
         return result
     }
 
+    public func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] {
+        // Simulate network delay
+        try await Task.sleep(nanoseconds: 500_000_000)
+        
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        return generateMockPrayerTimes(for: tomorrow)
+    }
+    
     public func getCurrentLocation() async throws -> CLLocation {
         return mockLocation
     }

@@ -53,8 +53,8 @@ class SettingsServiceRollbackTests: XCTestCase {
         let initialValue = true
         settingsService.notificationsEnabled = initialValue
 
-        // Wait for initial save to complete
-        try await Task.sleep(nanoseconds: 600_000_000) // 0.6 seconds (longer than debounce)
+        // Wait for initial save to complete with more generous timing
+        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second (longer than debounce)
 
         // Verify initial state is saved
         XCTAssertEqual(testUserDefaults.bool(forKey: UnifiedSettingsKeys.notificationsEnabled), initialValue)
@@ -83,8 +83,8 @@ class SettingsServiceRollbackTests: XCTestCase {
         // Immediately verify UI state reflects the change
         XCTAssertEqual(settingsService.notificationsEnabled, newValue, "UI should immediately reflect the change")
 
-        // Wait for the save operation to complete
-        try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        // Wait for the save operation to complete with more generous timing
+        try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
 
         // Then: Verify the change persisted (no rollback occurred)
         XCTAssertEqual(settingsService.notificationsEnabled, newValue, "Value should remain changed after successful save")
@@ -783,8 +783,8 @@ class SettingsServiceRollbackTests: XCTestCase {
         mockService.shouldFailNextSave = true
         mockService.notificationsEnabled = false
         
-        // Wait for first failure and rollback
-        try await Task.sleep(nanoseconds: 1_000_000_000)
+        // Wait for first failure and rollback with more generous timing
+        try await Task.sleep(nanoseconds: 1_500_000_000)
         XCTAssertEqual(mockService.notificationsEnabled, initialValue, "First failure should rollback to initial value")
         
         // Scenario 2: Second save failure

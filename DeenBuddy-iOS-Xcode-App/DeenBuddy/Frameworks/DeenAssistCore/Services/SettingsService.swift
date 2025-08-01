@@ -226,6 +226,26 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             )
         }
     }
+    
+    @Published public var liveActivitiesEnabled: Bool = true {
+        didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.liveActivitiesEnabled = oldValue
+                    }
+                },
+                propertyName: "liveActivitiesEnabled",
+                oldValue: oldValue,
+                newValue: liveActivitiesEnabled
+            )
+        }
+    }
 
     // Alias for enableNotifications
     public var enableNotifications: Bool {
@@ -316,6 +336,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
             // Save Arabic symbol widget setting
             userDefaults.set(showArabicSymbolInWidget, forKey: UnifiedSettingsKeys.showArabicSymbolInWidget)
+
+            // Save Live Activities setting
+            userDefaults.set(liveActivitiesEnabled, forKey: UnifiedSettingsKeys.liveActivitiesEnabled)
 
             // Save metadata
             userDefaults.set(Date(), forKey: UnifiedSettingsKeys.lastSyncDate)
@@ -413,6 +436,13 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             showArabicSymbolInWidget = userDefaults.bool(forKey: UnifiedSettingsKeys.showArabicSymbolInWidget)
         } else {
             showArabicSymbolInWidget = true // Default to true for backward compatibility
+        }
+
+        // Load Live Activities setting (default to true for new feature adoption)
+        if userDefaults.object(forKey: UnifiedSettingsKeys.liveActivitiesEnabled) != nil {
+            liveActivitiesEnabled = userDefaults.bool(forKey: UnifiedSettingsKeys.liveActivitiesEnabled)
+        } else {
+            liveActivitiesEnabled = true // Default to true for new feature adoption
         }
 
         // Perform comprehensive validation
@@ -513,6 +543,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             UnifiedSettingsKeys.hasCompletedOnboarding,
             UnifiedSettingsKeys.userName,
             UnifiedSettingsKeys.showArabicSymbolInWidget,
+            UnifiedSettingsKeys.liveActivitiesEnabled,
             UnifiedSettingsKeys.settingsVersion
         ]
 
@@ -546,6 +577,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
                 hasCompletedOnboarding = false
                 userName = "" // Reset user name to empty string
                 showArabicSymbolInWidget = true
+                liveActivitiesEnabled = true
             }
 
             // Save the defaults
@@ -602,6 +634,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         diagnostics["hasCompletedOnboarding"] = hasCompletedOnboarding
         diagnostics["userName"] = userName.isEmpty ? "<empty>" : "<set>"
         diagnostics["showArabicSymbolInWidget"] = showArabicSymbolInWidget
+        diagnostics["liveActivitiesEnabled"] = liveActivitiesEnabled
         diagnostics["settingsVersion"] = userDefaults.integer(forKey: UnifiedSettingsKeys.settingsVersion)
         
         // Circuit breaker status
@@ -814,6 +847,8 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         oldValue: Any,
         newValue: Any
     ) {
+        // ULTIMATE FIX: Pass [weak self] to the Task to break the retain cycle
+        // This ensures the Task does not keep a strong reference to SettingsService
         // Cancel any existing save task
         saveTask?.cancel()
 

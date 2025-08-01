@@ -34,6 +34,15 @@ public protocol NotificationServiceProtocol: ObservableObject {
 
     /// Update notification settings
     func updateNotificationSettings(_ settings: NotificationSettings)
+    
+    /// Update app badge count for prayer notifications
+    func updateAppBadge() async
+    
+    /// Clear app badge
+    func clearBadge() async
+    
+    /// Update badge count when prayer is completed
+    func updateBadgeForCompletedPrayer() async
 }
 
 /// Prayer time data structure for notifications

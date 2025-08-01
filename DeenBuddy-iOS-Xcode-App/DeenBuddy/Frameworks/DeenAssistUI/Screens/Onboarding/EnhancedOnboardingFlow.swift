@@ -45,11 +45,12 @@ public struct EnhancedOnboardingFlow: View {
                     NameCollectionStepView(
                         userName: $userName
                     ).tag(1)
-                    CalculationMethodStepView(
-                        selectedMethod: $selectedCalculationMethod
-                    ).tag(2)
                     MadhabStepView(
                         selectedMadhab: $selectedMadhab
+                    ).tag(2)
+                    CalculationMethodStepView(
+                        selectedMethod: $selectedCalculationMethod,
+                        selectedMadhab: selectedMadhab
                     ).tag(3)
                     LocationPermissionStepView(
                         permissionGranted: $locationPermissionGranted,
@@ -165,8 +166,22 @@ public struct EnhancedOnboardingFlow: View {
                 do {
                     let _ = try await locationService.requestLocation()
                     print("📍 Location fetched automatically after onboarding completion")
+                    
+                    // Check for "Allow Once" scenario and provide appropriate messaging
+                    if let locationService = locationService as? LocationService,
+                       let allowOnceMessage = locationService.getAllowOnceMessage() {
+                        print("📍 'Allow Once' scenario detected: \(allowOnceMessage)")
+                        // The user will see this message in the main app UI
+                    }
                 } catch {
                     print("⚠️ Failed to fetch location after onboarding: \(error)")
+                    
+                    // Even if location request fails, check if we have "Allow Once" cached data
+                    if let locationService = locationService as? LocationService,
+                       let allowOnceMessage = locationService.getAllowOnceMessage() {
+                        print("📍 Using 'Allow Once' cached location despite request failure")
+                        // This is acceptable - we can still provide service with cached data
+                    }
                 }
             }
             
@@ -293,6 +308,13 @@ public struct EnhancedOnboardingFlow: View {
 
 private struct CalculationMethodStepView: View {
     @Binding var selectedMethod: CalculationMethod
+    let selectedMadhab: Madhab
+    
+    private var compatibleMethods: [CalculationMethod] {
+        CalculationMethod.allCases.filter { method in
+            method.isCompatible(with: selectedMadhab)
+        }
+    }
     
     var body: some View {
         VStack(spacing: 24) {
@@ -304,7 +326,7 @@ private struct CalculationMethodStepView: View {
             
             ScrollView {
                 VStack(spacing: 12) {
-                    ForEach(CalculationMethod.allCases, id: \.self) { method in
+                    ForEach(compatibleMethods, id: \.self) { method in
                         OnboardingSelectionCard(
                             title: method.displayName,
                             description: method.description,
@@ -333,7 +355,7 @@ private struct MadhabStepView: View {
         VStack(spacing: 24) {
             OnboardingStepHeader(
                 icon: "book.fill",
-                title: "Islamic School of Thought",
+                title: "Madhab (Sect)",
                 description: "Select your madhab to receive prayer guidance according to your tradition."
             )
             
@@ -366,25 +388,54 @@ private struct LocationPermissionStepView: View {
     let locationService: any LocationServiceProtocol
     
     @State private var isRequestingPermission = false
+    @State private var allowOnceMessage: String?
+    @State private var showingAllowOnceAlert = false
     
     var body: some View {
-        OnboardingPermissionView(
-            icon: "location.fill",
-            title: "Location Access",
-            description: "We need your location to calculate accurate prayer times and Qibla direction for your area.",
-            benefits: [
-                "Precise prayer times for your location",
-                "Accurate Qibla direction",
-                "Automatic time zone adjustments"
-            ],
-            permissionGranted: permissionGranted,
-            onRequestPermission: requestLocationPermission
-        )
+        VStack(spacing: 16) {
+            OnboardingPermissionView(
+                icon: "location.fill",
+                title: "Location Access",
+                description: "We need your location to calculate accurate prayer times and Qibla direction for your area.",
+                benefits: [
+                    "Precise prayer times for your location",
+                    "Accurate Qibla direction",
+                    "Automatic time zone adjustments"
+                ],
+                permissionGranted: permissionGranted,
+                onRequestPermission: requestLocationPermission
+            )
+            
+            // Show "Allow Once" message if applicable
+            if let message = allowOnceMessage {
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(.orange)
+                        
+                        Text("Limited Location Access")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(.orange)
+                    }
+                    
+                    Text(message)
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.1))
+                .cornerRadius(8)
+                .padding(.horizontal)
+            }
+        }
         .onAppear {
             // Check initial permission status
             updatePermissionStatus()
             
-            // Set up periodic permission monitoring
+            // Set up periodic permission monitoring for "Allow Once" detection
             Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { timer in
                 Task { @MainActor in
                     let newStatus = locationService.authorizationStatus
@@ -393,6 +444,11 @@ private struct LocationPermissionStepView: View {
                         if permissionGranted {
                             timer.invalidate()
                         }
+                    }
+                    
+                    // Check for "Allow Once" message updates
+                    if let locationService = locationService as? LocationService {
+                        allowOnceMessage = locationService.getAllowOnceMessage()
                     }
                 }
             }
@@ -408,6 +464,11 @@ private struct LocationPermissionStepView: View {
         if !wasGranted && permissionGranted && !isRequestingPermission {
             captureLocationImmediately()
         }
+        
+        // Update "Allow Once" message
+        if let locationService = locationService as? LocationService {
+            allowOnceMessage = locationService.getAllowOnceMessage()
+        }
     }
     
     private func requestLocationPermission() {
@@ -417,25 +478,61 @@ private struct LocationPermissionStepView: View {
         Task {
             let status = await locationService.requestLocationPermissionAsync()
             await MainActor.run {
+                let wasPermissionGranted = permissionGranted
                 permissionGranted = status == .authorizedWhenInUse || status == .authorizedAlways
                 isRequestingPermission = false
                 
                 // If permission granted, immediately capture location for "Allow Once" case
                 if permissionGranted {
                     captureLocationImmediately()
+                } else if status == .denied && !wasPermissionGranted {
+                    // User might have selected "Allow Once" and permission already expired
+                    checkForAllowOnceScenario()
                 }
             }
         }
     }
     
     private func captureLocationImmediately() {
-        // Capture location immediately for "Allow Once" users
+        // CRITICAL: Capture location immediately for "Allow Once" users
+        // This ensures we get the location before permission potentially expires
         Task {
             do {
                 let location = try await locationService.requestLocation()
                 print("📍 Successfully captured location during onboarding: \(location)")
+                
+                // Check if this might be an "Allow Once" scenario
+                if let locationService = locationService as? LocationService {
+                    let message = locationService.getAllowOnceMessage()
+                    await MainActor.run {
+                        allowOnceMessage = message
+                        if message != nil {
+                            print("📍 Detected 'Allow Once' scenario during onboarding")
+                        }
+                    }
+                }
             } catch {
                 print("📍 Failed to capture location during onboarding: \(error)")
+                
+                // Check if we can still use "Allow Once" cached location
+                await MainActor.run {
+                    checkForAllowOnceScenario()
+                }
+            }
+        }
+    }
+    
+    private func checkForAllowOnceScenario() {
+        // Check if we have an "Allow Once" cached location we can use
+        if let locationService = locationService as? LocationService {
+            allowOnceMessage = locationService.getAllowOnceMessage()
+            
+            // If we have a valid "Allow Once" location, we can still proceed
+            if allowOnceMessage != nil {
+                print("📍 Found 'Allow Once' cached location, allowing user to proceed")
+                // Consider this as permission granted for onboarding purposes
+                // since we have the location data we need
+                permissionGranted = true
             }
         }
     }

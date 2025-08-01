@@ -124,6 +124,21 @@ public class MockAPIClient: APIClientProtocol, ObservableObject {
         mockPrayerTimesCache.removeAll()
         print("🗑️ MockAPIClient: Cleared prayer time cache")
     }
+
+    public func clearPrayerTimeCache(for calculationMethod: CalculationMethod, madhab: Madhab) {
+        let methodKey = calculationMethod.rawValue
+        let madhabKey = madhab.rawValue
+        
+        let keysToRemove = mockPrayerTimesCache.keys.filter { key in
+            key.hasSuffix("_\(methodKey)_\(madhabKey)")
+        }
+        
+        for key in keysToRemove {
+            mockPrayerTimesCache.removeValue(forKey: key)
+        }
+        
+        print("🗑️ MockAPIClient: Cleared prayer time cache for \(methodKey)/\(madhabKey)")
+    }
     
     // MARK: - Mock Configuration Methods
     

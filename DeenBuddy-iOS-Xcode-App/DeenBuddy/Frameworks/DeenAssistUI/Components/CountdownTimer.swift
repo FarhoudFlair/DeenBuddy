@@ -7,10 +7,15 @@ public struct CountdownTimer: View {
     
     @State private var currentTime = Date()
     @StateObject private var timerManager = CountdownTimerManager()
+    @Environment(\.currentTheme) private var currentTheme
     
     public init(nextPrayer: PrayerTime?, timeRemaining: TimeInterval?) {
         self.nextPrayer = nextPrayer
         self.timeRemaining = timeRemaining
+    }
+    
+    private var themeColors: ThemeAwareColorPalette {
+        ThemeAwareColorPalette(theme: currentTheme)
     }
     
     public var body: some View {
@@ -40,7 +45,7 @@ public struct CountdownTimer: View {
                         
                         Text(formatTimeRemaining(remaining))
                             .timerLarge()
-                            .foregroundColor(ColorPalette.accent)
+                            .foregroundColor(themeColors.nextPrayerHighlight)
                             .monospacedDigit()
                             .appAnimation(AppAnimations.timerUpdate, value: remaining)
                             .countdownAccessibility(
@@ -58,7 +63,7 @@ public struct CountdownTimer: View {
                 VStack(spacing: 8) {
                     Image(systemName: "moon.stars.fill")
                         .font(.system(size: 48))
-                        .foregroundColor(ColorPalette.accent)
+                        .foregroundColor(themeColors.nextPrayerHighlight)
                     
                     Text("All prayers completed")
                         .headlineSmall()
@@ -72,9 +77,36 @@ public struct CountdownTimer: View {
         }
         .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
+            ZStack {
+                // Main card background with subtle gradient
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                ColorPalette.surfacePrimary,
+                                ColorPalette.surfacePrimary.opacity(0.95)
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                
+                // Subtle inner highlight for depth
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color.white.opacity(0.3),
+                                Color.clear
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
+            }
+            .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
+            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
         )
         .onReceive(timerManager.$currentTime) { time in
             currentTime = time

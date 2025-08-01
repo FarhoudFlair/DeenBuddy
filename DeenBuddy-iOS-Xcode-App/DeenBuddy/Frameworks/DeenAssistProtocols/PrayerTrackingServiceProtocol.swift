@@ -69,6 +69,40 @@ public protocol PrayerTrackingServiceProtocol: ObservableObject {
         tags: [String]
     ) async
     
+    /// Mark a prayer as completed with basic information
+    /// - Parameters:
+    ///   - prayer: The prayer that was completed
+    ///   - date: When the prayer was completed (default: now)
+    ///   - location: Optional location where prayer was performed
+    ///   - notes: Optional notes about the prayer
+    ///   - mood: Optional mood during prayer
+    ///   - method: Method of prayer (default: individual)
+    ///   - duration: Optional duration of prayer
+    ///   - congregation: Type of congregation (default: individual)
+    ///   - isQada: Whether this is a make-up prayer (default: false)
+    func markPrayerCompleted(
+        _ prayer: Prayer,
+        at date: Date,
+        location: String?,
+        notes: String?,
+        mood: PrayerMood?,
+        method: PrayerMethod,
+        duration: TimeInterval?,
+        congregation: CongregationType,
+        isQada: Bool
+    ) async
+    
+    /// Mark a prayer as missed
+    /// - Parameters:
+    ///   - prayer: The prayer that was missed
+    ///   - date: When the prayer was missed (default: now)
+    ///   - reason: Optional reason for missing the prayer
+    func markPrayerMissed(_ prayer: Prayer, date: Date, reason: String?) async
+    
+    /// Undo the last prayer entry
+    /// - Returns: True if successful, false if no entries to undo
+    func undoLastPrayerEntry() async -> Bool
+    
     /// Remove a prayer entry
     /// - Parameter entryId: The ID of the entry to remove
     func removePrayerEntry(_ entryId: UUID) async
@@ -117,6 +151,11 @@ public protocol PrayerTrackingServiceProtocol: ObservableObject {
     /// - Returns: Monthly statistics
     func getMonthlyStatistics(for date: Date) async -> PrayerStatistics
     
+    /// Get prayer streak for a specific prayer
+    /// - Parameter prayer: The prayer to get streak for
+    /// - Returns: Prayer streak data, or nil if no streak found
+    func getPrayerStreak(for prayer: Prayer) async -> PrayerStreak?
+    
     // MARK: - Reminder Methods
     
     /// Schedule a prayer reminder
@@ -134,6 +173,37 @@ public protocol PrayerTrackingServiceProtocol: ObservableObject {
     ///   - enabled: Whether reminders are enabled
     ///   - defaultOffset: Default reminder offset in minutes
     func updateReminderSettings(enabled: Bool, defaultOffset: TimeInterval) async
+    
+    /// Set a prayer reminder
+    /// - Parameter reminder: The reminder to set
+    func setPrayerReminder(_ reminder: PrayerReminderEntry) async
+    
+    /// Get all prayer reminders
+    /// - Returns: Array of prayer reminders
+    func getPrayerReminders() async -> [PrayerReminderEntry]
+    
+    /// Delete a prayer reminder for a specific prayer
+    /// - Parameter prayer: The prayer to delete reminder for
+    func deletePrayerReminder(for prayer: Prayer) async
+    
+    // MARK: - Journal Methods
+    
+    /// Add a prayer journal entry
+    /// - Parameter entry: The journal entry to add
+    func addPrayerJournalEntry(_ entry: PrayerJournalEntry) async
+    
+    /// Get prayer journal entries for a time period
+    /// - Parameter period: The time period to get entries for
+    /// - Returns: Array of journal entries
+    func getPrayerJournalEntries(for period: DateInterval) async -> [PrayerJournalEntry]
+    
+    /// Update a prayer journal entry
+    /// - Parameter entry: The updated journal entry
+    func updatePrayerJournalEntry(_ entry: PrayerJournalEntry) async
+    
+    /// Delete a prayer journal entry
+    /// - Parameter entryId: The ID of the entry to delete
+    func deletePrayerJournalEntry(_ entryId: UUID) async
     
     // MARK: - Goal Methods
     
@@ -217,10 +287,8 @@ public struct PrayerGoalProgress: Codable, Identifiable {
         switch goal.type {
         case .totalPrayers:
             self.completionRate = Double(completedPrayers) / goal.targetValue
-        case .dailyCompletion, .weeklyCompletion:
-            self.completionRate = Double(completedDays) / goal.targetValue
-        case .streak:
-            // For streak goals, use the current streak value
+        case .dailyCompletion, .weeklyCompletion, .consistency, .streak:
+            // For these goal types, use completed days
             self.completionRate = Double(completedDays) / goal.targetValue
         default:
             // For percentage-based goals, use the goal's own progress

@@ -182,6 +182,31 @@ public class IslamicCacheManager: ObservableObject {
         updateCacheStatistics()
         print("✅ IslamicCacheManager: Cleared \(clearedCount) prayer time cache entries")
     }
+
+    /// Clear prayer time cache for specific calculation method and madhab
+    /// This is used when settings change to only invalidate cache for the new method/madhab combination
+    public func clearPrayerTimeCache(for calculationMethod: CalculationMethod, madhab: Madhab) {
+        print("🗑️ Clearing IslamicCacheManager prayer time entries for method: \(calculationMethod.rawValue), madhab: \(madhab.rawValue)...")
+
+        let methodKey = calculationMethod.rawValue
+        let madhabKey = madhab.rawValue
+        let targetSuffix = "_\(methodKey)_\(madhabKey).cache"
+
+        let cacheFiles = getAllCacheFiles()
+        var clearedCount = 0
+
+        for file in cacheFiles {
+            let fileName = file.lastPathComponent
+            // Check if this is a prayer time cache file for the specific method/madhab
+            if fileName.hasPrefix("prayerTimes_") && fileName.hasSuffix(targetSuffix) {
+                try? fileManager.removeItem(at: file)
+                clearedCount += 1
+            }
+        }
+
+        updateCacheStatistics()
+        print("✅ IslamicCacheManager: Cleared \(clearedCount) prayer time cache entries for \(methodKey)/\(madhabKey)")
+    }
     
     // MARK: - Private Methods
     

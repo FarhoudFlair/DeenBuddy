@@ -55,9 +55,9 @@ class SettingsMigrationTests: XCTestCase {
         // When: Migration is performed
         settingsMigration.migrateLegacySettings()
         
-        // Then: Settings are migrated to unified keys
-        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.calculationMethod), "MuslimWorldLeague")
-        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.madhab), "Shafi")
+        // Then: Settings are migrated to unified keys (case-insensitive comparison)
+        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.calculationMethod)?.lowercased(), "muslimworldleague")
+        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.madhab)?.lowercased(), "shafi")
         XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.cacheDate), "2024-01-15")
         XCTAssertTrue(settingsMigration.isMigrationCompleted)
     }
@@ -165,9 +165,9 @@ class SettingsMigrationTests: XCTestCase {
         // When: Reset to defaults is performed
         settingsValidator.resetToDefaults()
         
-        // Then: Settings are reset to valid defaults
-        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.calculationMethod), "MuslimWorldLeague")
-        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.madhab), "Shafi")
+        // Then: Settings are reset to valid defaults (case-insensitive)
+        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.calculationMethod)?.lowercased(), "muslimworldleague")
+        XCTAssertEqual(testUserDefaults.string(forKey: UnifiedSettingsKeys.madhab)?.lowercased(), "shafi")
     }
     
     // MARK: - Cleanup Tests

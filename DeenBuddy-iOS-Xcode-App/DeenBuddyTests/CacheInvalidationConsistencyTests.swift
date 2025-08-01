@@ -104,7 +104,7 @@ class CacheInvalidationConsistencyTests: XCTestCase {
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
         let clLocation = CLLocation(latitude: 37.7749, longitude: -122.4194)
         
-        let initialPrayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
+        let initialPrayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
         let initialSchedule = createMockPrayerSchedule(for: date)
         
         // Cache in all systems
@@ -144,7 +144,7 @@ class CacheInvalidationConsistencyTests: XCTestCase {
         let location = LocationCoordinate(latitude: 37.7749, longitude: -122.4194)
         let clLocation = CLLocation(latitude: 37.7749, longitude: -122.4194)
         
-        let initialPrayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
+        let initialPrayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
         let initialSchedule = createMockPrayerSchedule(for: date)
         
         // Cache with Shafi madhab
@@ -178,7 +178,7 @@ class CacheInvalidationConsistencyTests: XCTestCase {
         let clLocation = CLLocation(latitude: 37.7749, longitude: -122.4194)
         
         // Cache in APICache
-        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: "muslim_world_league")
+        let prayerTimes = createMockPrayerTimes(for: date, location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
         apiCache.cachePrayerTimes(prayerTimes, for: date, location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
         apiCache.waitForPendingOperations() // Wait for cache operation to complete
 

@@ -179,15 +179,15 @@ final class NewCalculationMethodsTests: XCTestCase {
             "Tehran: \(formatter.string(from: tehranFajr)), Leva: \(formatter.string(from: levaFajr)). " +
             "Higher angle = earlier time is the correct Islamic calculation.")
 
-        // The difference should be meaningful (at least 2 minutes for 1.7° difference)
-        XCTAssertGreaterThan(fajrDifference, 120,
-            "Fajr time difference should be at least 2 minutes for 1.7° angle difference, got \(String(format: "%.2f", differenceMinutes)) minutes")
+        // The difference should be meaningful (at least 2 minutes for 1.7° difference, negative because Tehran is earlier)
+        XCTAssertLessThan(fajrDifference, -120,
+            "Fajr time difference should be at least 2 minutes earlier for 1.7° angle difference, got \(String(format: "%.2f", differenceMinutes)) minutes")
 
-        // But not too extreme (should be less than 15 minutes for 1.7° difference)
-        XCTAssertLessThan(fajrDifference, 900,
-            "Fajr time difference should be less than 15 minutes for 1.7° angle difference, got \(String(format: "%.2f", differenceMinutes)) minutes")
+        // But not too extreme (should be less than 15 minutes for 1.7° difference, negative because Tehran is earlier)
+        XCTAssertGreaterThan(fajrDifference, -900,
+            "Fajr time difference should be less than 15 minutes earlier for 1.7° angle difference, got \(String(format: "%.2f", differenceMinutes)) minutes")
 
-        print("✅ Tehran method correctly calculates later Fajr time (+\(String(format: "%.2f", differenceMinutes)) minutes)")
+        print("✅ Tehran method correctly calculates earlier Fajr time (\(String(format: "%.2f", differenceMinutes)) minutes)")
     }
 
     func testJafariMethodsDetailedComparison() async throws {

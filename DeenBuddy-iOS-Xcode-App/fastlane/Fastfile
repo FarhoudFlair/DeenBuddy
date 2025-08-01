@@ -1,0 +1,306 @@
+# DeenBuddy iOS FastLane Configuration
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+
+default_platform(:ios)
+
+platform :ios do
+  desc "iOS FastLane configuration for DeenBuddy"
+  
+  before_all do
+    # Set up environment
+    setup_ci if ENV['CI']
+    
+    # Ensure we have the latest version of Xcode command line tools
+    ensure_xcode_version(version: "15.2")
+  end
+
+  desc "Run all tests"
+  lane :test do
+    run_tests(
+      scheme: "DeenBuddy",
+      project: "DeenBuddy.xcodeproj",
+      devices: ["iPhone 16 Pro"],
+      clean: true,
+      code_coverage: true,
+      output_directory: "./test_output",
+      output_types: "html,junit",
+      max_concurrent_simulators: 2,
+      xcargs: "-maximum-parallel-testing-workers 2"
+    )
+  end
+
+  desc "Build the app for development"
+  lane :build_dev do
+    # Increment build number
+    increment_build_number(xcodeproj: "DeenBuddy.xcodeproj")
+    
+    # Build the app for development
+    build_app(
+      scheme: "DeenBuddy",
+      project: "DeenBuddy.xcodeproj",
+      configuration: "Debug",
+      export_method: "development",
+      output_directory: "./build",
+      clean: true,
+      export_options: {
+        method: "development",
+        teamID: "23TQMQNW28",
+        provisioningProfiles: {
+          "com.deenbuddy.app" => "DeenBuddy Development Profile",
+          "com.deenbuddy.app.PrayerTimesWidget" => "DeenBuddy Widget Development Profile"
+        }
+      }
+    )
+  end
+
+  desc "Build and upload to TestFlight"
+  lane :beta do
+    # Ensure we're on the right branch
+    ensure_git_branch(branch: 'main')
+    
+    # Make sure the repository is clean
+    ensure_git_status_clean
+    
+    # Increment build number
+    increment_build_number(xcodeproj: "DeenBuddy.xcodeproj")
+    
+    # Update signing for ActivityKit support (manual provisioning)
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: "23TQMQNW28",
+      code_sign_identity: "iPhone Distribution",
+      targets: ["DeenBuddy", "PrayerTimesWidgetExtension"],
+      profile_name: {
+        "DeenBuddy" => "DeenBuddy App Store Profile",
+        "PrayerTimesWidgetExtension" => "DeenBuddy Widget App Store Profile"
+      }
+    )
+    
+    # Build the app with ActivityKit support
+    build_app(
+      scheme: "DeenBuddy",
+      project: "DeenBuddy.xcodeproj",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      clean: true,
+      include_bitcode: false,
+      include_symbols: true,
+      export_options: {
+        method: "app-store",
+        teamID: "23TQMQNW28",
+        provisioningProfiles: {
+          "com.deenbuddy.app" => "DeenBuddy App Store Profile",
+          "com.deenbuddy.app.PrayerTimesWidget" => "DeenBuddy Widget App Store Profile"
+        },
+        compileBitcode: false,
+        uploadBitcode: false,
+        uploadSymbols: true,
+        manageAppVersionAndBuildNumber: false
+      }
+    )
+    
+    # Upload to TestFlight with beta app review info
+    upload_to_testflight(
+      skip_waiting_for_build_processing: false,
+      changelog: changelog_from_git_commits(
+        commits_count: 10,
+        pretty: "- %s"
+      ),
+      beta_app_review_info: {
+        contact_email: ENV['TESTFLIGHT_CONTACT_EMAIL'] || 'developer@deenbuddy.app',
+        contact_first_name: ENV['TESTFLIGHT_CONTACT_FIRST_NAME'] || 'DeenBuddy',
+        contact_last_name: ENV['TESTFLIGHT_CONTACT_LAST_NAME'] || 'Team',
+        contact_phone: ENV['TESTFLIGHT_CONTACT_PHONE'] || '+1-555-0123',
+        demo_account_name: '',
+        demo_account_password: '',
+        notes: 'DeenBuddy is an Islamic prayer companion app that provides accurate prayer times, Qibla direction, and prayer guides. The app features Live Activities for prayer reminders and works completely offline. No user account required - all features are accessible immediately.'
+      },
+      distribute_external: false,
+      groups: ['Internal Testing']
+    )
+    
+    # Commit and push the version bump
+    commit_version_bump(
+      message: "Version bump for TestFlight build",
+      xcodeproj: "DeenBuddy.xcodeproj"
+    )
+    
+    push_to_git_remote
+    
+    # Send notification
+    slack(
+      message: "Successfully uploaded new build to TestFlight! 🚀",
+      channel: "#ios-builds",
+      success: true
+    ) if ENV['SLACK_URL']
+  end
+
+  desc "Deploy to App Store"
+  lane :release do
+    # Ensure we're on the right branch
+    ensure_git_branch(branch: 'main')
+    
+    # Make sure the repository is clean
+    ensure_git_status_clean
+    
+    # Increment version number
+    increment_version_number(
+      bump_type: "patch",
+      xcodeproj: "DeenBuddy.xcodeproj"
+    )
+    
+    # Increment build number
+    increment_build_number(xcodeproj: "DeenBuddy.xcodeproj")
+    
+    # Match certificates and provisioning profiles
+    match(
+      type: "appstore",
+      readonly: true
+    )
+    
+    # Build the app
+    build_app(
+      scheme: "DeenBuddy",
+      project: "DeenBuddy.xcodeproj",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      clean: true,
+      include_bitcode: false,
+      include_symbols: true
+    )
+    
+    # Upload to App Store
+    upload_to_app_store(
+      force: true,
+      reject_if_possible: true,
+      skip_metadata: false,
+      skip_screenshots: false,
+      submit_for_review: false
+    )
+    
+    # Create git tag
+    add_git_tag(
+      tag: "v#{get_version_number(xcodeproj: 'DeenBuddy.xcodeproj')}"
+    )
+    
+    # Commit and push
+    commit_version_bump(
+      message: "Version bump for App Store release",
+      xcodeproj: "DeenBuddy.xcodeproj"
+    )
+    
+    push_to_git_remote(tags: true)
+    
+    # Send notification
+    slack(
+      message: "Successfully uploaded new version to App Store! 🎉",
+      channel: "#ios-releases",
+      success: true
+    ) if ENV['SLACK_URL']
+  end
+
+  desc "Setup code signing with ActivityKit support"
+  lane :setup_signing do
+    UI.message "Setting up manual code signing for ActivityKit..."
+    
+    # Configure manual signing for main app
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: "23TQMQNW28",
+      code_sign_identity: "iPhone Development",
+      targets: ["DeenBuddy"],
+      profile_name: "DeenBuddy Development Profile",
+      build_configurations: ["Debug"]
+    )
+    
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: "23TQMQNW28",
+      code_sign_identity: "iPhone Distribution",
+      targets: ["DeenBuddy"],
+      profile_name: "DeenBuddy App Store Profile",
+      build_configurations: ["Release"]
+    )
+    
+    # Configure manual signing for widget extension
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: "23TQMQNW28",
+      code_sign_identity: "iPhone Development",
+      targets: ["PrayerTimesWidgetExtension"],
+      profile_name: "DeenBuddy Widget Development Profile",
+      build_configurations: ["Debug"]
+    )
+    
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: "23TQMQNW28",
+      code_sign_identity: "iPhone Distribution",
+      targets: ["PrayerTimesWidgetExtension"],
+      profile_name: "DeenBuddy Widget App Store Profile",
+      build_configurations: ["Release"]
+    )
+    
+    UI.success "✅ Manual code signing configured for ActivityKit support!"
+    UI.message "Next steps:"
+    UI.message "1. Create provisioning profiles in Apple Developer Console"
+    UI.message "2. Enable Live Activities capability for both app IDs"
+    UI.message "3. Download and install the provisioning profiles"
+    UI.message "4. Run 'fastlane beta' to deploy to TestFlight"
+  end
+
+  desc "Refresh provisioning profiles"
+  lane :refresh_profiles do
+    match(
+      type: "development",
+      force: true
+    )
+    
+    match(
+      type: "appstore",
+      force: true
+    )
+  end
+
+  desc "Run SwiftLint"
+  lane :lint do
+    swiftlint(
+      mode: :lint,
+      config_file: ".swiftlint.yml",
+      strict: true
+    )
+  end
+
+  desc "Generate screenshots"
+  lane :screenshots do
+    capture_screenshots(
+      scheme: "DeenBuddyUITests",
+      output_directory: "./screenshots",
+      clear_previous_screenshots: true,
+      override_status_bar: true,
+      localize_simulator: true
+    )
+    
+    frame_screenshots(
+      path: "./screenshots",
+      use_legacy_iphone6_1: false
+    )
+  end
+
+  # Error handling
+  error do |lane, exception|
+    slack(
+      message: "Lane #{lane} failed with exception: #{exception}",
+      channel: "#ios-builds",
+      success: false
+    ) if ENV['SLACK_URL']
+  end
+
+  after_all do |lane|
+    # Clean up
+    clean_build_artifacts
+  end
+end

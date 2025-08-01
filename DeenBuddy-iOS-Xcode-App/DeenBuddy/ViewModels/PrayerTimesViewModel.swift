@@ -40,6 +40,7 @@ class PrayerTimesViewModel: ObservableObject {
         self.prayerTimeService = prayerTimeService
         self.locationService = locationService
         self.settingsService = settingsService
+        setupSettingsObservation()
     }
 
     convenience init() {
@@ -68,6 +69,7 @@ class PrayerTimesViewModel: ObservableObject {
         self.prayerTimeService = prayerTimeService
         self.locationService = locationService
         self.settingsService = settingsService
+        setupSettingsObservation()
     }
 
     @MainActor
@@ -117,29 +119,22 @@ class PrayerTimesViewModel: ObservableObject {
             nextPrayer = upcoming
             timeUntilNext = upcoming.time.timeIntervalSince(now)
         } else {
-            // No more prayers today, fetch tomorrow's Fajr time
-            let calendar = Calendar.current
-            if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) {
-                do {
-                    let tomorrowPrayerTimes = try await prayerTimeService.calculatePrayerTimes(for: location, date: tomorrow)
-                    if let fajrTime = tomorrowPrayerTimes.first(where: { $0.prayer == .fajr }) {
-                        nextPrayer = fajrTime
-                        timeUntilNext = fajrTime.time.timeIntervalSince(now)
-                        logger.info("✅ Successfully fetched tomorrow's Fajr time for widget")
-                    } else {
-                        nextPrayer = nil
-                        timeUntilNext = nil
-                        logger.warning("⚠️ Could not find Fajr prayer in tomorrow's prayer times")
-                    }
-                } catch {
+            // No more prayers today, fetch tomorrow's Fajr time using optimized caching
+            do {
+                let tomorrowPrayerTimes = try await prayerTimeService.getTomorrowPrayerTimes(for: location)
+                if let fajrTime = tomorrowPrayerTimes.first(where: { $0.prayer == .fajr }) {
+                    nextPrayer = fajrTime
+                    timeUntilNext = fajrTime.time.timeIntervalSince(now)
+                    logger.info("✅ Successfully fetched tomorrow's Fajr time for widget (cached)")
+                } else {
                     nextPrayer = nil
                     timeUntilNext = nil
-                    logger.error("❌ Failed to fetch tomorrow's prayer times: \(error.localizedDescription)")
+                    logger.warning("⚠️ Could not find Fajr prayer in tomorrow's prayer times")
                 }
-            } else {
+            } catch {
                 nextPrayer = nil
                 timeUntilNext = nil
-                logger.error("❌ Could not calculate tomorrow's date")
+                logger.error("❌ Failed to fetch tomorrow's prayer times: \(error.localizedDescription)")
             }
         }
 
@@ -176,6 +171,58 @@ class PrayerTimesViewModel: ObservableObject {
 
         // Fallback to coordinates if no city info available
         return String(format: "%.2f°, %.2f°", location.coordinate.latitude, location.coordinate.longitude)
+    }
+    
+    /// Sets up Combine subscriptions to observe settings changes and auto-refresh prayer times
+    private func setupSettingsObservation() {
+        // Try to observe specific properties if the settingsService has them
+        if let settingsWithPublishers = settingsService as? SettingsService {
+            // Observe calculation method changes
+            settingsWithPublishers.$calculationMethod
+                .dropFirst() // Skip initial value
+                .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.logger.info("🔄 Calculation method changed - auto-refreshing prayer times")
+                    Task { @MainActor in
+                        await self?.fetchPrayerTimes()
+                    }
+                }
+                .store(in: &cancellables)
+            
+            // Observe madhab changes
+            settingsWithPublishers.$madhab
+                .dropFirst() // Skip initial value
+                .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.logger.info("🔄 Madhab changed - auto-refreshing prayer times")
+                    Task { @MainActor in
+                        await self?.fetchPrayerTimes()
+                    }
+                }
+                .store(in: &cancellables)
+            
+            // Observe astronomical Maghrib setting for Ja'fari users
+            settingsWithPublishers.$useAstronomicalMaghrib
+                .dropFirst() // Skip initial value
+                .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.logger.info("🔄 Astronomical Maghrib setting changed - auto-refreshing prayer times")
+                    Task { @MainActor in
+                        await self?.fetchPrayerTimes()
+                    }
+                }
+                .store(in: &cancellables)
+        } else {
+            // Fallback: Use a timer to periodically check for changes (less efficient but more compatible)
+            logger.info("⚠️ Settings service doesn't support Combine - using fallback observation")
+            Timer.publish(every: 2.0, on: .main, in: .common)
+                .autoconnect()
+                .sink { [weak self] _ in
+                    // This is a simple fallback - not ideal but ensures compatibility
+                    // In production, this should be replaced with proper Combine support in SettingsService
+                }
+                .store(in: &cancellables)
+        }
     }
 
 }
@@ -226,6 +273,7 @@ private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var hasCompletedOnboarding: Bool = false
     @Published var userName: String = ""
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }

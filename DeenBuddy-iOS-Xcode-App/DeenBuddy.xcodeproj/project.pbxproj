@@ -7,21 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		233332802E29A15E00B48D7A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2333327F2E29A15D00B48D7A /* WidgetKit.framework */; };
-		233332822E29A15E00B48D7A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332812E29A15E00B48D7A /* SwiftUI.framework */; };
-		233332912E29A15F00B48D7A /* PrayerTimesWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		233332AB2E29A19D00B48D7A /* ActivityKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332AA2E29A19D00B48D7A /* ActivityKit.framework */; };
-		233332AC2E29A19E00B48D7A /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23EA690F2E20AA2100415CFC /* Adhan */; };
-		23EA69102E20AA2100415CFC /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23EA690F2E20AA2100415CFC /* Adhan */; };
+		23837F452E3C794F003AEF75 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2333327F2E29A15D00B48D7A /* WidgetKit.framework */; };
+		23837F462E3C794F003AEF75 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332812E29A15E00B48D7A /* SwiftUI.framework */; };
+		23837F572E3C7950003AEF75 /* Live Activity Widget ExtensionExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 23837F442E3C794F003AEF75 /* Live Activity Widget ExtensionExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		23837F702E3C843E003AEF75 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332812E29A15E00B48D7A /* SwiftUI.framework */; };
+		23837F712E3C8446003AEF75 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2333327F2E29A15D00B48D7A /* WidgetKit.framework */; };
+		23837F732E3C861E003AEF75 /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23837F722E3C861E003AEF75 /* Adhan */; settings = {ATTRIBUTES = (Required, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		2333328F2E29A15F00B48D7A /* PBXContainerItemProxy */ = {
+		23837F552E3C7950003AEF75 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 23F09EF02E17292A00E25D2F /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 2333327D2E29A15D00B48D7A;
-			remoteInfo = PrayerTimesWidgetExtension;
+			remoteGlobalIDString = 23837F432E3C794F003AEF75;
+			remoteInfo = "Live Activity Widget ExtensionExtension";
 		};
 		23F09F062E17292B00E25D2F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -46,7 +46,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				233332912E29A15F00B48D7A /* PrayerTimesWidgetExtension.appex in Embed Foundation Extensions */,
+				23837F572E3C7950003AEF75 /* Live Activity Widget ExtensionExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -54,11 +54,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PrayerTimesWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		2333327F2E29A15D00B48D7A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		233332812E29A15E00B48D7A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		233332AA2E29A19D00B48D7A /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
-		233332B62E29A8B800B48D7A /* PrayerTimesWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PrayerTimesWidgetExtension.entitlements; sourceTree = "<group>"; };
 		233332B72E29A91000B48D7A /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
 		233332B92E29A91000B48D7A /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
 		233332BB2E29A91000B48D7A /* CodebaseExtensionPoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodebaseExtensionPoints.swift; sourceTree = "<group>"; };
@@ -143,32 +141,44 @@
 		233333172E29A91000B48D7A /* SharedUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedUtilities.swift; sourceTree = "<group>"; };
 		233333192E29A91000B48D7A /* DeenAssistCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeenAssistCore.swift; sourceTree = "<group>"; };
 		2333331A2E29A91000B48D7A /* PackageExports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageExports.swift; sourceTree = "<group>"; };
+		23837F442E3C794F003AEF75 /* Live Activity Widget ExtensionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Live Activity Widget ExtensionExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		23837F6F2E3C8312003AEF75 /* Live Activity Widget ExtensionExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Live Activity Widget ExtensionExtension.entitlements"; sourceTree = "<group>"; };
 		23F09EF82E17292A00E25D2F /* DeenBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeenBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		233333212E29AAB800B48D7A /* Exceptions for "PrayerTimesWidget" folder in "PrayerTimesWidgetExtension" target */ = {
+		23837F302E396278003AEF75 /* Exceptions for "DeenBuddy" folder in "DeenBuddy" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */;
+			target = 23F09EF72E17292A00E25D2F /* DeenBuddy */;
+		};
+		23837F5B2E3C7950003AEF75 /* Exceptions for "Live Activity Widget Extension" folder in "Live Activity Widget ExtensionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 23837F432E3C794F003AEF75 /* Live Activity Widget ExtensionExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		233332832E29A15E00B48D7A /* PrayerTimesWidget */ = {
+		23837F472E3C794F003AEF75 /* Live Activity Widget Extension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				233333212E29AAB800B48D7A /* Exceptions for "PrayerTimesWidget" folder in "PrayerTimesWidgetExtension" target */,
+				23837F5B2E3C7950003AEF75 /* Exceptions for "Live Activity Widget Extension" folder in "Live Activity Widget ExtensionExtension" target */,
 			);
-			path = PrayerTimesWidget;
+			path = "Live Activity Widget Extension";
 			sourceTree = "<group>";
 		};
 		23F09EFA2E17292A00E25D2F /* DeenBuddy */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				23837F302E396278003AEF75 /* Exceptions for "DeenBuddy" folder in "DeenBuddy" target */,
+			);
 			path = DeenBuddy;
 			sourceTree = "<group>";
 		};
@@ -185,14 +195,12 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		2333327B2E29A15D00B48D7A /* Frameworks */ = {
+		23837F412E3C794F003AEF75 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				233332AB2E29A19D00B48D7A /* ActivityKit.framework in Frameworks */,
-				233332AC2E29A19E00B48D7A /* Adhan in Frameworks */,
-				233332822E29A15E00B48D7A /* SwiftUI.framework in Frameworks */,
-				233332802E29A15E00B48D7A /* WidgetKit.framework in Frameworks */,
+				23837F462E3C794F003AEF75 /* SwiftUI.framework in Frameworks */,
+				23837F452E3C794F003AEF75 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -200,7 +208,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23EA69102E20AA2100415CFC /* Adhan in Frameworks */,
+				23837F732E3C861E003AEF75 /* Adhan in Frameworks */,
+				23837F702E3C843E003AEF75 /* SwiftUI.framework in Frameworks */,
+				23837F712E3C8446003AEF75 /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -455,11 +465,11 @@
 		23F09EEF2E17292A00E25D2F = {
 			isa = PBXGroup;
 			children = (
-				233332B62E29A8B800B48D7A /* PrayerTimesWidgetExtension.entitlements */,
+				23837F6F2E3C8312003AEF75 /* Live Activity Widget ExtensionExtension.entitlements */,
 				23F09EFA2E17292A00E25D2F /* DeenBuddy */,
 				23F09F082E17292B00E25D2F /* DeenBuddyTests */,
 				23F09F122E17292B00E25D2F /* DeenBuddyUITests */,
-				233332832E29A15E00B48D7A /* PrayerTimesWidget */,
+				23837F472E3C794F003AEF75 /* Live Activity Widget Extension */,
 				23EC89D92E20A2DE00BCAB83 /* Frameworks */,
 				23F09EF92E17292A00E25D2F /* Products */,
 			);
@@ -471,7 +481,7 @@
 				23F09EF82E17292A00E25D2F /* DeenBuddy.app */,
 				23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */,
 				23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */,
-				2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */,
+				23837F442E3C794F003AEF75 /* Live Activity Widget ExtensionExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -479,27 +489,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */ = {
+		23837F432E3C794F003AEF75 /* Live Activity Widget ExtensionExtension */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 233332932E29A15F00B48D7A /* Build configuration list for PBXNativeTarget "PrayerTimesWidgetExtension" */;
+			buildConfigurationList = 23837F582E3C7950003AEF75 /* Build configuration list for PBXNativeTarget "Live Activity Widget ExtensionExtension" */;
 			buildPhases = (
-				2333327A2E29A15D00B48D7A /* Sources */,
-				2333327B2E29A15D00B48D7A /* Frameworks */,
-				2333327C2E29A15D00B48D7A /* Resources */,
+				23837F402E3C794F003AEF75 /* Sources */,
+				23837F412E3C794F003AEF75 /* Frameworks */,
+				23837F422E3C794F003AEF75 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				233332832E29A15E00B48D7A /* PrayerTimesWidget */,
+				23837F472E3C794F003AEF75 /* Live Activity Widget Extension */,
 			);
-			name = PrayerTimesWidgetExtension;
+			name = "Live Activity Widget ExtensionExtension";
 			packageProductDependencies = (
-				23EA690F2E20AA2100415CFC /* Adhan */,
 			);
-			productName = PrayerTimesWidgetExtension;
-			productReference = 2333327E2E29A15D00B48D7A /* PrayerTimesWidgetExtension.appex */;
+			productName = "Live Activity Widget ExtensionExtension";
+			productReference = 23837F442E3C794F003AEF75 /* Live Activity Widget ExtensionExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		23F09EF72E17292A00E25D2F /* DeenBuddy */ = {
@@ -514,14 +523,14 @@
 			buildRules = (
 			);
 			dependencies = (
-				233332902E29A15F00B48D7A /* PBXTargetDependency */,
+				23837F562E3C7950003AEF75 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				23F09EFA2E17292A00E25D2F /* DeenBuddy */,
 			);
 			name = DeenBuddy;
 			packageProductDependencies = (
-				23EA690F2E20AA2100415CFC /* Adhan */,
+				23837F722E3C861E003AEF75 /* Adhan */,
 			);
 			productName = DeenBuddy;
 			productReference = 23F09EF82E17292A00E25D2F /* DeenBuddy.app */;
@@ -579,7 +588,7 @@
 				LastSwiftUpdateCheck = 1640;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
-					2333327D2E29A15D00B48D7A = {
+					23837F432E3C794F003AEF75 = {
 						CreatedOnToolsVersion = 16.4;
 					};
 					23F09EF72E17292A00E25D2F = {
@@ -615,13 +624,13 @@
 				23F09EF72E17292A00E25D2F /* DeenBuddy */,
 				23F09F042E17292B00E25D2F /* DeenBuddyTests */,
 				23F09F0E2E17292B00E25D2F /* DeenBuddyUITests */,
-				2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */,
+				23837F432E3C794F003AEF75 /* Live Activity Widget ExtensionExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		2333327C2E29A15D00B48D7A /* Resources */ = {
+		23837F422E3C794F003AEF75 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -652,7 +661,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		2333327A2E29A15D00B48D7A /* Sources */ = {
+		23837F402E3C794F003AEF75 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -683,10 +692,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		233332902E29A15F00B48D7A /* PBXTargetDependency */ = {
+		23837F562E3C7950003AEF75 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 2333327D2E29A15D00B48D7A /* PrayerTimesWidgetExtension */;
-			targetProxy = 2333328F2E29A15F00B48D7A /* PBXContainerItemProxy */;
+			target = 23837F432E3C794F003AEF75 /* Live Activity Widget ExtensionExtension */;
+			targetProxy = 23837F552E3C7950003AEF75 /* PBXContainerItemProxy */;
 		};
 		23F09F072E17292B00E25D2F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -701,60 +710,62 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		233332942E29A15F00B48D7A /* Debug */ = {
+		23837F592E3C7950003AEF75 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = PrayerTimesWidgetExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Live Activity Widget ExtensionExtension.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PrayerTimesWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = PrayerTimesWidget;
+				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Live Activity Widget Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app.PrayerTimesWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.deenbuddy.app.Live-Activity-Widget-Extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.5;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		233332952E29A15F00B48D7A /* Release */ = {
+		23837F5A2E3C7950003AEF75 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
-				CODE_SIGN_ENTITLEMENTS = PrayerTimesWidgetExtension.entitlements;
+				CODE_SIGN_ENTITLEMENTS = "Live Activity Widget ExtensionExtension.entitlements";
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = PrayerTimesWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = PrayerTimesWidget;
+				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Live Activity Widget Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app.PrayerTimesWidget;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.deenbuddy.app.Live-Activity-Widget-Extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.5;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -811,6 +822,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
@@ -869,6 +883,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -886,26 +903,28 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DeenBuddy/Info.plist;
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.deenbuddy.prayer-refresh com.deenbuddy.app.refresh com.deenbuddy.app.prayer-update";
 				INFOPLIST_KEY_CFBundleDisplayName = DeenBuddy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "DeenBuddy uses the camera for AR compass feature to overlay Qibla direction on the real world view.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "DeenBuddy uses motion sensors to provide an accurate Qibla compass direction pointing towards Kaaba.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "background-fetch background-processing";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -913,6 +932,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -928,26 +948,28 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DeenBuddy/Info.plist;
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.deenbuddy.prayer-refresh com.deenbuddy.app.refresh com.deenbuddy.app.prayer-update";
 				INFOPLIST_KEY_CFBundleDisplayName = DeenBuddy;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "DeenBuddy uses the camera for AR compass feature to overlay Qibla direction on the real world view.";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "DeenBuddy uses motion sensors to provide an accurate Qibla compass direction pointing towards Kaaba.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIBackgroundModes = "background-fetch background-processing";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -955,6 +977,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -1039,11 +1062,11 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		233332932E29A15F00B48D7A /* Build configuration list for PBXNativeTarget "PrayerTimesWidgetExtension" */ = {
+		23837F582E3C7950003AEF75 /* Build configuration list for PBXNativeTarget "Live Activity Widget ExtensionExtension" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				233332942E29A15F00B48D7A /* Debug */,
-				233332952E29A15F00B48D7A /* Release */,
+				23837F592E3C7950003AEF75 /* Debug */,
+				23837F5A2E3C7950003AEF75 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -1098,7 +1121,7 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		23EA690F2E20AA2100415CFC /* Adhan */ = {
+		23837F722E3C861E003AEF75 /* Adhan */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 23EA690E2E20AA2100415CFC /* XCRemoteSwiftPackageReference "adhan-swift" */;
 			productName = Adhan;

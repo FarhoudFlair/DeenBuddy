@@ -134,6 +134,9 @@ public protocol APICacheProtocol {
     /// Clear only prayer time cache entries (for settings changes)
     func clearPrayerTimeCache()
 
+    /// Clear prayer time cache for specific calculation method and madhab
+    func clearPrayerTimeCache(for calculationMethod: CalculationMethod, madhab: Madhab)
+
     /// Get cache size in bytes
     func getCacheSize() -> Int64
 }

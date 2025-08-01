@@ -111,4 +111,16 @@ public class MockNotificationService: NotificationServiceProtocol {
         notificationsEnabled = settings.isEnabled
         print("Mock: Updated notification settings - enabled: \(settings.isEnabled)")
     }
+    
+    public func updateAppBadge() async {
+        print("Mock: Updated app badge count")
+    }
+    
+    public func clearBadge() async {
+        print("Mock: Cleared app badge")
+    }
+    
+    public func updateBadgeForCompletedPrayer() async {
+        print("Mock: Updated badge for completed prayer")
+    }
 }

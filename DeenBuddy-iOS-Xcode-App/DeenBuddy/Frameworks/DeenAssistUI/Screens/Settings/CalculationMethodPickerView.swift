@@ -3,20 +3,29 @@ import SwiftUI
 /// Calculation method picker view
 public struct CalculationMethodPickerView: View {
     let selectedMethod: CalculationMethod
+    let selectedMadhab: Madhab
     let onMethodSelected: (CalculationMethod) -> Void
+    
+    private var compatibleMethods: [CalculationMethod] {
+        CalculationMethod.allCases.filter { method in
+            method.isCompatible(with: selectedMadhab)
+        }
+    }
     
     public init(
         selectedMethod: CalculationMethod,
+        selectedMadhab: Madhab,
         onMethodSelected: @escaping (CalculationMethod) -> Void
     ) {
         self.selectedMethod = selectedMethod
+        self.selectedMadhab = selectedMadhab
         self.onMethodSelected = onMethodSelected
     }
     
     public var body: some View {
         NavigationView {
             List {
-                ForEach(CalculationMethod.allCases, id: \.self) { method in
+                ForEach(compatibleMethods, id: \.self) { method in
                     MethodRow(
                         method: method,
                         isSelected: method == selectedMethod,
@@ -65,39 +74,136 @@ private struct MethodRow: View {
     }
 }
 
-/// Madhab picker view
+/// Madhab picker view with calculation method compatibility
 public struct MadhabPickerView: View {
     let selectedMadhab: Madhab
+    let calculationMethod: CalculationMethod
     let onMadhabSelected: (Madhab) -> Void
     
     public init(
         selectedMadhab: Madhab,
+        calculationMethod: CalculationMethod,
         onMadhabSelected: @escaping (Madhab) -> Void
     ) {
         self.selectedMadhab = selectedMadhab
+        self.calculationMethod = calculationMethod
         self.onMadhabSelected = onMadhabSelected
     }
     
     public var body: some View {
         NavigationView {
             List {
-                ForEach(Madhab.allCases, id: \.self) { madhab in
-                    MadhabRow(
-                        madhab: madhab,
-                        isSelected: madhab == selectedMadhab,
-                        onSelect: {
-                            onMadhabSelected(madhab)
+                // Show compatibility info section
+                if let preferredMadhab = calculationMethod.preferredMadhab {
+                    Section {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "info.circle.fill")
+                                    .foregroundColor(.blue)
+                                Text("Method Guidance")
+                                    .font(.headline)
+                            }
+                            
+                            Text("\(calculationMethod.displayName) is designed for \(preferredMadhab.displayName) jurisprudence.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
-                    )
+                        .padding(.vertical, 4)
+                    }
+                }
+                
+                // Madhab selection section
+                Section("Select Madhab (Sect)") {
+                    ForEach(Madhab.allCases, id: \.self) { madhab in
+                        EnhancedMadhabRow(
+                            madhab: madhab,
+                            calculationMethod: calculationMethod,
+                            isSelected: madhab == selectedMadhab,
+                            onSelect: {
+                                onMadhabSelected(madhab)
+                            }
+                        )
+                    }
                 }
             }
-            .navigationTitle("Madhab")
+            .navigationTitle("Madhab (Sect)")
             .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
 
-/// Madhab row component
+/// Enhanced madhab row with compatibility indicators
+private struct EnhancedMadhabRow: View {
+    let madhab: Madhab
+    let calculationMethod: CalculationMethod
+    let isSelected: Bool
+    let onSelect: () -> Void
+    
+    private var compatibility: MethodMadhabCompatibility {
+        calculationMethod.compatibilityStatus(with: madhab)
+    }
+    
+    private var isCompatible: Bool {
+        calculationMethod.isCompatible(with: madhab)
+    }
+    
+    var body: some View {
+        Button(action: isCompatible ? onSelect : {}) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    // Madhab color indicator
+                    Circle()
+                        .fill(madhab.color)
+                        .frame(width: 12, height: 12)
+                    
+                    Text(madhab.displayName)
+                        .titleMedium()
+                        .foregroundColor(isCompatible ? ColorPalette.textPrimary : ColorPalette.textSecondary)
+                    
+                    Spacer()
+                    
+                    // Compatibility status indicator
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(compatibility.displayColor)
+                            .frame(width: 8, height: 8)
+                        
+                        Text(compatibility.displayText)
+                            .font(.caption)
+                            .foregroundColor(compatibility.displayColor)
+                    }
+                    
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(ColorPalette.primary)
+                    }
+                }
+                
+                // Show warning message if needed
+                if let warningMessage = compatibility.warningMessage {
+                    Text(warningMessage)
+                        .bodySmall()
+                        .foregroundColor(.orange)
+                        .multilineTextAlignment(.leading)
+                }
+                
+                // Show incompatible reason if needed
+                if !isCompatible {
+                    Text("This madhab is not compatible with \(calculationMethod.displayName)")
+                        .bodySmall()
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .padding(.vertical, 4)
+            .opacity(isCompatible ? 1.0 : 0.6)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!isCompatible)
+    }
+}
+
+/// Legacy madhab row component (kept for backward compatibility)
 private struct MadhabRow: View {
     let madhab: Madhab
     let isSelected: Bool
@@ -223,6 +329,7 @@ private struct ThemeRow: View {
 #Preview("Calculation Method Picker") {
     CalculationMethodPickerView(
         selectedMethod: .muslimWorldLeague,
+        selectedMadhab: .shafi,
         onMethodSelected: { _ in }
     )
 }
@@ -230,6 +337,7 @@ private struct ThemeRow: View {
 #Preview("Madhab Picker") {
     MadhabPickerView(
         selectedMadhab: .shafi,
+        calculationMethod: .jafariTehran,
         onMadhabSelected: { _ in }
     )
 }

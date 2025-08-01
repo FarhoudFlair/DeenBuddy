@@ -336,6 +336,7 @@ class BackgroundSyncMockSettingsService: SettingsServiceProtocol, ObservableObje
     @Published var userName: String = ""
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }

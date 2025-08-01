@@ -25,6 +25,10 @@ public class DummyPrayerTimeService: PrayerTimeServiceProtocol {
         throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
     }
 
+    public func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] {
+        throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
     public func getCurrentLocation() async throws -> CLLocation {
         throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Dummy service cannot provide location"])
     }

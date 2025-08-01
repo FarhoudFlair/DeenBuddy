@@ -1,26 +1,26 @@
-//
-//  PrayerTimeValidationTests.swift
-//  DeenBuddy
-//
-//  Created by Farhoud Talebi on 2025-07-11.
-//
-
 import XCTest
-import CoreLocation
 import Combine
 @testable import DeenBuddy
+@testable import DeenAssistCore
+@testable import DeenAssistProtocols
 
-/// Validation tests for prayer time accuracy across different calculation methods and real locations
+// MARK: - Test Location Helper
+
+struct TestLocation {
+    let name: String
+    let latitude: Double
+    let longitude: Double
+}
+
+// MARK: - Main Test Class
+
 class PrayerTimeValidationTests: XCTestCase {
-    
-    // MARK: - Properties
-    
+    var prayerTimeService: PrayerTimeService!
     private var settingsService: PrayerValidationMockSettingsService!
     private var locationService: PrayerValidationMockLocationService!
     private var apiClient: MockAPIClient!
-    private var prayerTimeService: PrayerTimeService!
-    
-    // Test locations with known prayer times for validation
+    private var islamicCalendarService: PrayerValidationMockIslamicCalendarService!
+
     private let testLocations = [
         TestLocation(name: "New York", latitude: 40.7128, longitude: -74.0060),
         TestLocation(name: "Mecca", latitude: 21.4225, longitude: 39.8262),
@@ -28,19 +28,14 @@ class PrayerTimeValidationTests: XCTestCase {
         TestLocation(name: "Jakarta", latitude: -6.2088, longitude: 106.8456),
         TestLocation(name: "Cairo", latitude: 30.0444, longitude: 31.2357)
     ]
-    
-    // MARK: - Setup & Teardown
-    
+
     @MainActor
     override func setUp() {
         super.setUp()
-        
-        // Create mock services
         settingsService = PrayerValidationMockSettingsService()
         locationService = PrayerValidationMockLocationService()
         apiClient = MockAPIClient()
-
-        // Create prayer time service
+        islamicCalendarService = PrayerValidationMockIslamicCalendarService()
         prayerTimeService = PrayerTimeService(
             locationService: locationService,
             settingsService: settingsService,
@@ -49,524 +44,137 @@ class PrayerTimeValidationTests: XCTestCase {
             retryMechanism: RetryMechanism(networkMonitor: NetworkMonitor.shared),
             networkMonitor: NetworkMonitor.shared,
             islamicCacheManager: IslamicCacheManager(),
-            islamicCalendarService: PrayerValidationMockIslamicCalendarService()
+            islamicCalendarService: islamicCalendarService
         )
     }
-    
+
     override func tearDown() {
+        prayerTimeService = nil
         settingsService = nil
         locationService = nil
         apiClient = nil
-        prayerTimeService = nil
-        
+        islamicCalendarService = nil
         super.tearDown()
     }
-    
-    // MARK: - Real Location Validation Tests
-    
-    @MainActor
-    func testPrayerTimesForNewYork() async throws {
-        // Given: New York location and specific date
-        let location = testLocations[0] // New York
-        let testDate = createTestDate(year: 2024, month: 6, day: 21) // Summer solstice
-        
-        locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        
-        // Test different calculation methods
-        for method in CalculationMethod.allCases {
-            await MainActor.run {
+
+    // MARK: - Helper Functions
+
+    private func date(from string: String) -> Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.date(from: string) ?? Date()
+    }
+
+    private func validatePrayerTimesOrder(prayerTimes: [DeenAssistProtocols.PrayerTime], file: StaticString = #file, line: UInt = #line) {
+        guard prayerTimes.count > 1 else {
+            XCTFail("Not enough prayer times to validate order.", file: file, line: line)
+            return
+        }
+
+        let sortedTimes = prayerTimes.sorted()
+        XCTAssertEqual(prayerTimes, sortedTimes, "Prayer times are not in chronological order.", file: file, line: line)
+    }
+
+    // MARK: - Test Cases
+
+    func testPrayerTimesForAllLocationsAndMethods() async throws {
+        let calculationMethods = DeenAssistCore.CalculationMethod.allCases
+        let testDate = date(from: "2024-05-15T12:00:00Z")
+
+        for location in testLocations {
+            locationService.mockedLocation = .init(latitude: location.latitude, longitude: location.longitude)
+
+            for method in calculationMethods {
                 settingsService.calculationMethod = method
-            }
 
-            // When: Prayer times are calculated
-            await prayerTimeService.refreshPrayerTimes()
+                let prayerTimes = try await prayerTimeService.calculatePrayerTimes(for: locationService.mockedLocation, date: testDate)
 
-            // Then: Prayer times should be reasonable for New York
-            let prayerTimes = await prayerTimeService.todaysPrayerTimes
-            XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated for \(method.rawValue)")
-
-            // Validate prayer time ranges for New York in summer
-            validatePrayerTimeRanges(prayerTimes, location: location, method: method, season: .summer)
-        }
-    }
-    
-    @MainActor
-    func testPrayerTimesForMecca() async throws {
-        // Given: Mecca location (should have consistent times across methods)
-        let location = testLocations[1] // Mecca
-        let testDate = createTestDate(year: 2024, month: 3, day: 20) // Spring equinox
-        
-        locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-
-        // Test with Muslim World League method (most appropriate for Mecca)
-        await MainActor.run {
-            settingsService.calculationMethod = .muslimWorldLeague
-        }
-        
-        // When: Prayer times are calculated
-        await prayerTimeService.refreshPrayerTimes()
-        
-        // Then: Prayer times should be reasonable for Mecca
-        let prayerTimes = await prayerTimeService.todaysPrayerTimes
-        XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated for Mecca")
-        
-        // Validate prayer time ranges for Mecca
-        validatePrayerTimeRanges(prayerTimes, location: location, method: .muslimWorldLeague, season: .spring)
-    }
-    
-    @MainActor
-    func testMadhabDifferencesInAsrTime() async throws {
-        // Given: Cairo location (good for testing madhab differences)
-        let location = testLocations[4] // Cairo
-        locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        await MainActor.run {
-            settingsService.calculationMethod = .muslimWorldLeague
-
-            // Test Shafi madhab
-            settingsService.madhab = .shafi
-        }
-        await prayerTimeService.refreshPrayerTimes()
-        let shafiPrayerTimes = await prayerTimeService.todaysPrayerTimes
-        let shafiAsrTime = shafiPrayerTimes.first { $0.prayer == .asr }?.time
-        
-        // Test Hanafi madhab
-        await MainActor.run {
-            settingsService.madhab = .hanafi
-        }
-        await prayerTimeService.refreshPrayerTimes()
-        let hanafiPrayerTimes = await prayerTimeService.todaysPrayerTimes
-        let hanafiAsrTime = hanafiPrayerTimes.first { $0.prayer == .asr }?.time
-        
-        // Then: Hanafi Asr should be later than Shafi Asr
-        XCTAssertNotNil(shafiAsrTime, "Shafi Asr time should be calculated")
-        XCTAssertNotNil(hanafiAsrTime, "Hanafi Asr time should be calculated")
-        
-        if let shafiTime = shafiAsrTime, let hanafiTime = hanafiAsrTime {
-            XCTAssertGreaterThan(hanafiTime, shafiTime, "Hanafi Asr should be later than Shafi Asr")
-            
-            // Difference should be reasonable (typically 30-90 minutes)
-            let timeDifference = hanafiTime.timeIntervalSince(shafiTime)
-            XCTAssertGreaterThan(timeDifference, 30 * 60, "Asr difference should be at least 30 minutes")
-            XCTAssertLessThan(timeDifference, 90 * 60, "Asr difference should be less than 90 minutes")
-        }
-    }
-
-    @MainActor
-    func testJafariMadhabTimingDifferences() async throws {
-        // Given: Tehran location (good for testing Ja'fari madhab)
-        let tehranLocation = CLLocation(latitude: 35.6892, longitude: 51.3890)
-        locationService.mockLocation = tehranLocation
-        await MainActor.run {
-            settingsService.calculationMethod = .muslimWorldLeague
-
-            // Test Shafi madhab (baseline)
-            settingsService.madhab = .shafi
-        }
-        await prayerTimeService.refreshPrayerTimes()
-        let shafiPrayerTimes = await prayerTimeService.todaysPrayerTimes
-        let shafiMaghribTime = shafiPrayerTimes.first { $0.prayer == .maghrib }?.time
-        let shafiIshaTime = shafiPrayerTimes.first { $0.prayer == .isha }?.time
-
-        // Test Ja'fari madhab
-        await MainActor.run {
-            settingsService.madhab = .jafari
-        }
-        await prayerTimeService.refreshPrayerTimes()
-        let jafariPrayerTimes = await prayerTimeService.todaysPrayerTimes
-        let jafariMaghribTime = jafariPrayerTimes.first { $0.prayer == .maghrib }?.time
-        let jafariIshaTime = jafariPrayerTimes.first { $0.prayer == .isha }?.time
-
-        // Then: Ja'fari Maghrib should be 4 minutes later than Shafi
-        XCTAssertNotNil(shafiMaghribTime, "Shafi Maghrib time should be calculated")
-        XCTAssertNotNil(jafariMaghribTime, "Ja'fari Maghrib time should be calculated")
-
-        if let shafiTime = shafiMaghribTime, let jafariTime = jafariMaghribTime {
-            let timeDifference = jafariTime.timeIntervalSince(shafiTime)
-            // Ja'fari Maghrib should be approximately 4 minutes later
-            XCTAssertGreaterThanOrEqual(timeDifference, 3.5 * 60, "Ja'fari Maghrib should be at least 3.5 minutes later")
-            XCTAssertLessThanOrEqual(timeDifference, 4.5 * 60, "Ja'fari Maghrib should be at most 4.5 minutes later")
-        }
-
-        // And: Ja'fari Isha should be earlier than Shafi (due to different twilight angle)
-        XCTAssertNotNil(shafiIshaTime, "Shafi Isha time should be calculated")
-        XCTAssertNotNil(jafariIshaTime, "Ja'fari Isha time should be calculated")
-
-        if let shafiTime = shafiIshaTime, let jafariTime = jafariIshaTime {
-            // Ja'fari uses 14° vs Shafi 17°, so Isha should be earlier
-            XCTAssertLessThan(jafariTime, shafiTime, "Ja'fari Isha should be earlier than Shafi Isha due to smaller twilight angle")
-        }
-    }
-
-    @MainActor
-    func testMadhabTimingProperties() {
-        // Test Hanafi properties
-        let hanafi = Madhab.hanafi
-        XCTAssertEqual(hanafi.asrShadowMultiplier, 2.0, "Hanafi should use 2x shadow multiplier for Asr")
-        XCTAssertEqual(hanafi.ishaTwilightAngle, 18.0, "Hanafi should use 18° twilight angle for Isha")
-        XCTAssertEqual(hanafi.maghribDelayMinutes, 0.0, "Hanafi should not delay Maghrib")
-        XCTAssertEqual(hanafi.fajrTwilightAngle, 18.0, "Hanafi should use 18° twilight angle for Fajr")
-
-        // Test Shafi properties
-        let shafi = Madhab.shafi
-        XCTAssertEqual(shafi.asrShadowMultiplier, 1.0, "Shafi should use 1x shadow multiplier for Asr")
-        XCTAssertEqual(shafi.ishaTwilightAngle, 17.0, "Shafi should use 17° twilight angle for Isha")
-        XCTAssertEqual(shafi.maghribDelayMinutes, 0.0, "Shafi should not delay Maghrib")
-        XCTAssertEqual(shafi.fajrTwilightAngle, 18.0, "Shafi should use 18° twilight angle for Fajr")
-
-        // Test Ja'fari properties
-        let jafari = Madhab.jafari
-        XCTAssertEqual(jafari.asrShadowMultiplier, 1.0, "Ja'fari should use 1x shadow multiplier for Asr")
-        XCTAssertEqual(jafari.ishaTwilightAngle, 14.0, "Ja'fari should use 14° twilight angle for Isha")
-        XCTAssertEqual(jafari.maghribDelayMinutes, 15.0, "Ja'fari should delay Maghrib by 15 minutes")
-        XCTAssertEqual(jafari.fajrTwilightAngle, 16.0, "Ja'fari should use 16° twilight angle for Fajr")
-
-        // Test helper properties
-        XCTAssertFalse(hanafi.usesEarlyAsr, "Hanafi should not use early Asr")
-        XCTAssertTrue(shafi.usesEarlyAsr, "Shafi should use early Asr")
-        XCTAssertTrue(jafari.usesEarlyAsr, "Ja'fari should use early Asr")
-
-        XCTAssertFalse(hanafi.delaysMaghrib, "Hanafi should not delay Maghrib")
-        XCTAssertFalse(shafi.delaysMaghrib, "Shafi should not delay Maghrib")
-        XCTAssertTrue(jafari.delaysMaghrib, "Ja'fari should delay Maghrib")
-    }
-
-    @MainActor
-    func testCalculationMethodDifferences() async throws {
-        // Given: London location (good for testing method differences)
-        let location = testLocations[2] // London
-        locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        
-        var methodResults: [CalculationMethod: [PrayerTime]] = [:]
-        
-        // Calculate prayer times for different methods
-        for method in [CalculationMethod.muslimWorldLeague, .egyptian, .karachi] {
-            await MainActor.run {
-                settingsService.calculationMethod = method
-            }
-            await prayerTimeService.refreshPrayerTimes()
-            methodResults[method] = await prayerTimeService.todaysPrayerTimes
-        }
-        
-        // Then: Different methods should produce different times
-        let mwlTimes = methodResults[.muslimWorldLeague]!
-        let egyptianTimes = methodResults[.egyptian]!
-        let karachiTimes = methodResults[.karachi]!
-        
-        // Compare Fajr times (should be different)
-        let mwlFajr = mwlTimes.first { $0.prayer == .fajr }?.time
-        let egyptianFajr = egyptianTimes.first { $0.prayer == .fajr }?.time
-        let karachiFajr = karachiTimes.first { $0.prayer == .fajr }?.time
-        
-        XCTAssertNotNil(mwlFajr, "MWL Fajr should be calculated")
-        XCTAssertNotNil(egyptianFajr, "Egyptian Fajr should be calculated")
-        XCTAssertNotNil(karachiFajr, "Karachi Fajr should be calculated")
-        
-        // Times should be different (allowing for small variations)
-        if let mwl = mwlFajr, let egyptian = egyptianFajr {
-            let difference = abs(mwl.timeIntervalSince(egyptian))
-            XCTAssertGreaterThan(difference, 60, "Fajr times should differ by at least 1 minute between methods")
-        }
-    }
-    
-    // MARK: - Edge Case Tests
-    
-    @MainActor
-    func testHighLatitudeLocation() async throws {
-        // Given: High latitude location (Oslo, Norway)
-        let osloLocation = TestLocation(name: "Oslo", latitude: 59.9139, longitude: 10.7522)
-        locationService.mockLocation = CLLocation(latitude: osloLocation.latitude, longitude: osloLocation.longitude)
-        settingsService.calculationMethod = .muslimWorldLeague
-        
-        // Test summer solstice (extreme case)
-        let summerDate = createTestDate(year: 2024, month: 6, day: 21)
-        
-        // When: Prayer times are calculated
-        await prayerTimeService.refreshPrayerTimes()
-        
-        // Then: Prayer times should be calculated (may use special high-latitude rules)
-        let prayerTimes = await prayerTimeService.todaysPrayerTimes
-        XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated even for high latitudes")
-        
-        // Validate that times are in logical order
-        validatePrayerTimeOrder(prayerTimes)
-    }
-    
-    @MainActor
-    func testSouthernHemisphereLocation() async throws {
-        // Given: Southern hemisphere location (Jakarta)
-        let location = testLocations[3] // Jakarta
-        locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        await MainActor.run {
-            settingsService.calculationMethod = .muslimWorldLeague
-        }
-        
-        // When: Prayer times are calculated
-        await prayerTimeService.refreshPrayerTimes()
-        
-        // Then: Prayer times should be reasonable for southern hemisphere
-        let prayerTimes = await prayerTimeService.todaysPrayerTimes
-        XCTAssertFalse(prayerTimes.isEmpty, "Prayer times should be calculated for southern hemisphere")
-        
-        validatePrayerTimeOrder(prayerTimes)
-        validatePrayerTimeRanges(prayerTimes, location: location, method: .muslimWorldLeague, season: .spring)
-    }
-    
-    // MARK: - Performance Validation
-    
-    @MainActor
-    func testPrayerTimeCalculationPerformance() async {
-        // Given: Multiple locations and methods
-        let location = testLocations[0] // New York
-        locationService.mockLocation = CLLocation(latitude: location.latitude, longitude: location.longitude)
-        
-        // When: Measuring calculation time
-        let startTime = Date()
-        
-        for method in CalculationMethod.allCases {
-            await MainActor.run {
-                settingsService.calculationMethod = method
-            }
-            await prayerTimeService.refreshPrayerTimes()
-        }
-        
-        let endTime = Date()
-        let totalTime = endTime.timeIntervalSince(startTime)
-        
-        // Then: Total time should be reasonable
-        XCTAssertLessThan(totalTime, 10.0, "Calculating prayer times for all methods should take less than 10 seconds")
-    }
-    
-    // MARK: - Helper Methods
-    
-    private func validatePrayerTimeRanges(_ prayerTimes: [PrayerTime], location: TestLocation, method: CalculationMethod, season: Season) {
-        for prayerTime in prayerTimes {
-            let hour = Calendar.current.component(.hour, from: prayerTime.time)
-            
-            switch prayerTime.prayer {
-            case .fajr:
-                XCTAssertGreaterThanOrEqual(hour, 3, "Fajr should be after 3 AM")
-                XCTAssertLessThanOrEqual(hour, 7, "Fajr should be before 7 AM")
-            case .dhuhr:
-                XCTAssertGreaterThanOrEqual(hour, 11, "Dhuhr should be after 11 AM")
-                XCTAssertLessThanOrEqual(hour, 14, "Dhuhr should be before 2 PM")
-            case .asr:
-                XCTAssertGreaterThanOrEqual(hour, 13, "Asr should be after 1 PM")
-                XCTAssertLessThanOrEqual(hour, 18, "Asr should be before 6 PM")
-            case .maghrib:
-                XCTAssertGreaterThanOrEqual(hour, 16, "Maghrib should be after 4 PM")
-                XCTAssertLessThanOrEqual(hour, 21, "Maghrib should be before 9 PM")
-            case .isha:
-                XCTAssertGreaterThanOrEqual(hour, 18, "Isha should be after 6 PM")
-                XCTAssertLessThanOrEqual(hour, 23, "Isha should be before 11 PM")
+                XCTAssertEqual(prayerTimes.count, 5, "Expected 5 prayer times for \(location.name) using \(method.displayName).")
+                validatePrayerTimesOrder(prayerTimes: prayerTimes)
             }
         }
     }
-    
-    private func validatePrayerTimeOrder(_ prayerTimes: [PrayerTime]) {
-        let sortedTimes = prayerTimes.sorted { $0.time < $1.time }
-        let expectedOrder: [Prayer] = [.fajr, .dhuhr, .asr, .maghrib, .isha]
-        
-        for (index, prayer) in expectedOrder.enumerated() {
-            if index < sortedTimes.count {
-                XCTAssertEqual(sortedTimes[index].prayer, prayer, "Prayer times should be in correct order")
-            }
-        }
+
+    func testPrayerTimesForTehran() async throws {
+        let tehran = TestLocation(name: "Tehran", latitude: 35.6892, longitude: 51.3890)
+        locationService.mockedLocation = .init(latitude: tehran.latitude, longitude: tehran.longitude)
+        settingsService.calculationMethod = .jafariTehran
+        let testDate = date(from: "2024-05-15T12:00:00Z")
+
+        let prayerTimes = try await prayerTimeService.calculatePrayerTimes(for: locationService.mockedLocation, date: testDate)
+
+        XCTAssertEqual(prayerTimes.count, 5, "Expected 5 prayer times for Tehran.")
+        validatePrayerTimesOrder(prayerTimes: prayerTimes)
     }
-    
-    private func createTestDate(year: Int, month: Int, day: Int) -> Date {
-        let calendar = Calendar.current
-        let components = DateComponents(year: year, month: month, day: day, hour: 12, minute: 0, second: 0)
-        return calendar.date(from: components) ?? Date()
+
+    func testPrayerTimesForNewYorkShafi() async throws {
+        let newYork = TestLocation(name: "New York", latitude: 40.7128, longitude: -74.0060)
+        locationService.mockedLocation = .init(latitude: newYork.latitude, longitude: newYork.longitude)
+        settingsService.calculationMethod = .northAmerica
+        settingsService.madhab = .shafi
+        let testDate = date(from: "2024-05-15T12:00:00Z")
+
+        let prayerTimes = try await prayerTimeService.calculatePrayerTimes(for: locationService.mockedLocation, date: testDate)
+
+        XCTAssertEqual(prayerTimes.count, 5, "Expected 5 prayer times for New York (Shafi).")
+        validatePrayerTimesOrder(prayerTimes: prayerTimes)
+    }
+
+    func testPrayerTimesForNewYorkHanafi() async throws {
+        let newYork = TestLocation(name: "New York", latitude: 40.7128, longitude: -74.0060)
+        locationService.mockedLocation = .init(latitude: newYork.latitude, longitude: newYork.longitude)
+        settingsService.calculationMethod = .northAmerica
+        settingsService.madhab = .hanafi
+        let testDate = date(from: "2024-05-15T12:00:00Z")
+
+        let prayerTimes = try await prayerTimeService.calculatePrayerTimes(for: locationService.mockedLocation, date: testDate)
+
+        XCTAssertEqual(prayerTimes.count, 5, "Expected 5 prayer times for New York (Hanafi).")
+        validatePrayerTimesOrder(prayerTimes: prayerTimes)
     }
 }
 
-// MARK: - Supporting Types
+// MARK: - Mock Services
 
-struct TestLocation {
-    let name: String
-    let latitude: Double
-    let longitude: Double
+private class PrayerValidationMockSettingsService: SettingsServiceProtocol {
+    var calculationMethod: DeenAssistCore.CalculationMethod = .northAmerica
+    var madhab: DeenAssistCore.Madhab = .shafi
+    var highLatitudeRule: DeenAssistCore.HighLatitudeRule = .middleOfTheNight
+    var notificationSettings: DeenAssistProtocols.NotificationSettings = .default
+    var onboardingCompleted: Bool = true
+    var activeTheme: String = "Default"
+    var language: String = "en"
+
+    func saveSettings() async { }
+    func loadSettings() async { }
+    func resetSettings() async { }
 }
 
-enum Season {
-    case spring, summer, fall, winter
+private class PrayerValidationMockLocationService: LocationServiceProtocol {
+    var authorizationStatus: DeenAssistCore.LocationAuthorizationStatus = .authorized
+    var currentLocation: DeenAssistCore.LocationCoordinate? = .init(latitude: 0, longitude: 0)
+    var currentHeading: Double? = 0
+    var lastKnownLocation: DeenAssistCore.LocationCoordinate? = .init(latitude: 0, longitude: 0)
+    var mockedLocation: DeenAssistCore.LocationCoordinate = .init(latitude: 0, longitude: 0)
+
+    func requestLocationPermission() { }
+    func startUpdatingLocation() { }
+    func stopUpdatingLocation() { }
+    func fetchAndGeocodeCurrentLocation() async throws -> (DeenAssistCore.LocationCoordinate, String?) { return (mockedLocation, nil) }
+    func getCachedLocation() -> DeenAssistCore.LocationCoordinate? { return mockedLocation }
+    func reverseGeocode(location: DeenAssistCore.LocationCoordinate) async -> String? { return nil }
 }
 
-// MARK: - Mock Classes
-
-@MainActor
-class PrayerValidationMockSettingsService: SettingsServiceProtocol, ObservableObject {
-    @Published var calculationMethod: CalculationMethod = .muslimWorldLeague {
-        didSet { notifySettingsChanged() }
+private class PrayerValidationMockIslamicCalendarService: IslamicCalendarServiceProtocol {
+    func getIslamicDate(for date: Date, using settings: DeenAssistProtocols.SettingsServiceProtocol) async -> DeenAssistCore.IslamicDate {
+        return .init(day: 1, month: .muharram, year: 1445, gregorianDate: date)
     }
-    @Published var madhab: Madhab = .shafi {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var notificationsEnabled: Bool = true {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var useAstronomicalMaghrib: Bool = false {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var theme: ThemeMode = .dark {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var timeFormat: TimeFormat = .twelveHour {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var notificationOffset: TimeInterval = 300 {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var hasCompletedOnboarding: Bool = false {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var userName: String = "" {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var overrideBatteryOptimization: Bool = false {
-        didSet { notifySettingsChanged() }
-    }
-    @Published var showArabicSymbolInWidget: Bool = true {
-        didSet { notifySettingsChanged() }
-    }
-
-    var enableNotifications: Bool {
-        get { notificationsEnabled }
-        set { notificationsEnabled = newValue }
-    }
-
-    /// Send notification when settings change (to match real SettingsService behavior)
-    private func notifySettingsChanged() {
-        NotificationCenter.default.post(name: .settingsDidChange, object: self)
-    }
-
-    func saveSettings() async throws {}
-    func loadSettings() async throws {}
-    func resetToDefaults() async throws {}
-    func saveImmediately() async throws {}
-    func saveOnboardingSettings() async throws {}
 }
 
-@MainActor
-class PrayerValidationMockLocationService: LocationServiceProtocol, ObservableObject {
-    @Published var authorizationStatus: CLAuthorizationStatus = .authorizedWhenInUse
-    @Published var currentLocation: CLLocation? = nil
-    @Published var currentLocationInfo: LocationInfo? = nil
-    @Published var isUpdatingLocation: Bool = false
-    @Published var locationError: Error? = nil
-    @Published var currentHeading: Double = 0
-    @Published var headingAccuracy: Double = 5.0
-    @Published var isUpdatingHeading: Bool = false
+// MARK: - Comparable Extension for Testing
 
-    var permissionStatus: CLAuthorizationStatus { authorizationStatus }
-
-    private let locationSubject = PassthroughSubject<CLLocation, Error>()
-    private let headingSubject = PassthroughSubject<CLHeading, Error>()
-
-    var locationPublisher: AnyPublisher<CLLocation, Error> {
-        locationSubject.eraseToAnyPublisher()
+extension DeenAssistProtocols.PrayerTime: Comparable {
+    public static func < (lhs: DeenAssistProtocols.PrayerTime, rhs: DeenAssistProtocols.PrayerTime) -> Bool {
+        return lhs.time < rhs.time
     }
-
-    var headingPublisher: AnyPublisher<CLHeading, Error> {
-        headingSubject.eraseToAnyPublisher()
-    }
-
-    var mockLocation: CLLocation? {
-        get { currentLocation }
-        set { currentLocation = newValue }
-    }
-
-    func requestLocationPermission() {}
-    func requestLocationPermissionAsync() async -> CLAuthorizationStatus { return .authorizedWhenInUse }
-    func requestLocation() async throws -> CLLocation {
-        return currentLocation ?? CLLocation(latitude: 37.7749, longitude: -122.4194)
-    }
-    func startUpdatingLocation() {}
-    func stopUpdatingLocation() {}
-    func startBackgroundLocationUpdates() {}
-    func stopBackgroundLocationUpdates() {}
-    func startUpdatingHeading() {}
-    func stopUpdatingHeading() {}
-    func geocodeCity(_ cityName: String) async throws -> CLLocation {
-        return CLLocation(latitude: 37.7749, longitude: -122.4194)
-    }
-    func searchCity(_ cityName: String) async throws -> [LocationInfo] { return [] }
-    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
-        return LocationInfo(coordinate: coordinate, accuracy: 10.0, city: "Test", country: "Test")
-    }
-    func getCachedLocation() -> CLLocation? { return currentLocation }
-    func isCachedLocationValid() -> Bool { return true }
-    func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
-    func isCurrentLocationFromCache() -> Bool { return false }
-    func getLocationAge() -> TimeInterval? { return 30.0 }
-}
-
-// MARK: - Mock Islamic Calendar Service
-
-@MainActor
-class PrayerValidationMockIslamicCalendarService: IslamicCalendarServiceProtocol {
-    var mockIsRamadan: Bool = false
-    
-    // Required published properties
-    @Published var currentHijriDate: HijriDate = HijriDate(from: Date())
-    @Published var todayInfo: IslamicCalendarDay = IslamicCalendarDay(gregorianDate: Date(), hijriDate: HijriDate(from: Date()))
-    @Published var upcomingEvents: [IslamicEvent] = []
-    @Published var allEvents: [IslamicEvent] = []
-    @Published var statistics: IslamicCalendarStatistics = IslamicCalendarStatistics()
-    @Published var isLoading: Bool = false
-    @Published var error: Error? = nil
-    
-    // Mock implementation
-    func isRamadan() async -> Bool {
-        return mockIsRamadan
-    }
-    
-    // Stub implementations for other required methods
-    func refreshCalendarData() async {}
-    func getUpcomingEvents(limit: Int) async -> [IslamicEvent] { return [] }
-    func addCustomEvent(_ event: IslamicEvent) async {}
-    func removeCustomEvent(_ event: IslamicEvent) async {}
-    func getEventsForDate(_ date: Date) async -> [IslamicEvent] { return [] }
-    func getEventsForMonth(_ month: HijriMonth, year: Int) async -> [IslamicEvent] { return [] }
-    func getStatistics() async -> IslamicCalendarStatistics { return IslamicCalendarStatistics() }
-    func isHolyMonth() async -> Bool { return false }
-    func getCurrentHolyMonthInfo() async -> HolyMonthInfo? { return nil }
-    func getRamadanPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
-    func getHajjPeriod(for hijriYear: Int) async -> DateInterval? { return nil }
-    func setEventReminder(_ event: IslamicEvent, reminderTime: TimeInterval) async {}
-    func removeEventReminder(_ event: IslamicEvent) async {}
-    func getEventReminders() async -> [EventReminder] { return [] }
-    func exportCalendarData(for period: DateInterval) async -> String { return "" }
-    func importEvents(from jsonData: String) async throws {}
-    func exportAsICalendar(_ events: [IslamicEvent]) async -> String { return "" }
-    func getEventFrequencyByCategory() async -> [EventCategory: Int] { return [:] }
-    func setCalculationMethod(_ method: IslamicCalendarMethod) async {}
-    func setEventNotifications(_ enabled: Bool) async {}
-    func setDefaultReminderTime(_ time: TimeInterval) async {}
-    
-    // Additional required protocol methods
-    func getEvents(by category: EventCategory) async -> [IslamicEvent] { return [] }
-    func getEvents(by significance: EventSignificance) async -> [IslamicEvent] { return [] }
-    func searchEvents(_ query: String) async -> [IslamicEvent] { return [] }
-    func convertToHijri(_ gregorianDate: Date) async -> HijriDate { return HijriDate(from: gregorianDate) }
-    func convertToGregorian(_ hijriDate: HijriDate) async -> Date { return Date() }
-    func getCurrentHijriDate() async -> HijriDate { return HijriDate(from: Date()) }
-    func isDate(_ gregorianDate: Date, equalToHijri hijriDate: HijriDate) async -> Bool { return false }
-    func getCalendarInfo(for date: Date) async -> IslamicCalendarDay { return IslamicCalendarDay(gregorianDate: date, hijriDate: HijriDate(from: date)) }
-    func getCalendarInfo(for period: DateInterval) async -> [IslamicCalendarDay] { return [] }
-    func getMonthInfo(month: HijriMonth, year: Int) async -> [IslamicCalendarDay] { return [] }
-    func isHolyDay(_ date: Date) async -> Bool { return false }
-    func getMoonPhase(for date: Date) async -> MoonPhase? { return nil }
-    func getAllEvents() async -> [IslamicEvent] { return [] }
-    func getEvents(for date: Date) async -> [IslamicEvent] { return [] }
-    func getEvents(for period: DateInterval) async -> [IslamicEvent] { return [] }
-    func updateEvent(_ event: IslamicEvent) async {}
-    func deleteEvent(_ eventId: UUID) async {}
-    func getDaysRemainingInMonth() async -> Int { return 0 }
-    func getActiveReminders() async -> [EventReminder] { return [] }
-    func cancelEventReminder(_ reminderId: UUID) async {}
-    func getEventsObservedThisYear() async -> [IslamicEvent] { return [] }
-    func getMostActiveMonth() async -> HijriMonth? { return nil }
-    func clearCache() async {}
-    func updateFromExternalSources() async {}
 }

@@ -169,6 +169,52 @@ public class APICache: APICacheProtocol {
             print("✅ APICache: Cleared \(clearedCount) prayer time cache entries")
         }
     }
+
+    /// Clear prayer time cache for specific calculation method and madhab
+    /// This is used when settings change to only invalidate cache for the new method/madhab combination
+    public func clearPrayerTimeCache(for calculationMethod: CalculationMethod, madhab: Madhab) {
+        queue.async(flags: .barrier) {
+            print("🗑️ Clearing APICache prayer time entries for method: \(calculationMethod.rawValue), madhab: \(madhab.rawValue)...")
+
+            let methodKey = calculationMethod.rawValue
+            let madhabKey = madhab.rawValue
+            let targetSuffix = "_\(methodKey)_\(madhabKey)"
+
+            // Clear UserDefaults prayer time cache for specific method/madhab
+            let keys = self.userDefaults.dictionaryRepresentation().keys
+            var clearedCount = 0
+
+            for key in keys {
+                if key.hasPrefix(CacheKeys.prayerTimesPrefix) && key.hasSuffix(targetSuffix) {
+                    self.userDefaults.removeObject(forKey: key)
+                    clearedCount += 1
+                }
+            }
+
+            // Clear file-based prayer time cache for specific method/madhab
+            let metadata = self.getCacheMetadata()
+            var updatedMetadata = metadata
+
+            for (key, _) in metadata {
+                if key.hasPrefix(CacheKeys.prayerTimesPrefix) && key.hasSuffix(targetSuffix) {
+                    // Remove from file system
+                    let fileURL = self.cacheDirectory.appendingPathComponent(key.replacingOccurrences(of: ".", with: "_"))
+                    try? self.fileManager.removeItem(at: fileURL)
+
+                    // Remove from metadata
+                    updatedMetadata.removeValue(forKey: key)
+                    clearedCount += 1
+                }
+            }
+
+            // Update metadata
+            if let data = try? JSONEncoder().encode(updatedMetadata) {
+                self.userDefaults.set(data, forKey: CacheKeys.cacheMetadata)
+            }
+
+            print("✅ APICache: Cleared \(clearedCount) prayer time cache entries for \(methodKey)/\(madhabKey)")
+        }
+    }
     
     public func getCacheSize() -> Int64 {
         return queue.sync {

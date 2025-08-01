@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 // MARK: - Prayer Time Models
 
@@ -155,6 +156,88 @@ public enum CalculationMethod: String, CaseIterable, Codable, Identifiable, Send
             return "Ja'fari method with 17.7°/14° angles (Tehran Institute of Geophysics)"
         case .fcnaCanada:
             return "Fiqh Council of North America method for Canada (13°/13°)"
+        }
+    }
+    
+    // MARK: - UI Validation Methods
+    
+    /// Madhabs that are theologically compatible with this calculation method
+    public var compatibleMadhabs: [Madhab] {
+        switch self {
+        case .jafariTehran:
+            return [.jafari] // Only Ja'fari to prevent double-parameter application
+        case .karachi:
+            return [.hanafi, .shafi, .jafari] // Designed for Hanafi but allow others with warning
+        case .jafariLeva:
+            return [.jafari] // Ja'fari specific method
+        default:
+            return Madhab.allCases // Other methods are madhab-neutral
+        }
+    }
+    
+    /// The preferred/designed madhab for this calculation method
+    public var preferredMadhab: Madhab? {
+        switch self {
+        case .jafariTehran: return .jafari
+        case .jafariLeva: return .jafari
+        case .karachi: return .hanafi
+        default: return nil // Method is madhab-neutral
+        }
+    }
+    
+    /// Whether this calculation method is compatible with the given madhab
+    public func isCompatible(with madhab: Madhab) -> Bool {
+        return compatibleMadhabs.contains(madhab)
+    }
+    
+    /// Compatibility status for UI display
+    public func compatibilityStatus(with madhab: Madhab) -> MethodMadhabCompatibility {
+        if !isCompatible(with: madhab) {
+            return .incompatible
+        }
+        
+        if let preferred = preferredMadhab, preferred == madhab {
+            return .recommended
+        }
+        
+        if preferredMadhab != nil && preferredMadhab != madhab {
+            return .compatible
+        }
+        
+        return .neutral
+    }
+}
+
+/// Represents the compatibility status between a calculation method and madhab
+public enum MethodMadhabCompatibility {
+    case recommended    // Perfect match (e.g., Tehran IOG + Ja'fari)
+    case compatible     // Acceptable but not ideal (e.g., Karachi + Shafi)
+    case neutral        // Method is madhab-neutral (e.g., Muslim World League + any)
+    case incompatible   // Invalid combination (none currently, but future-proofing)
+    
+    public var displayColor: Color {
+        switch self {
+        case .recommended: return .green
+        case .compatible: return .orange
+        case .neutral: return .blue
+        case .incompatible: return .red
+        }
+    }
+    
+    public var displayText: String {
+        switch self {
+        case .recommended: return "Recommended"
+        case .compatible: return "Compatible"
+        case .neutral: return "Neutral"
+        case .incompatible: return "Not Compatible"
+        }
+    }
+    
+    public var warningMessage: String? {
+        switch self {
+        case .recommended, .neutral: return nil
+        case .compatible: return "This combination works but may not follow the method's intended madhab"
+        case .incompatible: return "This combination may produce inaccurate prayer times"
         }
     }
 }

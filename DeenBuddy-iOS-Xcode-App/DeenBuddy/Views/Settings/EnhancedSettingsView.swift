@@ -109,11 +109,23 @@ public struct EnhancedSettingsView: View {
                 // Widget & Live Activities Section
                 Section("Widget & Live Activities") {
                     SettingsToggle(
-                        icon: "textformat.arabic",
+                        icon: "textformat",
                         title: "Show Arabic Symbol",
                         description: "Display 'الله' in widgets and Live Activities",
                         isOn: $settingsService.showArabicSymbolInWidget
                     )
+                    
+                    if #available(iOS 16.1, *) {
+                        SettingsToggle(
+                            icon: "apps.iphone",
+                            title: "Live Activities",
+                            description: "Show prayer countdown in Dynamic Island and Lock Screen. Enable in Settings > Face ID & Passcode > Allow Access When Locked",
+                            isOn: Binding(
+                                get: { settingsService.liveActivitiesEnabled },
+                                set: { settingsService.liveActivitiesEnabled = $0 }
+                            )
+                        )
+                    }
                 }
 
                 // About Section
@@ -154,6 +166,7 @@ public struct EnhancedSettingsView: View {
         .sheet(isPresented: $showingCalculationMethodPicker) {
             CalculationMethodPickerView(
                 selectedMethod: settingsService.calculationMethod,
+                selectedMadhab: settingsService.madhab,
                 onMethodSelected: { method in
                     settingsService.calculationMethod = method
                     showingCalculationMethodPicker = false
@@ -163,6 +176,7 @@ public struct EnhancedSettingsView: View {
         .sheet(isPresented: $showingMadhabPicker) {
             MadhabPickerView(
                 selectedMadhab: settingsService.madhab,
+                calculationMethod: settingsService.calculationMethod,
                 onMadhabSelected: { madhab in
                     settingsService.madhab = madhab
                     showingMadhabPicker = false

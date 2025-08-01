@@ -6,10 +6,16 @@ public struct PrayerTimeCard: View {
     let status: PrayerStatus
     let isNext: Bool
     
+    @Environment(\.currentTheme) private var currentTheme
+    
     public init(prayer: PrayerTime, status: PrayerStatus, isNext: Bool = false) {
         self.prayer = prayer
         self.status = status
         self.isNext = isNext
+    }
+    
+    private var themeColors: ThemeAwareColorPalette {
+        ThemeAwareColorPalette(theme: currentTheme)
     }
     
     public var body: some View {
@@ -30,12 +36,18 @@ public struct PrayerTimeCard: View {
                     if isNext {
                         Text("NEXT")
                             .labelSmall()
-                            .foregroundColor(ColorPalette.accent)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(themeColors.nextPrayerHighlight)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
                             .background(
-                                Capsule()
-                                    .fill(ColorPalette.accent.opacity(0.1))
+                                ZStack {
+                                    Capsule()
+                                        .fill(themeColors.nextPrayerHighlight.opacity(0.12))
+                                    
+                                    Capsule()
+                                        .stroke(themeColors.nextPrayerHighlight.opacity(0.2), lineWidth: 0.5)
+                                }
                             )
                             .pulseAnimation(isActive: isNext)
                     }
@@ -66,14 +78,54 @@ public struct PrayerTimeCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isNext ? ColorPalette.accent : Color.clear, lineWidth: 2)
-                .appAnimation(AppAnimations.smooth, value: isNext)
+            ZStack {
+                // Base card background
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ColorPalette.surfacePrimary)
+                
+                // Enhanced background for next prayer
+                if isNext {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    themeColors.nextPrayerHighlight.opacity(0.08),
+                                    themeColors.nextPrayerHighlight.opacity(0.04)
+                                ]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                
+                // Subtle inner border for next prayer
+                if isNext {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    themeColors.nextPrayerHighlight.opacity(0.3),
+                                    themeColors.nextPrayerHighlight.opacity(0.1)
+                                ]),
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                }
+            }
+            .shadow(
+                color: isNext ? themeColors.nextPrayerHighlight.opacity(0.15) : Color.black.opacity(0.04),
+                radius: isNext ? 8 : 4,
+                x: 0,
+                y: isNext ? 4 : 2
+            )
+            .shadow(
+                color: Color.black.opacity(0.02),
+                radius: 2,
+                x: 0,
+                y: 1
+            )
         )
         .scaleEffect(isNext ? 1.02 : 1.0)
         .appAnimation(AppAnimations.smoothSpring, value: isNext)
@@ -96,7 +148,7 @@ public struct PrayerTimeCard: View {
     
     private var statusColor: Color {
         if isNext {
-            return ColorPalette.accent
+            return themeColors.nextPrayerHighlight
         }
         return Color.prayerStatus(status)
     }

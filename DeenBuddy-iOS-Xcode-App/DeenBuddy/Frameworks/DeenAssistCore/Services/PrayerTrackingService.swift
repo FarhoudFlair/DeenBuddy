@@ -471,13 +471,14 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
         
         let currentStreak = calculateStreakForPrayer(prayer)
         let longestStreak = calculateLongestStreakForPrayer(prayer)
+        let isActive = currentStreak > 0
         
         return PrayerStreak(
             current: currentStreak,
             longest: longestStreak,
             startDate: calculateStreakStartDate(for: prayer),
-            endDate: prayerEntries.last?.completedAt,
-            isActive: currentStreak > 0
+            endDate: isActive ? nil : prayerEntries.last?.completedAt, // endDate should be nil for active streaks
+            isActive: isActive
         )
     }
     
@@ -552,17 +553,97 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     }
     
     private func calculateStreakForPrayer(_ prayer: Prayer) -> Int {
-        // Simplified implementation
-        return recentEntries.filter { $0.prayer == prayer }.count
+        let calendar = Calendar.current
+        let prayerEntries = recentEntries.filter { $0.prayer == prayer }
+            .sorted { $0.completedAt < $1.completedAt }
+        
+        guard !prayerEntries.isEmpty else { return 0 }
+        
+        var streak = 0
+        var currentDate = calendar.startOfDay(for: Date())
+        
+        // Work backwards from today to find consecutive days with this prayer
+        while true {
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+            let dayEntries = prayerEntries.filter { entry in
+                entry.completedAt >= currentDate && entry.completedAt < nextDay
+            }
+            
+            if dayEntries.isEmpty {
+                break
+            }
+            
+            streak += 1
+            currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!
+        }
+        
+        return streak
     }
     
     private func calculateLongestStreakForPrayer(_ prayer: Prayer) -> Int {
-        // Simplified implementation
-        return calculateStreakForPrayer(prayer)
+        let calendar = Calendar.current
+        let prayerEntries = recentEntries.filter { $0.prayer == prayer }
+            .sorted { $0.completedAt < $1.completedAt }
+        
+        guard !prayerEntries.isEmpty else { return 0 }
+        
+        // Group entries by day
+        var daysCounted = Set<Date>()
+        for entry in prayerEntries {
+            let dayStart = calendar.startOfDay(for: entry.completedAt)
+            daysCounted.insert(dayStart)
+        }
+        
+        let sortedDays = daysCounted.sorted()
+        guard !sortedDays.isEmpty else { return 0 }
+        
+        var longestStreak = 1
+        var currentStreak = 1
+        
+        // Calculate longest consecutive streak
+        for i in 1..<sortedDays.count {
+            let previousDay = sortedDays[i-1]
+            let currentDay = sortedDays[i]
+            
+            // Check if days are consecutive
+            if let nextDay = calendar.date(byAdding: .day, value: 1, to: previousDay),
+               calendar.isDate(nextDay, inSameDayAs: currentDay) {
+                currentStreak += 1
+                longestStreak = max(longestStreak, currentStreak)
+            } else {
+                currentStreak = 1
+            }
+        }
+        
+        return longestStreak
     }
     
     private func calculateStreakStartDate(for prayer: Prayer) -> Date? {
-        return recentEntries.first { $0.prayer == prayer }?.completedAt
+        let calendar = Calendar.current
+        let prayerEntries = recentEntries.filter { $0.prayer == prayer }
+            .sorted { $0.completedAt < $1.completedAt }
+        
+        guard !prayerEntries.isEmpty else { return nil }
+        
+        var currentDate = calendar.startOfDay(for: Date())
+        var streakStartDate: Date?
+        
+        // Work backwards from today to find the start of current streak
+        while true {
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDate)!
+            let dayEntries = prayerEntries.filter { entry in
+                entry.completedAt >= currentDate && entry.completedAt < nextDay
+            }
+            
+            if dayEntries.isEmpty {
+                break
+            }
+            
+            streakStartDate = currentDate
+            currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!
+        }
+        
+        return streakStartDate
     }
     
     private func checkForNewAchievements(entry: PrayerEntry) async {
@@ -894,17 +975,44 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     }
 
     private func calculateGoalProgress(for goal: PrayerGoal) -> PrayerGoalProgress {
-        // Simplified implementation
-        let completedCount = recentEntries.filter { entry in
-            goal.prayers.contains(entry.prayer) && entry.completedAt >= goal.startDate
-        }.count
-
-        let progress = min(Double(completedCount) / goal.targetValue, 1.0)
-
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // Filter entries within goal timeframe
+        let relevantEntries = recentEntries.filter { entry in
+            goal.prayers.contains(entry.prayer) && 
+            entry.completedAt >= goal.startDate &&
+            entry.completedAt <= min(goal.endDate, now)
+        }
+        
+        let completedCount = relevantEntries.count
+        
+        // Calculate completed days based on goal type
+        let completedDays: Int
+        switch goal.type {
+        case .streak, .consistency, .dailyCompletion:
+            // Count unique days with prayer completions
+            let uniqueDays = Set(relevantEntries.map { 
+                calendar.startOfDay(for: $0.completedAt) 
+            })
+            completedDays = uniqueDays.count
+            
+        case .weeklyCompletion:
+            // Count complete weeks
+            let uniqueWeeks = Set(relevantEntries.map { 
+                calendar.dateInterval(of: .weekOfYear, for: $0.completedAt)?.start ?? $0.completedAt
+            })
+            completedDays = uniqueWeeks.count * 7 // Convert weeks to days for consistency
+            
+        case .totalPrayers, .onTimePercentage, .congregationPercentage:
+            // For these types, days aren't as relevant
+            completedDays = 0
+        }
+        
         return PrayerGoalProgress(
             goal: goal,
             completedPrayers: completedCount,
-            completedDays: 0 // Simplified for now
+            completedDays: completedDays
         )
     }
 }

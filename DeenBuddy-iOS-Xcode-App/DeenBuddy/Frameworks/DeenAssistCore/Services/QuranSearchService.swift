@@ -1,6 +1,23 @@
 import Foundation
 import Combine
 
+/// Actor to handle thread-safe initialization
+private actor InitializationActor {
+    private var isInitializing = false
+    
+    func checkAndSetInitializing() -> Bool {
+        if isInitializing {
+            return false // Already initializing
+        }
+        isInitializing = true
+        return true // Can proceed with initialization
+    }
+    
+    func resetInitializing() {
+        isInitializing = false
+    }
+}
+
 /// Custom errors for QuranSearchService
 public enum QuranSearchError: LocalizedError {
     case duplicateKey(String)
@@ -23,7 +40,6 @@ public enum QuranSearchError: LocalizedError {
 }
 
 /// Comprehensive Quran search service with advanced search capabilities
-@MainActor
 public class QuranSearchService: ObservableObject {
     
     // MARK: - Singleton
@@ -57,7 +73,10 @@ public class QuranSearchService: ObservableObject {
     
     // MARK: - Thread Safety
     private var isInitializing = false
-    private let initializationLock = NSLock()
+    private let initializationActor = InitializationActor()
+    
+    // MARK: - Search Cancellation
+    private var currentSearchTask: Task<Void, Error>?
 
     // MARK: - Cache Keys
 
@@ -74,127 +93,155 @@ public class QuranSearchService: ObservableObject {
     private init() {
         loadSearchHistory()
         loadBookmarkedVerses()
-        loadCompleteQuranData()
+        // Data loading will be triggered lazily when needed
     }
 
     // MARK: - Complete Quran Data Loading
 
+    /// Ensure data is loaded before performing operations
+    private func ensureDataLoaded() {
+        guard !isDataLoaded && !isInitializing else { return }
+        loadCompleteQuranData()
+    }
+
     /// Load complete Quran data from API or cache with thread safety
     private func loadCompleteQuranData() {
-        initializationLock.lock()
-        defer {
-            initializationLock.unlock()
-        }
-
-        // Prevent multiple concurrent initializations
-        guard !isInitializing else {
-            print("🔧 DEBUG: Data loading already in progress, skipping duplicate initialization")
-            return
-        }
-
-        isInitializing = true
-        // Ensure isInitializing is always reset safely, regardless of how the method exits
-        defer {
-            initializationLock.lock()
-            isInitializing = false
-            initializationLock.unlock()
-        }
-
-        print("🔧 DEBUG: Starting loadCompleteQuranData()")
-
-        Task { @MainActor in
-            isBackgroundLoading = true
-            loadingProgress = 0.0
-        }
-
-        // First try to load from cache
-        if let cachedData = loadCachedQuranData() {
-            print("📚 Loading Quran data from cache...")
-            print("🔧 DEBUG: Cached data contains \(cachedData.count) verses")
-            self.allVerses = cachedData
-            self.allSurahs = createSurahsFromVerses(cachedData)
-            self.isDataLoaded = true
-            self.isBackgroundLoading = false
-            self.loadingProgress = 1.0
-
-            // Validate cached data
-            let validation = QuranDataValidator.validateQuranData(cachedData)
-            self.dataValidationResult = validation
-
-            if validation.isValid {
-                print("✅ Cached Quran data validation passed")
-                print("🔧 DEBUG: Cache validation successful, allVerses.count = \(self.allVerses.count)")
+        Task.detached { [weak self] in
+            guard let self = self else { return }
+            
+            // Use actor for thread-safe initialization check
+            let canInitialize = await self.initializationActor.checkAndSetInitializing()
+            guard canInitialize else {
+                print("🔧 DEBUG: Data loading already in progress, skipping duplicate initialization")
                 return
-            } else {
-                print("⚠️ Cached data validation failed, fetching fresh data...")
-                print("🔧 DEBUG: Cache validation failed - \(validation.summary)")
             }
-        } else {
-            print("🔧 DEBUG: No cached data found, will fetch from API")
-        }
 
-        // Fetch fresh data from API
-        fetchCompleteQuranFromAPI()
+            // Ensure initialization is always reset
+            defer {
+                Task {
+                    await self.initializationActor.resetInitializing()
+                }
+            }
+
+            print("🔧 DEBUG: Starting loadCompleteQuranData() on background thread")
+
+            // Update UI state on main thread
+            await MainActor.run {
+                self.isBackgroundLoading = true
+                self.loadingProgress = 0.0
+            }
+
+            // First try to load from cache (on background thread)
+            if let cachedData = self.loadCachedQuranData() {
+                print("📚 Loading Quran data from cache...")
+                print("🔧 DEBUG: Cached data contains \(cachedData.count) verses")
+                
+                // Process data on background thread
+                let surahs = self.createSurahsFromVerses(cachedData)
+                let validation = QuranDataValidator.validateQuranData(cachedData)
+
+                // Update UI on main thread
+                await MainActor.run {
+                    self.allVerses = cachedData
+                    self.allSurahs = surahs
+                    self.isDataLoaded = true
+                    self.isBackgroundLoading = false
+                    self.loadingProgress = 1.0
+                    self.dataValidationResult = validation
+                }
+
+                if validation.isValid {
+                    print("✅ Cached Quran data validation passed")
+                    print("🔧 DEBUG: Cache validation successful, allVerses.count = \(cachedData.count)")
+                    return
+                } else {
+                    print("⚠️ Cached data validation failed, fetching fresh data...")
+                    print("🔧 DEBUG: Cache validation failed - \(validation.summary)")
+                }
+            } else {
+                print("🔧 DEBUG: No cached data found, will fetch from API")
+            }
+
+            // Fetch fresh data from API
+            await self.fetchCompleteQuranFromAPI()
+        }
     }
 
     /// Fetch complete Quran data from external API
-    private func fetchCompleteQuranFromAPI() {
+    private func fetchCompleteQuranFromAPI() async {
         print("🌐 Fetching complete Quran data from Al-Quran Cloud API...")
-        loadingProgress = 0.1
+        
+        await MainActor.run {
+            self.loadingProgress = 0.1
+        }
 
-        quranAPIService.fetchCompleteQuranCombined()
-            .retry(3) // Retry up to 3 times on failure
-            .receive(on: DispatchQueue.main)
-            .sink(
-                receiveCompletion: { [weak self] completion in
-                    switch completion {
-                    case .finished:
-                        print("✅ Successfully loaded complete Quran data")
-                        self?.isBackgroundLoading = false
-                        self?.loadingProgress = 1.0
-                        // isInitializing will be reset by defer block in loadCompleteQuranData()
-                    case .failure(let error):
-                        print("❌ Failed to load Quran data after retries: \(error)")
-                        self?.error = error
-                        self?.isBackgroundLoading = false
-                        self?.loadingProgress = 0.0
-                        // isInitializing will be reset by defer block in loadCompleteQuranData()
-                        // Fallback to sample data if API fails
-                        self?.loadFallbackSampleData()
-                    }
-                },
-                receiveValue: { [weak self] verses in
-                    self?.loadingProgress = 0.8
+        do {
+            // Use async/await with withCheckedThrowingContinuation for Combine publisher
+            let verses = try await withCheckedThrowingContinuation { continuation in
+                quranAPIService.fetchCompleteQuranCombined()
+                    .retry(3)
+                    .sink(
+                        receiveCompletion: { completion in
+                            switch completion {
+                            case .finished:
+                                break
+                            case .failure(let error):
+                                continuation.resume(throwing: error)
+                            }
+                        },
+                        receiveValue: { verses in
+                            continuation.resume(returning: verses)
+                        }
+                    )
+                    .store(in: &self.cancellables)
+            }
+            
+            await MainActor.run {
+                self.loadingProgress = 0.8
+            }
+            
+            print("🔧 DEBUG: Received \(verses.count) verses from API")
 
-                    print("🔧 DEBUG: Received \(verses.count) verses from API")
+            // Validate the received data on background thread
+            let validation = QuranDataValidator.validateQuranData(verses)
+            print(validation.summary)
 
-                    // Validate the received data
-                    let validation = QuranDataValidator.validateQuranData(verses)
-                    self?.dataValidationResult = validation
+            if validation.isValid {
+                // Process data on background thread
+                let surahs = self.createSurahsFromVerses(verses)
+                
+                // Cache the data for future use
+                self.cacheQuranData(verses)
 
-                    print(validation.summary)
-
-                    if validation.isValid {
-                        // Store complete data
-                        self?.allVerses = verses
-                        self?.allSurahs = self?.createSurahsFromVerses(verses) ?? []
-                        self?.isDataLoaded = true
-
-                        // Cache the data for future use
-                        self?.cacheQuranData(verses)
-
-                        print("🎉 Complete Quran data loaded successfully!")
-                        print("📊 Total verses: \(verses.count)")
-                        print("📊 Total surahs: \(Set(verses.map { $0.surahNumber }).count)")
-                    } else {
-                        print("⚠️ Data validation failed, using fallback data")
-                        self?.loadFallbackSampleData()
-                    }
-
-                    self?.loadingProgress = 1.0
+                // Update UI on main thread
+                await MainActor.run {
+                    self.allVerses = verses
+                    self.allSurahs = surahs
+                    self.isDataLoaded = true
+                    self.dataValidationResult = validation
+                    self.isBackgroundLoading = false
+                    self.loadingProgress = 1.0
                 }
-            )
-            .store(in: &cancellables)
+
+                print("🎉 Complete Quran data loaded successfully!")
+                print("📊 Total verses: \(verses.count)")
+                print("📊 Total surahs: \(Set(verses.map { $0.surahNumber }).count)")
+            } else {
+                print("⚠️ Data validation failed, using fallback data")
+                await self.loadFallbackSampleData()
+            }
+        } catch {
+            print("❌ Failed to load Quran data after retries: \(error)")
+            
+            await MainActor.run {
+                self.error = error
+                self.isBackgroundLoading = false
+                self.loadingProgress = 0.0
+            }
+            
+            // Fallback to sample data if API fails
+            await self.loadFallbackSampleData()
+        }
     }
 
     // MARK: - Data Caching
@@ -261,26 +308,32 @@ public class QuranSearchService: ObservableObject {
     }
 
     /// Fallback to sample data if API fails
-    private func loadFallbackSampleData() {
+    private func loadFallbackSampleData() async {
         print("⚠️ Loading fallback sample data...")
         print("🔧 DEBUG: Creating sample verses...")
-        allVerses = createSampleVerses()
-        allSurahs = createSampleSurahs()
-        isDataLoaded = true
+        
+        // Create sample data on background thread
+        let sampleVerses = createSampleVerses()
+        let sampleSurahs = createSampleSurahs()
+        let validation = QuranDataValidator.validateQuranData(sampleVerses)
 
-        print("🔧 DEBUG: Sample data created - \(allVerses.count) verses, \(allSurahs.count) surahs")
-
-        // Validate sample data
-        let validation = QuranDataValidator.validateQuranData(allVerses)
-        dataValidationResult = validation
+        print("🔧 DEBUG: Sample data created - \(sampleVerses.count) verses, \(sampleSurahs.count) surahs")
         print("📊 Sample data validation: \(validation.isValid ? "✅ PASSED" : "❌ FAILED")")
         
         // Log some sample verses for debugging
-        for (index, verse) in allVerses.prefix(3).enumerated() {
+        for (index, verse) in sampleVerses.prefix(3).enumerated() {
             print("🔧 DEBUG: Sample verse \(index + 1): \(verse.shortReference) - \(verse.textTranslation.prefix(50))...")
         }
 
-        // isInitializing will be reset by defer block in loadCompleteQuranData()
+        // Update UI on main thread
+        await MainActor.run {
+            self.allVerses = sampleVerses
+            self.allSurahs = sampleSurahs
+            self.isDataLoaded = true
+            self.dataValidationResult = validation
+            self.isBackgroundLoading = false
+            self.loadingProgress = 1.0
+        }
     }
 
     private func createSampleVerses() -> [QuranVerse] {
@@ -585,49 +638,92 @@ public class QuranSearchService: ObservableObject {
         
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             print("🔧 DEBUG: Empty query, returning empty results")
-            searchResults = []
-            enhancedSearchResults = []
+            await MainActor.run {
+                self.searchResults = []
+                self.enhancedSearchResults = []
+            }
             return
         }
         
-        isLoading = true
-        error = nil
-        lastQuery = query
+        // Cancel any existing search task
+        currentSearchTask?.cancel()
         
-        do {
-            // Add to search history
-            addToSearchHistory(query)
-            
-            // Perform search with slight delay to simulate processing
-            try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-            
-            // Use semantic search for enhanced results
-            let results = await performSemanticSearch(query: query, options: searchOptions)
-            print("🔧 DEBUG: performSemanticSearch returned \(results.count) results")
-            enhancedSearchResults = results.sorted { $0.combinedScore > $1.combinedScore }
-            
-            // Also maintain legacy results for backward compatibility
-            searchResults = results.map { enhancedResult in
-                QuranSearchResult(
-                    verse: enhancedResult.verse,
-                    relevanceScore: enhancedResult.relevanceScore,
-                    matchedText: enhancedResult.matchedText,
-                    matchType: enhancedResult.matchType,
-                    highlightedText: enhancedResult.highlightedText,
-                    contextSuggestions: enhancedResult.contextSuggestions
-                )
-            }
-            
-            print("🔧 DEBUG: Final search results count: \(searchResults.count)")
-            
-        } catch {
-            print("🔧 DEBUG: Search error: \(error)")
-            self.error = error
-            searchResults = []
-            enhancedSearchResults = []
+        // Trigger data loading if not already loaded
+        ensureDataLoaded()
+        
+        await MainActor.run {
+            self.isLoading = true
+            self.error = nil
+            self.lastQuery = query
         }
         
-        isLoading = false
+        // Create new search task
+        currentSearchTask = Task {
+            do {
+                // Check for cancellation before starting
+                try Task.checkCancellation()
+                
+                // Perform search with slight delay to simulate processing
+                try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                
+                // Check for cancellation after delay
+                try Task.checkCancellation()
+                
+                // Use semantic search for enhanced results
+                let results = await performSemanticSearch(query: query, options: searchOptions)
+                print("🔧 DEBUG: performSemanticSearch returned \(results.count) results")
+                
+                // Check for cancellation before updating results
+                try Task.checkCancellation()
+                
+                // Update results and search history on main thread
+                await MainActor.run {
+                    self.enhancedSearchResults = results.sorted { $0.combinedScore > $1.combinedScore }
+                    
+                    // Also maintain legacy results for backward compatibility
+                    self.searchResults = results.map { enhancedResult in
+                        QuranSearchResult(
+                            verse: enhancedResult.verse,
+                            relevanceScore: enhancedResult.relevanceScore,
+                            matchedText: enhancedResult.matchedText,
+                            matchType: enhancedResult.matchType,
+                            highlightedText: enhancedResult.highlightedText,
+                            contextSuggestions: enhancedResult.contextSuggestions
+                        )
+                    }
+                    
+                    // Add to search history AFTER search completion on main thread
+                    self.addToSearchHistory(query)
+                    self.isLoading = false
+                }
+                
+                print("🔧 DEBUG: Final search results count: \(self.searchResults.count)")
+                
+            } catch is CancellationError {
+                print("🔧 DEBUG: Search was cancelled for query: '\(query)'")
+                await MainActor.run {
+                    self.isLoading = false
+                }
+            } catch {
+                print("🔧 DEBUG: Search error: \(error)")
+                await MainActor.run {
+                    self.error = error
+                    self.searchResults = []
+                    self.enhancedSearchResults = []
+                    self.isLoading = false
+                }
+            }
+        }
+        
+        // Wait for the search task to complete
+        do {
+            try await currentSearchTask?.value
+        } catch is CancellationError {
+            // Cancellation is expected, don't treat as error
+            print("🔧 DEBUG: Search task cancelled")
+        } catch {
+            print("🔧 DEBUG: Search task error: \(error)")
+        }
     }
     
     /// Check for famous verse names first
@@ -801,11 +897,15 @@ public class QuranSearchService: ObservableObject {
     /// Generate real-time search suggestions
     public func generateSearchSuggestions(for partialQuery: String) {
         guard !partialQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            searchSuggestions = []
+            Task { @MainActor in
+                self.searchSuggestions = []
+            }
             return
         }
         
-        searchSuggestions = semanticEngine.getSearchSuggestions(for: partialQuery)
+        Task { @MainActor in
+            self.searchSuggestions = semanticEngine.getSearchSuggestions(for: partialQuery)
+        }
     }
     
     /// Get intelligent search suggestions based on context
@@ -836,17 +936,86 @@ public class QuranSearchService: ObservableObject {
     
     /// Search by Surah and verse reference (e.g., "2:255" or "Al-Baqarah 255")
     public func searchByReference(_ reference: String) async {
-        isLoading = true
-        error = nil
+        // Cancel any existing search task
+        currentSearchTask?.cancel()
         
-        let results = searchByVerseReference(reference)
-        searchResults = results
+        // Trigger data loading if not already loaded
+        ensureDataLoaded()
         
-        isLoading = false
+        await MainActor.run {
+            self.isLoading = true
+            self.error = nil
+            self.lastQuery = reference
+        }
+        
+        // Create new search task for reference search
+        currentSearchTask = Task {
+            do {
+                // Check for cancellation
+                try Task.checkCancellation()
+                
+                let results = searchByVerseReference(reference)
+                
+                // Check for cancellation before updating results
+                try Task.checkCancellation()
+                
+                await MainActor.run {
+                    self.searchResults = results
+                    // Convert to enhanced results for consistency
+                    self.enhancedSearchResults = results.map { result in
+                        EnhancedSearchResult(
+                            verse: result.verse,
+                            relevanceScore: result.relevanceScore,
+                            semanticScore: result.relevanceScore,
+                            matchedText: result.matchedText,
+                            matchType: result.matchType,
+                            highlightedText: result.highlightedText,
+                            contextSuggestions: result.contextSuggestions,
+                            queryExpansion: QueryExpansion(
+                                originalQuery: reference,
+                                expandedTerms: [],
+                                relatedConcepts: [],
+                                suggestions: []
+                            ),
+                            relatedVerses: []
+                        )
+                    }
+                    // Add to search history
+                    self.addToSearchHistory(reference)
+                    self.isLoading = false
+                }
+                
+            } catch is CancellationError {
+                print("🔧 DEBUG: Reference search was cancelled for: '\(reference)'")
+                await MainActor.run {
+                    self.isLoading = false
+                }
+            } catch {
+                print("🔧 DEBUG: Reference search error: \(error)")
+                await MainActor.run {
+                    self.error = error
+                    self.searchResults = []
+                    self.enhancedSearchResults = []
+                    self.isLoading = false
+                }
+            }
+        }
+        
+        // Wait for the search task to complete
+        do {
+            try await currentSearchTask?.value
+        } catch is CancellationError {
+            print("🔧 DEBUG: Reference search task cancelled")
+        } catch {
+            print("🔧 DEBUG: Reference search task error: \(error)")
+        }
     }
     
     /// Get verses from a specific Surah
     public func getVersesFromSurah(_ surahNumber: Int, verseRange: ClosedRange<Int>? = nil) -> [QuranVerse] {
+        // Trigger data loading if not already loaded
+        ensureDataLoaded()
+        
         let surahVerses = allVerses.filter { $0.surahNumber == surahNumber }
         
         if let range = verseRange {
@@ -858,6 +1027,9 @@ public class QuranSearchService: ObservableObject {
     
     /// Get all Surahs with basic information
     public func getAllSurahs() -> [QuranSurah] {
+        // Trigger data loading if not already loaded
+        ensureDataLoaded()
+        
         return allSurahs.sorted { $0.number < $1.number }
     }
     

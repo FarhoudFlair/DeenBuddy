@@ -12,6 +12,9 @@ struct QuranSearchView: View {
     @State private var showingHistory = false
     @State private var showingQueryExpansion = false
     
+    // Search debouncing and cancellation
+    @State private var searchTask: Task<Void, Never>?
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -390,14 +393,37 @@ struct QuranSearchView: View {
     // MARK: - Actions
     
     private func performSearch() {
-        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { 
+            // Clear results for empty search
+            searchService.searchResults = []
+            searchService.enhancedSearchResults = []
+            return 
+        }
         
-        Task {
+        // Cancel any existing search task
+        searchTask?.cancel()
+        
+        // Create new debounced search task
+        searchTask = Task {
+            // Debounce: wait 300ms before executing search
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+            } catch {
+                // Task was cancelled, which is expected behavior
+                return
+            }
+            
+            // Check if task was cancelled during sleep
+            guard !Task.isCancelled else { return }
+            
+            // Perform the actual search
+            let queryToSearch = searchText // Capture current value
+            
             // Check if it's a reference search (contains numbers and colons)
-            if searchText.contains(":") || searchText.range(of: #"\d+"#, options: .regularExpression) != nil {
-                await searchService.searchByReference(searchText)
+            if queryToSearch.contains(":") || queryToSearch.range(of: #"\d+"#, options: .regularExpression) != nil {
+                await searchService.searchByReference(queryToSearch)
             } else {
-                await searchService.searchVerses(query: searchText, searchOptions: searchOptions)
+                await searchService.searchVerses(query: queryToSearch, searchOptions: searchOptions)
             }
         }
     }

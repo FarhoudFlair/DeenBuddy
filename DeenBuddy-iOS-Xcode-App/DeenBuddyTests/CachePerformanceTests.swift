@@ -79,7 +79,7 @@ class CachePerformanceTests: XCTestCase {
         
         measure {
             for i in 0..<iterations {
-                let prayerTimes = createMockPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, method: "muslim_world_league")
+                let prayerTimes = createMockPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
                 
                 // Test caching performance
                 apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
@@ -90,11 +90,12 @@ class CachePerformanceTests: XCTestCase {
         }
     }
     
-    func testIslamicCacheManagerPerformance() {
+    @MainActor func testIslamicCacheManagerPerformance() throws {
         let iterations = 1000
         let date = Date()
         let location = CLLocation(latitude: 37.7749, longitude: -122.4194)
-        
+//        guard locationService.authorizationStatus == .authorized else {
+//            throw XCTSkip("Location permissions not available in test environment")
         measure {
             for i in 0..<iterations {
                 let schedule = createMockPrayerSchedule(for: date.addingTimeInterval(TimeInterval(i * 86400)))
@@ -229,7 +230,7 @@ class CachePerformanceTests: XCTestCase {
         // Measure memory usage during heavy cache operations
         measure(metrics: [XCTMemoryMetric()]) {
             for i in 0..<iterations {
-                let prayerTimes = createMockPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, method: "muslim_world_league")
+                let prayerTimes = createMockPrayerTimes(for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, method: CalculationMethod.muslimWorldLeague.rawValue)
                 
                 apiCache.cachePrayerTimes(prayerTimes, for: date.addingTimeInterval(TimeInterval(i * 86400)), location: location, calculationMethod: CalculationMethod.muslimWorldLeague, madhab: Madhab.shafi)
                 

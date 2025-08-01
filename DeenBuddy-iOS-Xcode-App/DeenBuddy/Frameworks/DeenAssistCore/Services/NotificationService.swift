@@ -183,6 +183,9 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
                 }
             }
         }
+        
+        // Update app badge count after scheduling notifications
+        await updateAppBadge()
     }
     
     /// Enhanced notification scheduling with per-prayer configuration
@@ -764,9 +767,10 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
             userInfo: ["prayer": prayer.rawValue, "timestamp": Date()]
         )
 
-        // Cancel any remaining notifications for this prayer
+        // Cancel any remaining notifications for this prayer and update badge
         Task {
             await cancelNotificationsForPrayer(prayer)
+            await updateBadgeForCompletedPrayer()
         }
     }
 
@@ -856,9 +860,10 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
             ]
         )
 
-        // Cancel any remaining notifications for this prayer
+        // Cancel any remaining notifications for this prayer and update badge
         Task {
             await cancelNotificationsForPrayer(prayer)
+            await updateBadgeForCompletedPrayer()
         }
     }
 
@@ -907,9 +912,10 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
 
         print("⏭️ User skipped \(prayer.displayName)")
 
-        // Cancel any remaining notifications for this prayer
+        // Cancel any remaining notifications for this prayer and update badge
         Task {
             await cancelNotificationsForPrayer(prayer)
+            await updateBadgeForCompletedPrayer()
         }
 
         // Post notification for analytics (but don't mark as completed)
@@ -959,6 +965,54 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
         }
     }
     #endif
+
+    // MARK: - Badge Management
+    
+    /// Update app badge count for prayer notifications
+    public func updateAppBadge() async {
+        // Get count of active prayer notifications
+        let pendingNotifications = await getPendingNotifications()
+        let upcomingPrayerCount = pendingNotifications.filter { notification in
+            // Only count prayer notifications that are coming up soon (within 24 hours)
+            let hoursUntil = notification.scheduledTime.timeIntervalSince(Date()) / 3600
+            return hoursUntil >= 0 && hoursUntil <= 24
+        }.count
+        
+        await setBadgeCount(upcomingPrayerCount)
+    }
+    
+    /// Set app badge count
+    private func setBadgeCount(_ count: Int) async {
+        #if DEBUG
+        if mockNotificationCenter != nil {
+            print("Mock: Set badge count to \(count)")
+            return
+        }
+        #endif
+        
+        await MainActor.run {
+            UIApplication.shared.applicationIconBadgeNumber = count
+        }
+        
+        print("📱 Updated app badge count to \(count)")
+    }
+    
+    /// Clear app badge
+    public func clearBadge() async {
+        await setBadgeCount(0)
+    }
+    
+    /// Update badge count when prayer is completed
+    public func updateBadgeForCompletedPrayer() async {
+        // Decrease badge count by 1 when a prayer is marked as completed
+        await MainActor.run {
+            let currentBadge = UIApplication.shared.applicationIconBadgeNumber
+            if currentBadge > 0 {
+                UIApplication.shared.applicationIconBadgeNumber = currentBadge - 1
+                print("📱 Decreased app badge count to \(currentBadge - 1) for completed prayer")
+            }
+        }
+    }
 
     // MARK: - Helper Methods
 

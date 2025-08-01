@@ -56,17 +56,17 @@ public struct SettingsScreen: View {
                 // Prayer Settings Section
                 Section("Prayer Settings") {
                     SettingsRow(
+                        icon: "clock.arrow.2.circlepath",
+                        title: "Madhab (Sect)",
+                        value: settingsService.madhab.displayName,
+                        action: { showingMadhabPicker = true }
+                    )
+                    
+                    SettingsRow(
                         icon: "globe.asia.australia.fill",
                         title: "Calculation Method",
                         value: settingsService.calculationMethod.displayName,
                         action: { showingCalculationMethodPicker = true }
-                    )
-                    
-                    SettingsRow(
-                        icon: "clock.arrow.2.circlepath",
-                        title: "Madhab (Asr Time)",
-                        value: settingsService.madhab.displayName,
-                        action: { showingMadhabPicker = true }
                     )
                 }
                 
@@ -156,6 +156,7 @@ public struct SettingsScreen: View {
         .sheet(isPresented: $showingCalculationMethodPicker) {
             CalculationMethodPickerView(
                 selectedMethod: settingsService.calculationMethod,
+                selectedMadhab: settingsService.madhab,
                 onMethodSelected: { method in
                     settingsService.calculationMethod = method
                     showingCalculationMethodPicker = false
@@ -165,6 +166,7 @@ public struct SettingsScreen: View {
         .sheet(isPresented: $showingMadhabPicker) {
             MadhabPickerView(
                 selectedMadhab: settingsService.madhab,
+                calculationMethod: settingsService.calculationMethod,
                 onMadhabSelected: { madhab in
                     settingsService.madhab = madhab
                     showingMadhabPicker = false

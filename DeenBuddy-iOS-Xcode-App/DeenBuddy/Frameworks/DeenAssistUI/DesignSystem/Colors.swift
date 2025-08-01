@@ -68,6 +68,9 @@ public extension Color {
     /// Accent gold color - for highlights and important elements
     static let accentGold = Color.islamicAccentGold
     
+    /// Next prayer highlight color - warmer, less yellow tone for Islamic theme
+    static let nextPrayerHighlight = Color.islamicNextPrayerHighlight
+    
     // MARK: - Semantic Colors
     
     /// Background colors - using ColorPalette instead
@@ -109,6 +112,7 @@ public extension Color {
     static let islamicPrimaryGreen = Color(red: 0.18, green: 0.49, blue: 0.20) // #2E7D32
     static let islamicSecondaryGreen = Color(red: 0.40, green: 0.73, blue: 0.42) // #66BB6A
     static let islamicAccentGold = Color(red: 1.0, green: 0.70, blue: 0.0) // #FFB300
+    static let islamicNextPrayerHighlight = Color(red: 0.80, green: 0.52, blue: 0.25) // #CC8540 - Warm amber tone
 
     /// Islamic Green Theme - Background Colors
     static let islamicBackgroundPrimary = Color(red: 0.996, green: 0.996, blue: 0.996) // #FEFEFE
@@ -182,6 +186,16 @@ public struct ThemeAwareColorPalette {
             return Color.accentGold
         case .islamicGreen:
             return Color.islamicAccentGold
+        }
+    }
+    
+    /// Next prayer highlight color - theme-aware
+    public var nextPrayerHighlight: Color {
+        switch theme {
+        case .dark:
+            return Color.accentGold
+        case .islamicGreen:
+            return Color.islamicNextPrayerHighlight
         }
     }
 

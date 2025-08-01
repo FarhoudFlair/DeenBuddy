@@ -49,6 +49,9 @@ public enum UnifiedSettingsKeys {
     /// Whether to show Arabic symbol in widget and Live Activities
     public static let showArabicSymbolInWidget = "DeenBuddy.Settings.ShowArabicSymbolInWidget"
     
+    /// Whether Live Activities are enabled for prayer countdowns
+    public static let liveActivitiesEnabled = "DeenBuddy.Settings.LiveActivitiesEnabled"
+    
     /// Last settings synchronization date
     public static let lastSyncDate = "DeenBuddy.Settings.LastSyncDate"
     

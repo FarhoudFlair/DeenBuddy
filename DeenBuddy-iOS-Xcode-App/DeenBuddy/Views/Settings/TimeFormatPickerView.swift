@@ -113,6 +113,7 @@ private class TimeFormatPreviewMockSettingsService: SettingsServiceProtocol, Obs
     @Published var hasCompletedOnboarding: Bool = false
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }

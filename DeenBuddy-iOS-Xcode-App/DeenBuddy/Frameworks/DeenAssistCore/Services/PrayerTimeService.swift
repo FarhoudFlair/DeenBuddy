@@ -3,6 +3,8 @@ import CoreLocation
 import Combine
 import Adhan
 import ActivityKit
+import WidgetKit
+import UIKit
 
 
 /// Real implementation of PrayerTimeServiceProtocol using AdhanSwift
@@ -30,8 +32,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     
     // MARK: - Private Properties
 
-    private let locationService: any LocationServiceProtocol
-    private let settingsService: any SettingsServiceProtocol
+    internal let locationService: any LocationServiceProtocol
+    internal let settingsService: any SettingsServiceProtocol
     private let apiClient: any APIClientProtocol
     private let errorHandler: ErrorHandler
     private let retryMechanism: RetryMechanism
@@ -42,6 +44,18 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private let userDefaults = UserDefaults.standard
     private let islamicCacheManager: IslamicCacheManager
     private let islamicCalendarService: any IslamicCalendarServiceProtocol
+    
+    // MARK: - Performance & Debouncing
+    private var widgetUpdateTask: Task<Void, Never>?
+    private let widgetUpdateDebounceInterval: TimeInterval = 1.0 // 1 second debounce
+    
+    // Request coordinator for managing duplicate requests
+    private let requestCoordinator = PrayerTimeRequestCoordinator()
+    
+    // Performance monitoring
+    private var lastPerformanceCheck = Date()
+    private var functionCallCount: [String: Int] = [:]
+    private let performanceCheckInterval: TimeInterval = 10.0 // Check every 10 seconds
     
     // MARK: - Cache Keys (Now using UnifiedSettingsKeys)
     // Note: CacheKeys enum removed - now using UnifiedSettingsKeys for consistency
@@ -72,6 +86,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // Cancel all tasks first
         updateNextPrayerTask?.cancel()
         updateNextPrayerTask = nil
+        widgetUpdateTask?.cancel()
+        widgetUpdateTask = nil
 
         // Cancel all Combine subscriptions
         cancellables.removeAll()
@@ -86,16 +102,26 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     // MARK: - Protocol Implementation
     
     public func calculatePrayerTimes(for location: CLLocation, date: Date) async throws -> [PrayerTime] {
-        return try await retryMechanism.executeWithRetry(
-            operation: {
-                return try await self.performPrayerTimeCalculation(for: location, date: date)
-            },
-            retryPolicy: .conservative,
-            operationId: "calculatePrayerTimes-\(date.timeIntervalSince1970)"
-        )
+        // Use request coordinator to prevent duplicate calculations
+        return try await requestCoordinator.requestPrayerTimes(
+            for: location,
+            date: date,
+            requestType: .general
+        ) { location, date in
+            // Delegate to retry mechanism for the actual calculation
+            return try await self.retryMechanism.executeWithRetry(
+                operation: {
+                    return try await self.performPrayerTimeCalculation(for: location, date: date)
+                },
+                retryPolicy: .conservative,
+                operationId: "calculatePrayerTimes-\(date.timeIntervalSince1970)"
+            )
+        }
     }
 
     private func performPrayerTimeCalculation(for location: CLLocation, date: Date) async throws -> [PrayerTime] {
+        // Track function calls for performance monitoring
+        trackFunctionCall("performPrayerTimeCalculation")
         isLoading = true
         error = nil
 
@@ -103,9 +129,35 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             isLoading = false
         }
 
+        // Validate calculation method and madhab compatibility
+        if !calculationMethod.isCompatible(with: madhab) {
+            logger.warning("⚠️ INCOMPATIBLE COMBINATION: \(calculationMethod.rawValue) method with \(madhab.rawValue) madhab")
+            logger.warning("   Designed for: \(calculationMethod.preferredMadhab?.rawValue ?? "Any madhab")")
+            logger.warning("   This may result in theologically incorrect prayer times")
+        }
+
         do {
             let coordinates = Coordinates(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
-            let dateComponents = Calendar.current.dateComponents([.year, .month, .day], from: date)
+            
+            // Create date components using proper timezone handling for the location
+            // The Adhan library expects dateComponents to represent the date in the local timezone
+            var calendar = Calendar(identifier: .gregorian)
+            
+            // For geographic locations, try to determine the appropriate timezone
+            let timeZone: TimeZone
+            if let locationTimeZone = await determineTimeZone(for: location) {
+                timeZone = locationTimeZone
+                logger.info("📍 Using determined timezone: \(timeZone.identifier) for location: \(location.coordinate)")
+            } else {
+                // Fallback to UTC to ensure consistent behavior
+                timeZone = TimeZone(secondsFromGMT: 0)!
+                logger.warning("⚠️ Using UTC timezone as fallback for location: \(location.coordinate)")
+            }
+            
+            calendar.timeZone = timeZone
+            let dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+            
+            logger.info("📅 Date components created: year=\(dateComponents.year ?? 0), month=\(dateComponents.month ?? 0), day=\(dateComponents.day ?? 0) in timezone \(timeZone.identifier)")
 
             // Convert app's CalculationMethod to Adhan.CalculationMethod
             let adhanMethod = calculationMethod.toAdhanMethod()
@@ -123,12 +175,14 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 logger.info("📐 CUSTOM PARAMETERS LOADED:")
                 logger.info("   🌅 Fajr Angle: \(params.fajrAngle)°")
                 logger.info("   🌙 Isha Angle: \(params.ishaAngle)°")
-                logger.info("   🌅 Maghrib Angle: \(params.maghribAngle)°")
+                logger.info("   🌅 Maghrib Angle: \(params.maghribAngle ?? 0.0)°")
                 logger.info("   ⏰ Isha Interval: \(params.ishaInterval) minutes")
                 logger.info("   📖 Method: \(params.method)")
                 logger.info("   🔄 Initial Madhab: \(params.madhab)")
             } else {
-                params = adhanMethod.params
+                // ULTIMATE FIX: Create a *new copy* of the parameters to prevent shared state.
+                // Adhan.CalculationMethod.params returns a reference to the same object, so we must copy it.
+                params = adhanMethod.params.copy()
             }
 
             // CRITICAL: Always set madhab AFTER parameter initialization to ensure Asr calculation priority
@@ -168,31 +222,78 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
             // Final validation to ensure madhab priority is maintained
             validateMadhabApplication(params: params, expectedMadhab: madhab)
 
+            // Validate inputs before calling Adhan library
+            try validateAdhanInputs(location: location, dateComponents: dateComponents, params: params)
+
             // DEBUG: Final parameter check just before Adhan library call
             logger.info("🎯 FINAL PARAMETERS BEFORE ADHAN LIBRARY:")
             logger.info("   🌅 Final Fajr Angle: \(params.fajrAngle)°")
             logger.info("   🌙 Final Isha Angle: \(params.ishaAngle)°")
             logger.info("   📖 Final Madhab: \(params.madhab)")
             logger.info("   🔧 Final Method: \(params.method)")
-            logger.info("   🏢 Expected Tehran(17.7°) vs Leva(16.0°) difference")
+            logger.info("   📍 Coordinates: (\(location.coordinate.latitude), \(location.coordinate.longitude))")
+            logger.info("   📅 Date Components: \(dateComponents)")
 
-            // Use Adhan.PrayerTimes to avoid collision with app's PrayerTimes
-            guard let adhanPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: params) else {
-                logger.error("❌ Adhan prayer time calculation failed for madhab: \(params.madhab.rawValue)")
-                throw AppError.serviceUnavailable("Prayer time calculation")
+            // Try primary Adhan calculation with enhanced error handling and parameter validation
+            logger.info("🎯 Attempting primary Adhan calculation...")
+            
+            // Pre-validate critical parameters before calling Adhan library
+            if params.ishaAngle <= 0 && params.ishaInterval <= 0 {
+                logger.error("❌ Critical parameter issue detected before Adhan call: Isha angle=\(params.ishaAngle)°, interval=\(params.ishaInterval)")
+                throw AppError.serviceUnavailable("Invalid Isha parameters detected")
+            }
+            
+            var adhanPrayerTimes: Adhan.PrayerTimes?
+            
+            // Try primary calculation with defensive error handling
+            do {
+                adhanPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: params)
+                if adhanPrayerTimes != nil {
+                    logger.info("✅ Primary Adhan calculation succeeded")
+                } else {
+                    logger.warning("⚠️ Primary Adhan calculation returned nil (possibly invalid parameter combination)")
+                }
+            } catch {
+                logger.error("❌ Primary Adhan calculation threw error: \(error)")
+                adhanPrayerTimes = nil
+            }
+            
+            // If primary calculation failed, try fallback approaches
+            if adhanPrayerTimes == nil {
+                logger.warning("🔄 Primary calculation failed, attempting fallback strategies...")
+                
+                // Strategy 1: Try with slightly adjusted parameters
+                if let adjustedTimes = try attemptParameterAdjustmentFallback(coordinates: coordinates, dateComponents: dateComponents, originalParams: params) {
+                    logger.info("✅ Parameter adjustment fallback succeeded")
+                    return adjustedTimes
+                }
+                
+                // Strategy 2: Try fallback calculation with different method
+                if let fallbackTimes = try attemptFallbackCalculation(coordinates: coordinates, dateComponents: dateComponents, originalMethod: calculationMethod, originalMadhab: madhab) {
+                    logger.warning("✅ Using fallback calculation for \(calculationMethod.rawValue)/\(madhab.rawValue)")
+                    return fallbackTimes
+                }
+                
+                logger.error("❌ All calculation strategies failed")
+                throw AppError.serviceUnavailable("Prayer time calculation failed for location \(location.coordinate) and date \(date)")
+            }
+            
+            guard let finalPrayerTimes = adhanPrayerTimes else {
+                logger.error("❌ Unexpected nil prayer times after successful check")
+                throw AppError.serviceUnavailable("Prayer time calculation returned nil")
             }
             
             // Debug log the calculated Asr time for madhab analysis
             let dateFormatter = DateFormatter()
             dateFormatter.timeStyle = .medium
-            logger.info("🕐 Calculated Asr time with \(params.madhab.rawValue) madhab: \(dateFormatter.string(from: adhanPrayerTimes.asr))")
+            logger.info("🕐 Calculated Asr time with \(params.madhab.rawValue) madhab: \(dateFormatter.string(from: finalPrayerTimes.asr))")
 
             var prayerTimes = [
-                PrayerTime(prayer: .fajr, time: adhanPrayerTimes.fajr),
-                PrayerTime(prayer: .dhuhr, time: adhanPrayerTimes.dhuhr),
-                PrayerTime(prayer: .asr, time: adhanPrayerTimes.asr),
-                PrayerTime(prayer: .maghrib, time: adhanPrayerTimes.maghrib),
-                PrayerTime(prayer: .isha, time: adhanPrayerTimes.isha)
+                PrayerTime(prayer: .fajr, time: finalPrayerTimes.fajr),
+                PrayerTime(prayer: .dhuhr, time: finalPrayerTimes.dhuhr),
+                PrayerTime(prayer: .asr, time: finalPrayerTimes.asr),
+                PrayerTime(prayer: .maghrib, time: finalPrayerTimes.maghrib),
+                PrayerTime(prayer: .isha, time: finalPrayerTimes.isha)
             ]
 
             // Debug log to detect potential Hanafi Asr calculation issues
@@ -203,22 +304,28 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 #if DEBUG
                 var shafiParams = params
                 shafiParams.madhab = .shafi
-                if let shafiPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: shafiParams) {
-                    let timeDifference = asrTime.timeIntervalSince(shafiPrayerTimes.asr)
-                    logger.info("🔍 ASR DIFFERENCE DEBUG: Hanafi vs Shafi = \(Int(timeDifference)) seconds (\(Int(timeDifference/60)) minutes)")
+                do {
+                    if let shafiPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: shafiParams) {
+                        let timeDifference = asrTime.timeIntervalSince(shafiPrayerTimes.asr)
+                        logger.info("🔍 ASR DIFFERENCE DEBUG: Hanafi vs Shafi = \(Int(timeDifference)) seconds (\(Int(timeDifference/60)) minutes)")
 
-                    // Flag potential calculation issues
-                    if timeDifference > 2400 { // More than 40 minutes
-                        logger.warning("⚠️ POTENTIAL HANAFI ASR CALCULATION ISSUE: Difference exceeds expected 40 minutes")
-                        logger.warning("   Expected: 30-40 minutes, Actual: \(Int(timeDifference/60)) minutes")
-                        logger.warning("   This may indicate an Adhan library integration issue")
+                        // Flag potential calculation issues
+                        if timeDifference > 2400 { // More than 40 minutes
+                            logger.warning("⚠️ POTENTIAL HANAFI ASR CALCULATION ISSUE: Difference exceeds expected 40 minutes")
+                            logger.warning("   Expected: 30-40 minutes, Actual: \(Int(timeDifference/60)) minutes")
+                            logger.warning("   This may indicate an Adhan library integration issue")
+                        }
+                    } else {
+                        logger.warning("⚠️ Could not calculate Shafi Asr for comparison")
                     }
+                } catch {
+                    logger.warning("⚠️ Error calculating Shafi Asr for comparison: \(error)")
                 }
                 #endif
             }
 
-            // Apply post-calculation madhab adjustments
-            prayerTimes = await applyPostCalculationAdjustments(to: prayerTimes, madhab: madhab, location: location)
+            // Apply post-calculation madhab adjustments (only if not already included in calculation method)
+            prayerTimes = await applyPostCalculationAdjustments(to: prayerTimes, method: calculationMethod, madhab: madhab, location: location)
 
             // Cache the results
             cachePrayerTimes(prayerTimes, for: date)
@@ -234,6 +341,18 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     }
     
     public func refreshPrayerTimes() async {
+        // Track function calls for performance monitoring
+        trackFunctionCall("refreshPrayerTimes")
+        
+        // Use request coordinator for debouncing instead of local implementation
+        requestCoordinator.coordinateRefresh(requestType: .refresh) {
+            await self.performPrayerTimesRefresh()
+        }
+    }
+    
+    /// Perform the actual prayer times refresh (separated for debouncing)
+    @MainActor
+    private func performPrayerTimesRefresh() async {
         isLoading = true
         defer { isLoading = false }
 
@@ -272,7 +391,28 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 return
             }
 
-            let prayerTimes = try await calculatePrayerTimes(for: validLocation, date: Date())
+            // Check if location change is significant enough to trigger recalculation
+            if !requestCoordinator.shouldRecalculateForLocation(validLocation) {
+                logger.debug("📍 Location change not significant enough - using cached data if available")
+                if !todaysPrayerTimes.isEmpty {
+                    return
+                }
+            }
+
+            let prayerTimes = try await requestCoordinator.requestPrayerTimes(
+                for: validLocation,
+                date: Date(),
+                requestType: .refresh
+            ) { location, date in
+                return try await self.retryMechanism.executeWithRetry(
+                    operation: {
+                        return try await self.performPrayerTimeCalculation(for: location, date: date)
+                    },
+                    retryPolicy: .conservative,
+                    operationId: "refreshPrayerTimes-\(date.timeIntervalSince1970)"
+                )
+            }
+            
             todaysPrayerTimes = prayerTimes
             updateNextPrayer()
 
@@ -320,6 +460,30 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         return result
     }
     
+    /// Get tomorrow's prayer times with intelligent caching to avoid duplicate calculations
+    /// This is optimized for widget updates to prevent duplicate tomorrow prayer time requests
+    public func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] {
+        return try await requestCoordinator.getTomorrowPrayerTimes(for: location) { location, date in
+            return try await self.retryMechanism.executeWithRetry(
+                operation: {
+                    return try await self.performPrayerTimeCalculation(for: location, date: date)
+                },
+                retryPolicy: .conservative,
+                operationId: "getTomorrowPrayerTimes-\(date.timeIntervalSince1970)"
+            )
+        }
+    }
+    
+    /// Get request statistics for monitoring duplicate request prevention
+    public func getRequestStatistics() -> RequestStatistics {
+        return requestCoordinator.getRequestStatistics()
+    }
+    
+    /// Reset request statistics (useful for testing)
+    public func resetRequestStatistics() {
+        requestCoordinator.resetStatistics()
+    }
+    
     // MARK: - Private Methods
     
     // Note: Settings management removed - now handled by SettingsService
@@ -334,9 +498,11 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                         self?.error = error
                     }
                 },
-                receiveValue: { [weak self] _ in
-                    Task {
-                        await self?.refreshPrayerTimes()
+                receiveValue: { [weak self] location in
+                    guard let self = self else { return }
+                    // Use coordinator's location-specific debouncing
+                    self.requestCoordinator.coordinateRefresh(requestType: .locationChange) {
+                        await self.refreshPrayerTimes()
                     }
                 }
             )
@@ -348,14 +514,11 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // This is a robust solution that works with protocol-typed instances
         NotificationCenter.default.publisher(for: .settingsDidChange)
             .receive(on: DispatchQueue.main)
-            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
-                // Execute directly on main queue instead of creating a new Task
-                // This ensures immediate execution in test environments
-                DispatchQueue.main.async {
-                    Task { @MainActor in
-                        await self?.invalidateCacheAndRefresh()
-                    }
+                guard let self = self else { return }
+                // Use coordinator's settings-specific debouncing (2 seconds for settings changes)
+                self.requestCoordinator.coordinateRefresh(requestType: .settingsChange) {
+                    await self.invalidateCacheAndRefresh()
                 }
             }
             .store(in: &cancellables)
@@ -377,22 +540,22 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private func invalidateAllPrayerTimeCaches() async {
         logger.debug("Starting comprehensive cache invalidation...")
 
-        // 1. Clear local UserDefaults cache (existing implementation)
-        clearLocalCachedPrayerTimes()
-
-        // 2. Clear APICache prayer times through APIClient
-        apiClient.clearPrayerTimeCache()
-
-        // 3. Clear IslamicCacheManager prayer times
-        await clearIslamicCacheManagerPrayerTimes()
-
-        logger.debug("Comprehensive cache invalidation completed")
+        // With method and madhab-specific cache keys, we don't need to clear cache
+        // when settings change, as each method/madhab combination has its own cache.
+        // Old combinations keep their cache, new combinations start empty.
+        
+        // All cache systems (APICache, IslamicCacheManager, and UserDefaults) use
+        // method-specific keys, so no cache clearing is needed on settings changes.
+        
+        logger.debug("Cache invalidation skipped - all cache systems use method-specific keys")
     }
     
     /// Cancel all pending async tasks
     private func cancelAllTasks() {
         updateNextPrayerTask?.cancel()
         updateNextPrayerTask = nil
+        widgetUpdateTask?.cancel()
+        widgetUpdateTask = nil
         
         // Cancel all Combine subscriptions
         cancellables.removeAll()
@@ -475,7 +638,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
                 let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now
                 if let location = self.locationService.currentLocation {
                     do {
-                        let tomorrowPrayers = try await self.calculatePrayerTimes(for: location, date: tomorrow)
+                        let tomorrowPrayers = try await self.getTomorrowPrayerTimes(for: location)
                         if let fajr = tomorrowPrayers.first(where: { $0.prayer == .fajr }) {
                             await MainActor.run {
                                 self.nextPrayer = fajr
@@ -499,8 +662,8 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private func checkAndTriggerDynamicIslandForPrayer(_ prayerTime: PrayerTime) {
         guard let timeUntilPrayer = timeUntilNextPrayer else { return }
         
-        // Only trigger if notifications are enabled (user preference)
-        guard settingsService.notificationsEnabled else { return }
+        // Only trigger if notifications and Live Activities are enabled (user preference)
+        guard settingsService.notificationsEnabled && settingsService.liveActivitiesEnabled else { return }
         
         // Trigger Dynamic Island when prayer is within 30 minutes
         let triggerThreshold: TimeInterval = 30 * 60 // 30 minutes
@@ -516,11 +679,36 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     private func startDynamicIslandForPrayer(_ prayerTime: PrayerTime) async {
         // Check if iOS 16.1+ is available for Live Activities
         if #available(iOS 16.1, *) {
+            // Skip Live Activities in simulator - they don't work properly (compile-time check)
+            #if targetEnvironment(simulator)
+            logger.debug("Skipping Live Activity on iOS Simulator - not supported")
+            return
+            #endif
+            
+            // Additional runtime check for simulator (some builds might miss compile-time check)
+            if ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] != nil {
+                logger.debug("Skipping Live Activity - running on iOS Simulator")
+                return
+            }
+            
+            // Check user preference for Live Activities
+            guard settingsService.liveActivitiesEnabled else {
+                logger.debug("Live Activities disabled in user settings, skipping Dynamic Island")
+                return
+            }
+            
             do {
-                // Check if Live Activities are available and enabled
+                // Comprehensive Live Activity debugging
                 let authInfo = ActivityAuthorizationInfo()
+                let deviceModel = UIDevice.current.model
+                let systemVersion = UIDevice.current.systemVersion
+                
+                logger.debug("🔍 Live Activity Debug - Device: \(deviceModel), iOS: \(systemVersion)")
+                logger.debug("🔍 Live Activity Debug - Activities Enabled: \(authInfo.areActivitiesEnabled)")
+                logger.debug("🔍 Live Activity Debug - User Setting: \(settingsService.liveActivitiesEnabled)")
+                
                 guard authInfo.areActivitiesEnabled else {
-                    logger.debug("Live Activities are not enabled, skipping Dynamic Island")
+                    logger.debug("❌ Live Activities not enabled by system - check Settings > Face ID & Passcode > Live Activities")
                     return
                 }
 
@@ -545,24 +733,71 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
 
                 logger.info("Auto-started Dynamic Island for \(prayerTime.prayer.displayName) prayer")
             } catch {
-                // Handle specific Live Activity errors gracefully
+                // Handle specific Live Activity errors gracefully without spamming logs
                 if let activityError = error as? LiveActivityError {
                     switch activityError {
                     case .notAvailable, .permissionDenied:
-                        logger.debug("Live Activities not available or permission denied, skipping Dynamic Island")
+                        // These are expected conditions, log at debug level only
+                        logger.debug("Live Activities not available or permission denied")
                     default:
-                        logger.error("Failed to auto-start Dynamic Island: \(activityError.localizedDescription)")
+                        // Unexpected errors get more detailed logging
+                        logger.warning("Live Activity failed: \(activityError.localizedDescription)")
                     }
                 } else {
-                    logger.error("Failed to auto-start Dynamic Island: \(error)")
+                    // Check for specific ActivityKit errors
+                    let nsError = error as NSError
+                    if nsError.domain == "com.apple.ActivityKit.ActivityInput" {
+                        if nsError.code == 0 && nsError.userInfo["NSUnderlyingError"] != nil {
+                            // SessionCore.PermissionsError Code=3 - Live Activities disabled in Lock Screen settings
+                            logger.info("ℹ️ Live Activities permission required:")
+                            logger.info("   Please enable: Settings > Face ID & Passcode > Allow Access When Locked > Live Activities")
+                            logger.info("   This allows the Allah symbol to appear in the Dynamic Island")
+                        } else {
+                            logger.debug("Live Activity configuration issue: \(error.localizedDescription)")
+                        }
+                    } else if nsError.domain.contains("SessionCore.PermissionsError") {
+                        if nsError.code == 3 {
+                            logger.info("🔒 Live Activities need Lock Screen access:")
+                            logger.info("   Settings > Face ID & Passcode > Allow Access When Locked > Live Activities = ON")
+                        } else {
+                            logger.debug("Live Activity permission issue: \(error.localizedDescription)")
+                        }
+                    } else {
+                        // Genuine unexpected errors
+                        logger.warning("Unexpected Live Activity error: \(error)")
+                    }
                 }
             }
         }
     }
 
-    /// Update widget data when prayer times change
+    /// Update widget data when prayer times change (with debouncing to prevent performance issues)
     private func updateWidgetData() async {
-        guard !todaysPrayerTimes.isEmpty else { return }
+        // Track function calls for performance monitoring
+        trackFunctionCall("updateWidgetData")
+        
+        // Cancel any existing widget update task to implement debouncing
+        widgetUpdateTask?.cancel()
+        
+        widgetUpdateTask = Task { @MainActor in
+            // Wait for debounce interval to prevent rapid successive calls
+            try? await Task.sleep(nanoseconds: UInt64(widgetUpdateDebounceInterval * 1_000_000_000))
+            
+            // Check if task was cancelled during sleep
+            guard !Task.isCancelled else { return }
+            
+            // Proceed with widget update
+            await performWidgetUpdate()
+        }
+    }
+    
+    /// Perform the actual widget update (separated for clarity and testability)
+    @MainActor
+    private func performWidgetUpdate() async {
+        guard !todaysPrayerTimes.isEmpty else { 
+            logger.debug("Skipping widget update - no prayer times available")
+            return 
+        }
 
         // Create widget data
         let widgetData = WidgetData(
@@ -578,7 +813,40 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // Save widget data using the shared manager
         WidgetDataManager.shared.saveWidgetData(widgetData)
 
-        logger.debug("Widget data updated from PrayerTimeService")
+        // Refresh widget timelines to show updated data (avoid potential loops)
+        // Only refresh if we're not already in a widget refresh cycle
+        Task {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+
+        logger.debug("Widget data updated and timelines refreshed from PrayerTimeService")
+    }
+    
+    /// Monitor function call frequency to detect potential performance issues
+    private func trackFunctionCall(_ functionName: String) {
+        let now = Date()
+        
+        // Increment call count
+        functionCallCount[functionName, default: 0] += 1
+        
+        // Check if it's time for a performance check
+        if now.timeIntervalSince(lastPerformanceCheck) >= performanceCheckInterval {
+            checkPerformanceMetrics()
+            lastPerformanceCheck = now
+            functionCallCount.removeAll() // Reset counters
+        }
+    }
+    
+    /// Check for potential performance issues
+    private func checkPerformanceMetrics() {
+        for (functionName, callCount) in functionCallCount {
+            let callsPerSecond = Double(callCount) / performanceCheckInterval
+            
+            // Alert if any function is called more than 5 times per second (potential issue)
+            if callsPerSecond > 5.0 {
+                logger.warning("⚠️ Performance Alert: \(functionName) called \(callCount) times in \(performanceCheckInterval) seconds (\(String(format: "%.1f", callsPerSecond)) calls/sec)")
+            }
+        }
     }
     
     private func cachePrayerTimes(_ prayerTimes: [PrayerTime], for date: Date) {
@@ -947,11 +1215,40 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         }
     }
 
+    /// Determines if madhab-specific adjustments should be applied based on calculation method
+    /// Prevents double-application of madhab parameters when calculation method already includes them
+    private func shouldApplyMadhabAdjustments(method: CalculationMethod, madhab: Madhab) -> Bool {
+        switch (method, madhab) {
+        case (.jafariTehran, .jafari):
+            // Tehran IOG already includes Ja'fari-specific twilight angles (17.7°/14°)
+            return false
+        case (.jafariLeva, .jafari):
+            // Leva Institute already includes Ja'fari-specific twilight angles (16°/14°)
+            return false
+        case (.karachi, .hanafi):
+            // University of Islamic Sciences Karachi designed specifically for Hanafi madhab
+            return false
+        default:
+            // General calculation methods need madhab-specific adjustments applied
+            return true
+        }
+    }
+
     /// Apply post-calculation adjustments for specific madhab requirements
-    private func applyPostCalculationAdjustments(to prayerTimes: [PrayerTime], madhab: Madhab, location: CLLocation) async -> [PrayerTime] {
+    /// Updated to prevent double-application when calculation method already includes madhab parameters
+    private func applyPostCalculationAdjustments(to prayerTimes: [PrayerTime], method: CalculationMethod, madhab: Madhab, location: CLLocation) async -> [PrayerTime] {
+        // Track function calls for performance monitoring
+        trackFunctionCall("applyPostCalculationAdjustments")
+        // Skip adjustments if calculation method already handles madhab-specific requirements
+        guard shouldApplyMadhabAdjustments(method: method, madhab: madhab) else {
+            logger.info("✅ Skipping madhab adjustments - \(method.rawValue) already includes \(madhab.rawValue) calculations")
+            return prayerTimes
+        }
+        
+        logger.info("🔧 Applying madhab adjustments for \(madhab.rawValue) with \(method.rawValue) method")
         var adjustedTimes = prayerTimes
 
-        // Apply Maghrib delay for Ja'fari madhab
+        // Apply Maghrib delay for Ja'fari madhab (only for general calculation methods)
         if madhab == .jafari, let maghribIndex = adjustedTimes.firstIndex(where: { $0.prayer == .maghrib }) {
 
             // Check if user prefers astronomical calculation
@@ -1008,9 +1305,272 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         // Return the Isha time as our astronomical Maghrib time
         return customPrayerTimes.isha
     }
+    
+    // MARK: - Input Validation and Fallback Methods
+    
+    /// Validates inputs before calling Adhan library to prevent null returns
+    private func validateAdhanInputs(location: CLLocation, dateComponents: DateComponents, params: CalculationParameters) throws {
+        // Validate coordinates
+        guard location.coordinate.latitude >= -90 && location.coordinate.latitude <= 90 else {
+            logger.error("❌ Invalid latitude: \(location.coordinate.latitude)")
+            throw AppError.serviceUnavailable("Invalid latitude: \(location.coordinate.latitude)")
+        }
+        
+        guard location.coordinate.longitude >= -180 && location.coordinate.longitude <= 180 else {
+            logger.error("❌ Invalid longitude: \(location.coordinate.longitude)")
+            throw AppError.serviceUnavailable("Invalid longitude: \(location.coordinate.longitude)")
+        }
+        
+        // Validate date components
+        guard let year = dateComponents.year, year >= 1900 && year <= 2100 else {
+            logger.error("❌ Invalid year: \(dateComponents.year ?? -1)")
+            throw AppError.serviceUnavailable("Invalid year: \(dateComponents.year ?? -1)")
+        }
+        
+        guard let month = dateComponents.month, month >= 1 && month <= 12 else {
+            logger.error("❌ Invalid month: \(dateComponents.month ?? -1)")
+            throw AppError.serviceUnavailable("Invalid month: \(dateComponents.month ?? -1)")
+        }
+        
+        guard let day = dateComponents.day, day >= 1 && day <= 31 else {
+            logger.error("❌ Invalid day: \(dateComponents.day ?? -1)")
+            throw AppError.serviceUnavailable("Invalid day: \(dateComponents.day ?? -1)")
+        }
+        
+        // Validate calculation parameters with more permissive ranges
+        // Some calculation methods may use angles outside the typical 10-25 range
+        guard params.fajrAngle >= 0 && params.fajrAngle <= 30 else {
+            logger.error("❌ Invalid Fajr angle: \(params.fajrAngle)")
+            throw AppError.serviceUnavailable("Invalid Fajr angle: \(params.fajrAngle)")
+        }
+        
+        // Check for Isha angle or interval - some methods use one or the other
+        let hasValidIshaAngle = params.ishaAngle > 0 && params.ishaAngle <= 30
+        let hasValidIshaInterval = params.ishaInterval > 0 && params.ishaInterval <= 300 // Up to 5 hours
+        
+        guard hasValidIshaAngle || hasValidIshaInterval else {
+            logger.error("❌ Invalid Isha parameters: angle=\(params.ishaAngle)°, interval=\(params.ishaInterval) minutes")
+            throw AppError.serviceUnavailable("Invalid Isha parameters: angle=\(params.ishaAngle)°, interval=\(params.ishaInterval) minutes")
+        }
+        
+        // Additional validation for edge cases
+        if params.ishaAngle <= 0 && params.ishaInterval <= 0 {
+            logger.error("❌ Both Isha angle and interval are invalid: angle=\(params.ishaAngle)°, interval=\(params.ishaInterval) minutes")
+            throw AppError.serviceUnavailable("Both Isha angle and interval are invalid")
+        }
+        
+        logger.info("✅ Adhan input validation passed")
+    }
+    
+    /// Attempts parameter adjustment fallback when primary calculation fails
+    private func attemptParameterAdjustmentFallback(coordinates: Coordinates, dateComponents: DateComponents, originalParams: CalculationParameters) throws -> [PrayerTime]? {
+        logger.info("🔧 Attempting parameter adjustment fallback...")
+        
+        // Strategy 1: If Isha angle is problematic, try using interval instead
+        if originalParams.ishaAngle <= 0 || originalParams.ishaAngle > 25 {
+            logger.info("🔧 Trying Isha interval fallback (angle was \(originalParams.ishaAngle)°)")
+            var adjustedParams = originalParams
+            adjustedParams.ishaAngle = 0 // Disable angle
+            adjustedParams.ishaInterval = 90 // Use 90 minute interval
+            
+            if let adjustedPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: adjustedParams) {
+                logger.info("✅ Isha interval adjustment succeeded")
+                return [
+                    PrayerTime(prayer: .fajr, time: adjustedPrayerTimes.fajr),
+                    PrayerTime(prayer: .dhuhr, time: adjustedPrayerTimes.dhuhr),
+                    PrayerTime(prayer: .asr, time: adjustedPrayerTimes.asr),
+                    PrayerTime(prayer: .maghrib, time: adjustedPrayerTimes.maghrib),
+                    PrayerTime(prayer: .isha, time: adjustedPrayerTimes.isha)
+                ]
+            }
+        }
+        
+        // Strategy 2: If using interval, try angle instead
+        if originalParams.ishaInterval > 0 && originalParams.ishaAngle <= 0 {
+            logger.info("🔧 Trying Isha angle fallback (interval was \(originalParams.ishaInterval) minutes)")
+            var adjustedParams = originalParams
+            adjustedParams.ishaInterval = 0 // Disable interval
+            adjustedParams.ishaAngle = 17.0 // Use reasonable angle
+            
+            if let adjustedPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: adjustedParams) {
+                logger.info("✅ Isha angle adjustment succeeded")
+                return [
+                    PrayerTime(prayer: .fajr, time: adjustedPrayerTimes.fajr),
+                    PrayerTime(prayer: .dhuhr, time: adjustedPrayerTimes.dhuhr),
+                    PrayerTime(prayer: .asr, time: adjustedPrayerTimes.asr),
+                    PrayerTime(prayer: .maghrib, time: adjustedPrayerTimes.maghrib),
+                    PrayerTime(prayer: .isha, time: adjustedPrayerTimes.isha)
+                ]
+            }
+        }
+        
+        // Strategy 3: Try with slightly adjusted angles
+        let angleAdjustments: [Double] = [1.0, -1.0, 2.0, -2.0]
+        for adjustment in angleAdjustments {
+            logger.info("🔧 Trying angle adjustment: +\(adjustment)° to Fajr and Isha")
+            var adjustedParams = originalParams
+            adjustedParams.fajrAngle = max(10.0, min(25.0, originalParams.fajrAngle + adjustment))
+            if adjustedParams.ishaAngle > 0 {
+                adjustedParams.ishaAngle = max(10.0, min(25.0, originalParams.ishaAngle + adjustment))
+            }
+            
+            if let adjustedPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: adjustedParams) {
+                logger.info("✅ Angle adjustment (\(adjustment)°) succeeded")
+                return [
+                    PrayerTime(prayer: .fajr, time: adjustedPrayerTimes.fajr),
+                    PrayerTime(prayer: .dhuhr, time: adjustedPrayerTimes.dhuhr),
+                    PrayerTime(prayer: .asr, time: adjustedPrayerTimes.asr),
+                    PrayerTime(prayer: .maghrib, time: adjustedPrayerTimes.maghrib),
+                    PrayerTime(prayer: .isha, time: adjustedPrayerTimes.isha)
+                ]
+            }
+        }
+        
+        logger.warning("🔧 All parameter adjustment strategies failed")
+        return nil
+    }
+    
+    /// Attempts fallback calculation when primary Adhan calculation fails
+    private func attemptFallbackCalculation(coordinates: Coordinates, dateComponents: DateComponents, originalMethod: CalculationMethod, originalMadhab: Madhab) throws -> [PrayerTime]? {
+        logger.warning("🔄 Attempting fallback calculation for \(originalMethod.rawValue)/\(originalMadhab.rawValue)")
+        
+        // Try with Muslim World League as safe fallback
+        let fallbackMethods: [Adhan.CalculationMethod] = [
+            .muslimWorldLeague,
+            .egyptian,
+            .karachi,
+            .northAmerica
+        ]
+        
+        for fallbackMethod in fallbackMethods {
+            logger.info("🔄 Trying fallback method: \(fallbackMethod)")
+            
+            var fallbackParams = fallbackMethod.params
+            
+            // Apply original madhab to fallback parameters
+            switch originalMadhab {
+            case .hanafi:
+                fallbackParams.madhab = .hanafi
+            case .shafi, .jafari:
+                fallbackParams.madhab = .shafi
+            }
+            
+            // Apply Ja'fari specific adjustments if needed
+            if originalMadhab == .jafari {
+                // Apply Ja'fari Maghrib delay manually after calculation
+                fallbackParams.maghribAngle = 4.0  // Use astronomical angle for Ja'fari
+            }
+            
+            if let fallbackPrayerTimes = Adhan.PrayerTimes(coordinates: coordinates, date: dateComponents, calculationParameters: fallbackParams) {
+                logger.info("✅ Fallback calculation succeeded with \(fallbackMethod)")
+                
+                var prayerTimes = [
+                    PrayerTime(prayer: .fajr, time: fallbackPrayerTimes.fajr),
+                    PrayerTime(prayer: .dhuhr, time: fallbackPrayerTimes.dhuhr),
+                    PrayerTime(prayer: .asr, time: fallbackPrayerTimes.asr),
+                    PrayerTime(prayer: .maghrib, time: fallbackPrayerTimes.maghrib),
+                    PrayerTime(prayer: .isha, time: fallbackPrayerTimes.isha)
+                ]
+                
+                // Apply Ja'fari Maghrib delay manually
+                if originalMadhab == .jafari {
+                    for i in 0..<prayerTimes.count {
+                        if prayerTimes[i].prayer == .maghrib {
+                            prayerTimes[i] = PrayerTime(
+                                prayer: .maghrib,
+                                time: prayerTimes[i].time.addingTimeInterval(15 * 60) // Add 15 minutes
+                            )
+                            logger.info("✅ Applied Ja'fari Maghrib delay (+15 minutes)")
+                            break
+                        }
+                    }
+                }
+                
+                logger.warning("⚠️ Using fallback calculation - results may differ from expected \(originalMethod.rawValue) method")
+                return prayerTimes
+            }
+        }
+        
+        logger.error("❌ All fallback calculation attempts failed")
+        return nil
+    }
+    
+    // MARK: - Timezone Methods
+    
+    /// Determine appropriate timezone for a given location
+    private func determineTimeZone(for location: CLLocation) async -> TimeZone? {
+        // Use known timezone mappings for common locations
+        let knownTimezones: [(latitude: Double, longitude: Double, timezone: String)] = [
+            // Major Islamic cities and test locations
+            (21.4225, 39.8262, "Asia/Riyadh"),      // Mecca
+            (24.7136, 46.6753, "Asia/Riyadh"),      // Riyadh
+            (40.7128, -74.0060, "America/New_York"), // New York
+            (51.5074, -0.1278, "Europe/London"),     // London
+            (-6.2088, 106.8456, "Asia/Jakarta"),     // Jakarta
+            (33.6844, 73.0479, "Asia/Karachi"),      // Islamabad/Karachi
+            (30.0444, 31.2357, "Africa/Cairo"),      // Cairo
+            (25.2048, 55.2708, "Asia/Dubai"),        // Dubai
+            (25.3548, 51.1839, "Asia/Qatar"),        // Doha
+        ]
+        
+        // Find closest known timezone (within 1 degree tolerance)
+        for knownLocation in knownTimezones {
+            let latDiff = abs(location.coordinate.latitude - knownLocation.latitude)
+            let lonDiff = abs(location.coordinate.longitude - knownLocation.longitude)
+            
+            if latDiff <= 1.0 && lonDiff <= 1.0 {
+                logger.info("🌍 Found known timezone \(knownLocation.timezone) for location (\(location.coordinate.latitude), \(location.coordinate.longitude))")
+                return TimeZone(identifier: knownLocation.timezone)
+            }
+        }
+        
+        // Fallback: Use basic timezone calculation based on longitude
+        // Each 15 degrees of longitude represents 1 hour of time difference
+        let hoursFromUTC = Int(round(location.coordinate.longitude / 15.0))
+        let clampedHours = max(-12, min(12, hoursFromUTC)) // Clamp to valid timezone range
+        let secondsFromGMT = clampedHours * 3600
+        
+        logger.info("🌍 Calculated timezone offset: GMT\(clampedHours >= 0 ? "+" : "")\(clampedHours) for longitude \(location.coordinate.longitude)")
+        return TimeZone(secondsFromGMT: secondsFromGMT)
+    }
 }
 
 // MARK: - Extensions
+
+// ULTIMATE FIX: Extend CalculationParameters to add a `copy()` method to prevent shared state.
+// This creates a new instance with the same values, ensuring calculations are independent.
+extension CalculationParameters {
+    /// Creates a fresh, mutable copy of the calculation parameters.
+    func copy() -> CalculationParameters {
+        // Start with a base parameter set (any will do, as we overwrite it).
+        // This is a new instance, not a shared one.
+        var newParams = Adhan.CalculationMethod.other.params
+
+        // Manually copy all properties to the new instance.
+        newParams.method = self.method
+        newParams.fajrAngle = self.fajrAngle
+        newParams.maghribAngle = self.maghribAngle
+        newParams.ishaAngle = self.ishaAngle
+        newParams.ishaInterval = self.ishaInterval
+        newParams.madhab = self.madhab
+        newParams.highLatitudeRule = self.highLatitudeRule
+        newParams.rounding = self.rounding
+        newParams.shafaq = self.shafaq
+
+        // Also create a new instance of adjustments to avoid shared state.
+        newParams.adjustments = PrayerAdjustments(
+            fajr: self.adjustments.fajr,
+            sunrise: self.adjustments.sunrise,
+            dhuhr: self.adjustments.dhuhr,
+            asr: self.adjustments.asr,
+            maghrib: self.adjustments.maghrib,
+            isha: self.adjustments.isha
+        )
+
+        return newParams
+    }
+}
+
 
 extension CalculationMethod {
     /// Converts app's CalculationMethod to Adhan library's CalculationMethod
@@ -1056,7 +1616,9 @@ extension CalculationMethod {
             params.method = .other
             params.fajrAngle = 16.0
             params.ishaAngle = 14.0
-            params.madhab = .shafi  // Will be overridden by madhab setting
+            // Note: Keep .shafi as default since Adhan library doesn't have native Ja'fari support
+            // The user's Ja'fari madhab setting will be handled separately to avoid double-application
+            params.madhab = .shafi  
             return params
         case .jafariTehran:
             // ULTIMATE FIX: Create completely independent parameter objects by copying from a different base method each time
@@ -1065,7 +1627,9 @@ extension CalculationMethod {
             params.method = .other
             params.fajrAngle = 17.7
             params.ishaAngle = 14.0
-            params.madhab = .shafi  // Will be overridden by madhab setting
+            // Note: Keep .shafi as default since Adhan library doesn't have native Ja'fari support
+            // The user's Ja'fari madhab setting will be handled separately to avoid double-application
+            params.madhab = .shafi  
             return params
         case .fcnaCanada:
             // ULTIMATE FIX: Create completely independent parameter objects by copying from a different base method each time
@@ -1077,6 +1641,7 @@ extension CalculationMethod {
             params.madhab = .shafi  // Will be overridden by madhab setting
             return params
         default:
+            // Other calculation methods use Adhan library's built-in parameters
             return nil
         }
     }

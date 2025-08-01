@@ -38,6 +38,9 @@ public protocol SettingsServiceProtocol: ObservableObject {
 
     /// Whether to show Arabic symbol in widget and Live Activities
     var showArabicSymbolInWidget: Bool { get set }
+    
+    /// Whether Live Activities are enabled for prayer countdowns
+    var liveActivitiesEnabled: Bool { get set }
 
     /// Save current settings
     func saveSettings() async throws
