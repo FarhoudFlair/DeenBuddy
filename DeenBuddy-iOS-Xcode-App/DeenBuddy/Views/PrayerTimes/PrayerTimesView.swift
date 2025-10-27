@@ -17,6 +17,9 @@ struct PrayerTimesView: View {
     
     var body: some View {
         VStack(spacing: 20) {
+            // Custom title with mascot
+            MascotTitleView.homeTitle(titleText: "Prayer Times")
+                .padding(.top)
             if viewModel.isLoading {
                 ContextualLoadingView(context: .prayerTimes)
                     .padding()

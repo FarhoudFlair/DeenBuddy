@@ -16,7 +16,13 @@ struct IslamicKnowledgeDetailView: View {
     @State private var isLoadingExplanation = false
     @State private var isLoadingRelated = false
     @State private var showingShareSheet = false
+    @StateObject private var quranSearchService = QuranSearchService.shared
     @Environment(\.dismiss) private var dismiss
+    
+    private var isBookmarked: Bool {
+        guard result.type == .quranVerse, let verse = result.quranVerse else { return false }
+        return quranSearchService.isBookmarked(verse)
+    }
     
     var body: some View {
         NavigationStack {
@@ -387,10 +393,12 @@ struct IslamicKnowledgeDetailView: View {
                     }
                     .buttonStyle(SecondaryModernButtonStyle())
                     
-                    Button("Add to Bookmarks") {
-                        // TODO: Implement bookmark functionality
+                    if result.type == .quranVerse, let verse = result.quranVerse {
+                        Button(isBookmarked ? "Remove Bookmark" : "Add to Bookmarks") {
+                            quranSearchService.toggleBookmark(for: verse)
+                        }
+                        .buttonStyle(SecondaryModernButtonStyle())
                     }
-                    .buttonStyle(SecondaryModernButtonStyle())
                 }
             }
             .padding()

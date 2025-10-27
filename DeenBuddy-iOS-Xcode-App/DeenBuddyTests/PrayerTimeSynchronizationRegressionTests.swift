@@ -627,6 +627,7 @@ class RegressionMockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var userName: String = ""
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -671,6 +672,9 @@ class RegressionMockNotificationService: NotificationServiceProtocol, Observable
     func schedulePrayerTrackingNotification(for prayer: Prayer, at prayerTime: Date, reminderMinutes: Int) async throws {}
     func getNotificationSettings() -> NotificationSettings { return .default }
     func updateNotificationSettings(_ settings: NotificationSettings) {}
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }
 
 @MainActor
@@ -798,5 +802,4 @@ class RegressionMockIslamicCalendarService: IslamicCalendarServiceProtocol {
     func clearCache() async {}
     func updateFromExternalSources() async {}
 }
-
 

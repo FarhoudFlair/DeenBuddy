@@ -185,10 +185,14 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
             }
         }
         
-        response.userActivity = createUserActivity(for: .nextPrayer, data: [
-            "prayer": nextPrayer.prayer.rawValue,
-            "time": nextPrayer.time.timeIntervalSince1970
-        ])
+        response.userActivity = createUserActivity(
+            for: .nextPrayer,
+            data: [
+                "prayer": nextPrayer.prayer.rawValue,
+                "time": nextPrayer.time.timeIntervalSince1970
+            ],
+            responseText: responseText
+        )
         
         return response
     }
@@ -216,10 +220,14 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
         
         let responseText = "Today's prayer times are: " + prayerStrings.joined(separator: ", ")
         
-        response.userActivity = createUserActivity(for: .prayerTimes, data: [
-            "date": intent.date?.timeIntervalSince1970 ?? Date().timeIntervalSince1970,
-            "prayer_times": prayerTimes.map { ["prayer": $0.prayer.rawValue, "time": $0.time.timeIntervalSince1970] }
-        ])
+        response.userActivity = createUserActivity(
+            for: .prayerTimes,
+            data: [
+                "date": intent.date?.timeIntervalSince1970 ?? Date().timeIntervalSince1970,
+                "prayer_times": prayerTimes.map { ["prayer": $0.prayer.rawValue, "time": $0.time.timeIntervalSince1970] }
+            ],
+            responseText: responseText
+        )
         
         return response
     }
@@ -232,21 +240,33 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
         
         do {
             let location = try await locationService.requestLocation()
-            // TODO: Implement qibla calculation service
-            // For now, return a placeholder response
+            
+            // Calculate Qibla direction using QiblaDirection model
+            let coord = LocationCoordinate(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+            let qiblaDirection = QiblaDirection.calculate(from: coord)
             
             let response = GetQiblaDirectionIntentResponse(code: .success, userActivity: nil)
             
-            // Placeholder implementation
-            let responseText = "Qibla direction calculation service is not yet implemented. Please use the main app for accurate Qibla direction."
+            // Format response text
+            var responseText = "The Qibla direction from your location is \(String(format: "%.1f", qiblaDirection.direction))° (\(qiblaDirection.compassDirection))"
             
-            response.userActivity = createUserActivity(for: .qiblaDirection, data: [
-                "message": "Service not implemented",
-                "location": [
-                    "latitude": location.coordinate.latitude,
-                    "longitude": location.coordinate.longitude
-                ]
-            ])
+            if intent.includeDistance?.boolValue == true {
+                responseText += ", approximately \(qiblaDirection.formattedDistance) from the Kaaba in Mecca"
+            }
+            
+            response.userActivity = createUserActivity(
+                for: .qiblaDirection,
+                data: [
+                    "direction": qiblaDirection.direction,
+                    "compassDirection": qiblaDirection.compassDirection,
+                    "distance": qiblaDirection.distance,
+                    "location": [
+                        "latitude": location.coordinate.latitude,
+                        "longitude": location.coordinate.longitude
+                    ]
+                ],
+                responseText: responseText
+            )
             
             return response
             
@@ -258,10 +278,16 @@ public class PrayerShortcutsManager: NSObject, ObservableObject {
     
     // MARK: - User Activity
     
-    private func createUserActivity(for type: ShortcutType, data: [String: Any]) -> NSUserActivity {
+    private func createUserActivity(for type: ShortcutType, data: [String: Any], responseText: String? = nil) -> NSUserActivity {
         let activity = NSUserActivity(activityType: type.activityType)
-        activity.title = type.title
-        activity.userInfo = data
+        var userInfo = data
+        if let responseText {
+            activity.title = responseText
+            userInfo["responseText"] = responseText
+        } else {
+            activity.title = type.title
+        }
+        activity.userInfo = userInfo
         activity.isEligibleForSearch = true
         activity.isEligibleForPrediction = true
         

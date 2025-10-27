@@ -155,7 +155,16 @@ public protocol PrayerTrackingServiceProtocol: ObservableObject {
     /// - Parameter prayer: The prayer to get streak for
     /// - Returns: Prayer streak data, or nil if no streak found
     func getPrayerStreak(for prayer: Prayer) async -> PrayerStreak?
-    
+
+    /// Get individual streaks for all prayers
+    /// - Returns: Dictionary mapping each prayer to its individual streak data
+    func getIndividualPrayerStreaks() async -> [Prayer: IndividualPrayerStreak]
+
+    /// Get individual streak for a specific prayer
+    /// - Parameter prayer: The prayer to get individual streak for
+    /// - Returns: Individual prayer streak data, or nil if missing/untracked
+    func getIndividualPrayerStreak(for prayer: Prayer) async -> IndividualPrayerStreak?
+
     // MARK: - Reminder Methods
     
     /// Schedule a prayer reminder

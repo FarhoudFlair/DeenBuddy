@@ -1,3 +1,8 @@
+// MARK: - AR COMPASS DISABLED - TOO BUGGY, FOCUSING ON 2D COMPASS
+// This entire file is commented out to resolve compilation issues
+// AR compass can be re-enabled in the future when issues are resolved
+
+/*
 import SwiftUI
 import ARKit
 import CoreLocation
@@ -502,3 +507,4 @@ struct ARQiblaCompassScreen_Previews: PreviewProvider {
     }
 }
 #endif
+*/ // End of AR Compass disabled code

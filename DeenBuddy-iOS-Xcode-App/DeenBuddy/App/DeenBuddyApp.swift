@@ -10,10 +10,12 @@ import SwiftUI
 @main
 struct DeenBuddyApp: App {
     private let appCoordinator = AppCoordinator.production()
+    @StateObject private var userPreferencesService = UserPreferencesService()
 
     var body: some Scene {
         WindowGroup {
             EnhancedDeenAssistApp(coordinator: appCoordinator)
+                .environmentObject(userPreferencesService)
         }
     }
 }
@@ -30,7 +32,7 @@ struct EnhancedDeenAssistApp: View {
         ZStack {
             switch coordinator.currentScreen {
             case .loading:
-                LoadingView.prayer(message: "Loading DeenBuddy...")
+                LoadingView.prayerWithMascot(message: "Loading DeenBuddy...")
 
             case .onboarding(let step):
                 OnboardingCoordinatorView(

@@ -515,6 +515,7 @@ class MockPrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     func refreshPrayerTimes() async {}
     func refreshTodaysPrayerTimes() async {}
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
+    func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] { return [] }
     func getCurrentLocation() async throws -> CLLocation { throw NSError(domain: "Mock", code: 0) }
     func triggerDynamicIslandForNextPrayer() async {}
 }

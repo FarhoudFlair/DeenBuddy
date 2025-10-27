@@ -9,9 +9,15 @@ import SwiftUI
 
 struct PrayerGuideDetailView: View {
     let guide: PrayerGuide
-    @State private var isBookmarked = false
+    @EnvironmentObject private var userPreferencesService: UserPreferencesService
     @State private var currentStepIndex = 0
     @State private var showingStepDetail = false
+    @State private var showingVideoPlayer = false
+    @State private var selectedVideoURL: URL?
+    
+    private var isBookmarked: Bool {
+        userPreferencesService.isBookmarked(guide.id)
+    }
     
     var body: some View {
         ScrollView {
@@ -39,8 +45,12 @@ struct PrayerGuideDetailView: View {
             }
         }
         .onAppear {
-            // TODO: Load bookmark status from UserDefaults or Core Data
-            loadBookmarkStatus()
+            // Bookmark status is automatically synced via UserPreferencesService
+        }
+        .sheet(isPresented: $showingVideoPlayer) {
+            if let videoURL = selectedVideoURL {
+                VideoPlayerView(videoURL: videoURL, title: guide.title)
+            }
         }
     }
     
@@ -138,11 +148,22 @@ struct PrayerGuideDetailView: View {
             
             LazyVStack(alignment: .leading, spacing: 16) {
                 ForEach(Array((guide.textContent?.steps ?? []).enumerated()), id: \.element.id) { index, step in
-                    PrayerStepView(step: step, stepNumber: index + 1)
-                        .onTapGesture {
-                            currentStepIndex = index
-                            showingStepDetail = true
+                    PrayerStepView(
+                        step: step,
+                        stepNumber: index + 1,
+                        onPlayVideo: { url in
+                            selectedVideoURL = url
+                            showingVideoPlayer = true
+                        },
+                        onPlayAudio: { url in
+                            // TODO: Implement audio playback with AVAudioPlayer
+                            print("Play audio: \(url)")
                         }
+                    )
+                    .onTapGesture {
+                        currentStepIndex = index
+                        showingStepDetail = true
+                    }
                 }
             }
         }
@@ -200,19 +221,7 @@ struct PrayerGuideDetailView: View {
     }
     
     private func toggleBookmark() {
-        isBookmarked.toggle()
-        // TODO: Save bookmark status to UserDefaults or Core Data
-        saveBookmarkStatus()
-    }
-    
-    private func loadBookmarkStatus() {
-        // TODO: Load from persistent storage
-        isBookmarked = UserDefaults.standard.bool(forKey: "bookmark_\(guide.id)")
-    }
-    
-    private func saveBookmarkStatus() {
-        // TODO: Save to persistent storage
-        UserDefaults.standard.set(isBookmarked, forKey: "bookmark_\(guide.id)")
+        userPreferencesService.toggleBookmark(for: guide.id)
     }
 }
 
@@ -282,8 +291,9 @@ struct InfoRowView: View {
                 difficulty: .beginner,
                 duration: 300,
                 description: "Complete guide for performing Fajr prayer according to Sunni tradition with detailed step-by-step instructions."
-                
+
             )
         )
+        .environmentObject(UserPreferencesService())
     }
 }

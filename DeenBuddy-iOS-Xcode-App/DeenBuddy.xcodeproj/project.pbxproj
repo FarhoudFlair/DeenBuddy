@@ -13,6 +13,7 @@
 		23837F702E3C843E003AEF75 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332812E29A15E00B48D7A /* SwiftUI.framework */; };
 		23837F712E3C8446003AEF75 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2333327F2E29A15D00B48D7A /* WidgetKit.framework */; };
 		23837F732E3C861E003AEF75 /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23837F722E3C861E003AEF75 /* Adhan */; settings = {ATTRIBUTES = (Required, ); }; };
+		24B928272F1F3C9B002B85D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 24B928262F1F3C9B002B85D2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -146,9 +147,20 @@
 		23F09EF82E17292A00E25D2F /* DeenBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeenBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		24B928262F1F3C9B002B85D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = DeenBuddy/Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		237579DB2E4E5D6800747C0A /* Exceptions for "DeenBuddy" folder in "Live Activity Widget ExtensionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Frameworks/DeenAssistCore/LiveActivities/AppLaunchActivity.swift,
+				Frameworks/DeenAssistCore/LiveActivities/DynamicIslandManager.swift,
+				Frameworks/DeenAssistCore/LiveActivities/PrayerCountdownActivity.swift,
+				Frameworks/DeenAssistCore/Models/Prayer.swift,
+			);
+			target = 23837F432E3C794F003AEF75 /* Live Activity Widget ExtensionExtension */;
+		};
 		23837F302E396278003AEF75 /* Exceptions for "DeenBuddy" folder in "DeenBuddy" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -178,6 +190,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				23837F302E396278003AEF75 /* Exceptions for "DeenBuddy" folder in "DeenBuddy" target */,
+				237579DB2E4E5D6800747C0A /* Exceptions for "DeenBuddy" folder in "Live Activity Widget ExtensionExtension" target */,
 			);
 			path = DeenBuddy;
 			sourceTree = "<group>";
@@ -472,6 +485,7 @@
 				23837F472E3C794F003AEF75 /* Live Activity Widget Extension */,
 				23EC89D92E20A2DE00BCAB83 /* Frameworks */,
 				23F09EF92E17292A00E25D2F /* Products */,
+				24B928262F1F3C9B002B85D2 /* Assets.xcassets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -641,6 +655,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				24B928272F1F3C9B002B85D2 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -724,7 +739,10 @@
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Live Activity Widget Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -754,7 +772,10 @@
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Live Activity Widget Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -825,7 +846,7 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -886,7 +907,7 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -915,6 +936,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "DeenBuddy uses the camera for AR compass feature to overlay Qibla direction on the real world view.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "DeenBuddy uses motion sensors to provide an accurate Qibla compass direction pointing towards Kaaba.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
@@ -924,7 +947,8 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -960,6 +984,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "DeenBuddy uses the camera for AR compass feature to overlay Qibla direction on the real world view.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "DeenBuddy uses motion sensors to provide an accurate Qibla compass direction pointing towards Kaaba.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
@@ -969,7 +995,8 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

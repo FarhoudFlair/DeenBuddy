@@ -4,8 +4,8 @@ import WidgetKit
 
 // MARK: - Widget Data Models
 
-/// Simplified prayer enum for widget extension
-enum Prayer: String, CaseIterable, Codable {
+/// Simplified prayer enum for widget extension (scoped to extension)
+enum WidgetPrayer: String, CaseIterable, Codable {
     case fajr = "fajr"
     case dhuhr = "dhuhr"
     case asr = "asr"
@@ -31,8 +31,6 @@ enum Prayer: String, CaseIterable, Codable {
         case .isha: return "العشاء"
         }
     }
-    
-    // MARK: - iOS UI Properties for Dynamic Island
     
     /// SF Symbol name for this prayer
     var systemImageName: String {
@@ -60,7 +58,7 @@ enum Prayer: String, CaseIterable, Codable {
 /// Simplified prayer time model for widget extension
 struct PrayerTime: Codable, Identifiable {
     let id = UUID()
-    let prayer: Prayer
+    let prayer: WidgetPrayer
     let time: Date
     let location: String?
 
@@ -83,21 +81,84 @@ struct HijriDate: Codable {
     let month: String
     let year: Int
     
+    private enum CodingKeys: String, CodingKey {
+        case day
+        case month
+        case year
+    }
+
+    init(day: Int, month: String, year: Int) {
+        self.day = day
+        self.month = month
+        self.year = year
+    }
+
     init(from date: Date) {
         // Simple implementation - in a real app this would use proper Hijri calendar
         let calendar = Calendar.current
         let components = calendar.dateComponents([.day, .month, .year], from: date)
         self.day = components.day ?? 1
         self.year = (components.year ?? 2024) - 579 // Approximate conversion
-        
-        let monthNames = ["Muharram", "Safar", "Rabi' al-awwal", "Rabi' al-thani", 
-                         "Jumada al-awwal", "Jumada al-thani", "Rajab", "Sha'ban", 
-                         "Ramadan", "Shawwal", "Dhu al-Qi'dah", "Dhu al-Hijjah"]
-        self.month = monthNames[(components.month ?? 1) - 1]
+
+        self.month = HijriDate.monthName(for: components.month ?? 1)
     }
-    
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        day = try container.decode(Int.self, forKey: .day)
+        year = try container.decode(Int.self, forKey: .year)
+
+        if let monthString = try? container.decode(String.self, forKey: .month) {
+            // If the decoded string is actually a numeric value (e.g. "9"),
+            // normalize it to a month name instead of showing the digits.
+            if let numeric = Int(monthString.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                if numeric < 1 || numeric > 12 {
+                    print("⚠️ HijriDate month value out of range: parsed \(numeric) from '\(monthString)', expected 1-12. Clamping will occur.")
+                }
+                month = HijriDate.monthName(for: numeric)
+            } else {
+                month = monthString
+            }
+        } else if let monthInt = try? container.decode(Int.self, forKey: .month) {
+            month = HijriDate.monthName(for: monthInt)
+        } else {
+            // Log the decoding failure to help diagnose data corruption issues
+            print("⚠️ HijriDate decoding failed: month field missing or invalid (day: \(day), year: \(year)). Falling back to Muharram.")
+            print("🔍 This may indicate data corruption in the widget data or shared container.")
+            // Fall back to a safe default if the payload is missing/invalid
+            month = HijriDate.monthName(for: 1)
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(day, forKey: .day)
+        try container.encode(month, forKey: .month)
+        try container.encode(year, forKey: .year)
+    }
+
     var formatted: String {
         return "\(day) \(month) \(year)"
+    }
+
+    private static func monthName(for index: Int) -> String {
+        let monthNames = [
+            "Muharram",
+            "Safar",
+            "Rabi' al-awwal",
+            "Rabi' al-thani",
+            "Jumada al-awwal",
+            "Jumada al-thani",
+            "Rajab",
+            "Sha'ban",
+            "Ramadan",
+            "Shawwal",
+            "Dhu al-Qi'dah",
+            "Dhu al-Hijjah"
+        ]
+
+        let clampedIndex = max(1, min(index, monthNames.count))
+        return monthNames[clampedIndex - 1]
     }
 }
 
@@ -113,6 +174,10 @@ enum CalculationMethod: String, Codable {
     case kuwait = "Kuwait"
     case qatar = "Qatar"
     case singapore = "Singapore"
+    // Add cases to mirror main app so decoding shared data succeeds
+    case jafariLeva = "JafariLeva"
+    case jafariTehran = "JafariTehran"
+    case fcnaCanada = "FCNACanada"
     
     var displayName: String {
         switch self {
@@ -126,6 +191,9 @@ enum CalculationMethod: String, Codable {
         case .kuwait: return "Kuwait"
         case .qatar: return "Qatar"
         case .singapore: return "Singapore"
+        case .jafariLeva: return "Ja'fari (Leva Institute, Qum)"
+        case .jafariTehran: return "Ja'fari (Tehran IOG)"
+        case .fcnaCanada: return "FCNA (Canada)"
         }
     }
 }
@@ -140,20 +208,31 @@ struct WidgetData: Codable {
     let calculationMethod: CalculationMethod
     let lastUpdated: Date
     
-    // Placeholder data for previews
+    // Placeholder data for previews and fallbacks
     static let placeholder = WidgetData(
-        nextPrayer: PrayerTime(prayer: .maghrib, time: Date().addingTimeInterval(3600), location: nil),
+        nextPrayer: PrayerTime(prayer: WidgetPrayer.maghrib, time: Date().addingTimeInterval(3600), location: nil),
         timeUntilNextPrayer: 3600,
         todaysPrayerTimes: [
-            PrayerTime(prayer: .fajr, time: Date().addingTimeInterval(-18000), location: nil),
-            PrayerTime(prayer: .dhuhr, time: Date().addingTimeInterval(-7200), location: nil),
-            PrayerTime(prayer: .asr, time: Date().addingTimeInterval(-3600), location: nil),
-            PrayerTime(prayer: .maghrib, time: Date().addingTimeInterval(3600), location: nil),
-            PrayerTime(prayer: .isha, time: Date().addingTimeInterval(7200), location: nil)
+            PrayerTime(prayer: WidgetPrayer.fajr, time: Date().addingTimeInterval(-18000), location: nil),
+            PrayerTime(prayer: WidgetPrayer.dhuhr, time: Date().addingTimeInterval(-7200), location: nil),
+            PrayerTime(prayer: WidgetPrayer.asr, time: Date().addingTimeInterval(-3600), location: nil),
+            PrayerTime(prayer: WidgetPrayer.maghrib, time: Date().addingTimeInterval(3600), location: nil),
+            PrayerTime(prayer: WidgetPrayer.isha, time: Date().addingTimeInterval(7200), location: nil)
         ],
         hijriDate: HijriDate(from: Date()),
-        location: "New York, NY",
-        calculationMethod: .muslimWorldLeague,
+        location: "Location Loading...",
+        calculationMethod: CalculationMethod.muslimWorldLeague,
+        lastUpdated: Date()
+    )
+    
+    // Error state when data loading fails
+    static let errorState = WidgetData(
+        nextPrayer: nil,
+        timeUntilNextPrayer: nil,
+        todaysPrayerTimes: [],
+        hijriDate: HijriDate(from: Date()),
+        location: "Open DeenBuddy App",
+        calculationMethod: CalculationMethod.muslimWorldLeague,
         lastUpdated: Date()
     )
     
@@ -175,7 +254,7 @@ struct WidgetData: Codable {
 struct PrayerWidgetEntry: TimelineEntry {
     let date: Date
     let widgetData: WidgetData
-    let configuration: WidgetConfiguration
+    let configuration: PrayerWidgetConfiguration
     
     static func placeholder() -> PrayerWidgetEntry {
         return PrayerWidgetEntry(
@@ -184,15 +263,23 @@ struct PrayerWidgetEntry: TimelineEntry {
             configuration: .default
         )
     }
+    
+    static func errorEntry() -> PrayerWidgetEntry {
+        return PrayerWidgetEntry(
+            date: Date(),
+            widgetData: .errorState,
+            configuration: .default
+        )
+    }
 }
 
 /// Widget configuration
-struct WidgetConfiguration: Codable {
+struct PrayerWidgetConfiguration: Codable {
     let showArabicText: Bool
     let showCountdown: Bool
     let theme: WidgetTheme
     
-    static let `default` = WidgetConfiguration(
+    static let `default` = PrayerWidgetConfiguration(
         showArabicText: true,
         showCountdown: true,
         theme: .auto
@@ -229,20 +316,31 @@ class WidgetDataManager {
     func loadWidgetData() -> WidgetData? {
         guard let sharedDefaults = sharedDefaults else {
             print("⚠️ Widget: Failed to access shared UserDefaults for group: \(groupIdentifier)")
+            print("🔍 Widget: This may indicate an app group configuration issue")
             return nil
         }
 
         guard let data = sharedDefaults.data(forKey: widgetDataKey) else {
             print("ℹ️ Widget: No widget data found in shared container for key: \(widgetDataKey)")
+            print("🔍 Widget: Available keys in shared container: \(Array(sharedDefaults.dictionaryRepresentation().keys))")
+            print("🔍 Widget: This usually means the main app hasn't saved widget data yet")
             return nil
         }
 
         do {
             let widgetData = try JSONDecoder().decode(WidgetData.self, from: data)
             print("✅ Widget: Successfully loaded widget data")
+            print("🔍 Widget: Next prayer: \(widgetData.nextPrayer?.prayer.displayName ?? "None")")
+            print("🔍 Widget: Location: \(widgetData.location)")
+            print("🔍 Widget: Last updated: \(widgetData.lastUpdated)")
             return widgetData
         } catch {
             print("❌ Widget: Failed to decode widget data: \(error)")
+            print("🔍 Widget: Data size: \(data.count) bytes")
+            // Try to provide a more helpful error message
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("🔍 Widget: Raw JSON data: \(jsonString.prefix(200))...")
+            }
             return nil
         }
     }
@@ -263,10 +361,10 @@ class WidgetDataManager {
         }
     }
     
-    func loadWidgetConfiguration() -> WidgetConfiguration {
+    func loadWidgetConfiguration() -> PrayerWidgetConfiguration {
         guard let sharedDefaults = sharedDefaults else {
             print("⚠️ Widget: Failed to access shared UserDefaults for configuration")
-            return WidgetConfiguration(
+            return PrayerWidgetConfiguration(
                 showArabicText: shouldShowArabicSymbol(),
                 showCountdown: true,
                 theme: .auto
@@ -275,7 +373,7 @@ class WidgetDataManager {
 
         guard let data = sharedDefaults.data(forKey: widgetConfigurationKey) else {
             print("ℹ️ Widget: No widget configuration found, using default with Arabic symbol preference")
-            return WidgetConfiguration(
+            return PrayerWidgetConfiguration(
                 showArabicText: shouldShowArabicSymbol(),
                 showCountdown: true,
                 theme: .auto
@@ -283,17 +381,17 @@ class WidgetDataManager {
         }
 
         do {
-            let config = try JSONDecoder().decode(WidgetConfiguration.self, from: data)
+            let config = try JSONDecoder().decode(PrayerWidgetConfiguration.self, from: data)
             print("✅ Widget: Successfully loaded widget configuration")
             // Override showArabicText with user's preference for Arabic symbols
-            return WidgetConfiguration(
+            return PrayerWidgetConfiguration(
                 showArabicText: shouldShowArabicSymbol(),
                 showCountdown: config.showCountdown,
                 theme: config.theme
             )
         } catch {
             print("❌ Widget: Failed to decode widget configuration: \(error)")
-            return WidgetConfiguration(
+            return PrayerWidgetConfiguration(
                 showArabicText: shouldShowArabicSymbol(),
                 showCountdown: true,
                 theme: .auto
@@ -301,7 +399,7 @@ class WidgetDataManager {
         }
     }
     
-    func saveWidgetConfiguration(_ configuration: WidgetConfiguration) {
+    func saveWidgetConfiguration(_ configuration: PrayerWidgetConfiguration) {
         guard let sharedDefaults = sharedDefaults else {
             print("⚠️ Shared defaults not available, cannot save widget configuration")
             return

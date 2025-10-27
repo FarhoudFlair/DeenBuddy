@@ -86,6 +86,39 @@ public struct LoadingView: View {
                     .labelLarge()
                     .foregroundColor(ColorPalette.textSecondary)
             }
+            
+        case .prayerWithBuddy:
+            VStack(spacing: 16) {
+                // Legacy buddy waving animation at the top
+                BuddyWaveView()
+                    .frame(width: 80, height: 80)
+                
+                // Prayer moon icon below
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(ColorPalette.primary)
+                    .rotationEffect(.degrees(isAnimating ? 360 : 0))
+                    .animation(
+                        Animation.linear(duration: 2.0).repeatForever(autoreverses: false),
+                        value: isAnimating
+                    )
+            }
+            
+        case .prayerWithMascot:
+            VStack(spacing: 16) {
+                // Simple PNG mascot with gentle pulse
+                SimpleMascotView.loading(size: 80)
+                
+                // Prayer moon icon below
+                Image(systemName: "moon.stars.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(ColorPalette.primary)
+                    .rotationEffect(.degrees(isAnimating ? 360 : 0))
+                    .animation(
+                        Animation.linear(duration: 2.0).repeatForever(autoreverses: false),
+                        value: isAnimating
+                    )
+            }
         }
     }
 }
@@ -98,6 +131,8 @@ public extension LoadingView {
         case dots
         case pulse
         case prayer
+        case prayerWithBuddy    // Compatibility variant
+        case prayerWithMascot   // New improved version
     }
 }
 
@@ -118,6 +153,14 @@ public extension LoadingView {
     
     static func prayer(message: String? = nil) -> LoadingView {
         LoadingView(style: .prayer, message: message)
+    }
+    
+    static func prayerWithBuddy(message: String? = nil) -> LoadingView {
+        LoadingView(style: .prayerWithBuddy, message: message)
+    }
+    
+    static func prayerWithMascot(message: String? = nil) -> LoadingView {
+        LoadingView(style: .prayerWithMascot, message: message)
     }
 }
 

@@ -263,7 +263,8 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         
         let endTime = Date()
         let duration = endTime.timeIntervalSince(session.startTime)
-        
+        let didReachTarget = currentCount >= session.targetCount
+
         session = TasbihSession(
             id: session.id,
             dhikr: session.dhikr,
@@ -271,7 +272,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
             endTime: endTime,
             currentCount: currentCount,
             targetCount: session.targetCount,
-            isCompleted: true,
+            isCompleted: didReachTarget,
             isPaused: false,
             totalDuration: duration,
             notes: notes,
@@ -436,6 +437,39 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         
         currentSession = session
         
+        do {
+            try saveCachedData()
+        } catch {
+            self.error = error
+        }
+    }
+
+    public func updateTargetCount(_ target: Int) async {
+        guard var session = currentSession else { return }
+
+        let newTarget = max(1, min(target, currentCounter.maxCount))
+        // Preserve current count - don't reduce it when target is lowered
+        // Only clamp if count somehow exceeds the absolute maximum
+        let newCount = min(session.currentCount, currentCounter.maxCount)
+        currentCount = newCount
+
+        session = TasbihSession(
+            id: session.id,
+            dhikr: session.dhikr,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            currentCount: newCount,
+            targetCount: newTarget,
+            isCompleted: newCount >= newTarget,
+            isPaused: session.isPaused,
+            totalDuration: session.totalDuration,
+            notes: session.notes,
+            location: session.location,
+            mood: session.mood
+        )
+
+        currentSession = session
+
         do {
             try saveCachedData()
         } catch {

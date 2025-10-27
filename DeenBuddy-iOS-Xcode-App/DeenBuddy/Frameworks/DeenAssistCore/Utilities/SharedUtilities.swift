@@ -429,3 +429,34 @@ extension SharedUtilities {
         }
     }
 }
+
+extension SharedUtilities {
+    // MARK: - Formatting Helpers
+    public static func formatDuration(_ interval: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(interval))
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else if minutes > 0 {
+            return "\(minutes)m \(seconds)s"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+
+    public static func formatPercentage(_ value: Double) -> String {
+        let clamped = max(0, min(1, value))
+        return String(format: "%.0f%%", clamped * 100)
+    }
+
+    public static func formatNumber(_ value: Int) -> String {
+        NumberFormatter.localizedString(from: NSNumber(value: value), number: .decimal)
+    }
+
+    public static func formatDailyAverage(_ value: Double) -> String {
+        if value == 0 { return "0" }
+        return String(format: "%.1f", value)
+    }
+}

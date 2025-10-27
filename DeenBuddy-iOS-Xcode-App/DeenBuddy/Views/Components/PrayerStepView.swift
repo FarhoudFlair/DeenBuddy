@@ -10,10 +10,14 @@ import SwiftUI
 struct PrayerStepView: View {
     let step: PrayerStep
     let stepNumber: Int
+    var onPlayVideo: ((URL) -> Void)?
+    var onPlayAudio: ((URL) -> Void)?
     
-    init(step: PrayerStep, stepNumber: Int = 1) {
+    init(step: PrayerStep, stepNumber: Int = 1, onPlayVideo: ((URL) -> Void)? = nil, onPlayAudio: ((URL) -> Void)? = nil) {
         self.step = step
         self.stepNumber = stepNumber
+        self.onPlayVideo = onPlayVideo
+        self.onPlayAudio = onPlayAudio
     }
     
     var body: some View {
@@ -56,9 +60,9 @@ struct PrayerStepView: View {
             // Media buttons if available
             if step.videoUrl != nil || step.audioUrl != nil {
                 HStack(spacing: 12) {
-                    if step.videoUrl != nil {
+                    if let videoURLString = step.videoUrl, let videoURL = URL(string: videoURLString) {
                         Button(action: {
-                            // TODO: Handle video playback
+                            onPlayVideo?(videoURL)
                         }) {
                             HStack(spacing: 4) {
                                 Image(systemName: "play.circle")
@@ -69,9 +73,9 @@ struct PrayerStepView: View {
                         }
                     }
                     
-                    if step.audioUrl != nil {
+                    if let audioURLString = step.audioUrl, let audioURL = URL(string: audioURLString) {
                         Button(action: {
-                            // TODO: Handle audio playback
+                            onPlayAudio?(audioURL)
                         }) {
                             HStack(spacing: 4) {
                                 Image(systemName: "speaker.wave.2")
@@ -108,10 +112,17 @@ struct PrayerStepView: View {
             title: "Preparation",
             description: "Perform Wudu (ablution) and face the Qibla. Make sure you are in a clean place and wearing clean clothes.",
             stepNumber: 1,
+            audioUrl: "https://example.com/audio",
             videoUrl: "https://example.com/video",
             duration: 60
         ),
-        stepNumber: 1
+        stepNumber: 1,
+        onPlayVideo: { url in
+            print("▶️ Playing video: \(url)")
+        },
+        onPlayAudio: { url in
+            print("🔊 Playing audio: \(url)")
+        }
     )
     .padding()
 }

@@ -274,6 +274,9 @@ class Phase1MockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var showArabicSymbolInWidget: Bool = true {
         didSet { notifySettingsChanged() }
     }
+    @Published var liveActivitiesEnabled: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -309,6 +312,7 @@ class Phase1MockPrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     func refreshPrayerTimes() async {}
     func refreshTodaysPrayerTimes() async {}
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
+    func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] { return [] }
     func getCurrentLocation() async throws -> CLLocation { throw NSError(domain: "Mock", code: 0) }
     func triggerDynamicIslandForNextPrayer() async {}
 }

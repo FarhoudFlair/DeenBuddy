@@ -116,6 +116,26 @@ class TasbihServiceTests: XCTestCase {
         XCTAssertEqual(sut.recentSessions.count, initialSessionCount + 1)
         XCTAssertEqual(sut.recentSessions.last?.notes, "Test session")
         XCTAssertEqual(sut.recentSessions.last?.mood, .peaceful)
+        XCTAssertFalse(sut.recentSessions.last?.isCompleted ?? true)
+    }
+
+    @MainActor
+    func testCompleteSession_WhenTargetReached_ShouldMarkAsCompleted() async throws {
+        // Given
+        let dhikr = Dhikr(
+            arabicText: "سُبْحَانَ اللَّهِ",
+            transliteration: "SubhanAllah",
+            translation: "Glory be to Allah",
+            category: .tasbih
+        )
+
+        await sut.startSession(with: dhikr, targetCount: 5, counter: nil)
+        await sut.incrementCount(by: 5)
+
+        // When
+        await sut.completeSession()
+
+        // Then
         XCTAssertTrue(sut.recentSessions.last?.isCompleted ?? false)
     }
     

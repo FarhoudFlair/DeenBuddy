@@ -74,6 +74,10 @@ public protocol TasbihServiceProtocol: ObservableObject {
     /// Set specific count in current session
     /// - Parameter count: The count to set
     func setCount(_ count: Int) async
+
+    /// Update the target count for the current session
+    /// - Parameter target: The new target count
+    func updateTargetCount(_ target: Int) async
     
     // MARK: - Dhikr Management
     

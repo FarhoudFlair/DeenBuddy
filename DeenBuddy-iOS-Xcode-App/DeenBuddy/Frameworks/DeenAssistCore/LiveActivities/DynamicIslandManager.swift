@@ -156,6 +156,7 @@ public enum DynamicIslandError: Error, LocalizedError {
     case notSupported
     case activityNotFound
     case updateFailed
+    case invalidPrayerRawValue(String)
     
     public var errorDescription: String? {
         switch self {
@@ -165,6 +166,8 @@ public enum DynamicIslandError: Error, LocalizedError {
             return "No active Dynamic Island activity found"
         case .updateFailed:
             return "Failed to update Dynamic Island content"
+        case .invalidPrayerRawValue(let raw):
+            return "Invalid prayer value: \(raw)"
         }
     }
 }
@@ -351,7 +354,7 @@ public class DynamicIslandIntegrationService: ObservableObject {
     // MARK: - Integration Methods
     
     /// Start prayer countdown with automatic Dynamic Island integration
-    public func startPrayerCountdownWithDynamicIsland(
+    internal func startPrayerCountdownWithDynamicIsland(
         prayerTime: PrayerTime,
         location: String,
         hijriDate: HijriDate,
@@ -363,8 +366,13 @@ public class DynamicIslandIntegrationService: ObservableObject {
             throw DynamicIslandError.updateFailed
         }
         
+        // Convert WidgetPrayer to Prayer using the widgetRawValue initializer
+        guard let convertedPrayer = Prayer(widgetRawValue: prayerTime.prayer.rawValue) else {
+            throw DynamicIslandError.updateFailed
+        }
+
         try await DynamicIslandManager.shared.startPrayerCountdownInDynamicIsland(
-            for: prayerTime.prayer,
+            for: convertedPrayer,
             prayerTime: prayerTime.time,
             location: location,
             hijriDate: hijriDate.formatted,
