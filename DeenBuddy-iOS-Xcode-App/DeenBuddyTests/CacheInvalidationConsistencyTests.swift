@@ -346,6 +346,7 @@ class CacheInvalidationConsistencyMockSettingsService: SettingsServiceProtocol, 
     @Published var userName: String = ""
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -411,6 +412,10 @@ class CacheInvalidationConsistencyMockNotificationService: NotificationServicePr
     func updateNotificationSettings(_ settings: NotificationSettings) {
         // Mock implementation
     }
+
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }
 
 /// Extended MockLocationService with mockLocation property for testing

@@ -289,7 +289,7 @@ public struct PrayerStreak: Codable, Equatable {
     public let startDate: Date?
     public let endDate: Date?
     public let isActive: Bool
-    
+
     public init(
         current: Int = 0,
         longest: Int = 0,
@@ -303,20 +303,135 @@ public struct PrayerStreak: Codable, Equatable {
         self.endDate = endDate
         self.isActive = isActive
     }
-    
+
     /// Empty streak for fallback
     public static let empty = PrayerStreak()
-    
+
     /// Duration of current streak
     public var currentStreakDuration: TimeInterval? {
         guard let startDate = startDate else { return nil }
         return Date().timeIntervalSince(startDate)
     }
-    
+
     /// Days in current streak
     public var currentStreakDays: Int {
         guard let duration = currentStreakDuration else { return 0 }
         return Int(duration / (24 * 60 * 60))
+    }
+}
+
+/// Individual prayer streak information - tracks streak for a specific prayer
+public struct IndividualPrayerStreak: Codable, Equatable, Identifiable {
+    public let id: UUID
+    public let prayer: Prayer
+    public let currentStreak: Int
+    public let longestStreak: Int
+    public let lastCompleted: Date?
+    public let isActiveToday: Bool
+    public let startDate: Date?
+
+    public init(
+        id: UUID = UUID(),
+        prayer: Prayer,
+        currentStreak: Int = 0,
+        longestStreak: Int = 0,
+        lastCompleted: Date? = nil,
+        isActiveToday: Bool = false,
+        startDate: Date? = nil
+    ) {
+        self.id = id
+        self.prayer = prayer
+        self.currentStreak = currentStreak
+        self.longestStreak = longestStreak
+        self.lastCompleted = lastCompleted
+        self.isActiveToday = isActiveToday
+        self.startDate = startDate
+    }
+
+    /// Get next milestone for this prayer streak
+    public var nextMilestone: Int {
+        let milestones = [3, 7, 14, 30, 60, 100, 365]
+        return milestones.first { $0 > currentStreak } ?? (currentStreak + 30)
+    }
+
+    /// Progress to next milestone (0.0 to 1.0)
+    public var milestoneProgress: Double {
+        let previous = getPreviousMilestone()
+        let next = nextMilestone
+        let range = Double(next - previous)
+        let current = Double(currentStreak - previous)
+        return range > 0 ? min(current / range, 1.0) : 0.0
+    }
+
+    /// Days remaining to next milestone
+    public var daysToMilestone: Int {
+        return max(0, nextMilestone - currentStreak)
+    }
+
+    /// Get streak intensity level for visual representation
+    public var intensityLevel: StreakIntensity {
+        switch currentStreak {
+        case 0:
+            return .none
+        case 1...3:
+            return .starting
+        case 4...7:
+            return .building
+        case 8...30:
+            return .strong
+        case 31...99:
+            return .excellent
+        default:
+            return .legendary
+        }
+    }
+
+    private func getPreviousMilestone() -> Int {
+        let milestones = [0, 3, 7, 14, 30, 60, 100, 365]
+        return milestones.last { $0 <= currentStreak } ?? 0
+    }
+}
+
+/// Streak intensity levels for visual representation
+public enum StreakIntensity: String, Codable {
+    case none = "none"
+    case starting = "starting"
+    case building = "building"
+    case strong = "strong"
+    case excellent = "excellent"
+    case legendary = "legendary"
+
+    public var displayName: String {
+        switch self {
+        case .none: return "Start Your Streak"
+        case .starting: return "Getting Started"
+        case .building: return "Building Momentum"
+        case .strong: return "Strong Streak!"
+        case .excellent: return "Excellent Work!"
+        case .legendary: return "Legendary!"
+        }
+    }
+
+    public var color: Color {
+        switch self {
+        case .none: return .gray
+        case .starting: return .orange
+        case .building: return .yellow
+        case .strong: return .green
+        case .excellent: return .blue
+        case .legendary: return .purple
+        }
+    }
+
+    public var icon: String {
+        switch self {
+        case .none: return "flame"
+        case .starting: return "flame.fill"
+        case .building: return "flame.fill"
+        case .strong: return "flame.fill"
+        case .excellent: return "star.fill"
+        case .legendary: return "crown.fill"
+        }
     }
 }
 

@@ -713,6 +713,10 @@ class PrayerTimeSyncMockNotificationService: NotificationServiceProtocol, Observ
     func updateNotificationSettings(_ settings: NotificationSettings) {
         // Mock implementation
     }
+
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }
 
 /// Extended MockLocationService with mockLocation property for testing

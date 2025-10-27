@@ -53,12 +53,10 @@ class LocationDiagnosticTests: XCTestCase {
             prayerTimeService: mockPrayerTimeService,
             locationService: mockLocationService,
             settingsService: mockSettingsService,
-            notificationService: LocationDiagnosticMockNotificationService(),
             onCompassTapped: {},
             onGuidesTapped: {},
             onQuranSearchTapped: {},
-            onSettingsTapped: {},
-            onNotificationsTapped: {}
+            onSettingsTapped: {}
         )
         
         // Then
@@ -180,4 +178,7 @@ class LocationDiagnosticMockNotificationService: NotificationServiceProtocol, Ob
     func schedulePrayerTrackingNotification(for prayer: Prayer, at prayerTime: Date, reminderMinutes: Int) async throws {}
     func getNotificationSettings() -> NotificationSettings { return .default }
     func updateNotificationSettings(_ settings: NotificationSettings) {}
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }

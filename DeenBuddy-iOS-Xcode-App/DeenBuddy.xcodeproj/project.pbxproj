@@ -13,6 +13,7 @@
 		23837F702E3C843E003AEF75 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 233332812E29A15E00B48D7A /* SwiftUI.framework */; };
 		23837F712E3C8446003AEF75 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2333327F2E29A15D00B48D7A /* WidgetKit.framework */; };
 		23837F732E3C861E003AEF75 /* Adhan in Frameworks */ = {isa = PBXBuildFile; productRef = 23837F722E3C861E003AEF75 /* Adhan */; settings = {ATTRIBUTES = (Required, ); }; };
+		24B928272F1F3C9B002B85D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 24B928262F1F3C9B002B85D2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +55,104 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		232D68222EAF245000676A93 /* AccessibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityService.swift; sourceTree = "<group>"; };
+		232D68242EAF245000676A93 /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsService.swift; sourceTree = "<group>"; };
+		232D68262EAF245000676A93 /* CodebaseExtensionPoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodebaseExtensionPoints.swift; sourceTree = "<group>"; };
+		232D68272EAF245000676A93 /* ConfigurationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigurationManager.swift; sourceTree = "<group>"; };
+		232D68282EAF245000676A93 /* FeatureFlagHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagHelper.swift; sourceTree = "<group>"; };
+		232D68292EAF245000676A93 /* IslamicFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicFeatureFlags.swift; sourceTree = "<group>"; };
+		232D682A2EAF245000676A93 /* PremiumAnalyticsFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumAnalyticsFeatures.swift; sourceTree = "<group>"; };
+		232D682B2EAF245000676A93 /* SecureSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureSetup.swift; sourceTree = "<group>"; };
+		232D682D2EAF245000676A93 /* UnifiedSettingsKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedSettingsKeys.swift; sourceTree = "<group>"; };
+		232D682F2EAF245000676A93 /* DependencyContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DependencyContainer.swift; sourceTree = "<group>"; };
+		232D68312EAF245000676A93 /* ErrorHandling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorHandling.swift; sourceTree = "<group>"; };
+		232D68332EAF245000676A93 /* AppLaunchActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchActivity.swift; sourceTree = "<group>"; };
+		232D68342EAF245000676A93 /* DynamicIslandManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicIslandManager.swift; sourceTree = "<group>"; };
+		232D68352EAF245000676A93 /* PrayerCountdownActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerCountdownActivity.swift; sourceTree = "<group>"; };
+		232D68362EAF245000676A93 /* PrayerLiveActivityActionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerLiveActivityActionBridge.swift; sourceTree = "<group>"; };
+		232D68382EAF245000676A93 /* Localizable_ar.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_ar.json; sourceTree = "<group>"; };
+		232D68392EAF245000676A93 /* Localizable_en.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_en.json; sourceTree = "<group>"; };
+		232D683A2EAF245000676A93 /* Localizable_es.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_es.json; sourceTree = "<group>"; };
+		232D683B2EAF245000676A93 /* Localizable_fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_fr.json; sourceTree = "<group>"; };
+		232D683C2EAF245000676A93 /* Localizable_ur.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Localizable_ur.json; sourceTree = "<group>"; };
+		232D683F2EAF245000676A93 /* MockAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockAPIClient.swift; sourceTree = "<group>"; };
+		232D68412EAF245000676A93 /* SubscriptionProduct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionProduct.swift; sourceTree = "<group>"; };
+		232D68422EAF245000676A93 /* SubscriptionStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStatus.swift; sourceTree = "<group>"; };
+		232D68432EAF245000676A93 /* SubscriptionTier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionTier.swift; sourceTree = "<group>"; };
+		232D68452EAF245000676A93 /* APIModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIModels.swift; sourceTree = "<group>"; };
+		232D68462EAF245000676A93 /* Difficulty.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Difficulty.swift; sourceTree = "<group>"; };
+		232D68472EAF245000676A93 /* Hadith.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hadith.swift; sourceTree = "<group>"; };
+		232D68482EAF245000676A93 /* IslamicCalendarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicCalendarModels.swift; sourceTree = "<group>"; };
+		232D68492EAF245000676A93 /* Language.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Language.swift; sourceTree = "<group>"; };
+		232D684A2EAF245000676A93 /* Location.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Location.swift; sourceTree = "<group>"; };
+		232D684B2EAF245000676A93 /* Madhab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Madhab.swift; sourceTree = "<group>"; };
+		232D684C2EAF245000676A93 /* NotificationTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypes.swift; sourceTree = "<group>"; };
+		232D684D2EAF245000676A93 /* Prayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Prayer.swift; sourceTree = "<group>"; };
+		232D684E2EAF245000676A93 /* PrayerContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerContent.swift; sourceTree = "<group>"; };
+		232D684F2EAF245000676A93 /* PrayerGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerGuide.swift; sourceTree = "<group>"; };
+		232D68502EAF245000676A93 /* PrayerJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerJournal.swift; sourceTree = "<group>"; };
+		232D68512EAF245000676A93 /* PrayerSchedule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerSchedule.swift; sourceTree = "<group>"; };
+		232D68522EAF245000676A93 /* PrayerStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerStep.swift; sourceTree = "<group>"; };
+		232D68532EAF245000676A93 /* PrayerTimes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTimes.swift; sourceTree = "<group>"; };
+		232D68542EAF245000676A93 /* PrayerTracking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTracking.swift; sourceTree = "<group>"; };
+		232D68552EAF245000676A93 /* QiblaDirection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiblaDirection.swift; sourceTree = "<group>"; };
+		232D68562EAF245000676A93 /* QuranVerse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranVerse.swift; sourceTree = "<group>"; };
+		232D68572EAF245000676A93 /* TasbihModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasbihModels.swift; sourceTree = "<group>"; };
+		232D68582EAF245000676A93 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		232D68592EAF245000676A93 /* WidgetModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetModels.swift; sourceTree = "<group>"; };
+		232D685B2EAF245000676A93 /* PerformanceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitor.swift; sourceTree = "<group>"; };
+		232D685D2EAF245000676A93 /* APIClientProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClientProtocol.swift; sourceTree = "<group>"; };
+		232D685E2EAF245000676A93 /* SubscriptionServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionServiceProtocol.swift; sourceTree = "<group>"; };
+		232D68602EAF245000676A93 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
+		232D68612EAF245000676A93 /* SubscriptionStatusManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStatusManager.swift; sourceTree = "<group>"; };
+		232D68632EAF245000676A93 /* APICache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APICache.swift; sourceTree = "<group>"; };
+		232D68642EAF245000676A93 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		232D68652EAF245000676A93 /* AppLifecycleManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycleManager.swift; sourceTree = "<group>"; };
+		232D68662EAF245000676A93 /* ARCompassSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARCompassSession.swift; sourceTree = "<group>"; };
+		232D68672EAF245000676A93 /* BackgroundProcessingOptimizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundProcessingOptimizer.swift; sourceTree = "<group>"; };
+		232D68682EAF245000676A93 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTaskManager.swift; sourceTree = "<group>"; };
+		232D68692EAF245000676A93 /* BaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseService.swift; sourceTree = "<group>"; };
+		232D686A2EAF245000676A93 /* BatteryAwareTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryAwareTimerManager.swift; sourceTree = "<group>"; };
+		232D686B2EAF245000676A93 /* BatteryOptimizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryOptimizer.swift; sourceTree = "<group>"; };
+		232D686C2EAF245000676A93 /* ContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentService.swift; sourceTree = "<group>"; };
+		232D686D2EAF245000676A93 /* ExampleRefactoredService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExampleRefactoredService.swift; sourceTree = "<group>"; };
+		232D686E2EAF245000676A93 /* HapticFeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticFeedbackService.swift; sourceTree = "<group>"; };
+		232D686F2EAF245000676A93 /* IslamicCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicCalendarService.swift; sourceTree = "<group>"; };
+		232D68702EAF245000676A93 /* IslamicEventNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicEventNotificationService.swift; sourceTree = "<group>"; };
+		232D68712EAF245000676A93 /* IslamicKnowledgeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IslamicKnowledgeService.swift; sourceTree = "<group>"; };
+		232D68722EAF245000676A93 /* LocalizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalizationService.swift; sourceTree = "<group>"; };
+		232D68732EAF245000676A93 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		232D68742EAF245000676A93 /* MemoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryManager.swift; sourceTree = "<group>"; };
+		232D68752EAF245000676A93 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		232D68762EAF245000676A93 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		232D68772EAF245000676A93 /* OfflineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineService.swift; sourceTree = "<group>"; };
+		232D68782EAF245000676A93 /* PerformanceMonitoringService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitoringService.swift; sourceTree = "<group>"; };
+		232D68792EAF245000676A93 /* PrayerAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerAnalyticsService.swift; sourceTree = "<group>"; };
+		232D687A2EAF245000676A93 /* PrayerJournalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerJournalService.swift; sourceTree = "<group>"; };
+		232D687B2EAF245000676A93 /* PrayerTimeRequestCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTimeRequestCoordinator.swift; sourceTree = "<group>"; };
+		232D687C2EAF245000676A93 /* PrayerTimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTimeService.swift; sourceTree = "<group>"; };
+		232D687D2EAF245000676A93 /* PrayerTrackingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTrackingCoordinator.swift; sourceTree = "<group>"; };
+		232D687E2EAF245000676A93 /* PrayerTrackingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTrackingService.swift; sourceTree = "<group>"; };
+		232D687F2EAF245000676A93 /* QuranAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranAPIService.swift; sourceTree = "<group>"; };
+		232D68802EAF245000676A93 /* QuranDataValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranDataValidator.swift; sourceTree = "<group>"; };
+		232D68812EAF245000676A93 /* QuranSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuranSearchService.swift; sourceTree = "<group>"; };
+		232D68822EAF245000676A93 /* RetryMechanism.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryMechanism.swift; sourceTree = "<group>"; };
+		232D68832EAF245000676A93 /* SemanticSearchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchEngine.swift; sourceTree = "<group>"; };
+		232D68842EAF245000676A93 /* SettingsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsService.swift; sourceTree = "<group>"; };
+		232D68852EAF245000676A93 /* SharedInstances.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInstances.swift; sourceTree = "<group>"; };
+		232D68862EAF245000676A93 /* ShareService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareService.swift; sourceTree = "<group>"; };
+		232D68872EAF245000676A93 /* SupabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseService.swift; sourceTree = "<group>"; };
+		232D68882EAF245000676A93 /* SupabaseServiceTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseServiceTest.swift; sourceTree = "<group>"; };
+		232D68892EAF245000676A93 /* TasbihService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasbihService.swift; sourceTree = "<group>"; };
+		232D688A2EAF245000676A93 /* UnifiedCacheManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedCacheManager.swift; sourceTree = "<group>"; };
+		232D688B2EAF245000676A93 /* UserPreferencesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferencesService.swift; sourceTree = "<group>"; };
+		232D688C2EAF245000676A93 /* WidgetService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetService.swift; sourceTree = "<group>"; };
+		232D688E2EAF245000676A93 /* PrayerTimeShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrayerTimeShortcuts.swift; sourceTree = "<group>"; };
+		232D68902EAF245000676A93 /* Logger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		232D68912EAF245000676A93 /* ResourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResourceMonitor.swift; sourceTree = "<group>"; };
+		232D68922EAF245000676A93 /* SharedUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedUtilities.swift; sourceTree = "<group>"; };
+		232D68942EAF245000676A93 /* DeenAssistCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeenAssistCore.swift; sourceTree = "<group>"; };
+		232D68952EAF245000676A93 /* PackageExports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageExports.swift; sourceTree = "<group>"; };
 		2333327F2E29A15D00B48D7A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		233332812E29A15E00B48D7A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		233332AA2E29A19D00B48D7A /* ActivityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ActivityKit.framework; path = System/Library/Frameworks/ActivityKit.framework; sourceTree = SDKROOT; };
@@ -146,9 +245,21 @@
 		23F09EF82E17292A00E25D2F /* DeenBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeenBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		24B928262F1F3C9B002B85D2 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = DeenBuddy/Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		237579DB2E4E5D6800747C0A /* Exceptions for "DeenBuddy" folder in "Live Activity Widget ExtensionExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Frameworks/DeenAssistCore/LiveActivities/AppLaunchActivity.swift,
+				Frameworks/DeenAssistCore/LiveActivities/DynamicIslandManager.swift,
+				Frameworks/DeenAssistCore/LiveActivities/PrayerCountdownActivity.swift,
+				Frameworks/DeenAssistCore/LiveActivities/PrayerLiveActivityActionBridge.swift,
+				Frameworks/DeenAssistCore/Models/Prayer.swift,
+			);
+			target = 23837F432E3C794F003AEF75 /* Live Activity Widget ExtensionExtension */;
+		};
 		23837F302E396278003AEF75 /* Exceptions for "DeenBuddy" folder in "DeenBuddy" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -178,6 +289,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				23837F302E396278003AEF75 /* Exceptions for "DeenBuddy" folder in "DeenBuddy" target */,
+				237579DB2E4E5D6800747C0A /* Exceptions for "DeenBuddy" folder in "Live Activity Widget ExtensionExtension" target */,
 			);
 			path = DeenBuddy;
 			sourceTree = "<group>";
@@ -231,6 +343,256 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		232D68232EAF245000676A93 /* Accessibility */ = {
+			isa = PBXGroup;
+			children = (
+				232D68222EAF245000676A93 /* AccessibilityService.swift */,
+			);
+			path = Accessibility;
+			sourceTree = "<group>";
+		};
+		232D68252EAF245000676A93 /* Analytics */ = {
+			isa = PBXGroup;
+			children = (
+				232D68242EAF245000676A93 /* AnalyticsService.swift */,
+			);
+			path = Analytics;
+			sourceTree = "<group>";
+		};
+		232D682C2EAF245000676A93 /* Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				232D68262EAF245000676A93 /* CodebaseExtensionPoints.swift */,
+				232D68272EAF245000676A93 /* ConfigurationManager.swift */,
+				232D68282EAF245000676A93 /* FeatureFlagHelper.swift */,
+				232D68292EAF245000676A93 /* IslamicFeatureFlags.swift */,
+				232D682A2EAF245000676A93 /* PremiumAnalyticsFeatures.swift */,
+				232D682B2EAF245000676A93 /* SecureSetup.swift */,
+			);
+			path = Configuration;
+			sourceTree = "<group>";
+		};
+		232D682E2EAF245000676A93 /* Constants */ = {
+			isa = PBXGroup;
+			children = (
+				232D682D2EAF245000676A93 /* UnifiedSettingsKeys.swift */,
+			);
+			path = Constants;
+			sourceTree = "<group>";
+		};
+		232D68302EAF245000676A93 /* DependencyInjection */ = {
+			isa = PBXGroup;
+			children = (
+				232D682F2EAF245000676A93 /* DependencyContainer.swift */,
+			);
+			path = DependencyInjection;
+			sourceTree = "<group>";
+		};
+		232D68322EAF245000676A93 /* ErrorHandling */ = {
+			isa = PBXGroup;
+			children = (
+				232D68312EAF245000676A93 /* ErrorHandling.swift */,
+			);
+			path = ErrorHandling;
+			sourceTree = "<group>";
+		};
+		232D68372EAF245000676A93 /* LiveActivities */ = {
+			isa = PBXGroup;
+			children = (
+				232D68332EAF245000676A93 /* AppLaunchActivity.swift */,
+				232D68342EAF245000676A93 /* DynamicIslandManager.swift */,
+				232D68352EAF245000676A93 /* PrayerCountdownActivity.swift */,
+				232D68362EAF245000676A93 /* PrayerLiveActivityActionBridge.swift */,
+			);
+			path = LiveActivities;
+			sourceTree = "<group>";
+		};
+		232D683D2EAF245000676A93 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				232D68382EAF245000676A93 /* Localizable_ar.json */,
+				232D68392EAF245000676A93 /* Localizable_en.json */,
+				232D683A2EAF245000676A93 /* Localizable_es.json */,
+				232D683B2EAF245000676A93 /* Localizable_fr.json */,
+				232D683C2EAF245000676A93 /* Localizable_ur.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		232D683E2EAF245000676A93 /* Localization */ = {
+			isa = PBXGroup;
+			children = (
+				232D683D2EAF245000676A93 /* Resources */,
+			);
+			path = Localization;
+			sourceTree = "<group>";
+		};
+		232D68402EAF245000676A93 /* Mocks */ = {
+			isa = PBXGroup;
+			children = (
+				232D683F2EAF245000676A93 /* MockAPIClient.swift */,
+			);
+			path = Mocks;
+			sourceTree = "<group>";
+		};
+		232D68442EAF245000676A93 /* Subscription */ = {
+			isa = PBXGroup;
+			children = (
+				232D68412EAF245000676A93 /* SubscriptionProduct.swift */,
+				232D68422EAF245000676A93 /* SubscriptionStatus.swift */,
+				232D68432EAF245000676A93 /* SubscriptionTier.swift */,
+			);
+			path = Subscription;
+			sourceTree = "<group>";
+		};
+		232D685A2EAF245000676A93 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				232D68442EAF245000676A93 /* Subscription */,
+				232D68452EAF245000676A93 /* APIModels.swift */,
+				232D68462EAF245000676A93 /* Difficulty.swift */,
+				232D68472EAF245000676A93 /* Hadith.swift */,
+				232D68482EAF245000676A93 /* IslamicCalendarModels.swift */,
+				232D68492EAF245000676A93 /* Language.swift */,
+				232D684A2EAF245000676A93 /* Location.swift */,
+				232D684B2EAF245000676A93 /* Madhab.swift */,
+				232D684C2EAF245000676A93 /* NotificationTypes.swift */,
+				232D684D2EAF245000676A93 /* Prayer.swift */,
+				232D684E2EAF245000676A93 /* PrayerContent.swift */,
+				232D684F2EAF245000676A93 /* PrayerGuide.swift */,
+				232D68502EAF245000676A93 /* PrayerJournal.swift */,
+				232D68512EAF245000676A93 /* PrayerSchedule.swift */,
+				232D68522EAF245000676A93 /* PrayerStep.swift */,
+				232D68532EAF245000676A93 /* PrayerTimes.swift */,
+				232D68542EAF245000676A93 /* PrayerTracking.swift */,
+				232D68552EAF245000676A93 /* QiblaDirection.swift */,
+				232D68562EAF245000676A93 /* QuranVerse.swift */,
+				232D68572EAF245000676A93 /* TasbihModels.swift */,
+				232D68582EAF245000676A93 /* User.swift */,
+				232D68592EAF245000676A93 /* WidgetModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		232D685C2EAF245000676A93 /* Performance */ = {
+			isa = PBXGroup;
+			children = (
+				232D685B2EAF245000676A93 /* PerformanceMonitor.swift */,
+			);
+			path = Performance;
+			sourceTree = "<group>";
+		};
+		232D685F2EAF245000676A93 /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				232D685D2EAF245000676A93 /* APIClientProtocol.swift */,
+				232D685E2EAF245000676A93 /* SubscriptionServiceProtocol.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
+		232D68622EAF245000676A93 /* Subscription */ = {
+			isa = PBXGroup;
+			children = (
+				232D68602EAF245000676A93 /* SubscriptionService.swift */,
+				232D68612EAF245000676A93 /* SubscriptionStatusManager.swift */,
+			);
+			path = Subscription;
+			sourceTree = "<group>";
+		};
+		232D688D2EAF245000676A93 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				232D68622EAF245000676A93 /* Subscription */,
+				232D68632EAF245000676A93 /* APICache.swift */,
+				232D68642EAF245000676A93 /* APIClient.swift */,
+				232D68652EAF245000676A93 /* AppLifecycleManager.swift */,
+				232D68662EAF245000676A93 /* ARCompassSession.swift */,
+				232D68672EAF245000676A93 /* BackgroundProcessingOptimizer.swift */,
+				232D68682EAF245000676A93 /* BackgroundTaskManager.swift */,
+				232D68692EAF245000676A93 /* BaseService.swift */,
+				232D686A2EAF245000676A93 /* BatteryAwareTimerManager.swift */,
+				232D686B2EAF245000676A93 /* BatteryOptimizer.swift */,
+				232D686C2EAF245000676A93 /* ContentService.swift */,
+				232D686D2EAF245000676A93 /* ExampleRefactoredService.swift */,
+				232D686E2EAF245000676A93 /* HapticFeedbackService.swift */,
+				232D686F2EAF245000676A93 /* IslamicCalendarService.swift */,
+				232D68702EAF245000676A93 /* IslamicEventNotificationService.swift */,
+				232D68712EAF245000676A93 /* IslamicKnowledgeService.swift */,
+				232D68722EAF245000676A93 /* LocalizationService.swift */,
+				232D68732EAF245000676A93 /* LocationService.swift */,
+				232D68742EAF245000676A93 /* MemoryManager.swift */,
+				232D68752EAF245000676A93 /* NetworkMonitor.swift */,
+				232D68762EAF245000676A93 /* NotificationService.swift */,
+				232D68772EAF245000676A93 /* OfflineService.swift */,
+				232D68782EAF245000676A93 /* PerformanceMonitoringService.swift */,
+				232D68792EAF245000676A93 /* PrayerAnalyticsService.swift */,
+				232D687A2EAF245000676A93 /* PrayerJournalService.swift */,
+				232D687B2EAF245000676A93 /* PrayerTimeRequestCoordinator.swift */,
+				232D687C2EAF245000676A93 /* PrayerTimeService.swift */,
+				232D687D2EAF245000676A93 /* PrayerTrackingCoordinator.swift */,
+				232D687E2EAF245000676A93 /* PrayerTrackingService.swift */,
+				232D687F2EAF245000676A93 /* QuranAPIService.swift */,
+				232D68802EAF245000676A93 /* QuranDataValidator.swift */,
+				232D68812EAF245000676A93 /* QuranSearchService.swift */,
+				232D68822EAF245000676A93 /* RetryMechanism.swift */,
+				232D68832EAF245000676A93 /* SemanticSearchEngine.swift */,
+				232D68842EAF245000676A93 /* SettingsService.swift */,
+				232D68852EAF245000676A93 /* SharedInstances.swift */,
+				232D68862EAF245000676A93 /* ShareService.swift */,
+				232D68872EAF245000676A93 /* SupabaseService.swift */,
+				232D68882EAF245000676A93 /* SupabaseServiceTest.swift */,
+				232D68892EAF245000676A93 /* TasbihService.swift */,
+				232D688A2EAF245000676A93 /* UnifiedCacheManager.swift */,
+				232D688B2EAF245000676A93 /* UserPreferencesService.swift */,
+				232D688C2EAF245000676A93 /* WidgetService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		232D688F2EAF245000676A93 /* Shortcuts */ = {
+			isa = PBXGroup;
+			children = (
+				232D688E2EAF245000676A93 /* PrayerTimeShortcuts.swift */,
+			);
+			path = Shortcuts;
+			sourceTree = "<group>";
+		};
+		232D68932EAF245000676A93 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				232D68902EAF245000676A93 /* Logger.swift */,
+				232D68912EAF245000676A93 /* ResourceMonitor.swift */,
+				232D68922EAF245000676A93 /* SharedUtilities.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		232D68962EAF245000676A93 /* DeenAssistCore */ = {
+			isa = PBXGroup;
+			children = (
+				232D68232EAF245000676A93 /* Accessibility */,
+				232D68252EAF245000676A93 /* Analytics */,
+				232D682C2EAF245000676A93 /* Configuration */,
+				232D682E2EAF245000676A93 /* Constants */,
+				232D68302EAF245000676A93 /* DependencyInjection */,
+				232D68322EAF245000676A93 /* ErrorHandling */,
+				232D68372EAF245000676A93 /* LiveActivities */,
+				232D683E2EAF245000676A93 /* Localization */,
+				232D68402EAF245000676A93 /* Mocks */,
+				232D685A2EAF245000676A93 /* Models */,
+				232D685C2EAF245000676A93 /* Performance */,
+				232D685F2EAF245000676A93 /* Protocols */,
+				232D688D2EAF245000676A93 /* Services */,
+				232D688F2EAF245000676A93 /* Shortcuts */,
+				232D68932EAF245000676A93 /* Utilities */,
+				232D68942EAF245000676A93 /* DeenAssistCore.swift */,
+				232D68952EAF245000676A93 /* PackageExports.swift */,
+			);
+			name = DeenAssistCore;
+			path = DeenBuddy/Frameworks/DeenAssistCore;
+			sourceTree = "<group>";
+		};
 		233332B82E29A91000B48D7A /* Accessibility */ = {
 			isa = PBXGroup;
 			children = (
@@ -455,6 +817,7 @@
 			isa = PBXGroup;
 			children = (
 				2333331B2E29A91000B48D7A /* DeenAssistCore */,
+				232D68962EAF245000676A93 /* DeenAssistCore */,
 				233332AA2E29A19D00B48D7A /* ActivityKit.framework */,
 				2333327F2E29A15D00B48D7A /* WidgetKit.framework */,
 				233332812E29A15E00B48D7A /* SwiftUI.framework */,
@@ -472,6 +835,7 @@
 				23837F472E3C794F003AEF75 /* Live Activity Widget Extension */,
 				23EC89D92E20A2DE00BCAB83 /* Frameworks */,
 				23F09EF92E17292A00E25D2F /* Products */,
+				24B928262F1F3C9B002B85D2 /* Assets.xcassets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -641,6 +1005,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				24B928272F1F3C9B002B85D2 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -724,7 +1089,10 @@
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Live Activity Widget Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -754,7 +1122,10 @@
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Live Activity Widget Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -825,7 +1196,7 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -886,7 +1257,7 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -915,6 +1286,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "DeenBuddy uses the camera for AR compass feature to overlay Qibla direction on the real world view.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "DeenBuddy uses motion sensors to provide an accurate Qibla compass direction pointing towards Kaaba.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
@@ -924,7 +1297,8 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -960,6 +1334,8 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "DeenBuddy uses the camera for AR compass feature to overlay Qibla direction on the real world view.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "DeenBuddy needs location access to provide prayer time notifications and calculate accurate prayer times and Qibla direction.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "DeenBuddy needs location access to calculate accurate prayer times and Qibla direction for your area.";
 				INFOPLIST_KEY_NSMotionUsageDescription = "DeenBuddy uses motion sensors to provide an accurate Qibla compass direction pointing towards Kaaba.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
@@ -969,7 +1345,8 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
+				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

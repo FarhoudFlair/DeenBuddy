@@ -50,18 +50,37 @@ public class ContentService: ObservableObject {
         error = nil
         
         do {
-            // In a real implementation, this would fetch from Supabase
-            // For now, we'll simulate with a delay and use mock data
-            try await Task.sleep(nanoseconds: 1_000_000_000)
+            // TODO: Implement Supabase API integration when backend is ready
+            // Expected endpoint: GET /api/prayer-guides
+            // Response: Array of PrayerGuide DTOs
             
-            // Update last sync date
-            userDefaults.set(Date(), forKey: CacheKeys.lastSyncDate)
+            // For now, keep mock data as fallback
+            // When backend is ready, uncomment and implement:
+            /*
+            let url = URL(string: "YOUR_SUPABASE_URL/rest/v1/prayer_guides")!
+            var request = URLRequest(url: url)
+            request.setValue("Bearer YOUR_ANON_KEY", forHTTPHeaderField: "apikey")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             
-            print("Content refreshed successfully")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                throw APIError.serverError(0, "Failed to fetch guides")
+            }
+            
+            let guideDTOs = try JSONDecoder().decode([PrayerGuideDTO].self, from: data)
+            availableGuides = guideDTOs.map { $0.toPrayerGuide() }
+            saveGuidesToCache()
+            */
+            
+            // Simulate network delay
+            try await Task.sleep(nanoseconds: 500_000_000)
+            
+            print("✅ Content refresh completed (using cached/mock data)")
             
         } catch {
             self.error = error
-            print("Failed to refresh content: \(error)")
+            print("❌ Failed to refresh content: \(error)")
         }
         
         isLoading = false
@@ -102,8 +121,8 @@ public class ContentService: ObservableObject {
     // MARK: - Private Methods
     
     private func setupMockContent() {
-        // TODO: Replace with proper content management system or API calls
-        // This is temporary hardcoded content for development/testing purposes
+        // Mock content for development - will be replaced by Supabase backend
+        // TODO: Remove mock data once backend integration is complete
         // Create mock prayer guides for development
         let mockGuides = [
             // Fajr Guides

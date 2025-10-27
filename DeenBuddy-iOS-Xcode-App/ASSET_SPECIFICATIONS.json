@@ -1,0 +1,343 @@
+{
+  "project": "DeenBuddy iOS Live Activities Asset Specifications",
+  "description": "Complete asset specification for Islamic prayer app Live Activities, Dynamic Island, and Lock Screen Widgets",
+  "design_requirements": {
+    "style": "Modern, minimalist Islamic iconography",
+    "color": "Pure black (#000000) with alpha transparency - these are template images",
+    "background": "Transparent (PNG with alpha channel)",
+    "rendering_note": "All icons will be rendered as template images, so use solid black (#000000) for the design elements",
+    "cultural_sensitivity": "Ensure Islamic symbols are culturally appropriate and respectful"
+  },
+  "assets_required": [
+    {
+      "asset_name": "IslamicSymbol",
+      "description": "Main Islamic crescent moon symbol (☪) - clean, modern interpretation",
+      "usage": "Primary Islamic symbol for standard contexts",
+      "files_needed": [
+        {
+          "filename": "islamic-symbol@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "islamic-symbol@2x.png", 
+          "size": "48x48 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "islamic-symbol@3x.png",
+          "size": "72x72 pixels", 
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "IslamicSymbolSmall",
+      "description": "Smaller variant of Islamic symbol optimized for compact Dynamic Island spaces",
+      "usage": "Dynamic Island compact leading/trailing positions",
+      "files_needed": [
+        {
+          "filename": "islamic-symbol-small@1x.png",
+          "size": "20x20 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "islamic-symbol-small@2x.png",
+          "size": "40x40 pixels", 
+          "dpi": 144
+        },
+        {
+          "filename": "islamic-symbol-small@3x.png",
+          "size": "60x60 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "IslamicSymbolMinimal", 
+      "description": "Ultra-minimal Islamic symbol for Dynamic Island minimal state",
+      "usage": "Dynamic Island minimal persistent display",
+      "files_needed": [
+        {
+          "filename": "islamic-symbol-minimal@1x.png",
+          "size": "16x16 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "islamic-symbol-minimal@2x.png",
+          "size": "32x32 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "islamic-symbol-minimal@3x.png", 
+          "size": "48x48 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "IslamicSymbolCircular",
+      "description": "Islamic symbol optimized for circular lock screen widgets",
+      "usage": "Lock screen accessoryCircular widget family",
+      "design_note": "Should work well in circular containers, centered and balanced",
+      "files_needed": [
+        {
+          "filename": "islamic-symbol-circular@1x.png",
+          "size": "32x32 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "islamic-symbol-circular@2x.png",
+          "size": "64x64 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "islamic-symbol-circular@3x.png",
+          "size": "96x96 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "IslamicSymbolInline",
+      "description": "Very small Islamic symbol for inline lock screen widgets",
+      "usage": "Lock screen accessoryInline widget family",
+      "design_note": "Must be highly recognizable at tiny sizes",
+      "files_needed": [
+        {
+          "filename": "islamic-symbol-inline@1x.png", 
+          "size": "12x12 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "islamic-symbol-inline@2x.png",
+          "size": "24x24 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "islamic-symbol-inline@3x.png",
+          "size": "36x36 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "FajrIcon",
+      "description": "Icon representing Fajr (Dawn) prayer - sunrise/dawn theme",
+      "design_suggestions": "Stylized sun rising, horizon line, or dawn rays",
+      "files_needed": [
+        {
+          "filename": "fajr-icon@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "fajr-icon@2x.png",
+          "size": "48x48 pixels", 
+          "dpi": 144
+        },
+        {
+          "filename": "fajr-icon@3x.png",
+          "size": "72x72 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "DhuhrIcon",
+      "description": "Icon representing Dhuhr (Midday) prayer - noon sun theme",
+      "design_suggestions": "Sun at zenith, bright rays, or midday sun symbol",
+      "files_needed": [
+        {
+          "filename": "dhuhr-icon@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "dhuhr-icon@2x.png",
+          "size": "48x48 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "dhuhr-icon@3x.png", 
+          "size": "72x72 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "AsrIcon", 
+      "description": "Icon representing Asr (Afternoon) prayer - late afternoon theme",
+      "design_suggestions": "Angled sun, afternoon shadows, or declining sun",
+      "files_needed": [
+        {
+          "filename": "asr-icon@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "asr-icon@2x.png",
+          "size": "48x48 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "asr-icon@3x.png",
+          "size": "72x72 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "MaghribIcon",
+      "description": "Icon representing Maghrib (Sunset) prayer - sunset theme", 
+      "design_suggestions": "Setting sun, horizon, or sunset colors represented in black",
+      "files_needed": [
+        {
+          "filename": "maghrib-icon@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "maghrib-icon@2x.png",
+          "size": "48x48 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "maghrib-icon@3x.png",
+          "size": "72x72 pixels", 
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "IshaIcon",
+      "description": "Icon representing Isha (Night) prayer - night theme",
+      "design_suggestions": "Crescent moon, stars, or night sky elements", 
+      "files_needed": [
+        {
+          "filename": "isha-icon@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72
+        },
+        {
+          "filename": "isha-icon@2x.png",
+          "size": "48x48 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "isha-icon@3x.png",
+          "size": "72x72 pixels",
+          "dpi": 216
+        }
+      ]
+    }
+  ],
+  "technical_specifications": {
+    "file_format": "PNG with alpha transparency",
+    "color_mode": "Grayscale with Alpha (Template Images)",
+    "primary_color": "#000000 (Pure Black)",
+    "background": "Transparent",
+    "rendering_intent": "Template - iOS will apply system colors",
+    "edge_treatment": "Crisp edges, avoid anti-aliasing against transparent background",
+    "design_consistency": "All icons should share similar weight, style, and visual language"
+  },
+  "placement_guide": {
+    "dynamic_island_minimal": "16pt (48px @3x) - Ultra compact, highly recognizable",
+    "dynamic_island_compact": "20pt (60px @3x) - Small but clear",
+    "dynamic_island_expanded": "24pt (72px @3x) - Standard size with good detail",
+    "lock_screen_circular": "Up to 32pt (96px @3x) - Optimized for circular containers",
+    "lock_screen_rectangular": "24pt (72px @3x) - Standard size for rectangular layouts",
+    "lock_screen_inline": "12pt (36px @3x) - Minimal inline presentation"
+  },
+  "islamic_design_guidelines": {
+    "cultural_respect": "Ensure all Islamic symbols are culturally appropriate",
+    "traditional_elements": "Use traditional Islamic geometric patterns where appropriate",
+    "simplicity": "Keep designs clean and modern while respecting tradition",
+    "universality": "Designs should be recognizable across different Islamic cultures"
+  },
+  "enhanced_2025_features": {
+    "concentric_design": "Symbols designed to harmonize with Dynamic Island's organic shape using nested rounded forms",
+    "always_on_display": "High-contrast variants optimized for reduced luminance environments",
+    "elastic_animations": "Biological motion patterns that feel alive and organic",
+    "prayer_contextual": "Unique visual identities for each prayer time (Fajr dawn, Maghrib sunset, Isha night)",
+    "smart_battery_optimization": "Adaptive refresh rates based on battery level and prayer urgency"
+  },
+  "additional_2025_assets": [
+    {
+      "asset_name": "IslamicSymbolConcentric",
+      "description": "Concentric Islamic symbol that nests harmoniously within Dynamic Island shape",
+      "usage": "Enhanced Dynamic Island integration with biological form harmony",
+      "files_needed": [
+        {
+          "filename": "islamic-symbol-concentric@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72,
+          "design_note": "Concentric circles with even margins, nested crescent moon design"
+        },
+        {
+          "filename": "islamic-symbol-concentric@2x.png",
+          "size": "48x48 pixels", 
+          "dpi": 144
+        },
+        {
+          "filename": "islamic-symbol-concentric@3x.png",
+          "size": "72x72 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "IslamicSymbolAlwaysOn",
+      "description": "High-contrast Islamic symbol optimized for Always-On Display reduced luminance",
+      "usage": "Always-On Display lock screen widgets with enhanced visibility",
+      "files_needed": [
+        {
+          "filename": "islamic-symbol-always-on@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72,
+          "design_note": "Higher contrast, thicker lines, optimized for low luminance visibility"
+        },
+        {
+          "filename": "islamic-symbol-always-on@2x.png",
+          "size": "48x48 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "islamic-symbol-always-on@3x.png",
+          "size": "72x72 pixels",
+          "dpi": 216
+        }
+      ]
+    },
+    {
+      "asset_name": "PrayerIconsAlwaysOn",
+      "description": "High-contrast prayer-specific icons for Always-On Display",
+      "usage": "Always-On Display contextual prayer variations",
+      "files_needed": [
+        {
+          "filename": "prayer-icons-always-on@1x.png",
+          "size": "24x24 pixels",
+          "dpi": 72,
+          "design_note": "Combined sprite sheet with all prayer icons in high-contrast format"
+        },
+        {
+          "filename": "prayer-icons-always-on@2x.png",
+          "size": "48x48 pixels",
+          "dpi": 144
+        },
+        {
+          "filename": "prayer-icons-always-on@3x.png",
+          "size": "72x72 pixels",
+          "dpi": 216
+        }
+      ]
+    }
+  ],
+  "total_files_needed": 39,
+  "file_naming_convention": "[asset-name]@[scale]x.png",
+  "ios_17_plus_optimization": {
+    "automatic_opt_in": "Live Activities automatically enabled when push notifications are granted",
+    "push_to_start_tokens": "Support for remote Live Activity management via push notifications",
+    "enhanced_system_integration": "Better battery optimization and user engagement tracking"
+  }
+}

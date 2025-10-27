@@ -9,6 +9,11 @@ public enum Prayer: String, CaseIterable, Codable, Sendable {
     case maghrib = "maghrib"
     case isha = "isha"
     
+    /// Initialize from any raw value string (e.g., from widget enums) in a type-safe way
+    public init?(widgetRawValue: String) {
+        self.init(rawValue: widgetRawValue)
+    }
+    
     // MARK: - Display Properties
     
     /// Localized display name for the prayer

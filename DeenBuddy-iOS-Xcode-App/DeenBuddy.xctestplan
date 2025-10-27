@@ -9,7 +9,8 @@
         "testExecutionOrdering" : "random",
         "testTimeoutsEnabled" : true,
         "maximumParallelTestingWorkers" : 1,
-        "testRepetitionMode" : "none"
+        "testRepetitionMode" : "none",
+        "storeKitConfigurationPath" : "Configuration.storekit"
       }
     }
   ],
@@ -19,7 +20,8 @@
     "testExecutionOrdering" : "random",
     "testTimeoutsEnabled" : true,
     "maximumParallelTestingWorkers" : 1,
-    "testRepetitionMode" : "none"
+    "testRepetitionMode" : "none",
+    "storeKitConfigurationPath" : "Configuration.storekit"
   },
   "testTargets" : [
     {

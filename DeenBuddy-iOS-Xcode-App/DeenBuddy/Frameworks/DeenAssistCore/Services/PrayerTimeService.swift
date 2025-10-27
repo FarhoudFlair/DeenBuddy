@@ -48,6 +48,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     // MARK: - Performance & Debouncing
     private var widgetUpdateTask: Task<Void, Never>?
     private let widgetUpdateDebounceInterval: TimeInterval = 1.0 // 1 second debounce
+    private let locationAccuracyThreshold: CLLocationAccuracy = 100.0
     
     // Request coordinator for managing duplicate requests
     private let requestCoordinator = PrayerTimeRequestCoordinator()
@@ -800,12 +801,31 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         }
 
         // Create widget data
+        let locationDescription: String
+        if let locationInfo = locationService.currentLocationInfo {
+            let currentLocation = locationService.currentLocation
+            if let city = locationInfo.city, !city.isEmpty {
+                // If accuracy is poor (>threshold), prefix with "Near"
+                if let currentLocation, currentLocation.horizontalAccuracy > locationAccuracyThreshold {
+                    locationDescription = "Near \(city)"
+                } else {
+                    locationDescription = city
+                }
+            } else if let country = locationInfo.country, !country.isEmpty {
+                locationDescription = country
+            } else {
+                locationDescription = "Current Location"
+            }
+        } else {
+            locationDescription = "Current Location"
+        }
+
         let widgetData = WidgetData(
             nextPrayer: nextPrayer,
             timeUntilNextPrayer: timeUntilNextPrayer,
             todaysPrayerTimes: todaysPrayerTimes,
             hijriDate: HijriDate(from: Date()),
-            location: "Current Location",
+            location: locationDescription,
             calculationMethod: calculationMethod,
             lastUpdated: Date()
         )

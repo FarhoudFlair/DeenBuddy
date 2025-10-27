@@ -256,6 +256,8 @@ class CacheInvalidationTests: XCTestCase {
 /// Mock settings service for cache invalidation basic tests
 @MainActor
 class CacheInvalidationBasicMockSettingsService: SettingsServiceProtocol, ObservableObject {
+    @Published var liveActivitiesEnabled: Bool = true
+    
     @Published var calculationMethod: CalculationMethod = .muslimWorldLeague {
         didSet {
             if calculationMethod != oldValue {

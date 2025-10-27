@@ -6,9 +6,23 @@ struct OnboardingStepHeader: View {
     let icon: String
     let title: String
     let description: String
+    let showLogo: Bool
+    
+    init(icon: String, title: String, description: String, showLogo: Bool = true) {
+        self.icon = icon
+        self.title = title
+        self.description = description
+        self.showLogo = showLogo
+    }
     
     var body: some View {
         VStack(spacing: 16) {
+            // DeenBuddy logo at the top if enabled
+            if showLogo {
+                MascotTitleView.navigationTitle(titleText: "DeenBuddy")
+                    .padding(.bottom, 8)
+            }
+            
             Image(systemName: icon)
                 .font(.system(size: 60))
                 .foregroundColor(ColorPalette.primary)
@@ -236,6 +250,10 @@ struct WelcomeStepView: View {
     var body: some View {
         VStack(spacing: 32) {
             VStack(spacing: 16) {
+                // DeenBuddy logo at the top
+                MascotTitleView.homeTitle(titleText: "DeenBuddy")
+                    .padding(.bottom, 16)
+                
                 Image(systemName: "moon.stars.fill")
                     .font(.system(size: 80))
                     .foregroundColor(ColorPalette.primary)

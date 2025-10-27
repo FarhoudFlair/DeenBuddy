@@ -1,0 +1,485 @@
+{
+  "project": "DeenBuddy iOS Live Activities - Individual Asset Design Prompts",
+  "description": "Detailed design prompts for each of the 57 PNG files needed for modern 2025 Live Activities implementation including Allah calligraphy and Kaaba/Qibla symbols",
+  "total_files": 57,
+  "design_principles": {
+    "color": "Pure black (#000000) on transparent background",
+    "rendering": "Template images - iOS will apply system colors automatically",
+    "style": "Modern, minimalist Islamic iconography with cultural sensitivity",
+    "technical": "PNG with alpha transparency, crisp edges, no anti-aliasing against transparent background"
+  },
+  "individual_prompts": [
+    {
+      "filename": "islamic-symbol@1x.png",
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Standard Islamic symbol for main Live Activities display",
+      "design_prompt": "Create a modern, clean Islamic crescent moon (☪) symbol in pure black (#000000). The crescent should be elegantly curved with a five-pointed star positioned in the upper portion of the crescent's opening. Design should be balanced and centered within the 24x24 pixel canvas. The crescent should have a thickness of approximately 2-3 pixels for the outline. The star should be proportionally sized to fit harmoniously within the crescent without overcrowding. Ensure the design is instantly recognizable as an Islamic symbol while maintaining modern, minimalist aesthetics.",
+      "technical_requirements": "Transparent background, pure black design elements, crisp vector-like edges, template image format",
+      "islamic_considerations": "Respectful representation of Islamic symbols, traditional crescent and star arrangement, culturally appropriate proportions"
+    },
+    {
+      "filename": "islamic-symbol@2x.png", 
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of standard Islamic symbol",
+      "design_prompt": "Scale up the islamic-symbol@1x.png design to 48x48 pixels while maintaining crisp edges and perfect proportions. The crescent moon should have a thickness of approximately 4-6 pixels. The five-pointed star should scale proportionally and remain clearly defined. Ensure all curves remain smooth and the overall balance is preserved at the larger size. The design should look identical to the 1x version but with double the resolution for Retina displays.",
+      "technical_requirements": "Transparent background, pure black design elements, 144 DPI, crisp scaling without blur",
+      "islamic_considerations": "Maintain exact proportions and respectful representation from the 1x version"
+    },
+    {
+      "filename": "islamic-symbol@3x.png",
+      "size": "72x72 pixels", 
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of standard Islamic symbol",
+      "design_prompt": "Scale up the islamic-symbol@1x.png design to 72x72 pixels with maximum clarity and sharpness. The crescent moon should have a thickness of approximately 6-9 pixels. The five-pointed star should be crystal clear with well-defined points and edges. This is the highest resolution version, so every detail should be perfect. Ensure smooth curves, balanced proportions, and professional finish suitable for the highest quality iOS displays.",
+      "technical_requirements": "Transparent background, pure black design elements, 216 DPI, perfect scaling with maximum clarity",
+      "islamic_considerations": "Premium quality representation maintaining cultural respect and traditional proportions"
+    },
+    {
+      "filename": "islamic-symbol-small@1x.png",
+      "size": "20x20 pixels",
+      "scale": "@1x", 
+      "usage_context": "Dynamic Island compact leading/trailing positions, space-constrained contexts",
+      "design_prompt": "Create a simplified, compact version of the Islamic crescent and star symbol optimized for 20x20 pixels. The crescent should be slightly thicker (2-3 pixels) to ensure visibility at small size. The star may need to be simplified to 4 points or made slightly smaller to fit properly. Focus on maintaining recognizability while ensuring the design doesn't become cluttered. The symbol should read clearly even when rendered at tiny sizes on Dynamic Island compact states.",
+      "technical_requirements": "Transparent background, optimized for small scale rendering, increased line weight for visibility",
+      "islamic_considerations": "Maintain Islamic symbol integrity while adapting for space constraints"
+    },
+    {
+      "filename": "islamic-symbol-small@2x.png",
+      "size": "40x40 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of compact Islamic symbol",
+      "design_prompt": "Scale up the islamic-symbol-small@1x.png design to 40x40 pixels maintaining the optimized compact design. The crescent thickness should be 4-6 pixels. Ensure the simplified star design (if using 4 points) remains clear and well-defined. The design should preserve the space-efficient characteristics while providing Retina display quality.",
+      "technical_requirements": "Transparent background, 144 DPI, optimized for compact display contexts",
+      "islamic_considerations": "Preserve simplified yet respectful Islamic symbolism"
+    },
+    {
+      "filename": "islamic-symbol-small@3x.png",
+      "size": "60x60 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of compact Islamic symbol", 
+      "design_prompt": "High-resolution version of the compact Islamic symbol at 60x60 pixels. The crescent should have 6-9 pixel thickness with perfectly smooth curves. The simplified star design should be razor-sharp with clean points. This version should demonstrate premium quality while maintaining the space-efficient design optimized for Dynamic Island compact states.",
+      "technical_requirements": "Transparent background, 216 DPI, maximum clarity for compact display",
+      "islamic_considerations": "Highest quality representation of space-optimized Islamic symbol"
+    },
+    {
+      "filename": "islamic-symbol-minimal@1x.png",
+      "size": "16x16 pixels",
+      "scale": "@1x",
+      "usage_context": "Dynamic Island minimal persistent display, ultra-compact spaces",
+      "design_prompt": "Create an ultra-minimal version of the Islamic symbol for 16x16 pixels. Consider using just the crescent moon without the star, or a highly stylized version where both elements are simplified to their essential forms. The crescent should be 2-3 pixels thick with a clean, recognizable curve. This needs to be instantly recognizable as Islamic even at this tiny size. Consider a more geometric approach if needed for clarity.",
+      "technical_requirements": "Transparent background, maximum simplification while maintaining recognition",
+      "islamic_considerations": "Essential Islamic symbolism preserved in minimal form"
+    },
+    {
+      "filename": "islamic-symbol-minimal@2x.png", 
+      "size": "32x32 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of ultra-minimal Islamic symbol",
+      "design_prompt": "Scale up the ultra-minimal design to 32x32 pixels. If using crescent-only design, ensure 4-6 pixel thickness with smooth curves. If including simplified star, ensure it remains proportional and clear. The design should maintain the essential minimal character while providing Retina display quality for Dynamic Island minimal states.",
+      "technical_requirements": "Transparent background, 144 DPI, ultra-minimal optimization",
+      "islamic_considerations": "Maintain essential Islamic identity in minimal form"
+    },
+    {
+      "filename": "islamic-symbol-minimal@3x.png",
+      "size": "48x48 pixels",
+      "scale": "@3x", 
+      "usage_context": "Super Retina display version of ultra-minimal Islamic symbol",
+      "design_prompt": "Highest resolution version of the minimal Islamic symbol at 48x48 pixels. Crescent should have 6-9 pixel thickness with perfect curves. Every detail should be crisp and professional despite the minimal design approach. This represents the pinnacle of minimal Islamic symbolism for the smallest Dynamic Island display state.",
+      "technical_requirements": "Transparent background, 216 DPI, premium minimal design",
+      "islamic_considerations": "Premium quality minimal Islamic symbolism"
+    },
+    {
+      "filename": "islamic-symbol-circular@1x.png",
+      "size": "32x32 pixels",
+      "scale": "@1x",
+      "usage_context": "Lock screen accessoryCircular widget family",
+      "design_prompt": "Create an Islamic symbol specifically optimized for circular containers. The crescent and star should be designed to work harmoniously within a circular boundary. Consider centering the design and ensuring it doesn't touch the edges of an imaginary circle. The proportions should be balanced for circular presentation. Use 2-3 pixel line weights and ensure the symbol reads well when contained within circular lock screen widget backgrounds.",
+      "technical_requirements": "Transparent background, optimized for circular containers, centered design",
+      "islamic_considerations": "Respectful Islamic symbolism optimized for circular presentation"
+    },
+    {
+      "filename": "islamic-symbol-circular@2x.png",
+      "size": "64x64 pixels", 
+      "scale": "@2x",
+      "usage_context": "Retina display version of circular-optimized Islamic symbol",
+      "design_prompt": "Scale up the circular-optimized design to 64x64 pixels. Maintain perfect centering and circular harmony. Line weights should be 4-6 pixels with smooth curves. The design should demonstrate how Islamic symbols can be beautifully presented within circular constraints while maintaining cultural respect and visual balance.",
+      "technical_requirements": "Transparent background, 144 DPI, circular optimization",
+      "islamic_considerations": "Maintain cultural respect within circular design constraints"
+    },
+    {
+      "filename": "islamic-symbol-circular@3x.png",
+      "size": "96x96 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of circular-optimized Islamic symbol",
+      "design_prompt": "Premium quality circular-optimized Islamic symbol at 96x96 pixels. Line weights should be 6-9 pixels with perfectly smooth curves. The design should showcase professional-grade Islamic iconography optimized for circular presentation. Every curve and point should be meticulously crafted for circular lock screen widget contexts.",
+      "technical_requirements": "Transparent background, 216 DPI, premium circular design",
+      "islamic_considerations": "Highest quality circular Islamic symbolism"
+    },
+    {
+      "filename": "islamic-symbol-inline@1x.png",
+      "size": "12x12 pixels",
+      "scale": "@1x",
+      "usage_context": "Lock screen accessoryInline widget family, very small inline display",
+      "design_prompt": "Create an extremely simplified Islamic symbol for 12x12 pixels inline display. This may need to be just a crescent moon (no star) or a highly geometric interpretation. Use 1-2 pixel line weights. The design must be instantly recognizable as Islamic even at this tiny size. Consider bold, simple shapes that maintain Islamic identity while being practical for inline text-like presentation.",
+      "technical_requirements": "Transparent background, extreme size optimization, maximum simplicity",
+      "islamic_considerations": "Essential Islamic identity in extremely compact form"
+    },
+    {
+      "filename": "islamic-symbol-inline@2x.png",
+      "size": "24x24 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of inline Islamic symbol",
+      "design_prompt": "Scale up the extremely simplified inline design to 24x24 pixels. Use 2-4 pixel line weights while maintaining the inline-optimized proportions. The design should be clean and clear at Retina resolution while preserving the inline character suitable for text-like presentation contexts.",
+      "technical_requirements": "Transparent background, 144 DPI, inline optimization",
+      "islamic_considerations": "Maintain Islamic identity in inline presentation"
+    },
+    {
+      "filename": "islamic-symbol-inline@3x.png",
+      "size": "36x36 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of inline Islamic symbol", 
+      "design_prompt": "High-resolution version of the inline Islamic symbol at 36x36 pixels. Use 3-6 pixel line weights with crisp edges. Despite the inline optimization, this should demonstrate premium quality craftsmanship suitable for the highest resolution displays in inline lock screen widget contexts.",
+      "technical_requirements": "Transparent background, 216 DPI, premium inline design",
+      "islamic_considerations": "Premium quality inline Islamic symbolism"
+    },
+    {
+      "filename": "islamic-symbol-concentric@1x.png", 
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Enhanced Dynamic Island integration with biological form harmony",
+      "design_prompt": "Create a concentric Islamic symbol designed to harmonize with Dynamic Island's organic shape. The crescent and star should be designed using nested, concentric circular forms with even margins all around. The crescent should follow concentric curves that nest harmoniously within each other. Consider the star as a concentric element within the crescent's concentric design. Use 2-3 pixel weights and ensure the design feels organic and alive, matching Dynamic Island's biological aesthetic. The overall form should suggest nested, rounded shapes that flow naturally.",
+      "technical_requirements": "Transparent background, concentric design principles, organic harmony",
+      "islamic_considerations": "Respectful Islamic symbolism enhanced with concentric design harmony"
+    },
+    {
+      "filename": "islamic-symbol-concentric@2x.png",
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of concentric Islamic symbol",
+      "design_prompt": "Scale up the concentric Islamic symbol to 48x48 pixels, maintaining perfect concentric relationships and organic harmony. Use 4-6 pixel weights while preserving the nested, rounded design philosophy. The concentric curves should remain mathematically precise while feeling naturally organic, suitable for Dynamic Island's biological aesthetic at Retina resolution.",
+      "technical_requirements": "Transparent background, 144 DPI, concentric precision with organic feel",
+      "islamic_considerations": "Maintain cultural respect within concentric design philosophy"
+    },
+    {
+      "filename": "islamic-symbol-concentric@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of concentric Islamic symbol",
+      "design_prompt": "Premium quality concentric Islamic symbol at 72x72 pixels. Use 6-9 pixel weights with mathematically perfect concentric relationships. The design should exemplify the marriage of traditional Islamic symbolism with Apple's 2025 biological design philosophy. Every curve should demonstrate concentric harmony while maintaining the living, organic feel of Dynamic Island integration.",
+      "technical_requirements": "Transparent background, 216 DPI, premium concentric design",
+      "islamic_considerations": "Highest quality fusion of Islamic tradition with modern concentric design"
+    },
+    {
+      "filename": "islamic-symbol-always-on@1x.png",
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Always-On Display lock screen widgets with enhanced visibility",
+      "design_prompt": "Create a high-contrast version of the Islamic symbol specifically optimized for Always-On Display reduced luminance environments. Increase line weights to 3-4 pixels and make the design bolder and more pronounced than standard versions. The crescent should be thicker and the star more robust to ensure visibility in low-light, reduced-luminance conditions. Focus on maximum contrast and visibility while maintaining Islamic symbol integrity.",
+      "technical_requirements": "Transparent background, high contrast optimization, thicker lines for visibility",
+      "islamic_considerations": "Enhanced visibility Islamic symbol for low-light conditions"
+    },
+    {
+      "filename": "islamic-symbol-always-on@2x.png",
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of Always-On Display optimized Islamic symbol",
+      "design_prompt": "Scale up the high-contrast Always-On optimized design to 48x48 pixels. Use 6-8 pixel line weights for maximum visibility. The design should be robust and bold while maintaining Islamic cultural respect. Every element should be optimized for reduced luminance visibility at Retina resolution.",
+      "technical_requirements": "Transparent background, 144 DPI, high contrast for reduced luminance",
+      "islamic_considerations": "Maintain Islamic respect while optimizing for low-light visibility"
+    },
+    {
+      "filename": "islamic-symbol-always-on@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Always-On Display optimized Islamic symbol",
+      "design_prompt": "Premium high-contrast Islamic symbol for Always-On Display at 72x72 pixels. Use 9-12 pixel line weights with bold, robust design elements. This should be the most visible version of the Islamic symbol, optimized for the most challenging reduced-luminance conditions while maintaining premium quality and cultural sensitivity.",
+      "technical_requirements": "Transparent background, 216 DPI, maximum contrast and visibility",
+      "islamic_considerations": "Premium quality high-visibility Islamic symbolism"
+    },
+    {
+      "filename": "fajr-icon@1x.png",
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Fajr (Dawn) prayer representation in Live Activities",
+      "design_prompt": "Create a dawn/sunrise themed icon representing Fajr (Dawn) prayer. Design a stylized sun with rays emerging from the horizon, or a sun partially rising above a simple horizon line. Use clean, modern geometric forms. The sun should be a circle with 6-8 simple rays extending outward. Consider a half-sun emerging from a straight horizon line at the bottom. Use 2-3 pixel line weights and ensure the design clearly communicates 'dawn' or 'sunrise' while maintaining Islamic appropriate imagery.",
+      "technical_requirements": "Transparent background, dawn/sunrise theme, geometric simplicity",
+      "islamic_considerations": "Appropriate Islamic prayer time representation, culturally sensitive dawn imagery"
+    },
+    {
+      "filename": "fajr-icon@2x.png", 
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of Fajr prayer icon",
+      "design_prompt": "Scale up the Fajr dawn icon to 48x48 pixels. The sun should have 4-6 pixel elements with clear rays. The horizon line should be 2-3 pixels thick. Maintain the clean geometric dawn aesthetic while providing Retina display quality. The design should clearly represent the early morning Fajr prayer time through sunrise imagery.",
+      "technical_requirements": "Transparent background, 144 DPI, clear dawn symbolism",
+      "islamic_considerations": "Respectful representation of Fajr prayer time"
+    },
+    {
+      "filename": "fajr-icon@3x.png",
+      "size": "72x72 pixels", 
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Fajr prayer icon",
+      "design_prompt": "Premium quality Fajr dawn icon at 72x72 pixels. Use 6-9 pixel elements with perfectly smooth curves and sharp geometric rays. The sunrise should be beautifully rendered with professional quality suitable for representing this sacred prayer time. Every element should demonstrate respect for the spiritual significance of dawn prayer.",
+      "technical_requirements": "Transparent background, 216 DPI, premium dawn symbolism",
+      "islamic_considerations": "Premium quality representation of sacred Fajr prayer time"
+    },
+    {
+      "filename": "dhuhr-icon@1x.png",
+      "size": "24x24 pixels",
+      "scale": "@1x", 
+      "usage_context": "Dhuhr (Midday) prayer representation in Live Activities",
+      "design_prompt": "Create a midday/noon sun icon representing Dhuhr prayer. Design a full sun at zenith (center-top position) with bright rays extending in all directions. Use a circular sun with 8-12 straight rays of varying lengths. The sun should appear directly overhead, representing the noon position. Use 2-3 pixel line weights and ensure the design clearly communicates 'midday' or 'noon sun' intensity.",
+      "technical_requirements": "Transparent background, midday sun theme, centered solar imagery",
+      "islamic_considerations": "Appropriate representation of midday Dhuhr prayer time"
+    },
+    {
+      "filename": "dhuhr-icon@2x.png",
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of Dhuhr prayer icon", 
+      "design_prompt": "Scale up the Dhuhr midday sun icon to 48x48 pixels. The central sun should be prominent with 4-6 pixel thickness. Rays should be clearly defined and extend dynamically. The design should powerfully represent the intensity and directness of midday sun during Dhuhr prayer time at Retina resolution.",
+      "technical_requirements": "Transparent background, 144 DPI, strong midday sun symbolism",
+      "islamic_considerations": "Respectful representation of Dhuhr prayer time intensity"
+    },
+    {
+      "filename": "dhuhr-icon@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Dhuhr prayer icon",
+      "design_prompt": "Premium quality Dhuhr midday sun icon at 72x72 pixels. Use 6-9 pixel elements with powerful, dynamic ray design. The sun should be perfectly circular with professionally rendered rays that communicate the full intensity of midday. This should represent the sacred Dhuhr prayer time with both power and reverence.",
+      "technical_requirements": "Transparent background, 216 DPI, premium midday sun representation",
+      "islamic_considerations": "Premium quality representation of sacred Dhuhr prayer time"
+    },
+    {
+      "filename": "asr-icon@1x.png", 
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Asr (Afternoon) prayer representation in Live Activities",
+      "design_prompt": "Create an afternoon/late day sun icon representing Asr prayer. Design a sun positioned at an angle (lower than zenith but not on horizon) with rays showing afternoon light quality. The sun might be slightly to one side rather than centered. Use softer, angled rays that suggest late afternoon rather than harsh midday light. Use 2-3 pixel line weights and create a sense of the day progressing toward evening.",
+      "technical_requirements": "Transparent background, afternoon sun theme, angled solar positioning",
+      "islamic_considerations": "Appropriate representation of afternoon Asr prayer time"
+    },
+    {
+      "filename": "asr-icon@2x.png",
+      "size": "48x48 pixels", 
+      "scale": "@2x",
+      "usage_context": "Retina display version of Asr prayer icon",
+      "design_prompt": "Scale up the Asr afternoon sun icon to 48x48 pixels. The angled sun should have 4-6 pixel thickness with rays that suggest afternoon light quality. The positioning should clearly indicate late afternoon rather than midday, representing the Asr prayer time's unique position in the day's progression.",
+      "technical_requirements": "Transparent background, 144 DPI, afternoon sun positioning",
+      "islamic_considerations": "Respectful representation of Asr prayer time's afternoon character"
+    },
+    {
+      "filename": "asr-icon@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Asr prayer icon", 
+      "design_prompt": "Premium quality Asr afternoon sun icon at 72x72 pixels. Use 6-9 pixel elements with sophisticated ray design that captures the quality of afternoon light. The sun's position and ray characteristics should beautifully represent the contemplative nature of the afternoon Asr prayer time.",
+      "technical_requirements": "Transparent background, 216 DPI, premium afternoon sun representation",
+      "islamic_considerations": "Premium quality representation of sacred Asr prayer time"
+    },
+    {
+      "filename": "maghrib-icon@1x.png",
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Maghrib (Sunset) prayer representation in Live Activities", 
+      "design_prompt": "Create a sunset themed icon representing Maghrib prayer. Design a sun touching or slightly below the horizon line, with rays that suggest sunset rather than sunrise. The sun should be a half-circle or partial circle at the horizon. Include gentle, spreading rays that fan upward and outward. Use 2-3 pixel line weights and create a peaceful sunset atmosphere representing the end of day and time to break fast during Ramadan.",
+      "technical_requirements": "Transparent background, sunset theme, horizon-level solar positioning",
+      "islamic_considerations": "Appropriate sunset representation for Maghrib prayer and iftar time"
+    },
+    {
+      "filename": "maghrib-icon@2x.png",
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of Maghrib prayer icon",
+      "design_prompt": "Scale up the Maghrib sunset icon to 48x48 pixels. The horizon-level sun should have 4-6 pixel thickness with gentle, fanning rays. The design should evoke the peaceful, reflective nature of sunset and the spiritual significance of Maghrib prayer time, including its importance during Ramadan for breaking the fast.",
+      "technical_requirements": "Transparent background, 144 DPI, peaceful sunset atmosphere",
+      "islamic_considerations": "Respectful representation of Maghrib prayer and iftar significance"
+    },
+    {
+      "filename": "maghrib-icon@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Maghrib prayer icon",
+      "design_prompt": "Premium quality Maghrib sunset icon at 72x72 pixels. Use 6-9 pixel elements with beautifully rendered sunset rays that spread gently across the canvas. The design should capture both the natural beauty of sunset and the spiritual significance of Maghrib prayer time, representing gratitude and reflection.",
+      "technical_requirements": "Transparent background, 216 DPI, premium sunset representation",
+      "islamic_considerations": "Premium quality representation of sacred Maghrib prayer and iftar time"
+    },
+    {
+      "filename": "isha-icon@1x.png",
+      "size": "24x24 pixels", 
+      "scale": "@1x",
+      "usage_context": "Isha (Night) prayer representation in Live Activities",
+      "design_prompt": "Create a night themed icon representing Isha prayer. Design a crescent moon with 2-3 small stars nearby. The crescent should be elegant and thin, positioned with stars scattered around it to suggest night sky. Alternatively, use a combination of moon and stars that clearly indicates nighttime. Use 2-3 pixel line weights and create a peaceful, contemplative night atmosphere suitable for the final prayer of the day.",
+      "technical_requirements": "Transparent background, night sky theme, moon and star combination",
+      "islamic_considerations": "Appropriate night prayer representation with Islamic celestial symbolism"
+    },
+    {
+      "filename": "isha-icon@2x.png",
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of Isha prayer icon",
+      "design_prompt": "Scale up the Isha night icon to 48x48 pixels. The crescent moon should have 4-6 pixel thickness with clearly defined stars (2-3 pixels each). The arrangement should create a serene nighttime scene representing the peaceful, contemplative nature of the final prayer before sleep.",
+      "technical_requirements": "Transparent background, 144 DPI, clear night sky elements",
+      "islamic_considerations": "Respectful representation of Isha night prayer's contemplative nature"
+    },
+    {
+      "filename": "isha-icon@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Isha prayer icon",
+      "design_prompt": "Premium quality Isha night icon at 72x72 pixels. Use 6-9 pixel elements with a beautifully rendered crescent moon and precisely placed stars. The composition should evoke the tranquility and spiritual depth of the night prayer, representing the completion of the day's spiritual cycle.",
+      "technical_requirements": "Transparent background, 216 DPI, premium night sky representation", 
+      "islamic_considerations": "Premium quality representation of sacred Isha night prayer"
+    },
+    {
+      "filename": "prayer-icons-always-on@1x.png",
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Always-On Display contextual prayer variations, combined sprite sheet",
+      "design_prompt": "Create a combined sprite sheet or versatile prayer icon optimized for Always-On Display reduced luminance conditions. This could be a simplified Islamic symbol that works for all prayers, or a compact arrangement of prayer-specific elements. Use 3-4 pixel line weights for maximum visibility in low-light conditions. The design should be bold and clear while maintaining Islamic appropriateness and cultural sensitivity.",
+      "technical_requirements": "Transparent background, high contrast for reduced luminance, bold design elements",
+      "islamic_considerations": "Universal Islamic prayer representation optimized for low-light visibility"
+    },
+    {
+      "filename": "prayer-icons-always-on@2x.png", 
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of Always-On Display prayer icons",
+      "design_prompt": "Scale up the Always-On optimized prayer icons to 48x48 pixels. Use 6-8 pixel line weights for maximum visibility. The design should be robust and clearly readable in reduced luminance conditions while maintaining the versatility needed for different prayer contexts at Retina resolution.",
+      "technical_requirements": "Transparent background, 144 DPI, enhanced visibility for low-light conditions",
+      "islamic_considerations": "Maintain Islamic respect while optimizing for Always-On Display visibility"
+    },
+    {
+      "filename": "prayer-icons-always-on@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x", 
+      "usage_context": "Super Retina display version of Always-On Display prayer icons",
+      "design_prompt": "Premium quality Always-On Display prayer icons at 72x72 pixels. Use 9-12 pixel line weights with maximum contrast and visibility optimization. This should be the most legible version of Islamic prayer iconography, designed specifically for the most challenging reduced-luminance Always-On Display conditions.",
+      "technical_requirements": "Transparent background, 216 DPI, maximum visibility and contrast",
+      "islamic_considerations": "Premium quality Islamic prayer representation for optimal Always-On Display visibility"
+    },
+    {
+      "filename": "allah-calligraphy@1x.png",
+      "size": "24x24 pixels",
+      "scale": "@1x",
+      "usage_context": "Arabic calligraphy 'Allah' (الله) for Islamic spiritual context in Live Activities",
+      "design_prompt": "Create beautiful Arabic calligraphy of 'Allah' (الله) in traditional Islamic style within a 24x24 pixel canvas. The calligraphy should be elegant and respectful, using flowing Arabic script. Consider a hexagonal or circular boundary similar to the reference image, but simplified for small scale. The Arabic text should be the primary focus with clean, readable letterforms. Use 2-3 pixel line weights for the calligraphy and 2 pixel weight for any boundary shape. Ensure cultural authenticity and religious appropriateness in the calligraphic style.",
+      "technical_requirements": "Transparent background, authentic Arabic calligraphy, respectful religious representation",
+      "islamic_considerations": "Highest level of cultural and religious sensitivity required for Allah's name in Arabic"
+    },
+    {
+      "filename": "allah-calligraphy@2x.png",
+      "size": "48x48 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of Allah calligraphy",
+      "design_prompt": "Scale up the Allah calligraphy to 48x48 pixels with enhanced detail and beauty. The Arabic letterforms should be more refined with 4-6 pixel line weights. Any boundary shape should be 3-4 pixels thick. The calligraphy should demonstrate reverence and artistic beauty appropriate for the sacred name of Allah. Maintain perfect proportions and authentic Arabic script styling.",
+      "technical_requirements": "Transparent background, 144 DPI, enhanced calligraphic detail",
+      "islamic_considerations": "Premium quality representation of Allah's sacred name with utmost respect"
+    },
+    {
+      "filename": "allah-calligraphy@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Allah calligraphy",
+      "design_prompt": "Premium quality Allah calligraphy at 72x72 pixels with maximum beauty and refinement. Use 6-9 pixel line weights for the Arabic script with flowing, elegant curves. Any boundary should be 4-6 pixels thick. This should represent the pinnacle of digital Islamic calligraphy, showing deep respect and artistic excellence in representing Allah's name. Every curve should be perfect and spiritually respectful.",
+      "technical_requirements": "Transparent background, 216 DPI, premium calligraphic artistry",
+      "islamic_considerations": "Highest quality artistic representation of Allah's sacred name"
+    },
+    {
+      "filename": "kaaba-qibla@1x.png",
+      "size": "24x24 pixels", 
+      "scale": "@1x",
+      "usage_context": "Kaaba/Qibla direction symbol for prayer direction guidance in Live Activities",
+      "design_prompt": "Create a simplified, geometric representation of the Kaaba based on the reference cube design. Show a black cube with white architectural details - the characteristic bands/trim of the Kaaba. The cube should be in isometric or 3D perspective showing the front face and one side face. Use clean geometric lines with 2-3 pixel thickness. Include the distinctive horizontal white bands that represent the Kiswa (covering) details. Keep the design respectful and architecturally accurate while being simple enough to read at 24x24 pixels.",
+      "technical_requirements": "Transparent background, geometric cube design, architectural accuracy",
+      "islamic_considerations": "Respectful representation of Islam's holiest site, accurate architectural proportions"
+    },
+    {
+      "filename": "kaaba-qibla@2x.png",
+      "size": "48x48 pixels",
+      "scale": "@2x", 
+      "usage_context": "Retina display version of Kaaba/Qibla symbol",
+      "design_prompt": "Scale up the Kaaba symbol to 48x48 pixels with enhanced architectural detail. The cube should have 4-6 pixel thick lines with clearly defined white bands representing the Kiswa covering. The 3D perspective should be more refined and the architectural details more precise. Maintain the sacred and respectful representation of the Kaaba while providing clear Retina display quality.",
+      "technical_requirements": "Transparent background, 144 DPI, enhanced architectural detail",
+      "islamic_considerations": "Respectful detailed representation of Islam's holiest site"
+    },
+    {
+      "filename": "kaaba-qibla@3x.png",
+      "size": "72x72 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of Kaaba/Qibla symbol", 
+      "design_prompt": "Premium quality Kaaba symbol at 72x72 pixels with architectural precision and beauty. Use 6-9 pixel line weights with perfect geometric proportions. The cube should show fine architectural details including the characteristic bands and any subtle door or architectural elements that can be represented respectfully at this scale. This should be a reverent and beautiful representation of the Kaaba suitable for Qibla direction guidance.",
+      "technical_requirements": "Transparent background, 216 DPI, premium architectural representation",
+      "islamic_considerations": "Highest quality respectful representation of Islam's most sacred site"
+    },
+    {
+      "filename": "allah-calligraphy-small@1x.png",
+      "size": "20x20 pixels",
+      "scale": "@1x",
+      "usage_context": "Compact Allah calligraphy for Dynamic Island compact states",
+      "design_prompt": "Create a simplified version of Allah calligraphy (الله) optimized for 20x20 pixels. The Arabic script may need to be more geometric or stylized to remain readable at this small size. Focus on the essential letterforms while maintaining religious authenticity. Use 2-3 pixel line weights and consider a more condensed layout. The design should remain respectful and recognizable as Allah's name even at this compact size.",
+      "technical_requirements": "Transparent background, size-optimized calligraphy, maintained authenticity",
+      "islamic_considerations": "Respectful compact representation of Allah's sacred name"
+    },
+    {
+      "filename": "allah-calligraphy-small@2x.png", 
+      "size": "40x40 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of compact Allah calligraphy",
+      "design_prompt": "Scale up the compact Allah calligraphy to 40x40 pixels. Use 4-6 pixel line weights while maintaining the space-optimized design. The Arabic letterforms should be clear and respectful at this size, suitable for Dynamic Island compact display contexts.",
+      "technical_requirements": "Transparent background, 144 DPI, compact calligraphic design",
+      "islamic_considerations": "Maintain religious respect in compact format"
+    },
+    {
+      "filename": "allah-calligraphy-small@3x.png",
+      "size": "60x60 pixels", 
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of compact Allah calligraphy",
+      "design_prompt": "High-resolution compact Allah calligraphy at 60x60 pixels. Use 6-9 pixel line weights with refined Arabic script optimized for compact display. The design should demonstrate beautiful calligraphy while being practical for Dynamic Island compact states.",
+      "technical_requirements": "Transparent background, 216 DPI, refined compact calligraphy",
+      "islamic_considerations": "Premium quality compact representation of Allah's sacred name"
+    },
+    {
+      "filename": "kaaba-qibla-small@1x.png",
+      "size": "20x20 pixels",
+      "scale": "@1x", 
+      "usage_context": "Compact Kaaba symbol for Dynamic Island compact states",
+      "design_prompt": "Create a simplified Kaaba cube optimized for 20x20 pixels. The cube should be more geometric and simplified while retaining its essential cubic form and the key white band details. Use 2-3 pixel line weights and focus on the most recognizable architectural elements. The design should remain clearly identifiable as the Kaaba even at this small size.",
+      "technical_requirements": "Transparent background, geometric simplification, architectural essence",
+      "islamic_considerations": "Respectful simplified representation of the sacred Kaaba"
+    },
+    {
+      "filename": "kaaba-qibla-small@2x.png",
+      "size": "40x40 pixels",
+      "scale": "@2x",
+      "usage_context": "Retina display version of compact Kaaba symbol", 
+      "design_prompt": "Scale up the compact Kaaba symbol to 40x40 pixels. Use 4-6 pixel line weights while maintaining the simplified geometric design. The cube should be clearly defined with essential architectural details visible at Retina resolution.",
+      "technical_requirements": "Transparent background, 144 DPI, compact architectural design",
+      "islamic_considerations": "Maintain architectural respect in compact format"
+    },
+    {
+      "filename": "kaaba-qibla-small@3x.png", 
+      "size": "60x60 pixels",
+      "scale": "@3x",
+      "usage_context": "Super Retina display version of compact Kaaba symbol",
+      "design_prompt": "High-resolution compact Kaaba symbol at 60x60 pixels. Use 6-9 pixel line weights with precise geometric construction. The simplified cube should demonstrate architectural beauty while being optimized for compact Dynamic Island display contexts.",
+      "technical_requirements": "Transparent background, 216 DPI, refined compact architecture",
+      "islamic_considerations": "Premium quality compact representation of the sacred Kaaba"
+    }
+  ],
+  "design_workflow": {
+    "step_1": "Review each individual prompt for cultural appropriateness and Islamic sensitivity",
+    "step_2": "Create designs following exact pixel dimensions and line weight specifications",
+    "step_3": "Ensure all designs use pure black (#000000) on transparent backgrounds",
+    "step_4": "Test visibility at intended sizes and contexts (Dynamic Island, lock screen, Always-On Display)",
+    "step_5": "Validate cultural appropriateness with Islamic community feedback if possible"
+  },
+  "quality_assurance": {
+    "technical": "All images must be PNG with alpha transparency, crisp edges, no anti-aliasing artifacts",
+    "cultural": "All Islamic symbols must be respectful, traditional, and culturally appropriate",
+    "functional": "All designs must be clearly readable at their intended display sizes and contexts",
+    "consistency": "All variants of the same asset must maintain visual consistency across scales"
+  }
+}

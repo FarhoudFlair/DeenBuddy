@@ -169,6 +169,24 @@ public class IslamicKnowledgeService: ObservableObject {
     // MARK: - Private Methods
     
     private func searchQuran(query: String) async -> [IslamicKnowledgeResult] {
+        // TODO: Replace with authenticated Quran API when ready
+        // Expected implementation:
+        /*
+        let url = URL(string: "https://api.quran.com/api/v4/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!
+        let (data, _) = try await URLSession.shared.data(from: url)
+        let response = try JSONDecoder().decode(QuranSearchResponse.self, from: data)
+        return response.results.map { dto in
+            IslamicKnowledgeResult(
+                type: .quranVerse,
+                relevanceScore: dto.score,
+                quranVerse: dto.toQuranVerse(),
+                hadith: nil,
+                explanation: "Found in Quran"
+            )
+        }
+        */
+        
+        // Using local sample data for now
         let searchResults = quranVerses.search(query: query)
         
         return searchResults.map { result in
@@ -183,6 +201,26 @@ public class IslamicKnowledgeService: ObservableObject {
     }
     
     private func searchHadith(query: String) async -> [IslamicKnowledgeResult] {
+        // TODO: Replace with authenticated Hadith API when ready
+        // Expected implementation:
+        /*
+        let url = URL(string: "https://api.sunnah.com/v1/hadiths/search?query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!
+        var request = URLRequest(url: url)
+        request.setValue("Bearer YOUR_API_KEY", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let response = try JSONDecoder().decode(HadithSearchResponse.self, from: data)
+        return response.results.map { dto in
+            IslamicKnowledgeResult(
+                type: .hadith,
+                relevanceScore: dto.score,
+                quranVerse: nil,
+                hadith: dto.toHadith(),
+                explanation: "Found in Hadith"
+            )
+        }
+        */
+        
+        // Using local sample data for now
         let searchResults = hadiths.search(query: query)
         
         return searchResults.map { result in
@@ -217,8 +255,11 @@ public class IslamicKnowledgeService: ObservableObject {
     }
     
     private func setupSampleData() {
-        // TODO: Replace with proper API calls to authentic Islamic content sources
-        // This is temporary hardcoded content for development/testing purposes
+        // Sample data for development - will be replaced by authenticated API sources
+        // TODO: Integrate with authenticated Quran/Hadith APIs (e.g., Quran.com API, Sunnah.com API)
+        // Expected endpoints:
+        // - Quran: https://api.quran.com/api/v4/verses/by_chapter/{chapter}
+        // - Hadith: https://api.sunnah.com/v1/collections
         // Sample Quran verses
         quranVerses = [
             QuranVerse(

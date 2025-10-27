@@ -1,0 +1,100 @@
+{
+  "storeKitVersion" : 2,
+  "bundleId" : "com.deenbuddy.app",
+  "teamId" : "",
+  "metadata" : {
+    "bundleId" : "com.deenbuddy.app",
+    "countryCodes" : [
+      "USA"
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "premium_access",
+      "referenceName" : "Premium Access"
+    }
+  ],
+  "products" : [
+    {
+      "id" : "weekly_premium_sub",
+      "type" : "autoRenewable",
+      "referenceName" : "Weekly Premium",
+      "subscription" : {
+        "groupId" : "premium_access",
+        "duration" : "P1W"
+      },
+      "prices" : [
+        {
+          "currency" : "USD",
+          "price" : 2.99
+        }
+      ],
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "displayName" : "Weekly Premium",
+          "description" : "Weekly access to DeenBuddy Premium"
+        }
+      ]
+    },
+    {
+      "id" : "monthly_premium_sub",
+      "type" : "autoRenewable",
+      "referenceName" : "Monthly Premium",
+      "subscription" : {
+        "groupId" : "premium_access",
+        "duration" : "P1M"
+      },
+      "prices" : [
+        {
+          "currency" : "USD",
+          "price" : 9.99
+        }
+      ],
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "displayName" : "Monthly Premium",
+          "description" : "Monthly access to DeenBuddy Premium"
+        }
+      ]
+    },
+    {
+      "id" : "yearly_premium_sub",
+      "type" : "autoRenewable",
+      "referenceName" : "Yearly Premium",
+      "subscription" : {
+        "groupId" : "premium_access",
+        "duration" : "P1Y"
+      },
+      "prices" : [
+        {
+          "currency" : "USD",
+          "price" : 39.99
+        }
+      ],
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "displayName" : "Yearly Premium",
+          "description" : "Yearly access to DeenBuddy Premium"
+        }
+      ]
+    }
+  ],
+  "subscriptionOffers" : [
+    {
+      "id" : "yearly_premium_sub.offer.most_popular",
+      "type" : "promotional",
+      "productId" : "yearly_premium_sub",
+      "referenceName" : "Most Popular Offer",
+      "paymentMode" : "payUpFront",
+      "localizations" : [
+        {
+          "locale" : "en_US",
+          "displayName" : "Most Popular - Best Value"
+        }
+      ]
+    }
+  ]
+}

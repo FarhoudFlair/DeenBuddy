@@ -350,9 +350,14 @@ struct VideoPlayerView: View {
 
 struct EnhancedPrayerGuideDetailView: View {
     let guide: PrayerGuide
+    @EnvironmentObject private var userPreferencesService: UserPreferencesService
     @State private var showingVideoPlayer = false
     @State private var selectedVideoURL: URL?
     @State private var expandedSteps: Set<String> = []
+    
+    private var isBookmarked: Bool {
+        userPreferencesService.isBookmarked(guide.id)
+    }
     
     var body: some View {
         NavigationStack {
@@ -537,8 +542,8 @@ struct EnhancedPrayerGuideDetailView: View {
                     }
                     .buttonStyle(SecondaryModernButtonStyle())
                     
-                    Button("Add to Bookmarks") {
-                        // TODO: Implement bookmark functionality
+                    Button(isBookmarked ? "Remove Bookmark" : "Add to Bookmarks") {
+                        userPreferencesService.toggleBookmark(for: guide.id)
                     }
                     .buttonStyle(SecondaryModernButtonStyle())
                 }
@@ -697,4 +702,5 @@ struct PrayerStepCard: View {
         videoURL: URL(string: "https://example.com/prayer-video.mp4")!,
         title: "Fajr Prayer Guide"
     )
+    .environmentObject(UserPreferencesService())
 }

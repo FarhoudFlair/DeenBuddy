@@ -9,6 +9,7 @@ import SwiftUI
 
 struct BookmarksView: View {
     @ObservedObject var viewModel: PrayerGuideViewModel
+    @EnvironmentObject private var userPreferencesService: UserPreferencesService
     @State private var bookmarkedGuideIds: Set<String> = []
     
     private var bookmarkedGuides: [PrayerGuide] {
@@ -33,6 +34,9 @@ struct BookmarksView: View {
                 }
                 .onAppear {
                     loadBookmarks()
+                }
+                .onReceive(userPreferencesService.$bookmarkedGuides) { updated in
+                    bookmarkedGuideIds = updated
                 }
         }
     }
@@ -120,34 +124,19 @@ struct BookmarksView: View {
     }
     
     private func loadBookmarks() {
-        // Load bookmarked guide IDs from UserDefaults
-        if let data = UserDefaults.standard.data(forKey: "bookmarked_guides"),
-           let bookmarks = try? JSONDecoder().decode(Set<String>.self, from: data) {
-            bookmarkedGuideIds = bookmarks
-        }
+        bookmarkedGuideIds = userPreferencesService.bookmarkedGuides
     }
     
     private func saveBookmarks() {
-        // Save bookmarked guide IDs to UserDefaults
-        if let data = try? JSONEncoder().encode(bookmarkedGuideIds) {
-            UserDefaults.standard.set(data, forKey: "bookmarked_guides")
-        }
+        userPreferencesService.bookmarkedGuides = bookmarkedGuideIds
     }
     
     private func removeBookmark(_ guideId: String) {
         bookmarkedGuideIds.remove(guideId)
         saveBookmarks()
-        
-        // Also remove individual bookmark flag
-        UserDefaults.standard.removeObject(forKey: "bookmark_\(guideId)")
     }
     
     private func clearAllBookmarks() {
-        // Remove all bookmarks
-        for guideId in bookmarkedGuideIds {
-            UserDefaults.standard.removeObject(forKey: "bookmark_\(guideId)")
-        }
-        
         bookmarkedGuideIds.removeAll()
         saveBookmarks()
     }
@@ -158,7 +147,6 @@ extension BookmarksView {
     func addBookmark(_ guideId: String) {
         bookmarkedGuideIds.insert(guideId)
         saveBookmarks()
-        UserDefaults.standard.set(true, forKey: "bookmark_\(guideId)")
     }
     
     func isBookmarked(_ guideId: String) -> Bool {
@@ -168,4 +156,5 @@ extension BookmarksView {
 
 #Preview {
     BookmarksView(viewModel: PrayerGuideViewModel())
+        .environmentObject(UserPreferencesService())
 }

@@ -3,6 +3,13 @@ import Charts
 
 // MARK: - Temporary Data Models
 
+struct ChartDataPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+    let prayer: String?
+}
+
 struct InsightData: Identifiable {
     let id = UUID()
     let icon: String
@@ -74,6 +81,8 @@ public struct PrayerAnalyticsView: View {
     @State private var showingExportSheet: Bool = false
     @State private var exportStatus: ExportStatus = .idle
     @State private var exportMessage: String = ""
+    @State private var chartData: [ChartDataPoint] = []
+    @State private var isLoadingChartData: Bool = false
 
     // MARK: - Initialization
 
@@ -128,6 +137,12 @@ public struct PrayerAnalyticsView: View {
             }
             .task {
                 await loadInsights()
+                await loadChartData()
+            }
+            .onChange(of: selectedPeriod) { _ in
+                Task {
+                    await loadChartData()
+                }
             }
             .sheet(isPresented: $showingExportSheet) {
                 ExportOptionsView(
@@ -147,45 +162,40 @@ public struct PrayerAnalyticsView: View {
         let periods = ["week", "month", "year"]
         let periodTitles = ["This Week", "This Month", "This Year"]
 
-        HStack(spacing: 0) {
-            ForEach(Array(zip(periods, periodTitles)), id: \.0) { period, title in
-                Button(action: {
-                    selectedPeriod = period
-                }) {
-                    Text(title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(selectedPeriod == period ? .white : .blue)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(selectedPeriod == period ? .blue : Color.clear)
-                        )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(zip(periods, periodTitles)), id: \.0) { period, title in
+                    Button(action: {
+                        selectedPeriod = period
+                    }) {
+                        Text(title)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(selectedPeriod == period ? .white : ColorPalette.primary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(selectedPeriod == period ? ColorPalette.primary : ColorPalette.surfaceSecondary)
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(4)
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.background)
-        )
     }
     
     // MARK: - Key Metrics Section
     
     @ViewBuilder
     private var keyMetricsSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Key Metrics")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-            }
-            
-            HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Key Metrics")
+                .font(.headline)
+                .fontWeight(.semibold)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
                 PrayerMetricCard(
                     title: "Completion Rate",
                     value: "85%",
@@ -201,9 +211,7 @@ public struct PrayerAnalyticsView: View {
                     isPositive: true,
                     icon: "flame.fill"
                 )
-            }
 
-            HStack(spacing: 16) {
                 PrayerMetricCard(
                     title: "Total Prayers",
                     value: "127",
@@ -249,19 +257,19 @@ public struct PrayerAnalyticsView: View {
 
             // Chart
             RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
+                .fill(ColorPalette.surfaceSecondary)
                 .overlay(
                     VStack(alignment: .leading, spacing: 16) {
                         Text(metricTitle(for: selectedMetric))
                             .font(.subheadline)
                             .fontWeight(.medium)
-                            .foregroundColor(.secondary)
+                            .foregroundColor(ColorPalette.textSecondary)
 
-                        // Placeholder for chart - would use Swift Charts in real implementation
                         chartPlaceholder
                     }
                     .padding()
                 )
+                .frame(maxWidth: .infinity)
         }
     }
     
@@ -279,7 +287,7 @@ public struct PrayerAnalyticsView: View {
             }
             
             RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
+                .fill(ColorPalette.surfaceSecondary)
                 .overlay(
                     VStack(spacing: 12) {
                         let prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
@@ -321,20 +329,20 @@ public struct PrayerAnalyticsView: View {
             if insights.isEmpty && !isLoadingInsights {
                 // Empty state
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(.background)
+                    .fill(ColorPalette.surfaceSecondary)
                     .overlay(
                         VStack(spacing: 12) {
                             Image(systemName: "lightbulb")
                                 .font(.title2)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(ColorPalette.textSecondary)
 
                             Text("No insights available")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(ColorPalette.textSecondary)
 
                             Text("Complete more prayers to see personalized insights")
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(ColorPalette.textSecondary)
                                 .multilineTextAlignment(.center)
                         }
                         .padding()
@@ -365,6 +373,38 @@ public struct PrayerAnalyticsView: View {
         insights = generateSampleInsights()
     }
 
+    private func loadChartData() async {
+        isLoadingChartData = true
+        defer { isLoadingChartData = false }
+
+        // Generate chart data based on selected period
+        let calendar = Calendar.current
+        let today = Date()
+        var dataPoints: [ChartDataPoint] = []
+
+        let daysToShow: Int
+        switch selectedPeriod {
+        case "week": daysToShow = 7
+        case "month": daysToShow = 30
+        case "year": daysToShow = 365
+        default: daysToShow = 7
+        }
+
+        for dayOffset in (0..<daysToShow).reversed() {
+            if let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) {
+                // NOTE: Using mock completion rates until PrayerTrackingService analytics hooks ship.
+                let completionRate = Double.random(in: 0.4...1.0)
+                dataPoints.append(ChartDataPoint(
+                    date: date,
+                    value: completionRate,
+                    prayer: nil
+                ))
+            }
+        }
+
+        chartData = dataPoints
+    }
+
     private func generateSampleInsights() -> [InsightData] {
         return [
             InsightData(
@@ -388,28 +428,116 @@ public struct PrayerAnalyticsView: View {
         ]
     }
 
-    // MARK: - Chart Placeholder
-    
+    // MARK: - Chart View
+
     @ViewBuilder
     private var chartPlaceholder: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(.background)
-            .frame(height: 200)
-            .overlay(
-                VStack {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 40))
-                        .foregroundColor(.secondary)
+        if isLoadingChartData {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(ColorPalette.surfacePrimary)
+                .frame(height: 200)
+                .overlay(
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading chart data...")
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                    }
+                )
+        } else if chartData.isEmpty {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(ColorPalette.surfacePrimary)
+                .frame(height: 200)
+                .overlay(
+                    VStack {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 40))
+                            .foregroundColor(ColorPalette.textSecondary)
 
-                    Text("Chart will be implemented with Swift Charts")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                        Text("Complete more prayers to see trends")
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                )
+        } else {
+            // Actual Swift Chart
+            Chart(chartData) { dataPoint in
+                LineMark(
+                    x: .value("Date", dataPoint.date),
+                    y: .value("Completion", dataPoint.value)
+                )
+                .foregroundStyle(ColorPalette.primary)
+                .interpolationMethod(.catmullRom)
+
+                AreaMark(
+                    x: .value("Date", dataPoint.date),
+                    y: .value("Completion", dataPoint.value)
+                )
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [ColorPalette.primary.opacity(0.3), ColorPalette.primary.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .interpolationMethod(.catmullRom)
+            }
+            .chartXAxis {
+                AxisMarks(values: axisStride(for: selectedPeriod)) { _ in
+                    AxisGridLine()
+                    AxisValueLabel(format: axisFormat(for: selectedPeriod))
                 }
-            )
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let doubleValue = value.as(Double.self) {
+                            Text("\(Int(doubleValue * 100))%")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .chartYScale(domain: 0...1)
+            .frame(height: 200)
+        }
     }
     
     // MARK: - Helper Methods
+    
+    /// Returns appropriate axis stride based on selected period
+    /// - Parameter period: The selected time period ("week", "month", "year")
+    /// - Returns: AxisMarkValues for appropriate stride
+    private func axisStride(for period: String) -> AxisMarkValues {
+        switch period {
+        case "week":
+            return .stride(by: .day)
+        case "month":
+            return .stride(by: .day, count: 5)
+        case "year":
+            return .stride(by: .month)
+        default:
+            return .stride(by: .day)
+        }
+    }
+    
+    /// Returns appropriate date format style based on selected period
+    /// - Parameter period: The selected time period ("week", "month", "year")
+    /// - Returns: Date.FormatStyle for axis labels
+    private func axisFormat(for period: String) -> Date.FormatStyle {
+        switch period {
+        case "week":
+            return .dateTime.weekday(.abbreviated)
+        case "month":
+            return .dateTime.day()
+        case "year":
+            return .dateTime.month(.abbreviated)
+        default:
+            return .dateTime.weekday(.abbreviated)
+        }
+    }
 
     private var mostConsistentPrayer: String {
         // Placeholder for most consistent prayer

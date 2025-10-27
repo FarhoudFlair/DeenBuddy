@@ -362,6 +362,9 @@ class BackgroundSyncMockNotificationService: NotificationServiceProtocol, Observ
     func schedulePrayerTrackingNotification(for prayer: Prayer, at prayerTime: Date, reminderMinutes: Int) async throws {}
     func getNotificationSettings() -> NotificationSettings { return .default }
     func updateNotificationSettings(_ settings: NotificationSettings) {}
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }
 
 @MainActor

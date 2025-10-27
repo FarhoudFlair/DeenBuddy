@@ -46,6 +46,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     // Memory leak prevention: Store observer tokens for proper cleanup
     private var settingsObserver: NSObjectProtocol?
     private var appLifecycleObserver: NSObjectProtocol?
+    private var prayerCompletedObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
 
     // Observer management for memory leak prevention
@@ -90,6 +91,12 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         if let observer = appLifecycleObserver {
             NotificationCenter.default.removeObserver(observer)
             appLifecycleObserver = nil
+            observerCount = max(0, observerCount - 1)
+        }
+
+        if let observer = prayerCompletedObserver {
+            NotificationCenter.default.removeObserver(observer)
+            prayerCompletedObserver = nil
             observerCount = max(0, observerCount - 1)
         }
 
@@ -550,6 +557,37 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             observerCount += 1
         }
 
+        if prayerCompletedObserver == nil {
+            prayerCompletedObserver = NotificationCenter.default.addObserver(
+                forName: .prayerMarkedAsPrayed,
+                object: nil,
+                queue: nil
+            ) { [weak self] notification in
+                guard let self = self else { return }
+                guard let userInfo = notification.userInfo,
+                      let rawValue = userInfo["prayer"] as? String,
+                      let prayer = Prayer(rawValue: rawValue) else {
+                    return
+                }
+
+                let source = userInfo["source"] as? String ?? "external"
+
+                // Skip if the notification service already handled the action directly
+                if source == "notification_action" {
+                    return
+                }
+
+                Task {
+                    await self.cancelNotificationsForPrayer(prayer)
+                    await self.updateBadgeForCompletedPrayer()
+                }
+            }
+
+            if prayerCompletedObserver != nil {
+                observerCount += 1
+            }
+        }
+
         print("📱 NotificationService observers setup - active observers: \(observerCount)/\(Self.maxObservers)")
     }
 
@@ -714,7 +752,11 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
         // Handle different actions
         switch actionIdentifier {
         case "MARK_PRAYED":
-            handleMarkPrayedAction(for: prayer, userInfo: userInfo)
+            Task { @MainActor in
+                await handleMarkPrayedAction(for: prayer, userInfo: userInfo)
+                completionHandler()
+            }
+            return
 
         // New Prayer Tracking Actions
         case "PRAYER_COMPLETED":
@@ -755,7 +797,7 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
 
     // MARK: - Notification Action Handlers
 
-    private func handleMarkPrayedAction(for prayer: Prayer?, userInfo: [AnyHashable: Any]) {
+    private func handleMarkPrayedAction(for prayer: Prayer?, userInfo: [AnyHashable: Any]) async {
         guard let prayer = prayer else { return }
 
         print("✅ User marked \(prayer.displayName) as prayed")
@@ -764,14 +806,12 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
         NotificationCenter.default.post(
             name: .prayerMarkedAsPrayed,
             object: nil,
-            userInfo: ["prayer": prayer.rawValue, "timestamp": Date()]
+            userInfo: ["prayer": prayer.rawValue, "timestamp": Date(), "source": "notification_action"]
         )
 
         // Cancel any remaining notifications for this prayer and update badge
-        Task {
-            await cancelNotificationsForPrayer(prayer)
-            await updateBadgeForCompletedPrayer()
-        }
+        await cancelNotificationsForPrayer(prayer)
+        await updateBadgeForCompletedPrayer()
     }
 
     private func handleSnoozeAction(minutes: Int, for prayer: Prayer?, userInfo: [AnyHashable: Any]) {

@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import BackgroundTasks
+import ActivityKit
 
 /// Main app coordinator that manages navigation and app state
 @MainActor
@@ -11,7 +12,7 @@ public class AppCoordinator: ObservableObject {
     @Published public var currentScreen: AppScreen = .loading
     @Published public var showingSettings = false
     @Published public var showingCompass = false
-    @Published public var showingARCompass = false
+    // @Published public var showingARCompass = false // AR compass disabled - too buggy
     @Published public var showingGuides = false
     @Published public var showingQuranSearch = false
     @Published public var showingError = false
@@ -26,10 +27,12 @@ public class AppCoordinator: ObservableObject {
     public let prayerTimeService: any PrayerTimeServiceProtocol
     public let prayerTrackingService: any PrayerTrackingServiceProtocol
     public let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
+    public let tasbihService: any TasbihServiceProtocol
     public let settingsService: any SettingsServiceProtocol
     public let themeManager: ThemeManager
     private let backgroundTaskManager: BackgroundTaskManager
     private let backgroundPrayerRefreshService: BackgroundPrayerRefreshService
+    public let subscriptionService: any SubscriptionServiceProtocol
 
     // MARK: - Enhanced Services
 
@@ -47,20 +50,24 @@ public class AppCoordinator: ObservableObject {
         prayerTimeService: any PrayerTimeServiceProtocol,
         prayerTrackingService: any PrayerTrackingServiceProtocol,
         prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
+        tasbihService: any TasbihServiceProtocol,
         settingsService: any SettingsServiceProtocol,
         themeManager: ThemeManager,
         backgroundTaskManager: BackgroundTaskManager,
-        backgroundPrayerRefreshService: BackgroundPrayerRefreshService
+        backgroundPrayerRefreshService: BackgroundPrayerRefreshService,
+        subscriptionService: any SubscriptionServiceProtocol
     ) {
         self.locationService = locationService
         self.notificationService = notificationService
         self.prayerTimeService = prayerTimeService
         self.prayerTrackingService = prayerTrackingService
         self.prayerAnalyticsService = prayerAnalyticsService
+        self.tasbihService = tasbihService
         self.settingsService = settingsService
         self.themeManager = themeManager
         self.backgroundTaskManager = backgroundTaskManager
         self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
+        self.subscriptionService = subscriptionService
 
         setupInitialState()
         setupEnhancedServices()
@@ -73,15 +80,44 @@ public class AppCoordinator: ObservableObject {
             // PERFORMANCE: Start performance monitoring early
             PerformanceMonitoringService.shared.startMonitoring()
 
-            // TODO: Start app launch Live Activity with Allah symbol in Dynamic Island
-            // await startAppLaunchActivity()
+            // Start app launch Live Activity with Allah symbol in Dynamic Island (if available)
+            await startAppLaunchActivityIfAvailable()
 
             await loadSettings()
+            subscriptionService.startObservingTransactions()
+            await refreshSubscriptionStatus()
             await determineInitialScreen()
 
             // PERFORMANCE: Log startup metrics
             let report = PerformanceMonitoringService.shared.getPerformanceReport()
             print("🚀 App startup completed - \(report.summary)")
+        }
+    }
+
+    @Published public var showingPaywall = false
+    public func showPaywall() { showingPaywall = true }
+    public func dismissPaywall() { showingPaywall = false }
+
+    private func refreshSubscriptionStatus() async {
+        do { try await subscriptionService.refreshStatus() } catch { }
+    }
+
+    /// Attempt to start the app-launch Live Activity if Live Activities are enabled on device
+    private func startAppLaunchActivityIfAvailable() async {
+        if #available(iOS 16.1, *) {
+            // Avoid running on simulator where Live Activities are not supported
+            #if targetEnvironment(simulator)
+            return
+            #endif
+
+            let authInfo = ActivityAuthorizationInfo()
+            guard authInfo.areActivitiesEnabled else { return }
+
+            do {
+                try await AppLaunchLiveActivityManager.shared.startAppLaunchActivity()
+            } catch {
+                // Non-critical; ignore failures at launch
+            }
         }
     }
     
@@ -115,6 +151,8 @@ public class AppCoordinator: ObservableObject {
         showingCompass = false
     }
 
+    // MARK: - AR Compass Methods (DISABLED - Too buggy, focusing on 2D compass)
+    /*
     public func showARCompass() {
         showingARCompass = true
     }
@@ -122,6 +160,7 @@ public class AppCoordinator: ObservableObject {
     public func dismissARCompass() {
         showingARCompass = false
     }
+    */
 
     public func showGuides() {
         showingGuides = true
@@ -315,6 +354,24 @@ public enum OnboardingStep: Equatable {
     case locationPermission
     case calculationMethod
     case notificationPermission
+
+    /// Maps OnboardingStep to EnhancedOnboardingFlow TabView index.
+    /// Gaps exist for steps not represented in this enum:
+    /// - Index 1: Name Collection (handled internally by flow)
+    /// - Index 3: Madhab Selection (handled internally by flow)
+    /// - Index 6: Premium Trial (handled internally by flow)
+    var flowIndex: Int {
+        switch self {
+        case .welcome:
+            return 0
+        case .calculationMethod:
+            return 2
+        case .locationPermission:
+            return 4
+        case .notificationPermission:
+            return 5
+        }
+    }
 }
 
 // MARK: - Main App View
@@ -353,55 +410,35 @@ public struct DeenAssistApp: View {
 
 public struct OnboardingCoordinatorView: View {
     let step: OnboardingStep
-    let coordinator: AppCoordinator
-    
-    @State private var currentStep: OnboardingStep
-    
+    @ObservedObject private var coordinator: AppCoordinator
+
     public init(step: OnboardingStep, coordinator: AppCoordinator) {
         self.step = step
-        self.coordinator = coordinator
-        self._currentStep = State(initialValue: step)
+        self._coordinator = ObservedObject(wrappedValue: coordinator)
     }
-    
+
     public var body: some View {
-        Group {
-            switch currentStep {
-            case .welcome:
-                WelcomeScreen {
-                    currentStep = .locationPermission
-                }
-                
-            case .locationPermission:
-                LocationPermissionScreen(
-                    locationService: coordinator.locationService,
-                    onContinue: {
-                        currentStep = .calculationMethod
-                    },
-                    onSkip: {
-                        currentStep = .calculationMethod
-                    }
-                )
-                
-            case .calculationMethod:
-                CalculationMethodScreen(
-                    settingsService: coordinator.settingsService,
-                    onContinue: {
-                        currentStep = .notificationPermission
-                    }
-                )
-                
-            case .notificationPermission:
-                NotificationPermissionScreen(
-                    notificationService: coordinator.notificationService,
-                    settingsService: coordinator.settingsService,
-                    onComplete: {
-                        coordinator.completeOnboarding()
-                    }
-                )
+        EnhancedOnboardingFlow(
+            settingsService: coordinator.settingsService,
+            locationService: coordinator.locationService,
+            notificationService: coordinator.notificationService,
+            initialStep: mapOnboardingStep(step),
+            onShowPremiumTrial: {
+                coordinator.showPaywall()
+            },
+            onComplete: {
+                coordinator.completeOnboarding()
             }
+        )
+        .sheet(isPresented: $coordinator.showingPaywall) {
+            SubscriptionPaywallView(coordinator: coordinator)
         }
-        .transition(.slide)
-        .animation(.easeInOut, value: currentStep)
+    }
+}
+
+private extension OnboardingCoordinatorView {
+    func mapOnboardingStep(_ step: OnboardingStep) -> Int {
+        return step.flowIndex
     }
 }
 
@@ -420,15 +457,17 @@ private struct MainAppView: View {
                 prayerTimeService: coordinator.prayerTimeService,
                 locationService: coordinator.locationService,
                 settingsService: coordinator.settingsService,
-                notificationService: coordinator.notificationService,
-                onCompassTapped: { }, // No action needed - available as tab
+                prayerTrackingService: coordinator.prayerTrackingService,
+                onCompassTapped: {
+                    coordinator.showCompass()
+                },
                 onGuidesTapped: { }, // No action needed - available as tab
                 onQuranSearchTapped: { }, // No action needed - available as tab
-                onSettingsTapped: { }, // No action needed - available as tab
-                onNotificationsTapped: {
-                    // Bell icon tapped - notification settings functionality
-                    print("Notification bell tapped")
-                }
+                onSettingsTapped: {
+                    coordinator.showSettings()
+                },
+                onTasbihTapped: { },
+                onCalendarTapped: { }
             )
 
             // Loading overlay
@@ -436,16 +475,54 @@ private struct MainAppView: View {
                 LoadingOverlay()
             }
         }
-        .fullScreenCover(isPresented: $coordinator.showingARCompass) {
-            ARQiblaCompassScreen(
+        .errorAlert()
+        .themed(with: coordinator.themeManager)
+        .sheet(isPresented: $coordinator.showingCompass) {
+            QiblaCompassScreen(
                 locationService: coordinator.locationService,
                 onDismiss: {
-                    coordinator.dismissARCompass()
+                    coordinator.dismissCompass()
                 }
             )
         }
-        .errorAlert()
-        .themed(with: coordinator.themeManager)
+        .sheet(isPresented: $coordinator.showingSettings) {
+            if let settingsService = coordinator.settingsService as? SettingsService {
+                NavigationView {
+                    EnhancedSettingsView(
+                        settingsService: settingsService,
+                        themeManager: coordinator.themeManager,
+                        onDismiss: {
+                            coordinator.dismissSettings()
+                        }
+                    )
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") {
+                                coordinator.dismissSettings()
+                            }
+                        }
+                    }
+                }
+            } else {
+                NavigationView {
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Text("Settings unavailable")
+                            .font(.headline)
+                        Text("Unable to load settings service")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Button("Close") {
+                            coordinator.dismissSettings()
+                        }
+                    }
+                    .padding()
+                    .navigationTitle("Settings")
+                }
+            }
+        }
     }
 }
 
@@ -570,10 +647,8 @@ private struct SimpleTabView: View {
             // 2. Qibla Tab - Direct access to compass
             QiblaCompassScreen(
                 locationService: coordinator.locationService,
-                onDismiss: { }, // No dismiss needed in tab mode
-                onShowAR: {
-                    coordinator.showARCompass()
-                }
+                onDismiss: { } // No dismiss needed in tab mode
+                // AR compass disabled - too buggy, focusing on 2D compass
             )
             .tabItem {
                 Image(systemName: "safari.fill")
@@ -629,10 +704,14 @@ public extension AppCoordinator {
             prayerTimeService: container.prayerTimeService,
             prayerTrackingService: container.prayerTrackingService,
             prayerAnalyticsService: container.prayerAnalyticsService,
+            tasbihService: container.tasbihService,
             settingsService: container.settingsService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
-            backgroundPrayerRefreshService: container.backgroundPrayerRefreshService
+            backgroundPrayerRefreshService: container.backgroundPrayerRefreshService,
+            subscriptionService: SubscriptionService(
+                performanceMonitor: PerformanceMonitor.shared
+            )
         )
     }
 
@@ -641,16 +720,22 @@ public extension AppCoordinator {
         let container = DependencyContainer.shared
         let themeManager = ThemeManager(settingsService: container.settingsService)
 
+        let subscriptionService = SubscriptionService(
+            performanceMonitor: PerformanceMonitor.shared
+        )
+
         return AppCoordinator(
             locationService: container.locationService,
             notificationService: container.notificationService,
             prayerTimeService: container.prayerTimeService,
             prayerTrackingService: container.prayerTrackingService,
             prayerAnalyticsService: container.prayerAnalyticsService,
+            tasbihService: container.tasbihService,
             settingsService: container.settingsService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
-            backgroundPrayerRefreshService: container.backgroundPrayerRefreshService
+            backgroundPrayerRefreshService: container.backgroundPrayerRefreshService,
+            subscriptionService: subscriptionService
         )
     }
 }

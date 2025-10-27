@@ -9,6 +9,7 @@ struct NextPrayerLockScreenView: View {
     
     @Environment(\.widgetFamily) var family
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
     
     var body: some View {
         switch family {
@@ -30,6 +31,7 @@ struct PrayerCountdownLockScreenView: View {
     
     @Environment(\.widgetFamily) var family
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
     
     var body: some View {
         switch family {
@@ -50,19 +52,28 @@ struct PrayerCountdownLockScreenView: View {
 @available(iOS 16.0, *)
 struct CircularNextPrayerView: View {
     let entry: PrayerWidgetEntry
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
     
     var body: some View {
         ZStack {
-            // Background circle
-            Circle()
-                .fill(.quaternary)
-                .frame(width: 42, height: 42)
-            
             VStack(spacing: 1) {
-                // Islamic symbol
-                Text("☪")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                // Always-On Display optimized Islamic symbol with fallback
+                Group {
+                    if UIImage(named: isLuminanceReduced ? "IslamicSymbolAlwaysOn" : "IslamicSymbolCircular") != nil {
+                        Image(isLuminanceReduced ? "IslamicSymbolAlwaysOn" : "IslamicSymbolCircular")
+                            .renderingMode(.template)
+                            .resizable()
+                            .frame(width: 12, height: 12)
+                            .foregroundStyle(isLuminanceReduced ? .primary : .secondary)
+                            .opacity(isLuminanceReduced ? 0.8 : 1.0)
+                    } else {
+                        // Fallback to system icon if custom asset is missing
+                        Image(systemName: "moon.stars")
+                            .font(.system(size: 10))
+                            .foregroundStyle(isLuminanceReduced ? .primary : .secondary)
+                            .opacity(isLuminanceReduced ? 0.8 : 1.0)
+                    }
+                }
                 
                 // Next prayer info
                 if let nextPrayer = entry.widgetData.nextPrayer {
@@ -76,12 +87,14 @@ struct CircularNextPrayerView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 } else {
-                    Text("--")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+                    Text("No Data")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.red)
+                        .lineLimit(1)
                 }
             }
         }
+        .widgetBackground(AccessoryWidgetBackground())
         .accessibilityLabel(accessibilityLabel)
     }
     
@@ -97,19 +110,28 @@ struct CircularNextPrayerView: View {
 @available(iOS 16.0, *)
 struct CircularCountdownView: View {
     let entry: PrayerWidgetEntry
+    @Environment(\.isLuminanceReduced) var isLuminanceReduced
     
     var body: some View {
         ZStack {
-            // Background circle
-            Circle()
-                .fill(.quaternary)
-                .frame(width: 42, height: 42)
-            
             VStack(spacing: 1) {
-                // Islamic symbol
-                Text("☪")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                // Always-On Display optimized Islamic symbol with fallback
+                Group {
+                    if UIImage(named: isLuminanceReduced ? "IslamicSymbolAlwaysOn" : "IslamicSymbolCircular") != nil {
+                        Image(isLuminanceReduced ? "IslamicSymbolAlwaysOn" : "IslamicSymbolCircular")
+                            .renderingMode(.template)
+                            .resizable()
+                            .frame(width: 10, height: 10)
+                            .foregroundStyle(isLuminanceReduced ? .primary : .secondary)
+                            .opacity(isLuminanceReduced ? 0.8 : 1.0)
+                    } else {
+                        // Fallback to system icon if custom asset is missing
+                        Image(systemName: "clock")
+                            .font(.system(size: 8))
+                            .foregroundStyle(isLuminanceReduced ? .primary : .secondary)
+                            .opacity(isLuminanceReduced ? 0.8 : 1.0)
+                    }
+                }
                 
                 // Countdown
                 if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
@@ -117,8 +139,8 @@ struct CircularCountdownView: View {
                     
                     if hours > 0 {
                         Text("\(hours)h")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 9, weight: isLuminanceReduced ? .bold : .medium))
+                            .foregroundStyle(isLuminanceReduced ? Color.primary.opacity(0.9) : Color.primary)
                         
                         Text("\(minutes)m")
                             .font(.system(size: 8))
@@ -126,19 +148,20 @@ struct CircularCountdownView: View {
                     } else {
                         Text("\(minutes)")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(isLuminanceReduced ? Color.primary.opacity(0.9) : Color.primary)
                         
                         Text("min")
                             .font(.system(size: 7))
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text("Now")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.orange)
+                    Text("Error")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.red)
                 }
             }
         }
+        .widgetBackground(AccessoryWidgetBackground())
         .accessibilityLabel(countdownAccessibilityLabel)
     }
     
@@ -160,47 +183,53 @@ struct RectangularNextPrayerView: View {
     let entry: PrayerWidgetEntry
     
     var body: some View {
-        HStack(spacing: 8) {
-            // Islamic symbol
-            Text("☪")
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-            
-            VStack(alignment: .leading, spacing: 1) {
-                if let nextPrayer = entry.widgetData.nextPrayer {
-                    // Prayer name
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                LockScreenIconView()
+
+                Text("Next Prayer")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+
+                Spacer()
+
+                Text(countdownSummary(from: entry.widgetData.timeUntilNextPrayer))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+
+            if let nextPrayer = entry.widgetData.nextPrayer {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(nextPrayer.displayName)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    
-                    // Time and location
-                    HStack(spacing: 4) {
-                        Text(formatTime(nextPrayer.time))
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                        
-                        if !entry.widgetData.location.isEmpty {
-                            Text("•")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
-                            
-                            Text(entry.widgetData.location)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(1)
-                        }
-                    }
-                } else {
-                    Text("No Prayer Data")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Text(formatTime(nextPrayer.time))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .monospacedDigit()
                 }
+
+                if !entry.widgetData.location.isEmpty {
+                    Text(entry.widgetData.location)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            } else {
+                Text("Open DeenBuddy to update")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
             }
-            
-            Spacer()
         }
         .padding(.horizontal, 4)
+        .widgetBackground(AccessoryWidgetBackground())
         .accessibilityLabel(rectangularAccessibilityLabel)
     }
     
@@ -218,48 +247,44 @@ struct RectangularCountdownView: View {
     let entry: PrayerWidgetEntry
     
     var body: some View {
-        HStack(spacing: 8) {
-            // Islamic symbol
-            Text("☪")
-                .font(.system(size: 16))
-                .foregroundStyle(.secondary)
-            
-            VStack(alignment: .leading, spacing: 1) {
-                if let nextPrayer = entry.widgetData.nextPrayer {
-                    // Prayer name
-                    Text(nextPrayer.displayName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    
-                    // Countdown
-                    if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
-                        let (hours, minutes) = parseTimeInterval(timeUntil)
-                        
-                        if hours > 0 {
-                            Text("\(hours)h \(minutes)m remaining")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("\(minutes) minutes remaining")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Text("Prayer time now")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.orange)
-                    }
-                } else {
-                    Text("No Prayer Data")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                LockScreenIconView(systemFallback: "clock")
+
+                Text("Countdown")
+                    .font(.caption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+
+                Spacer()
+
+                Text(optionalFormattedTime(entry.widgetData.nextPrayer?.time))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
             }
-            
-            Spacer()
+
+            if let nextPrayer = entry.widgetData.nextPrayer,
+               let timeUntil = entry.widgetData.timeUntilNextPrayer,
+               timeUntil > 0 {
+                Text(nextPrayer.displayName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(countdownDetail(from: timeUntil))
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .monospacedDigit()
+            } else {
+                Text("Prayer time now")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(.horizontal, 4)
+        .widgetBackground(AccessoryWidgetBackground())
         .accessibilityLabel(rectangularCountdownAccessibilityLabel)
     }
     
@@ -276,6 +301,47 @@ struct RectangularCountdownView: View {
             return "No prayer data available"
         }
     }
+
+    private func countdownDetail(from interval: TimeInterval) -> String {
+        let (hours, minutes) = parseTimeInterval(interval)
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
+    }
+}
+
+// MARK: - Shared Helpers
+
+@available(iOS 16.0, *)
+private struct LockScreenIconView: View {
+    var systemFallback: String = "moon.stars"
+
+    var body: some View {
+        Group {
+            if UIImage(named: "IslamicSymbol") != nil {
+                Image("IslamicSymbol")
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: systemFallback)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+private func countdownSummary(from interval: TimeInterval?) -> String {
+    guard let interval else { return "—" }
+    let (hours, minutes) = parseTimeInterval(interval)
+    if hours > 0 {
+        return "\(hours)h \(minutes)m"
+    }
+    return "\(minutes)m"
 }
 
 // MARK: - Inline Lock Screen Views
@@ -286,10 +352,21 @@ struct InlineNextPrayerView: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            // Islamic symbol
-            Text("☪")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            // Islamic symbol with fallback
+            Group {
+                if UIImage(named: "IslamicSymbolInline") != nil {
+                    Image("IslamicSymbolInline")
+                        .renderingMode(.template)
+                        .resizable()
+                        .frame(width: 12, height: 12)
+                        .foregroundStyle(.secondary)
+                } else {
+                    // Fallback to system icon if custom asset is missing
+                    Image(systemName: "moon.stars")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
             
             if let nextPrayer = entry.widgetData.nextPrayer {
                 Text(nextPrayer.displayName)
@@ -309,6 +386,7 @@ struct InlineNextPrayerView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .widgetBackground(AccessoryWidgetBackground())
         .accessibilityLabel(inlineAccessibilityLabel)
     }
     
@@ -327,10 +405,21 @@ struct InlineCountdownView: View {
     
     var body: some View {
         HStack(spacing: 4) {
-            // Islamic symbol
-            Text("☪")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            // Islamic symbol with fallback
+            Group {
+                if UIImage(named: "IslamicSymbolInline") != nil {
+                    Image("IslamicSymbolInline")
+                        .renderingMode(.template)
+                        .resizable()
+                        .frame(width: 12, height: 12)
+                        .foregroundStyle(.secondary)
+                } else {
+                    // Fallback to system icon if custom asset is missing
+                    Image(systemName: "clock")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
             
             if let timeUntil = entry.widgetData.timeUntilNextPrayer, timeUntil > 0 {
                 let (hours, minutes) = parseTimeInterval(timeUntil)
@@ -354,6 +443,7 @@ struct InlineCountdownView: View {
                     .foregroundStyle(.orange)
             }
         }
+        .widgetBackground(AccessoryWidgetBackground())
         .accessibilityLabel(inlineCountdownAccessibilityLabel)
     }
     
@@ -376,11 +466,40 @@ private func formatTime(_ date: Date) -> String {
     return formatter.string(from: date)
 }
 
+private func optionalFormattedTime(_ date: Date?) -> String {
+    guard let date else { return "--" }
+    return formatTime(date)
+}
+
 private func parseTimeInterval(_ interval: TimeInterval) -> (hours: Int, minutes: Int) {
     let totalMinutes = Int(interval) / 60
     let hours = totalMinutes / 60
     let minutes = totalMinutes % 60
     return (hours, minutes)
+}
+
+// MARK: - Debug Helper View
+
+@available(iOS 16.0, *)
+struct DebugLockScreenView: View {
+    let error: String
+    
+    var body: some View {
+        VStack(spacing: 2) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 12))
+                .foregroundStyle(.red)
+            
+            Text("Debug")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.red)
+            
+            Text(error)
+                .font(.system(size: 6))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
 }
 
 // MARK: - Previews
