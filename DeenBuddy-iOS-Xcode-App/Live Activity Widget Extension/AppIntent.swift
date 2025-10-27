@@ -136,7 +136,7 @@ struct ConfirmPrayerCompletionIntent: AppIntent {
     var prayer: PrayerIntentOption
 
     func perform() async throws -> some IntentResult {
-        PrayerCompletionIntentDispatcher.enqueueCompletion(
+        await PrayerCompletionIntentDispatcher.enqueueCompletion(
             prayerRawValue: prayer.rawValue,
             completedAt: Date(),
             source: "live_activity_intent"
@@ -157,77 +157,24 @@ extension ConfirmPrayerCompletionIntent {
 // MARK: - Local dispatcher (extension scope)
 
 private enum PrayerCompletionIntentDispatcher {
-    private static let appGroupIdentifier = "group.com.deenbuddy.app"
-    private static let queueKey = "PrayerLiveActivityActionBridge.queue"
-    private static let notificationName = "com.deenbuddy.app.prayerCompletion"
-    private static let syncQueue = DispatchQueue(label: "com.deenbuddy.app.prayerCompletionQueue")
     private static let logger = Logger(subsystem: "com.deenbuddy.app", category: "PrayerCompletionIntent")
 
-    // Queue management: prevent unbounded growth from unprocessed completions
-    private static let maxQueueSize = 100        // ~20 days at 5 prayers/day
-    private static let retentionPeriod: TimeInterval = 7 * 24 * 60 * 60  // 7 days
+    static func enqueueCompletion(prayerRawValue: String, completedAt: Date, source: String) async {
+        guard let prayer = Prayer(rawValue: prayerRawValue) else {
+            logger.error("Received unknown prayer raw value: \(prayerRawValue, privacy: .public)")
+            return
+        }
 
-    static func enqueueCompletion(prayerRawValue: String, completedAt: Date, source: String) {
-        // Use async dispatch to avoid blocking the Live Activity/UI thread during UserDefaults I/O
-        // Serial queue still guarantees thread-safe read-modify-write ordering
-        syncQueue.async {
-            guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
-                logger.error("Unable to access shared UserDefaults for prayer completion queue (appGroupIdentifier: \(appGroupIdentifier, privacy: .public))")
-                return
-            }
+        let success = await MainActor.run {
+            PrayerLiveActivityActionBridge.shared.enqueueCompletion(
+                prayer: prayer,
+                completedAt: completedAt,
+                source: source
+            )
+        }
 
-            var queue = loadQueue(from: defaults)
-
-            // 1. Remove expired items (older than retention period)
-            let cutoffDate = Date().addingTimeInterval(-retentionPeriod)
-            queue = queue.filter { $0.completedAt >= cutoffDate }
-
-            // 2. Enforce max size bound (remove oldest entries if at capacity)
-            if queue.count >= maxQueueSize {
-                let removeCount = queue.count - maxQueueSize + 1
-                queue.removeFirst(removeCount)
-            }
-
-            // 3. Append new completion
-            queue.append(PrayerCompletionAction(prayerRawValue: prayerRawValue, completedAt: completedAt, source: source))
-
-            let data: Data
-            do {
-                data = try JSONEncoder().encode(queue)
-            } catch {
-                logger.error("Failed to encode prayer completion queue: \(error.localizedDescription, privacy: .public)")
-                return
-            }
-
-            defaults.set(data, forKey: queueKey)
-            postDarwinNotification()
+        if !success {
+            logger.error("Failed to enqueue completion for \(prayer.rawValue, privacy: .public) via \(source, privacy: .public)")
         }
     }
-
-    private static func loadQueue(from defaults: UserDefaults) -> [PrayerCompletionAction] {
-        guard let data = defaults.data(forKey: queueKey) else { return [] }
-        do {
-            return try JSONDecoder().decode([PrayerCompletionAction].self, from: data)
-        } catch {
-            logger.error("Failed to decode prayer completion queue for key \(queueKey, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            defaults.removeObject(forKey: queueKey)
-            return []
-        }
-    }
-
-    private static func postDarwinNotification() {
-        CFNotificationCenterPostNotification(
-            CFNotificationCenterGetDarwinNotifyCenter(),
-            CFNotificationName(notificationName as CFString),
-            nil,
-            nil,
-            true
-        )
-    }
-}
-
-private struct PrayerCompletionAction: Codable {
-    let prayerRawValue: String
-    let completedAt: Date
-    let source: String
 }

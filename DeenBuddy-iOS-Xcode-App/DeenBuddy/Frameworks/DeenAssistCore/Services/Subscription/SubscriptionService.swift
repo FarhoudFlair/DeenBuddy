@@ -257,7 +257,7 @@ public class SubscriptionService: BaseService, SubscriptionServiceProtocol {
                 guard let self = self else { return }
 
                 do {
-                    let transaction = try self.checkVerified(verificationResult)
+                    let transaction = try await self.checkVerified(verificationResult)
 
                     // Log transaction update (Logger is thread-safe)
                     self.logger.info("Transaction update received: \(transaction.productID)")

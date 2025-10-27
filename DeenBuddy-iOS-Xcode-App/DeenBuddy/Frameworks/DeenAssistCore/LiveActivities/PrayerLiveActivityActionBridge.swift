@@ -109,7 +109,7 @@ public final class PrayerLiveActivityActionBridge {
         // Cleanup temp file and return false if move failed
         if !moveSucceeded {
             try? fileManager.removeItem(at: tempURL)
-            logger.error("Enqueue failed: move operation failed", privacy: .public)
+            logger.error("Enqueue failed: move operation failed")
             return false
         }
 
