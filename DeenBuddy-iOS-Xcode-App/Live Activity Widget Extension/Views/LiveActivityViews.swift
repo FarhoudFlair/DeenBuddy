@@ -82,14 +82,21 @@ struct PrayerCompletionIntentButton: View {
     let prayer: Prayer
 
     var body: some View {
-        Button(intent: ConfirmPrayerCompletionIntent(prayer: PrayerIntentOption(prayer: prayer))) {
-            Label("Completed", systemImage: "checkmark.circle.fill")
+        if let intentOption = PrayerIntentOption(prayer: prayer) {
+            Button(intent: ConfirmPrayerCompletionIntent(prayer: intentOption)) {
+                Label("Completed", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .tint(.green)
+            .accessibilityLabel("Mark \(prayer.displayName) as completed")
+        } else {
+            Label("Unavailable", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Unable to mark \(prayer.displayName) as completed")
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.small)
-        .tint(.green)
-        .accessibilityLabel("Mark \(prayer.displayName) as completed")
     }
 }
 

@@ -24,7 +24,9 @@ struct DeenBuddyTests {
 
         // Verify each case can be initialized from its raw value (for widget compatibility)
         for rawValue in expectedRawValues {
-            #expect(Prayer(widgetRawValue: rawValue) != nil, "Prayer enum must be initializable from '\(rawValue)'")
+            let prayer = Prayer(widgetRawValue: rawValue)
+            #expect(prayer != nil, "Prayer enum must be initializable from '\(rawValue)'")
+            #expect(prayer!.rawValue == rawValue, "Prayer enum round-trip consistency failed for '\(rawValue)'")
         }
 
         // Verify all Prayer cases are distinct and properly ordered

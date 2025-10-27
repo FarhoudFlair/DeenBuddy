@@ -257,21 +257,18 @@ public class SubscriptionService: BaseService, SubscriptionServiceProtocol {
                 guard let self = self else { return }
 
                 do {
-                    let transaction = try await self.checkVerified(verificationResult)
+                    let transaction = try self.checkVerified(verificationResult)
 
-                    // Log on main actor (synchronous)
-                    await MainActor.run {
-                        self.logger.info("Transaction update received: \(transaction.productID)")
-                    }
+                    // Log transaction update (Logger is thread-safe)
+                    self.logger.info("Transaction update received: \(transaction.productID)")
 
                     // Handle transaction update (async, already @MainActor)
                     await self.handleTransactionUpdate(transaction)
 
                     await transaction.finish()
                 } catch {
-                    await MainActor.run {
-                        self.logger.error("Transaction verification failed: \(error.localizedDescription)")
-                    }
+                    // Log error (Logger is thread-safe)
+                    self.logger.error("Transaction verification failed: \(error.localizedDescription)")
                 }
             }
         }

@@ -19,6 +19,12 @@ class SmartRefreshManager: ObservableObject {
     private let maxDailyRefreshes = 144 // Every 10 minutes max per day
     private let criticalBatteryThreshold: Float = 0.20
     private let lowBatteryThreshold: Float = 0.30
+    private let highBatteryThreshold: Float = 0.80
+    private let adaptiveLowBatteryThreshold: Float = 0.4
+    private let adaptiveHighBatteryThreshold: Float = 0.7
+    private let fallbackBatteryLevelCharging: Float = 0.8
+    private let fallbackBatteryLevelUnknown: Float = 0.5
+    private let batteryLevelThreshold: Float = 0.5
     private var lastRefreshResetDate: Date = Date()
     
     private init() {
@@ -125,7 +131,7 @@ class SmartRefreshManager: ObservableObject {
         }
         
         // High battery or charging - more responsive
-        if batteryLevel > 0.80 || batteryState == .charging {
+        if batteryLevel > highBatteryThreshold || batteryState == .charging {
             currentStrategy = .intelligent
             return .intelligent
         }
@@ -171,18 +177,18 @@ class SmartRefreshManager: ObservableObject {
         } else {
             // Battery level unknown - check charging state
             let batteryState = UIDevice.current.batteryState
-            effectiveBatteryLevel = (batteryState == .charging) ? 0.8 : 0.5
+            effectiveBatteryLevel = (batteryState == .charging) ? fallbackBatteryLevelCharging : fallbackBatteryLevelUnknown
         }
         
         switch timeUntilPrayer {
         case 0..<300:        // Less than 5 minutes - very frequent
-            return effectiveBatteryLevel > 0.5 ? 30 : 60
+            return effectiveBatteryLevel > batteryLevelThreshold ? 30 : 60
         case 300..<900:      // 5-15 minutes - frequent
-            return effectiveBatteryLevel > 0.5 ? 60 : 120
+            return effectiveBatteryLevel > batteryLevelThreshold ? 60 : 120
         case 900..<1800:     // 15-30 minutes - moderate
-            return effectiveBatteryLevel > 0.5 ? 120 : 300
+            return effectiveBatteryLevel > batteryLevelThreshold ? 120 : 300
         default:             // More than 30 minutes - infrequent
-            return effectiveBatteryLevel > 0.5 ? 300 : 600
+            return effectiveBatteryLevel > batteryLevelThreshold ? 300 : 600
         }
     }
     
@@ -266,12 +272,12 @@ class SmartRefreshManager: ObservableObject {
         }
         
         // If we're refreshing too frequently for the battery level, become more conservative
-        if averageRefreshesPerHour > 10 && batteryLevel < 0.4 {
+        if averageRefreshesPerHour > 10 && batteryLevel < adaptiveLowBatteryThreshold {
             currentStrategy = .conservative
         }
         
         // If battery is good and we haven't been refreshing much, become more responsive
-        if averageRefreshesPerHour < 2 && batteryLevel > 0.7 {
+        if averageRefreshesPerHour < 2 && batteryLevel > adaptiveHighBatteryThreshold {
             currentStrategy = .intelligent
         }
     }

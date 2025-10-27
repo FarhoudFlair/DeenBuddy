@@ -93,11 +93,13 @@ enum PrayerIntentOption: String, CaseIterable, AppEnum {
     case maghrib
     case isha
 
-    init(prayer: Prayer) {
+    private static let logger = Logger(subsystem: "com.deenbuddy.app", category: "PrayerIntentOption")
+
+    init?(prayer: Prayer) {
         guard let option = PrayerIntentOption(rawValue: prayer.rawValue) else {
+            Self.logger.error("Unable to map prayer raw value \(prayer.rawValue, privacy: .public) to PrayerIntentOption")
             assertionFailure("PrayerIntentOption mismatch for raw value: \(prayer.rawValue)")
-            self = .fajr
-            return
+            return nil
         }
         self = option
     }
@@ -166,7 +168,9 @@ private enum PrayerCompletionIntentDispatcher {
     private static let retentionPeriod: TimeInterval = 7 * 24 * 60 * 60  // 7 days
 
     static func enqueueCompletion(prayerRawValue: String, completedAt: Date, source: String) {
-        syncQueue.sync {
+        // Use async dispatch to avoid blocking the Live Activity/UI thread during UserDefaults I/O
+        // Serial queue still guarantees thread-safe read-modify-write ordering
+        syncQueue.async {
             guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else {
                 logger.error("Unable to access shared UserDefaults for prayer completion queue (appGroupIdentifier: \(appGroupIdentifier, privacy: .public))")
                 return

@@ -24,6 +24,12 @@ public final class PrayerLiveActivityActionBridge {
     private static let subsystem = "com.deenbuddy.app"
     private static let category = "PrayerLiveActivityBridge"
     private static let darwinNotificationName = "com.deenbuddy.app.prayerCompletion"
+    private static let tempFilePrefix = ".tmp-"
+    private static let tempFileExpirationInterval: TimeInterval = 60 * 60 // 1 hour
+    private static let timestampFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        return formatter
+    }()
 
     // MARK: - Singleton
 
@@ -72,7 +78,7 @@ public final class PrayerLiveActivityActionBridge {
         let action = PrayerCompletionAction(prayerRawValue: prayer.rawValue, completedAt: completedAt, source: source)
         
         // Create unique filename: timestamp-uuid.json
-        let timestamp = ISO8601DateFormatter().string(from: completedAt).replacingOccurrences(of: ":", with: "-")
+        let timestamp = Self.timestampFormatter.string(from: completedAt).replacingOccurrences(of: ":", with: "-")
         let filename = "\(timestamp)-\(UUID().uuidString).json"
         let finalURL = queueDirectory.appendingPathComponent(filename)
         let tempURL = queueDirectory.appendingPathComponent(".tmp-\(UUID().uuidString)")
@@ -100,10 +106,10 @@ public final class PrayerLiveActivityActionBridge {
             }
         }
 
-        // Cleanup temp file and return false if either coordination or move failed
-        if coordinationError != nil || !moveSucceeded {
+        // Cleanup temp file and return false if move failed
+        if !moveSucceeded {
             try? fileManager.removeItem(at: tempURL)
-            logger.error("Enqueue failed: \(coordinationError?.localizedDescription ?? "move operation failed", privacy: .public)")
+            logger.error("Enqueue failed: move operation failed", privacy: .public)
             return false
         }
 
@@ -215,7 +221,7 @@ public final class PrayerLiveActivityActionBridge {
                 }
 
                 // Only add to results if deletion succeeded to prevent duplicate processing
-                if deleteSucceeded && deleteError == nil {
+                if deleteSucceeded {
                     results.append(action)
                 } else {
                     logger.warning("Action file not processed due to delete failure, will retry on next drain")
@@ -291,10 +297,32 @@ public final class PrayerLiveActivityActionBridge {
             }
         }
 
+        purgeStaleTempFiles(in: queueDirectory)
+
+        return queueDirectory
+    }
+    
+    /// Async version of ensureQueueDirectory for use in background tasks.
+    private func ensureQueueDirectoryAsync() async -> URL? {
+        guard let queueDirectory = queueDirectoryURL else { return nil }
+
+        if !fileManager.fileExists(atPath: queueDirectory.path) {
+            do {
+                try fileManager.createDirectory(at: queueDirectory, withIntermediateDirectories: true, attributes: nil)
+                logger.info("Created queue directory at \(queueDirectory.path, privacy: .public)")
+            } catch {
+                logger.error("Failed to create queue directory: \(error.localizedDescription, privacy: .public)")
+                return nil
+            }
+        }
+
+        purgeStaleTempFiles(in: queueDirectory)
+
         return queueDirectory
     }
 
     /// Migrates legacy UserDefaults-based queue to file-based queue (one-time operation).
+    /// File I/O operations are performed on a background queue to avoid blocking the main thread.
     private func migrateLegacyQueueIfNeeded() {
         guard !migrationComplete else { return }
         migrationComplete = true
@@ -306,36 +334,77 @@ public final class PrayerLiveActivityActionBridge {
 
         logger.info("Migrating legacy queue from UserDefaults to file-based queue")
 
-        do {
-            let legacyQueue = try JSONDecoder().decode([PrayerCompletionAction].self, from: legacyData)
+        // Offload file I/O to background queue to avoid blocking MainActor
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
+            do {
+                let legacyQueue = try JSONDecoder().decode([PrayerCompletionAction].self, from: legacyData)
 
-            guard let queueDirectory = ensureQueueDirectory() else {
-                logger.error("Failed to create queue directory during migration")
-                return
-            }
+                guard let queueDirectory = await self.ensureQueueDirectoryAsync() else {
+                    self.logger.error("Failed to create queue directory during migration")
+                    return
+                }
 
-            // Convert each legacy action to a file
-            for action in legacyQueue {
-                let timestamp = ISO8601DateFormatter().string(from: action.completedAt).replacingOccurrences(of: ":", with: "-")
-                let filename = "\(timestamp)-\(UUID().uuidString).json"
-                let fileURL = queueDirectory.appendingPathComponent(filename)
+                // Convert each legacy action to a file (file I/O happens off main thread)
+                for action in legacyQueue {
+                    let timestamp = Self.timestampFormatter.string(from: action.completedAt).replacingOccurrences(of: ":", with: "-")
+                    let filename = "\(timestamp)-\(UUID().uuidString).json"
+                    let fileURL = queueDirectory.appendingPathComponent(filename)
 
-                do {
-                    let data = try JSONEncoder().encode(action)
-                    try data.write(to: fileURL, options: .atomic)
-                } catch {
-                    logger.error("Failed to migrate action to file: \(error.localizedDescription, privacy: .public)")
+                    do {
+                        let data = try JSONEncoder().encode(action)
+                        try data.write(to: fileURL, options: .atomic)
+                    } catch {
+                        self.logger.error("Failed to migrate action to file: \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+
+                // Remove legacy queue from UserDefaults on main thread
+                await MainActor.run {
+                    defaults.removeObject(forKey: Self.queueKey)
+                    self.logger.info("Successfully migrated \(legacyQueue.count) actions from UserDefaults")
+                }
+
+            } catch {
+                self.logger.error("Failed to decode legacy queue during migration: \(error.localizedDescription, privacy: .public)")
+                // Remove corrupted legacy queue on main thread
+                await MainActor.run {
+                    defaults.removeObject(forKey: Self.queueKey)
                 }
             }
+        }
+    }
 
-            // Remove legacy queue from UserDefaults
-            defaults.removeObject(forKey: Self.queueKey)
-            logger.info("Successfully migrated \(legacyQueue.count) actions from UserDefaults")
+    /// Removes stale temp files that may have been left behind if the process crashed mid-write.
+    private func purgeStaleTempFiles(in directory: URL) {
+        let expirationDate = Date().addingTimeInterval(-Self.tempFileExpirationInterval)
+        let resourceKeys: Set<URLResourceKey> = [.creationDateKey, .contentModificationDateKey, .isDirectoryKey]
 
-        } catch {
-            logger.error("Failed to decode legacy queue during migration: \(error.localizedDescription, privacy: .public)")
-            // Remove corrupted legacy queue
-            defaults.removeObject(forKey: Self.queueKey)
+        guard let fileURLs = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: Array(resourceKeys),
+            options: []
+        ) else {
+            return
+        }
+
+        for fileURL in fileURLs {
+            guard fileURL.lastPathComponent.hasPrefix(Self.tempFilePrefix) else { continue }
+
+            do {
+                let values = try fileURL.resourceValues(forKeys: resourceKeys)
+                if values.isDirectory == true { continue }
+
+                let referenceDate = values.creationDate ?? values.contentModificationDate
+
+                guard let referenceDate, referenceDate < expirationDate else { continue }
+
+                try fileManager.removeItem(at: fileURL)
+                logger.debug("Removed stale temp queue file: \(fileURL.lastPathComponent, privacy: .public)")
+            } catch {
+                logger.debug("Skipping temp file cleanup for \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 }
