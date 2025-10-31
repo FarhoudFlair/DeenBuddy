@@ -151,18 +151,14 @@ public final class PrayerLiveActivityActionBridge {
     
     /// Clean up observer on deallocation to prevent use-after-free
     deinit {
-        // Must dispatch sync to MainActor since unregisterConsumer is @MainActor
-        if observerPointer != nil {
-            // If we still have an observer pointer, we need to remove it
-            // This is safe because CFNotificationCenter operations don't require MainActor
-            if let pointer = observerPointer {
-                CFNotificationCenterRemoveObserver(
-                    CFNotificationCenterGetDarwinNotifyCenter(),
-                    pointer,
-                    CFNotificationName(Self.darwinNotificationName as CFString),
-                    nil
-                )
-            }
+        // This is safe because CFNotificationCenter operations don't require MainActor
+        if let pointer = observerPointer {
+            CFNotificationCenterRemoveObserver(
+                CFNotificationCenterGetDarwinNotifyCenter(),
+                pointer,
+                CFNotificationName(Self.darwinNotificationName as CFString),
+                nil
+            )
         }
     }
 #endif
@@ -309,8 +305,8 @@ public final class PrayerLiveActivityActionBridge {
         return queueDirectory
     }
     
-    /// Async version of ensureQueueDirectory for use in background tasks.
-    private func ensureQueueDirectoryAsync() async -> URL? {
+    /// Synchronous version for use in background tasks (called off main thread).
+    private func ensureQueueDirectoryInBackground() -> URL? {
         guard let queueDirectory = queueDirectoryURL else { return nil }
 
         if !fileManager.fileExists(atPath: queueDirectory.path) {
@@ -348,7 +344,7 @@ public final class PrayerLiveActivityActionBridge {
             do {
                 let legacyQueue = try JSONDecoder().decode([PrayerCompletionAction].self, from: legacyData)
 
-                guard let queueDirectory = await self.ensureQueueDirectoryAsync() else {
+                guard let queueDirectory = self.ensureQueueDirectoryInBackground() else {
                     self.logger.error("Failed to create queue directory during migration")
                     return
                 }
@@ -401,7 +397,8 @@ public final class PrayerLiveActivityActionBridge {
 
             do {
                 let values = try fileURL.resourceValues(forKeys: resourceKeys)
-                if values.isDirectory == true { continue }
+                // Skip if entry is a directory or unknown type (nil). Only proceed when explicitly not a directory.
+                if values.isDirectory != false { continue }
 
                 let referenceDate = values.creationDate ?? values.contentModificationDate
 
