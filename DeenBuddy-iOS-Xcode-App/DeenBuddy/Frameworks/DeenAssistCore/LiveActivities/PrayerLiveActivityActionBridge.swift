@@ -274,10 +274,17 @@ public final class PrayerLiveActivityActionBridge {
     @MainActor
     private func dispatchPendingActions() {
         guard userDefaults != nil else { return }
-        guard let handler = consumerHandler else { return }
-        let actions = drainQueue()
-        guard !actions.isEmpty else { return }
-        Task { await handler(actions) }
+        guard consumerHandler != nil else { return }
+        // Offload potentially heavy file I/O from drainQueue() off the main thread
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            let actions = self.drainQueue()
+            guard !actions.isEmpty else { return }
+            await MainActor.run {
+                guard let handler = self.consumerHandler else { return }
+                Task { await handler(actions) }
+            }
+        }
     }
 #endif
 
