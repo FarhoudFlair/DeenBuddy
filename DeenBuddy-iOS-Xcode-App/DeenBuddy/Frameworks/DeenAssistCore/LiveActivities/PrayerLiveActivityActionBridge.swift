@@ -150,8 +150,8 @@ public final class PrayerLiveActivityActionBridge {
     }
     
     /// Clean up observer on deallocation to prevent use-after-free
+    @MainActor
     deinit {
-        // This is safe because CFNotificationCenter operations don't require MainActor
         if let pointer = observerPointer {
             CFNotificationCenterRemoveObserver(
                 CFNotificationCenterGetDarwinNotifyCenter(),
