@@ -126,6 +126,40 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         
         print("✅ Signed in with password: \(email)")
     }
+
+    public func sendPasswordResetEmail(to email: String) async throws {
+        guard isValidEmail(email) else {
+            throw AccountServiceError.invalidEmail
+        }
+
+        // TODO: Implement when Firebase is added
+        // try await auth.sendPasswordReset(withEmail: email)
+
+        print("📧 Password reset email would be sent to: \(email)")
+    }
+
+    public func confirmPasswordReset(code: String, newPassword: String) async throws {
+        let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedCode.isEmpty else {
+            throw AccountServiceError.unknown(
+                NSError(
+                    domain: "FirebaseUserAccountService",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Reset code is missing"]
+                )
+            )
+        }
+        
+        guard newPassword.count >= 6 else {
+            throw AccountServiceError.weakPassword
+        }
+
+        // TODO: Implement when Firebase is added
+        // try await auth.confirmPasswordReset(withCode: trimmedCode, newPassword: newPassword)
+        // await handleSuccessfulSignIn(auth.currentUser)
+
+        print("🔐 Password reset confirmed for code: \(trimmedCode.prefix(4))***")
+    }
     
     public func signOut() async throws {
         // TODO: Implement when Firebase is added
@@ -286,4 +320,3 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         return .unknown(error)
     }
 }
-

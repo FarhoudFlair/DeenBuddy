@@ -15,7 +15,7 @@ public enum GeographicRegion {
     case other
     
     /// Default madhab for this region based on prevalent practice
-    var defaultMadhab: Madhab {
+    public var defaultMadhab: Madhab {
         switch self {
         case .northAmerica:
             return .hanafi // Large South Asian diaspora
@@ -211,55 +211,72 @@ public struct DefaultPrayerConfigurationProvider {
     }
     
     /// Determine region from coordinate (rough approximation)
+    /// Bounding boxes are mutually exclusive and ordered from most specific to least specific
+    /// to prevent overlapping matches that could cause incorrect region detection.
     private func regionFromCoordinate(_ coordinate: CLLocationCoordinate2D) -> GeographicRegion? {
         let lat = coordinate.latitude
         let lon = coordinate.longitude
-        
-        // North America
-        if lat >= 7 && lat <= 84 && lon >= -180 && lon <= -52 {
-            return .northAmerica
+
+        // Middle East (most specific - Jordan, Palestine, Lebanon, Syria, Iraq)
+        // Checked first to avoid being shadowed by Gulf States
+        // Longitude limited to 44° to exclude Iran and create clear boundary with Gulf States
+        if lat >= 29 && lat <= 37 && lon >= 34 && lon <= 44 {
+            return .middleEast
         }
-        
-        // South Asia
-        if lat >= 5 && lat <= 40 && lon >= 60 && lon <= 95 {
-            return .southAsia
+
+        // Gulf States (Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman, Yemen)
+        // Latitude starts at 29° to be mutually exclusive with Middle East
+        // Longitude starts at 44° to create clear boundary with Middle East
+        if lat >= 12 && lat < 29 && lon >= 44 && lon <= 60 {
+            return .gulfStates
         }
-        
-        // Southeast Asia
+
+        // Southeast Asia (Indonesia, Malaysia, Singapore, Brunei)
+        // Longitude 95° creates natural boundary with South Asia
         if lat >= -10 && lat <= 25 && lon >= 95 && lon <= 140 {
             return .southeastAsia
         }
-        
-        // North Africa
-        if lat >= 15 && lat <= 37 && lon >= -18 && lon <= 37 {
-            return .northAfrica
+
+        // South Asia (Pakistan, India, Bangladesh, Afghanistan, Sri Lanka)
+        // Latitude limited to 35° to avoid overlap with Central Asia at northern Afghanistan/Pakistan
+        if lat >= 5 && lat < 35 && lon >= 60 && lon <= 95 {
+            return .southAsia
         }
-        
-        // Gulf States
-        if lat >= 12 && lat <= 32 && lon >= 34 && lon <= 60 {
-            return .gulfStates
-        }
-        
-        // Middle East
-        if lat >= 29 && lat <= 37 && lon >= 34 && lon <= 48 {
-            return .middleEast
-        }
-        
-        // Central Asia
-        if lat >= 35 && lat <= 55 && lon >= 26 && lon <= 87 {
+
+        // Central Asia (Turkey, Kazakhstan, Uzbekistan, Turkmenistan)
+        // Latitude starts at 40° to be exclusive with South Asia and Europe's southern regions
+        // This properly captures Turkey, Caucasus, and Central Asian republics
+        if lat >= 40 && lat <= 55 && lon >= 26 && lon <= 87 {
             return .centralAsia
         }
-        
-        // Europe
-        if lat >= 35 && lat <= 71 && lon >= -10 && lon <= 40 {
+
+        // North Africa (Egypt, Libya, Tunisia, Algeria, Morocco, Sudan)
+        // Latitude limited to 35° to avoid Mediterranean overlap with Europe
+        // Longitude limited to 34° to avoid overlap with Middle East and Gulf States
+        if lat >= 15 && lat < 35 && lon >= -18 && lon <= 34 {
+            return .northAfrica
+        }
+
+        // Europe (broad coverage for European Muslim communities)
+        // Longitude limited to 26° to avoid overlap with Central Asia
+        // Starts at latitude 35° to include Mediterranean Europe
+        if lat >= 35 && lat <= 71 && lon >= -10 && lon <= 26 {
             return .europe
         }
-        
-        // East Africa
-        if lat >= -15 && lat <= 18 && lon >= 20 && lon <= 52 {
+
+        // East Africa (Somalia, Kenya, Tanzania, Uganda, Ethiopia)
+        // Latitude limited to 15° to avoid overlap with North Africa
+        // Longitude starts at 34° to include Somalia and Red Sea coast
+        if lat >= -15 && lat < 15 && lon >= 34 && lon <= 52 {
             return .eastAfrica
         }
-        
+
+        // North America (United States, Canada, Mexico, Caribbean)
+        // Largest region checked last as it's least specific
+        if lat >= 7 && lat <= 84 && lon >= -180 && lon <= -52 {
+            return .northAmerica
+        }
+
         return nil
     }
 

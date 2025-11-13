@@ -12,6 +12,7 @@ public struct AccountSettingsScreen: View {
     @State private var showingDeleteConfirmation: Bool = false
     @State private var showingSignOutConfirmation: Bool = false
     @State private var errorMessage: String? = nil
+    @State private var isProgrammaticMarketingRevert: Bool = false
     
     public init(userAccountService: any UserAccountServiceProtocol) {
         self.userAccountService = userAccountService
@@ -70,6 +71,11 @@ public struct AccountSettingsScreen: View {
                         }
                         .disabled(isLoading)
                         .onChange(of: marketingOptIn) { newValue in
+                            // Skip if this is a programmatic revert to prevent recursive updates
+                            guard !isProgrammaticMarketingRevert else {
+                                return
+                            }
+
                             guard !isLoading else {
                                 marketingOptIn = previousMarketingOptIn
                                 return
@@ -194,17 +200,21 @@ public struct AccountSettingsScreen: View {
                 await MainActor.run {
                     isLoading = false
                     errorMessage = error.errorDescription
-                    // Revert toggle
+                    // Revert toggle programmatically without triggering onChange
+                    isProgrammaticMarketingRevert = true
                     marketingOptIn = !enabled
                     previousMarketingOptIn = marketingOptIn
+                    isProgrammaticMarketingRevert = false
                 }
             } catch {
                 await MainActor.run {
                     isLoading = false
                     errorMessage = error.localizedDescription
-                    // Revert toggle
+                    // Revert toggle programmatically without triggering onChange
+                    isProgrammaticMarketingRevert = true
                     marketingOptIn = !enabled
                     previousMarketingOptIn = marketingOptIn
+                    isProgrammaticMarketingRevert = false
                 }
             }
         }

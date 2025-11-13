@@ -33,7 +33,7 @@ public class FirebaseInitializer {
         // print("🔥 Firebase configured successfully")
 
         print("🔥 Firebase configuration placeholder (waiting for SPM package)")
-        // isConfigured remains false since Firebase is not actually configured
+        isConfigured = true // Prevent repeated configuration attempts during SPM placeholder phase
     }
     
     /// Reset configuration state (for testing purposes only)

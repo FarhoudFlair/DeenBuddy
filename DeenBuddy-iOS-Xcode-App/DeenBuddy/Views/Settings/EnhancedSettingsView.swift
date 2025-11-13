@@ -1,5 +1,4 @@
 import SwiftUI
-import UserNotifications
 
 /// Enhanced settings view with profile section and improved UI state synchronization
 public struct EnhancedSettingsView: View {
@@ -333,22 +332,15 @@ public struct EnhancedSettingsView: View {
     }
     
     private func loadCriticalAlertStatus() async {
-        // Query the current notification settings from UNUserNotificationCenter
-        let center = UNUserNotificationCenter.current()
-        let settings = await center.notificationSettings()
-        
-        // Check if critical alerts are authorized
-        // Note: criticalAlertSetting is available in iOS 12.0+
-        let isCriticalAlertAuthorized: Bool
-        
-        if #available(iOS 12.0, *) {
-            isCriticalAlertAuthorized = settings.criticalAlertSetting == .enabled
-        } else {
-            // Fallback for older iOS versions (though this app likely targets iOS 15+)
-            isCriticalAlertAuthorized = false
+        guard let notificationService = notificationService else {
+            await MainActor.run {
+                criticalAlertsEnabled = false
+            }
+            return
         }
-        
-        // Update the state on the main thread
+
+        let isCriticalAlertAuthorized = await notificationService.getCriticalAlertAuthorizationStatus()
+
         await MainActor.run {
             criticalAlertsEnabled = isCriticalAlertAuthorized
             print("📊 Loaded critical alert status: \(isCriticalAlertAuthorized)")

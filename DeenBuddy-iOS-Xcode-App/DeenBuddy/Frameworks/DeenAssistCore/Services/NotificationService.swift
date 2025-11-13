@@ -164,6 +164,22 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             throw error
         }
     }
+
+    public func getCriticalAlertAuthorizationStatus() async -> Bool {
+        #if DEBUG
+        if mockNotificationCenter != nil {
+            return true
+        }
+        #endif
+
+        let settings = await notificationCenter.notificationSettings()
+
+        if #available(iOS 12.0, *) {
+            return settings.criticalAlertSetting == .enabled
+        }
+
+        return false
+    }
     
     /// Schedules prayer notifications for the given prayer times with enhanced per-prayer configuration.
     /// - Parameters:

@@ -449,7 +449,7 @@ public struct PrayerAnalyticsView: View {
                             .foregroundColor(ColorPalette.textSecondary)
                     }
                 )
-        } else if chartData.isEmpty {
+        } else if dailyCompletionData.isEmpty {
             RoundedRectangle(cornerRadius: 8)
                 .fill(ColorPalette.surfacePrimary)
                 .frame(height: 200)
@@ -467,17 +467,17 @@ public struct PrayerAnalyticsView: View {
                 )
         } else {
             // Actual Swift Chart
-            Chart(chartData) { dataPoint in
+            Chart(dailyCompletionData) { dataPoint in
                 LineMark(
                     x: .value("Date", dataPoint.date),
-                    y: .value("Completion", dataPoint.value)
+                    y: .value("Completion", dataPoint.completionRate)
                 )
                 .foregroundStyle(ColorPalette.primary)
                 .interpolationMethod(.catmullRom)
 
                 AreaMark(
                     x: .value("Date", dataPoint.date),
-                    y: .value("Completion", dataPoint.value)
+                    y: .value("Completion", dataPoint.completionRate)
                 )
                 .foregroundStyle(
                     LinearGradient(
