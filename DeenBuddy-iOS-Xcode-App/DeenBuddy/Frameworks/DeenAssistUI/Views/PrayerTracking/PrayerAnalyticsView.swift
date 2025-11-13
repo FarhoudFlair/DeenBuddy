@@ -68,29 +68,28 @@ public struct PrayerAnalyticsView: View {
 
     // MARK: - Properties
 
-    // Temporarily using Any to avoid type resolution issues
-    private let prayerTrackingService: Any
+    private let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     private let onDismiss: () -> Void
 
     // MARK: - State
 
-    @State private var selectedPeriod: String = "week"
+    @State private var selectedPeriod: AnalyticsPeriod = .week
     @State private var selectedMetric: String = "completion"
-    @State private var insights: [InsightData] = []
+    @State private var insights: [PrayerInsight] = []
     @State private var isLoadingInsights: Bool = false
     @State private var showingExportSheet: Bool = false
     @State private var exportStatus: ExportStatus = .idle
     @State private var exportMessage: String = ""
-    @State private var chartData: [ChartDataPoint] = []
+    @State private var dailyCompletionData: [DailyCompletionData] = []
     @State private var isLoadingChartData: Bool = false
 
     // MARK: - Initialization
 
     public init(
-        prayerTrackingService: Any,
+        prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
         onDismiss: @escaping () -> Void
     ) {
-        self.prayerTrackingService = prayerTrackingService
+        self.prayerAnalyticsService = prayerAnalyticsService
         self.onDismiss = onDismiss
     }
     
@@ -159,7 +158,7 @@ public struct PrayerAnalyticsView: View {
     
     @ViewBuilder
     private var periodSelector: some View {
-        let periods = ["week", "month", "year"]
+        let periods: [AnalyticsPeriod] = [.week, .month, .year]
         let periodTitles = ["This Week", "This Month", "This Year"]
 
         ScrollView(.horizontal, showsIndicators: false) {
@@ -198,36 +197,44 @@ public struct PrayerAnalyticsView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
                 PrayerMetricCard(
                     title: "Completion Rate",
-                    value: "85%",
-                    change: "+5%",
+                    value: "\(Int(completionRateForPeriod * 100))%",
+                    change: "",
                     isPositive: true,
                     icon: "checkmark.circle.fill"
                 )
 
                 PrayerMetricCard(
-                    title: "Current Streak",
-                    value: "5",
-                    change: "+2 days",
+                    title: "Best Streak",
+                    value: "\(prayerAnalyticsService.bestStreak)",
+                    change: "",
                     isPositive: true,
                     icon: "flame.fill"
                 )
 
                 PrayerMetricCard(
-                    title: "Total Prayers",
-                    value: "127",
-                    change: "+12",
+                    title: "Avg Streak",
+                    value: String(format: "%.1f", prayerAnalyticsService.averageStreakLength),
+                    change: "",
                     isPositive: true,
-                    icon: "list.bullet"
+                    icon: "chart.line.uptrend.xyaxis"
                 )
 
                 PrayerMetricCard(
                     title: "Best Prayer",
-                    value: mostConsistentPrayer,
-                    change: "85%",
+                    value: prayerAnalyticsService.mostConsistentPrayer?.displayName ?? "N/A",
+                    change: "",
                     isPositive: true,
                     icon: "sunrise.fill"
                 )
             }
+        }
+    }
+    
+    private var completionRateForPeriod: Double {
+        switch selectedPeriod {
+        case .week: return prayerAnalyticsService.weeklyCompletionRate
+        case .month: return prayerAnalyticsService.monthlyCompletionRate
+        case .year: return prayerAnalyticsService.yearlyCompletionRate
         }
     }
     
@@ -352,14 +359,36 @@ public struct PrayerAnalyticsView: View {
                 VStack(spacing: 12) {
                     ForEach(insights) { insight in
                         InsightCard(
-                            icon: insight.icon,
+                            icon: iconForInsightType(insight.type),
                             title: insight.title,
                             description: insight.description,
-                            color: insight.color
+                            color: colorForInsightType(insight.type)
                         )
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Helper Methods
+    
+    private func iconForInsightType(_ type: PrayerInsightType) -> String {
+        switch type {
+        case .streak: return "flame.fill"
+        case .improvement: return "arrow.up.circle.fill"
+        case .achievement: return "star.fill"
+        case .reminder: return "bell.fill"
+        case .consistency: return "chart.line.uptrend.xyaxis"
+        }
+    }
+    
+    private func colorForInsightType(_ type: PrayerInsightType) -> Color {
+        switch type {
+        case .streak: return .orange
+        case .improvement: return .blue
+        case .achievement: return .green
+        case .reminder: return .purple
+        case .consistency: return .cyan
         }
     }
 
@@ -369,40 +398,16 @@ public struct PrayerAnalyticsView: View {
         isLoadingInsights = true
         defer { isLoadingInsights = false }
 
-        // Generate sample insights based on mock data
-        insights = generateSampleInsights()
+        // Load real insights from PrayerAnalyticsService
+        insights = await prayerAnalyticsService.getPrayerInsights()
     }
 
     private func loadChartData() async {
         isLoadingChartData = true
         defer { isLoadingChartData = false }
 
-        // Generate chart data based on selected period
-        let calendar = Calendar.current
-        let today = Date()
-        var dataPoints: [ChartDataPoint] = []
-
-        let daysToShow: Int
-        switch selectedPeriod {
-        case "week": daysToShow = 7
-        case "month": daysToShow = 30
-        case "year": daysToShow = 365
-        default: daysToShow = 7
-        }
-
-        for dayOffset in (0..<daysToShow).reversed() {
-            if let date = calendar.date(byAdding: .day, value: -dayOffset, to: today) {
-                // NOTE: Using mock completion rates until PrayerTrackingService analytics hooks ship.
-                let completionRate = Double.random(in: 0.4...1.0)
-                dataPoints.append(ChartDataPoint(
-                    date: date,
-                    value: completionRate,
-                    prayer: nil
-                ))
-            }
-        }
-
-        chartData = dataPoints
+        // Load real daily completion data from PrayerAnalyticsService
+        dailyCompletionData = await prayerAnalyticsService.getDailyCompletionData(for: selectedPeriod)
     }
 
     private func generateSampleInsights() -> [InsightData] {

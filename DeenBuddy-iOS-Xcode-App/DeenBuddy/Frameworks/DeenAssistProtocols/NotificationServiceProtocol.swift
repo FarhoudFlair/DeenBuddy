@@ -12,6 +12,9 @@ public protocol NotificationServiceProtocol: ObservableObject {
     
     /// Request notification permission from user
     func requestNotificationPermission() async throws -> Bool
+
+    /// Request permission for critical alerts (if the entitlement is available)
+    func requestCriticalAlertPermission() async throws -> Bool
     
     /// Schedule prayer notifications
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws

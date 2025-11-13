@@ -53,11 +53,10 @@ public struct SettingsScreen: View {
                     )
                 }
 
-                // Prayer Settings Section
                 Section("Prayer Settings") {
                     SettingsRow(
-                        icon: "clock.arrow.2.circlepath",
-                        title: "Madhab (Sect)",
+                        icon: "clock.arrow.circlepath",
+                        title: "School of Thought (Madhab)",
                         value: settingsService.madhab.displayName,
                         action: { showingMadhabPicker = true }
                     )
@@ -280,6 +279,8 @@ private struct SettingsToggle: View {
                     Text(description)
                         .font(.caption)
                         .foregroundColor(ColorPalette.textSecondary)
+                        .lineLimit(nil) // Allow unlimited lines for long descriptions (e.g., Live Activities 125-char text)
+                        .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                 }
             }
             
@@ -319,6 +320,8 @@ private struct SettingsButton: View {
                         Text(description)
                             .font(.caption)
                             .foregroundColor(ColorPalette.textSecondary)
+                            .lineLimit(nil) // Allow unlimited lines for long descriptions
+                            .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                     }
                 }
                 

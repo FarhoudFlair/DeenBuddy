@@ -8,7 +8,7 @@ public protocol SettingsServiceProtocol: ObservableObject {
     
     /// Current prayer calculation madhab
     var madhab: Madhab { get set }
-
+    
     /// Whether to use astronomical calculation for Ja'fari Maghrib (vs fixed delay)
     var useAstronomicalMaghrib: Bool { get set }
 
@@ -57,4 +57,3 @@ public protocol SettingsServiceProtocol: ObservableObject {
     /// Save critical onboarding settings with enhanced error handling
     func saveOnboardingSettings() async throws
 }
-

@@ -150,7 +150,6 @@ public final class PrayerLiveActivityActionBridge {
     }
     
     /// Clean up observer on deallocation to prevent use-after-free
-    @MainActor
     deinit {
         if let pointer = observerPointer {
             CFNotificationCenterRemoveObserver(
@@ -330,8 +329,8 @@ public final class PrayerLiveActivityActionBridge {
         guard !migrationComplete else { return }
         migrationComplete = true
 
-        guard let defaults = userDefaults,
-              let legacyData = defaults.data(forKey: Self.queueKey) else {
+        guard userDefaults != nil,
+              let legacyData = userDefaults?.data(forKey: Self.queueKey) else {
             return
         }
 
@@ -365,7 +364,7 @@ public final class PrayerLiveActivityActionBridge {
 
                 // Remove legacy queue from UserDefaults on main thread
                 await MainActor.run {
-                    defaults.removeObject(forKey: Self.queueKey)
+                    self.userDefaults?.removeObject(forKey: Self.queueKey)
                     self.logger.info("Successfully migrated \(legacyQueue.count) actions from UserDefaults")
                 }
 
@@ -373,7 +372,7 @@ public final class PrayerLiveActivityActionBridge {
                 self.logger.error("Failed to decode legacy queue during migration: \(error.localizedDescription, privacy: .public)")
                 // Remove corrupted legacy queue on main thread
                 await MainActor.run {
-                    defaults.removeObject(forKey: Self.queueKey)
+                    self.userDefaults?.removeObject(forKey: Self.queueKey)
                 }
             }
         }

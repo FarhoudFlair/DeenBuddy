@@ -80,6 +80,8 @@ struct PrayerTimeSettingsView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.leading)
+                            .lineLimit(3) // Allow up to 3 lines for long descriptions
+                            .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                     }
                     
                     Spacer()
@@ -97,7 +99,7 @@ struct PrayerTimeSettingsView: View {
                 HStack {
                     Image(systemName: "info.circle.fill")
                         .foregroundColor(.blue)
-                    Text("This method is designed for \(preferredMadhab.displayName) jurisprudence")
+                    Text("This method is designed for the \(preferredMadhab.displayName) school")
                         .font(.caption)
                         .foregroundColor(.blue)
                 }
@@ -129,6 +131,8 @@ struct PrayerTimeSettingsView: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.leading)
+                            .lineLimit(3) // Allow up to 3 lines for long timing notes
+                            .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                     }
                     
                     Spacer()

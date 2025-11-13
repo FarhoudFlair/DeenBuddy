@@ -56,6 +56,7 @@ public struct MainTabView: View {
                         EnhancedSettingsView(
                             settingsService: settingsService,
                             themeManager: coordinator.themeManager,
+                            notificationService: coordinator.notificationService,
                             onDismiss: { } // No dismiss needed in tab mode
                         )
 
@@ -165,6 +166,7 @@ private struct MainAppView: View {
                     EnhancedSettingsView(
                         settingsService: settingsService,
                         themeManager: coordinator.themeManager,
+                        notificationService: coordinator.notificationService,
                         onDismiss: {
                             coordinator.dismissSettings()
                         }

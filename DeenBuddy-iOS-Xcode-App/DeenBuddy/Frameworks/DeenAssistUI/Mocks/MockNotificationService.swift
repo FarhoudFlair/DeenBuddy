@@ -20,6 +20,12 @@ public class MockNotificationService: NotificationServiceProtocol {
         
         return true
     }
+
+    public func requestCriticalAlertPermission() async throws -> Bool {
+        // Simulate a quick permission request and assume success in mock mode
+        try await Task.sleep(nanoseconds: 200_000_000)
+        return true
+    }
     
     public func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {
         // Simulate scheduling delay

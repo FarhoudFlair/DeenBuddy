@@ -7,6 +7,7 @@ public struct PrivacyScreen: View {
     @State private var hasAcceptedPrivacyPolicy = false
     @State private var hasAcceptedLocationConsent = false
     @State private var hasAcceptedNotificationConsent = false
+    @State private var hasAcceptedAnalyticsConsent = false
     @State private var showingFullPrivacyPolicy = false
     
     public init(onDismiss: @escaping () -> Void) {
@@ -50,6 +51,14 @@ public struct PrivacyScreen: View {
                         onDismiss()
                     }
                 }
+            }
+        }
+        .onAppear {
+            if let preferences = PrivacyManager.shared.loadPreferences() {
+                hasAcceptedPrivacyPolicy = preferences.hasAcceptedPrivacyPolicy
+                hasAcceptedLocationConsent = preferences.hasAcceptedLocationConsent
+                hasAcceptedNotificationConsent = preferences.hasAcceptedNotificationConsent
+                hasAcceptedAnalyticsConsent = preferences.hasAcceptedAnalyticsConsent
             }
         }
         .sheet(isPresented: $showingFullPrivacyPolicy) {
@@ -125,6 +134,13 @@ public struct PrivacyScreen: View {
                     isOn: $hasAcceptedNotificationConsent,
                     isRequired: false
                 )
+                
+                ConsentToggle(
+                    title: "Usage Analytics",
+                    description: "Help improve DeenBuddy by sharing anonymous usage data",
+                    isOn: $hasAcceptedAnalyticsConsent,
+                    isRequired: false
+                )
             }
         }
         .padding()
@@ -198,10 +214,30 @@ public struct PrivacyScreen: View {
             hasAcceptedPrivacyPolicy: hasAcceptedPrivacyPolicy,
             hasAcceptedLocationConsent: hasAcceptedLocationConsent,
             hasAcceptedNotificationConsent: hasAcceptedNotificationConsent,
+            hasAcceptedAnalyticsConsent: hasAcceptedAnalyticsConsent,
             consentDate: Date()
         )
         
-        PrivacyManager.shared.savePreferences(preferences)
+        // Capture previous analytics state for rollback if save fails
+        let previousAnalyticsState = PrivacyManager.shared.hasAnalyticsConsent()
+        
+        // Attempt to save preferences
+        let saveResult = PrivacyManager.shared.savePreferences(preferences)
+        
+        switch saveResult {
+        case .success:
+            // Only update analytics service if save succeeded
+            AnalyticsService.shared.setEnabled(hasAcceptedAnalyticsConsent)
+            print("✅ Privacy preferences saved successfully")
+            
+        case .failure(let error):
+            // Rollback analytics state if save failed
+            AnalyticsService.shared.setEnabled(previousAnalyticsState)
+            print("❌ Failed to save privacy preferences: \(error.localizedDescription)")
+            
+            // In a production app, you might want to show an alert to the user
+            // For now, we'll log the error
+        }
     }
 }
 
@@ -419,10 +455,20 @@ public class PrivacyManager: @unchecked Sendable {
     
     private init() {}
     
-    public func savePreferences(_ preferences: PrivacyPreferences) {
-        if let data = try? JSONEncoder().encode(preferences) {
+    @discardableResult
+    public func savePreferences(_ preferences: PrivacyPreferences) -> Result<Void, PrivacyError> {
+        do {
+            let data = try JSONEncoder().encode(preferences)
             userDefaults.set(data, forKey: preferencesKey)
-            print("Privacy preferences saved")
+            
+            // Verify the save by attempting to read it back
+            guard userDefaults.data(forKey: preferencesKey) != nil else {
+                return .failure(.saveFailed(reason: "Failed to verify saved data"))
+            }
+            
+            return .success(())
+        } catch {
+            return .failure(.encodingFailed(error))
         }
     }
     
@@ -445,6 +491,10 @@ public class PrivacyManager: @unchecked Sendable {
     public func hasNotificationConsent() -> Bool {
         return loadPreferences()?.hasAcceptedNotificationConsent ?? false
     }
+    
+    public func hasAnalyticsConsent() -> Bool {
+        return loadPreferences()?.hasAcceptedAnalyticsConsent ?? false
+    }
 }
 
 // MARK: - Privacy Models
@@ -453,17 +503,36 @@ public struct PrivacyPreferences: Codable {
     public let hasAcceptedPrivacyPolicy: Bool
     public let hasAcceptedLocationConsent: Bool
     public let hasAcceptedNotificationConsent: Bool
+    public let hasAcceptedAnalyticsConsent: Bool
     public let consentDate: Date
     
     public init(
         hasAcceptedPrivacyPolicy: Bool,
         hasAcceptedLocationConsent: Bool,
         hasAcceptedNotificationConsent: Bool,
+        hasAcceptedAnalyticsConsent: Bool = false,
         consentDate: Date
     ) {
         self.hasAcceptedPrivacyPolicy = hasAcceptedPrivacyPolicy
         self.hasAcceptedLocationConsent = hasAcceptedLocationConsent
         self.hasAcceptedNotificationConsent = hasAcceptedNotificationConsent
+        self.hasAcceptedAnalyticsConsent = hasAcceptedAnalyticsConsent
         self.consentDate = consentDate
+    }
+}
+
+// MARK: - Privacy Error
+
+public enum PrivacyError: Error, LocalizedError {
+    case encodingFailed(Error)
+    case saveFailed(reason: String)
+    
+    public var errorDescription: String? {
+        switch self {
+        case .encodingFailed(let error):
+            return "Failed to encode privacy preferences: \(error.localizedDescription)"
+        case .saveFailed(let reason):
+            return "Failed to save privacy preferences: \(reason)"
+        }
     }
 }

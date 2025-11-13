@@ -566,8 +566,12 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
                 isRestoring = true
                 defer { isRestoring = false }
 
-                calculationMethod = .muslimWorldLeague
-                madhab = .shafi
+                let defaultConfig = DefaultPrayerConfigurationProvider().configuration(
+                    coordinate: nil,
+                    countryName: nil
+                )
+                calculationMethod = defaultConfig.calculationMethod
+                madhab = defaultConfig.madhab
                 useAstronomicalMaghrib = false
                 notificationsEnabled = true
                 theme = .dark

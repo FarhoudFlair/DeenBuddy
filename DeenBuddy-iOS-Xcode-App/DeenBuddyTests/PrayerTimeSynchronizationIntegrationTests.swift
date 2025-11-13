@@ -690,6 +690,10 @@ class PrayerTimeSyncMockNotificationService: NotificationServiceProtocol, Observ
         return true
     }
 
+    func requestCriticalAlertPermission() async throws -> Bool {
+        return true
+    }
+
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {
         // Mock implementation
     }

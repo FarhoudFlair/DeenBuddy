@@ -45,6 +45,8 @@ public struct TimeFormatPickerView: View {
                     Text("Choose how prayer times are displayed throughout the app.")
                         .bodySmall()
                         .foregroundColor(ColorPalette.textSecondary)
+                        .lineLimit(nil) // Allow unlimited lines to prevent truncation
+                        .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                 }
             }
             .navigationTitle("Time Format")

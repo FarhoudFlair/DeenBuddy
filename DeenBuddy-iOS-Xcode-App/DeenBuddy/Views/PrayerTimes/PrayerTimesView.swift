@@ -167,7 +167,7 @@ struct PrayerTimesSettingsView: View {
     }
     
     private var madhabSection: some View {
-        Section("School of Jurisprudence") {
+        Section("School of Thought (Madhab)") {
             madhabPicker
         }
     }

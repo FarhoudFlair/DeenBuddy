@@ -38,6 +38,8 @@ struct OnboardingStepHeader: View {
                     .bodyMedium()
                     .foregroundColor(ColorPalette.textSecondary)
                     .multilineTextAlignment(.center)
+                    .lineLimit(nil) // Allow unlimited lines to prevent truncation
+                    .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                     .padding(.horizontal)
             }
         }
@@ -276,6 +278,8 @@ struct WelcomeStepView: View {
                 .bodyMedium()
                 .foregroundColor(ColorPalette.textSecondary)
                 .multilineTextAlignment(.center)
+                .lineLimit(nil) // Allow unlimited lines to prevent truncation
+                .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                 .padding(.horizontal)
             
             VStack(spacing: 12) {

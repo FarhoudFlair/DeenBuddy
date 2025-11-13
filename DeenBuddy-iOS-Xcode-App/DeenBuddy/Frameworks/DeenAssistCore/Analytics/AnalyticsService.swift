@@ -45,16 +45,21 @@ public class AnalyticsService: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Enable or disable analytics tracking
+    /// Enable or disable analytics tracking (user consent)
+    /// Note: Analytics will only be active if BOTH feature flag AND user consent are true
     public func setEnabled(_ enabled: Bool) {
-        isEnabled = enabled
+        // Store user consent
         userDefaults.set(enabled, forKey: CacheKeys.isEnabled)
         
-        if enabled {
-            print("📊 Analytics enabled")
+        // Check feature flag AND consent
+        let featureFlagEnabled = configurationManager.getAppConfiguration()?.features.enableAnalytics ?? false
+        isEnabled = featureFlagEnabled && enabled
+        
+        if isEnabled {
+            print("📊 Analytics enabled (feature flag: \(featureFlagEnabled), consent: \(enabled))")
             trackEvent(.analyticsEnabled)
         } else {
-            print("📊 Analytics disabled")
+            print("📊 Analytics disabled (feature flag: \(featureFlagEnabled), consent: \(enabled))")
             clearEventQueue()
         }
     }
@@ -180,7 +185,10 @@ public class AnalyticsService: ObservableObject {
     // MARK: - Private Methods
     
     private func loadSettings() {
-        isEnabled = userDefaults.bool(forKey: CacheKeys.isEnabled)
+        // Analytics is enabled only when BOTH feature flag AND user consent are true
+        let featureFlagEnabled = configurationManager.getAppConfiguration()?.features.enableAnalytics ?? false
+        let userConsent = userDefaults.bool(forKey: CacheKeys.isEnabled)
+        isEnabled = featureFlagEnabled && userConsent
         
         // Load cached events
         if let data = userDefaults.data(forKey: CacheKeys.eventQueue),

@@ -17,6 +17,8 @@ public class AppCoordinator: ObservableObject {
     @Published public var showingQuranSearch = false
     @Published public var showingError = false
     @Published public var currentError: ErrorType?
+    @Published public var showingSuccess = false
+    @Published public var successMessage: String?
     @Published public var isLoading = false
     @Published public var navigationPath = NavigationPath()
 
@@ -29,6 +31,7 @@ public class AppCoordinator: ObservableObject {
     public let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     public let tasbihService: any TasbihServiceProtocol
     public let settingsService: any SettingsServiceProtocol
+    public let userAccountService: any UserAccountServiceProtocol
     public let themeManager: ThemeManager
     private let backgroundTaskManager: BackgroundTaskManager
     private let backgroundPrayerRefreshService: BackgroundPrayerRefreshService
@@ -52,6 +55,7 @@ public class AppCoordinator: ObservableObject {
         prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
         tasbihService: any TasbihServiceProtocol,
         settingsService: any SettingsServiceProtocol,
+        userAccountService: any UserAccountServiceProtocol,
         themeManager: ThemeManager,
         backgroundTaskManager: BackgroundTaskManager,
         backgroundPrayerRefreshService: BackgroundPrayerRefreshService,
@@ -64,6 +68,7 @@ public class AppCoordinator: ObservableObject {
         self.prayerAnalyticsService = prayerAnalyticsService
         self.tasbihService = tasbihService
         self.settingsService = settingsService
+        self.userAccountService = userAccountService
         self.themeManager = themeManager
         self.backgroundTaskManager = backgroundTaskManager
         self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
@@ -77,6 +82,9 @@ public class AppCoordinator: ObservableObject {
     
     public func start() {
         Task {
+            // Initialize Firebase early
+            FirebaseInitializer.configureIfNeeded()
+            
             // PERFORMANCE: Start performance monitoring early
             PerformanceMonitoringService.shared.startMonitoring()
 
@@ -97,6 +105,63 @@ public class AppCoordinator: ObservableObject {
     @Published public var showingPaywall = false
     public func showPaywall() { showingPaywall = true }
     public func dismissPaywall() { showingPaywall = false }
+    
+    /// Handle magic link URLs for email sign-in
+    public func handleMagicLink(_ url: URL) {
+        Task {
+            // Validate that this is a sign-in link
+            guard userAccountService.isSignInWithEmailLink(url) else {
+                await MainActor.run {
+                    showError(.unknownError("This link is not a valid sign-in link. Please request a new link."))
+                }
+                return
+            }
+            
+            // Get the email from UserDefaults (stored when link was sent)
+            guard let email = UserDefaults.standard.string(forKey: "DeenBuddy.Account.PendingEmail") else {
+                await MainActor.run {
+                    showError(.unknownError("No pending sign-in found. Please start the sign-in process again."))
+                }
+                return
+            }
+            
+            do {
+                try await userAccountService.signIn(withEmail: email, linkURL: url)
+                
+                // Clear pending email on success
+                UserDefaults.standard.removeObject(forKey: "DeenBuddy.Account.PendingEmail")
+                
+                // Show success message to user
+                await MainActor.run {
+                    successMessage = "Successfully signed in! Welcome back."
+                    showingSuccess = true
+                }
+                
+                print("✅ Successfully signed in via magic link")
+                
+            } catch {
+                // Map specific errors to user-friendly messages
+                let errorMessage: String
+                let errorDescription = error.localizedDescription.lowercased()
+                
+                if errorDescription.contains("expired") || errorDescription.contains("invalid") {
+                    errorMessage = "This sign-in link has expired. Please request a new one."
+                } else if errorDescription.contains("network") || errorDescription.contains("connection") {
+                    errorMessage = "Unable to connect. Please check your internet connection and try again."
+                } else if errorDescription.contains("already") {
+                    errorMessage = "This link has already been used. Please request a new sign-in link."
+                } else {
+                    errorMessage = "Unable to sign in: \(error.localizedDescription)"
+                }
+                
+                await MainActor.run {
+                    showError(.unknownError(errorMessage))
+                }
+                
+                print("❌ Failed to sign in with magic link: \(error.localizedDescription)")
+            }
+        }
+    }
 
     private func refreshSubscriptionStatus() async {
         do { try await subscriptionService.refreshStatus() } catch { }
@@ -187,6 +252,16 @@ public class AppCoordinator: ObservableObject {
         currentError = nil
         showingError = false
     }
+    
+    public func showSuccess(_ message: String) {
+        successMessage = message
+        showingSuccess = true
+    }
+    
+    public func dismissSuccess() {
+        successMessage = nil
+        showingSuccess = false
+    }
 
     public func setLoading(_ loading: Bool) {
         withAnimation(.easeInOut(duration: 0.3)) {
@@ -271,6 +346,9 @@ public class AppCoordinator: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Bridge SettingsService notification toggles to NotificationService
+        setupNotificationSettingsBridge()
+
         // Initialize background services
         Task {
             do {
@@ -290,6 +368,51 @@ public class AppCoordinator: ObservableObject {
         print("🚀 Enhanced services initialized")
     }
 
+    private func setupNotificationSettingsBridge() {
+        // Observe notificationsEnabled changes
+        settingsService.publisher(for: \.notificationsEnabled)
+            .sink { [weak self] isEnabled in
+                guard let self = self else { return }
+                var settings = self.notificationService.getNotificationSettings()
+                settings = NotificationSettings(
+                    isEnabled: isEnabled,
+                    globalSoundEnabled: settings.globalSoundEnabled,
+                    globalBadgeEnabled: settings.globalBadgeEnabled,
+                    prayerConfigs: settings.prayerConfigs
+                )
+                self.notificationService.updateNotificationSettings(settings)
+            }
+            .store(in: &cancellables)
+
+        // Observe notificationOffset changes
+        settingsService.publisher(for: \.notificationOffset)
+            .sink { [weak self] offsetSeconds in
+                guard let self = self else { return }
+                let offsetMinutes = Int(offsetSeconds / 60)
+                var settings = self.notificationService.getNotificationSettings()
+                
+                // Update default reminder times for all prayers
+                var updatedConfigs = settings.prayerConfigs
+                for prayer in Prayer.allCases {
+                    let config = updatedConfigs[prayer] ?? PrayerNotificationConfig(isEnabled: true, reminderTimes: [offsetMinutes])
+                    // Always build a new config with the chosen offset at the front (removing any duplicates)
+                    let newConfig = PrayerNotificationConfig(
+                        isEnabled: config.isEnabled,
+                        reminderTimes: [offsetMinutes] + config.reminderTimes.filter { $0 != offsetMinutes }
+                    )
+                    updatedConfigs[prayer] = newConfig
+                }
+                
+                settings = NotificationSettings(
+                    isEnabled: settings.isEnabled,
+                    globalSoundEnabled: settings.globalSoundEnabled,
+                    globalBadgeEnabled: settings.globalBadgeEnabled,
+                    prayerConfigs: updatedConfigs
+                )
+                self.notificationService.updateNotificationSettings(settings)
+            }
+            .store(in: &cancellables)
+    }
 
     
     private func loadSettings() async {
@@ -352,24 +475,20 @@ public enum AppScreen: Equatable {
 public enum OnboardingStep: Equatable {
     case welcome
     case locationPermission
-    case calculationMethod
     case notificationPermission
 
     /// Maps OnboardingStep to EnhancedOnboardingFlow TabView index.
     /// Gaps exist for steps not represented in this enum:
     /// - Index 1: Name Collection (handled internally by flow)
-    /// - Index 3: Madhab Selection (handled internally by flow)
-    /// - Index 6: Premium Trial (handled internally by flow)
+    /// - Index 4: Premium Trial (handled internally by flow)
     var flowIndex: Int {
         switch self {
         case .welcome:
             return 0
-        case .calculationMethod:
-            return 2
         case .locationPermission:
-            return 4
+            return 2
         case .notificationPermission:
-            return 5
+            return 3
         }
     }
 }
@@ -422,6 +541,7 @@ public struct OnboardingCoordinatorView: View {
             settingsService: coordinator.settingsService,
             locationService: coordinator.locationService,
             notificationService: coordinator.notificationService,
+            userAccountService: coordinator.userAccountService,
             initialStep: mapOnboardingStep(step),
             onShowPremiumTrial: {
                 coordinator.showPaywall()
@@ -491,6 +611,7 @@ private struct MainAppView: View {
                     EnhancedSettingsView(
                         settingsService: settingsService,
                         themeManager: coordinator.themeManager,
+                        notificationService: coordinator.notificationService,
                         onDismiss: {
                             coordinator.dismissSettings()
                         }
@@ -678,6 +799,8 @@ private struct SimpleTabView: View {
             EnhancedSettingsView(
                 settingsService: coordinator.settingsService as! SettingsService,
                 themeManager: coordinator.themeManager,
+                notificationService: coordinator.notificationService,
+                userAccountService: coordinator.userAccountService,
                 onDismiss: { } // No dismiss needed in tab mode
             )
             .tabItem {
@@ -706,6 +829,7 @@ public extension AppCoordinator {
             prayerAnalyticsService: container.prayerAnalyticsService,
             tasbihService: container.tasbihService,
             settingsService: container.settingsService,
+            userAccountService: container.userAccountService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
             backgroundPrayerRefreshService: container.backgroundPrayerRefreshService,
@@ -732,6 +856,7 @@ public extension AppCoordinator {
             prayerAnalyticsService: container.prayerAnalyticsService,
             tasbihService: container.tasbihService,
             settingsService: container.settingsService,
+            userAccountService: container.userAccountService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
             backgroundPrayerRefreshService: container.backgroundPrayerRefreshService,

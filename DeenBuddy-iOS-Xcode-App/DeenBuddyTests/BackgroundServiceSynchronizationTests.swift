@@ -356,6 +356,7 @@ class BackgroundSyncMockNotificationService: NotificationServiceProtocol, Observ
     @Published var notificationsEnabled: Bool = true
 
     func requestNotificationPermission() async throws -> Bool { return true }
+    func requestCriticalAlertPermission() async throws -> Bool { return true }
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {}
     func cancelAllNotifications() async {}
     func cancelNotifications(for prayer: Prayer) async {}

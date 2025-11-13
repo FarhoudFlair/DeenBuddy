@@ -63,6 +63,8 @@ public struct NotificationSettingsView: View {
                     Text("Choose how many minutes before each prayer time you'd like to receive a notification.")
                         .bodySmall()
                         .foregroundColor(ColorPalette.textSecondary)
+                        .lineLimit(nil) // Allow unlimited lines to prevent truncation
+                        .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                 }
             }
             .navigationTitle("Notification Settings")

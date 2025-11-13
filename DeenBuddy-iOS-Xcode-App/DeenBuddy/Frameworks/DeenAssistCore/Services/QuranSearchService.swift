@@ -1,5 +1,10 @@
 import Foundation
 import Combine
+import Compression
+import CryptoKit
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 /// Actor to handle thread-safe initialization
 private actor InitializationActor {
@@ -18,12 +23,458 @@ private actor InitializationActor {
     }
 }
 
+// MARK: - Quran Data Cache Manager
+
+/// Manages Quran data caching with compression and migration support
+final class QuranDataCacheManager {
+    static let shared = QuranDataCacheManager()
+
+    /// Flag indicating legacy cache migration is in progress
+    /// Reserved exclusively for migrateLegacyCacheIfNeeded() operations
+    static let migrationFlagKey = "com.deenbuddy.quran.migrating"
+
+    /// Flag indicating regular cache write operation is in progress
+    /// Used during normal saveVerses() operations to prevent concurrent writes
+    static let cacheWriteInProgressKey = "com.deenbuddy.quran.cache.writing"
+
+    private let appGroupIdentifier = "group.com.deenbuddy.app"
+    private let userDefaults: UserDefaults
+    private let fileQueue = DispatchQueue(label: "com.deenbuddy.quran.fileIO", qos: .utility, attributes: .concurrent)
+
+    private enum MetadataKeys {
+        static let quranCacheMetadata = "QuranCacheMetadata"
+        static let migrationMetadata = "QuranCacheMigrationMetadata"
+        static let lastDataUpdate = "LastDataUpdate"
+        static let legacyCachedQuranData = "CachedQuranData"
+    }
+
+    private struct QuranCacheMetadata: Codable {
+        static let currentVersion = 1
+
+        let version: Int
+        let timestamp: Date
+        let checksum: String
+        let verseCount: Int
+        let fileSize: Int
+        let isCompressed: Bool
+        let uncompressedSize: Int?
+    }
+
+    private enum MigrationState: String, Codable {
+        case notStarted
+        case inProgress
+        case completed
+        case failed
+    }
+
+    private struct MigrationMetadata: Codable {
+        let state: MigrationState
+        let startedAt: Date?
+        let completedAt: Date?
+        let attemptCount: Int
+    }
+
+    private init() {
+        if let suiteDefaults = UserDefaults(suiteName: appGroupIdentifier) {
+            userDefaults = suiteDefaults
+        } else {
+            print("⚠️ Falling back to standard UserDefaults – app group unavailable")
+            userDefaults = .standard
+        }
+    }
+
+    var lastUpdateTimestamp: Date? {
+        userDefaults.object(forKey: MetadataKeys.lastDataUpdate) as? Date
+    }
+
+    static func isMigrationInProgress() -> Bool {
+        QuranDataCacheManager.shared.userDefaults.bool(forKey: migrationFlagKey)
+    }
+
+    static func isCacheWriteInProgress() -> Bool {
+        QuranDataCacheManager.shared.userDefaults.bool(forKey: cacheWriteInProgressKey)
+    }
+
+    func migrateLegacyCacheIfNeeded() {
+        var metadata = loadMigrationMetadata()
+
+        switch metadata.state {
+        case .completed:
+            return
+        case .inProgress:
+            if let started = metadata.startedAt,
+               Date().timeIntervalSince(started) < 300 {
+                return
+            }
+            print("⚠️ Quran cache migration was stale, retrying…")
+        case .failed, .notStarted:
+            break
+        }
+
+        if metadata.attemptCount >= 3 {
+            print("❌ Quran cache migration attempt limit reached. Clearing legacy cache.")
+            userDefaults.removeObject(forKey: MetadataKeys.legacyCachedQuranData)
+            saveMigrationState(.failed)
+            return
+        }
+
+        guard let legacyData = userDefaults.data(forKey: MetadataKeys.legacyCachedQuranData) else {
+            saveMigrationState(.completed)
+            return
+        }
+
+        print("📦 Found legacy Quran cache (\(legacyData.count) bytes) – migrating.")
+
+        metadata = MigrationMetadata(
+            state: .inProgress,
+            startedAt: Date(),
+            completedAt: nil,
+            attemptCount: metadata.attemptCount + 1
+        )
+        saveMigrationMetadata(metadata)
+        userDefaults.set(true, forKey: Self.migrationFlagKey)
+
+        defer {
+            userDefaults.set(false, forKey: Self.migrationFlagKey)
+        }
+
+        do {
+            let verses = try JSONDecoder().decode([QuranVerse].self, from: legacyData)
+            try cacheVersesToFile(verses)
+            guard let loadedVerses = try loadVersesFromFile() else {
+                throw QuranSearchError.cachingFailed("Verification failed: cache missing after migration")
+            }
+
+            guard loadedVerses.count == verses.count else {
+                throw QuranSearchError.cachingFailed("Verse count mismatch during migration")
+            }
+
+            userDefaults.removeObject(forKey: MetadataKeys.legacyCachedQuranData)
+            saveMigrationState(.completed, startedAt: metadata.startedAt)
+            print("✅ Quran cache migration complete (\(verses.count) verses)")
+        } catch {
+            deleteCacheFile()
+            saveMigrationState(.failed, startedAt: metadata.startedAt)
+            print("❌ Quran cache migration failed: \(error)")
+        }
+    }
+
+    func saveVerses(_ verses: [QuranVerse]) throws {
+        userDefaults.set(true, forKey: Self.cacheWriteInProgressKey)
+        defer { userDefaults.set(false, forKey: Self.cacheWriteInProgressKey) }
+
+        try cacheVersesToFile(verses)
+        userDefaults.set(Date(), forKey: MetadataKeys.lastDataUpdate)
+#if canImport(WidgetKit)
+        WidgetCenter.shared.reloadAllTimelines()
+#endif
+    }
+
+    func loadVerses() throws -> [QuranVerse]? {
+        return try loadVersesFromFile()
+    }
+
+    func clearCache() {
+        deleteCacheFile()
+        userDefaults.removeObject(forKey: MetadataKeys.quranCacheMetadata)
+        userDefaults.removeObject(forKey: MetadataKeys.lastDataUpdate)
+    }
+
+    // MARK: - Private Helpers
+
+    private func cacheDirectoryURL() throws -> URL {
+        if let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroupIdentifier
+        ) {
+            return containerURL.appendingPathComponent("Quran", isDirectory: true)
+        }
+
+        let fallbackURL = fallbackCacheDirectoryURL()
+        print("⚠️ App Group container '\(appGroupIdentifier)' unavailable; falling back to \(fallbackURL.path)")
+        throw QuranSearchError.appGroupUnavailable(identifier: appGroupIdentifier, fallbackURL: fallbackURL)
+    }
+
+    private func cacheFileURL(for directoryURL: URL) -> URL {
+        directoryURL.appendingPathComponent("quran-data.json.gz")
+    }
+
+    private func fallbackCacheDirectoryURL() -> URL {
+        if let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            return caches.appendingPathComponent("QuranFallback", isDirectory: true)
+        }
+
+        if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            return appSupport.appendingPathComponent("QuranFallback", isDirectory: true)
+        }
+
+        return FileManager.default.temporaryDirectory.appendingPathComponent("QuranFallback", isDirectory: true)
+    }
+
+    private func ensureCacheDirectoryExists(at directoryURL: URL) throws {
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: directoryURL.path) {
+            try fm.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            try fm.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                ofItemAtPath: directoryURL.path
+            )
+        }
+    }
+
+    private func hasAvailableDiskSpace(bytes: Int) -> Bool {
+        guard let attributes = try? FileManager.default.attributesOfFileSystem(forPath: NSHomeDirectory()),
+              let freeSpace = attributes[.systemFreeSize] as? Int64 else {
+            print("⚠️ Could not determine free disk space; assuming enough.")
+            return true
+        }
+
+        let required = Int64(bytes) * 2
+        if freeSpace < required {
+            print("❌ Not enough disk space. Free: \(freeSpace) Required: \(required)")
+            return false
+        }
+        return true
+    }
+
+    private func writeCacheFile(_ data: Data) throws {
+        try fileQueue.sync(flags: .barrier) {
+            let directoryURL: URL
+            do {
+                directoryURL = try cacheDirectoryURL()
+            } catch let QuranSearchError.appGroupUnavailable(_, fallbackURL) {
+                directoryURL = fallbackURL
+            } catch {
+                throw error
+            }
+
+            try ensureCacheDirectoryExists(at: directoryURL)
+            let fileURL = cacheFileURL(for: directoryURL)
+            try data.write(to: fileURL, options: [.atomic])
+            try FileManager.default.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                ofItemAtPath: fileURL.path
+            )
+            var url = fileURL
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try url.setResourceValues(values)
+            print("✅ Quran cache file written (\(data.count) bytes)")
+        }
+    }
+
+    private func readCacheData() -> Data? {
+        fileQueue.sync {
+            let directoryURL: URL
+            do {
+                directoryURL = try cacheDirectoryURL()
+            } catch let QuranSearchError.appGroupUnavailable(_, fallbackURL) {
+                directoryURL = fallbackURL
+            } catch {
+                print("❌ Failed to resolve cache directory while reading: \(error)")
+                return nil
+            }
+
+            let fileURL = cacheFileURL(for: directoryURL)
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
+            return try? Data(contentsOf: fileURL)
+        }
+    }
+
+    private func deleteCacheFile() {
+        fileQueue.sync(flags: .barrier) {
+            let directoryURL: URL
+            do {
+                directoryURL = try cacheDirectoryURL()
+            } catch let QuranSearchError.appGroupUnavailable(_, fallbackURL) {
+                directoryURL = fallbackURL
+            } catch {
+                print("❌ Failed to resolve cache directory for deletion: \(error)")
+                return
+            }
+
+            let fileURL = cacheFileURL(for: directoryURL)
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+    }
+
+    private func compress(_ data: Data) -> Data? {
+        data.withUnsafeBytes { sourceBuffer -> Data? in
+            guard let sourcePointer = sourceBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                return nil
+            }
+
+            let destinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: data.count)
+            defer { destinationBuffer.deallocate() }
+
+            let compressedSize = compression_encode_buffer(
+                destinationBuffer,
+                data.count,
+                sourcePointer,
+                data.count,
+                nil,
+                COMPRESSION_ZLIB
+            )
+
+            guard compressedSize > 0 && compressedSize < data.count else { return nil }
+            return Data(bytes: destinationBuffer, count: compressedSize)
+        }
+    }
+
+    private func decompress(_ data: Data, expectedSize: Int?) -> Data? {
+        let destinationCapacity = expectedSize ?? data.count * 10
+        return data.withUnsafeBytes { sourceBuffer -> Data? in
+            guard let sourcePointer = sourceBuffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else {
+                return nil
+            }
+
+            guard destinationCapacity > 0 else {
+                return nil
+            }
+
+            let destinationBuffer = UnsafeMutablePointer<UInt8>.allocate(capacity: destinationCapacity)
+            defer { destinationBuffer.deallocate() }
+
+            let decompressedSize = compression_decode_buffer(
+                destinationBuffer,
+                destinationCapacity,
+                sourcePointer,
+                data.count,
+                nil,
+                COMPRESSION_ZLIB
+            )
+
+            guard decompressedSize > 0 else { return nil }
+            return Data(bytes: destinationBuffer, count: decompressedSize)
+        }
+    }
+
+    private func checksum(for data: Data) -> String {
+        let hash = SHA256.hash(data: data)
+        return hash.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func cacheVersesToFile(_ verses: [QuranVerse]) throws {
+        let encoder = JSONEncoder()
+        let jsonData = try encoder.encode(verses)
+
+        guard hasAvailableDiskSpace(bytes: jsonData.count) else {
+            throw QuranSearchError.cachingFailed("Insufficient disk space")
+        }
+
+        let compressedData: Data
+        if let compressed = compress(jsonData) {
+            compressedData = compressed
+            let ratio = Double(compressed.count) / Double(jsonData.count)
+            let percentage = ratio * 100
+            print(String(format: "📦 Quran cache compression: %.1f%% of original (%d → %d bytes)", percentage, jsonData.count, compressed.count))
+        } else {
+            compressedData = jsonData
+            print("📦 Quran cache compression skipped (no benefit)")
+        }
+        try writeCacheFile(compressedData)
+
+        let metadata = QuranCacheMetadata(
+            version: QuranCacheMetadata.currentVersion,
+            timestamp: Date(),
+            checksum: checksum(for: compressedData),
+            verseCount: verses.count,
+            fileSize: compressedData.count,
+            isCompressed: compressedData.count != jsonData.count,
+            uncompressedSize: jsonData.count
+        )
+        saveMetadata(metadata)
+    }
+
+    private func loadVersesFromFile() throws -> [QuranVerse]? {
+        guard let metadata = loadMetadata() else { return nil }
+
+        guard metadata.version == QuranCacheMetadata.currentVersion else {
+            deleteCacheFile()
+            userDefaults.removeObject(forKey: MetadataKeys.quranCacheMetadata)
+            throw QuranSearchError.cachingFailed("Cache version mismatch")
+        }
+
+        guard let storedData = readCacheData() else { return nil }
+
+        let actualChecksum = checksum(for: storedData)
+        guard actualChecksum == metadata.checksum else {
+            deleteCacheFile()
+            userDefaults.removeObject(forKey: MetadataKeys.quranCacheMetadata)
+            throw QuranSearchError.cachingFailed("Cache checksum validation failed")
+        }
+
+        let decoder = JSONDecoder()
+        let payload: Data
+        if metadata.isCompressed, let decompressed = decompress(storedData, expectedSize: metadata.uncompressedSize) {
+            payload = decompressed
+        } else {
+            payload = storedData
+        }
+
+        let verses = try decoder.decode([QuranVerse].self, from: payload)
+        guard verses.count == metadata.verseCount else {
+            throw QuranSearchError.cachingFailed("Verse count mismatch")
+        }
+
+        return verses
+    }
+
+    private func saveMetadata(_ metadata: QuranCacheMetadata) {
+        if let data = try? JSONEncoder().encode(metadata) {
+            userDefaults.set(data, forKey: MetadataKeys.quranCacheMetadata)
+        }
+    }
+
+    private func loadMetadata() -> QuranCacheMetadata? {
+        guard let data = userDefaults.data(forKey: MetadataKeys.quranCacheMetadata) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(QuranCacheMetadata.self, from: data)
+    }
+
+    private func loadMigrationMetadata() -> MigrationMetadata {
+        guard let data = userDefaults.data(forKey: MetadataKeys.migrationMetadata),
+              let metadata = try? JSONDecoder().decode(MigrationMetadata.self, from: data) else {
+            return MigrationMetadata(state: .notStarted, startedAt: nil, completedAt: nil, attemptCount: 0)
+        }
+        return metadata
+    }
+
+    private func saveMigrationMetadata(_ metadata: MigrationMetadata) {
+        if let data = try? JSONEncoder().encode(metadata) {
+            userDefaults.set(data, forKey: MetadataKeys.migrationMetadata)
+        }
+    }
+
+    private func saveMigrationState(_ state: MigrationState, startedAt: Date? = nil) {
+        var metadata = loadMigrationMetadata()
+        let effectiveStartedAt: Date?
+        if state == .inProgress {
+            effectiveStartedAt = startedAt ?? Date()
+        } else if let provided = startedAt {
+            effectiveStartedAt = provided
+        } else {
+            effectiveStartedAt = metadata.startedAt
+        }
+
+        let updated = MigrationMetadata(
+            state: state,
+            startedAt: effectiveStartedAt,
+            completedAt: state == .completed ? Date() : metadata.completedAt,
+            attemptCount: metadata.attemptCount
+        )
+        saveMigrationMetadata(updated)
+    }
+}
+
 /// Custom errors for QuranSearchService
 public enum QuranSearchError: LocalizedError {
     case duplicateKey(String)
     case initializationFailed(String)
     case dataValidationFailed(String)
     case cachingFailed(String)
+    case appGroupUnavailable(identifier: String, fallbackURL: URL)
     
     public var errorDescription: String? {
         switch self {
@@ -35,6 +486,8 @@ public enum QuranSearchError: LocalizedError {
             return "Quran data validation failed: \(reason)"
         case .cachingFailed(let reason):
             return "Failed to cache Quran data: \(reason)"
+        case .appGroupUnavailable(let identifier, let fallbackURL):
+            return "App Group \(identifier) unavailable. Using fallback directory: \(fallbackURL.path)"
         }
     }
 }
@@ -74,18 +527,31 @@ public class QuranSearchService: ObservableObject {
     // MARK: - Thread Safety
     private var isInitializing = false
     private let initializationActor = InitializationActor()
+    private let cacheManager = QuranDataCacheManager.shared
+    private var hasAttemptedLegacyMigration = false
     
     // MARK: - Search Cancellation
     private var currentSearchTask: Task<Void, Error>?
+
+    // MARK: - Background Prefetch
+
+    /// Start background prefetch of Quran data (idempotent).
+    @MainActor
+    public func startBackgroundPrefetch() {
+        guard !isDataLoaded && !isBackgroundLoading else {
+            print("🔧 DEBUG: Prefetch skipped - data already loaded or loading")
+            return
+        }
+
+        print("📥 Starting background Quran prefetch...")
+        loadCompleteQuranData()
+    }
 
     // MARK: - Cache Keys
 
     private enum CacheKeys {
         static let searchHistory = "QuranSearchHistory"
         static let bookmarkedVerses = "BookmarkedQuranVerses"
-        static let cachedQuranData = "CachedQuranData"
-        static let dataValidationResult = "DataValidationResult"
-        static let lastDataUpdate = "LastDataUpdate"
     }
 
     // MARK: - Initialization
@@ -104,8 +570,35 @@ public class QuranSearchService: ObservableObject {
         loadCompleteQuranData()
     }
 
+    /// Ensure data is fully available before running a search query
+    private func ensureDataAvailability(timeout: TimeInterval = 30) async throws {
+        ensureDataLoaded()
+
+        let start = Date()
+
+        while true {
+            let snapshot = await MainActor.run { () -> (loaded: Bool, verseCount: Int) in
+                return (self.isDataLoaded, self.allVerses.count)
+            }
+
+            if snapshot.loaded && snapshot.verseCount > 0 {
+                return
+            }
+
+            if Date().timeIntervalSince(start) > timeout {
+                throw QuranSearchError.initializationFailed("Timed out while loading Quran data. Please check your connection and try again.")
+            }
+
+            try await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        }
+    }
+
     /// Load complete Quran data from API or cache with thread safety
     private func loadCompleteQuranData() {
+        if !hasAttemptedLegacyMigration {
+            cacheManager.migrateLegacyCacheIfNeeded()
+            hasAttemptedLegacyMigration = true
+        }
         Task.detached { [weak self] in
             guard let self = self else { return }
             
@@ -145,16 +638,26 @@ public class QuranSearchService: ObservableObject {
                     self.allVerses = cachedData
                     self.allSurahs = surahs
                     self.isDataLoaded = true
-                    self.isBackgroundLoading = false
-                    self.loadingProgress = 1.0
                     self.dataValidationResult = validation
+                    self.loadingProgress = 0.0
                 }
 
+                // Animate progress to provide feedback even with instant cache loads
+                await self.animateCacheRestoreProgress()
+
                 if validation.isValid {
+                    await MainActor.run {
+                        self.loadingProgress = 1.0
+                        self.isBackgroundLoading = false
+                    }
                     print("✅ Cached Quran data validation passed")
                     print("🔧 DEBUG: Cache validation successful, allVerses.count = \(cachedData.count)")
                     return
                 } else {
+                    await MainActor.run {
+                        self.loadingProgress = 0.0
+                        self.isBackgroundLoading = true
+                    }
                     print("⚠️ Cached data validation failed, fetching fresh data...")
                     print("🔧 DEBUG: Cache validation failed - \(validation.summary)")
                 }
@@ -249,32 +752,44 @@ public class QuranSearchService: ObservableObject {
     /// Cache Quran data locally for offline use
     private func cacheQuranData(_ verses: [QuranVerse]) {
         do {
-            let data = try JSONEncoder().encode(verses)
-            userDefaults.set(data, forKey: CacheKeys.cachedQuranData)
-            userDefaults.set(Date(), forKey: CacheKeys.lastDataUpdate)
-            print("💾 Quran data cached successfully - \(data.count) bytes stored")
+            try cacheManager.saveVerses(verses)
+            print("💾 Quran data cached successfully")
         } catch {
-            let cachingError = QuranSearchError.cachingFailed("JSONEncoder failed: \(error.localizedDescription)")
+            let cachingError = QuranSearchError.cachingFailed(error.localizedDescription)
             print("❌ \(cachingError.localizedDescription)")
             self.error = cachingError
         }
     }
 
+    /// Returns the timestamp of the most recent successful dataset update
+    public func getLastUpdateTimestamp() -> Date? {
+        cacheManager.lastUpdateTimestamp
+    }
+
     /// Load cached Quran data
     private func loadCachedQuranData() -> [QuranVerse]? {
-        guard let data = userDefaults.data(forKey: CacheKeys.cachedQuranData) else {
-            return nil
-        }
-
         do {
-            let verses = try JSONDecoder().decode([QuranVerse].self, from: data)
-            print("✅ Successfully loaded \(verses.count) verses from cache (\(data.count) bytes)")
-            return verses
+            if let verses = try cacheManager.loadVerses() {
+                print("✅ Successfully loaded \(verses.count) verses from cache")
+                return verses
+            }
         } catch {
-            let decodingError = QuranSearchError.cachingFailed("JSONDecoder failed: \(error.localizedDescription)")
-            print("❌ \(decodingError.localizedDescription)")
-            self.error = decodingError
-            return nil
+            let cachingError = QuranSearchError.cachingFailed(error.localizedDescription)
+            print("❌ \(cachingError.localizedDescription)")
+            self.error = cachingError
+        }
+        return nil
+    }
+
+    /// Animate cache restore progress to give users visual feedback
+    private func animateCacheRestoreProgress() async {
+        let steps = 10
+        let delay: UInt64 = 50_000_000 // 0.05s
+        for step in 1...steps {
+            try? await Task.sleep(nanoseconds: delay)
+            await MainActor.run {
+                self.loadingProgress = Double(step) / Double(steps)
+            }
         }
     }
 
@@ -648,13 +1163,22 @@ public class QuranSearchService: ObservableObject {
         // Cancel any existing search task
         currentSearchTask?.cancel()
         
-        // Trigger data loading if not already loaded
-        ensureDataLoaded()
-        
         await MainActor.run {
             self.isLoading = true
             self.error = nil
             self.lastQuery = query
+        }
+
+        do {
+            try await ensureDataAvailability()
+        } catch {
+            await MainActor.run {
+                self.error = error
+                self.searchResults = []
+                self.enhancedSearchResults = []
+                self.isLoading = false
+            }
+            return
         }
         
         // Create new search task
@@ -939,13 +1463,22 @@ public class QuranSearchService: ObservableObject {
         // Cancel any existing search task
         currentSearchTask?.cancel()
         
-        // Trigger data loading if not already loaded
-        ensureDataLoaded()
-        
         await MainActor.run {
             self.isLoading = true
             self.error = nil
             self.lastQuery = reference
+        }
+
+        do {
+            try await ensureDataAvailability()
+        } catch {
+            await MainActor.run {
+                self.error = error
+                self.searchResults = []
+                self.enhancedSearchResults = []
+                self.isLoading = false
+            }
+            return
         }
         
         // Create new search task for reference search
@@ -1053,9 +1586,7 @@ public class QuranSearchService: ObservableObject {
     /// Refresh Quran data from API
     public func refreshQuranData() {
         print("🔄 Refreshing Quran data from API...")
-        // Clear cache and reload
-        userDefaults.removeObject(forKey: CacheKeys.cachedQuranData)
-        userDefaults.removeObject(forKey: CacheKeys.lastDataUpdate)
+        cacheManager.clearCache()
         
         // Reset state
         allVerses.removeAll()
@@ -1087,6 +1618,11 @@ public class QuranSearchService: ObservableObject {
         return allVerses.count
     }
 
+    /// Get number of currently loaded verses (alias for total for clarity)
+    public func getLoadedVersesCount() -> Int {
+        return allVerses.count
+    }
+
     /// Get total surahs count
     public func getTotalSurahsCount() -> Int {
         return allSurahs.count
@@ -1097,6 +1633,7 @@ public class QuranSearchService: ObservableObject {
         allVerses.removeAll()
         allSurahs.removeAll()
         isDataLoaded = false
+        cacheManager.clearCache()
         loadCompleteQuranData()
     }
 

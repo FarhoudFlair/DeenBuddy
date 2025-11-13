@@ -11,6 +11,7 @@ struct QuranSearchView: View {
 
     @State private var showingHistory = false
     @State private var showingQueryExpansion = false
+    @State private var isStatusExpanded = false
     
     // Search debouncing and cancellation
     @State private var searchTask: Task<Void, Never>?
@@ -24,6 +25,8 @@ struct QuranSearchView: View {
                 VStack(spacing: 0) {
                     // Search header with options
                     searchHeaderView
+
+                    dataStatusBanner
                     
                     // Main content - prioritize welcome view over background loading
                     if searchService.isLoading && !searchService.lastQuery.isEmpty {
@@ -84,6 +87,14 @@ struct QuranSearchView: View {
             .sheet(item: $selectedVerse) { verse in
                 VerseDetailView(verse: verse, searchService: searchService)
             }
+            .onAppear {
+                searchService.startBackgroundPrefetch()
+            }
+            .onChange(of: searchService.dataValidationResult?.hasErrors ?? false) { hasErrors in
+                if hasErrors {
+                    isStatusExpanded = true
+                }
+            }
         }
     }
     
@@ -131,19 +142,62 @@ struct QuranSearchView: View {
         }
         .padding(.vertical, 8)
     }
+
+    @ViewBuilder
+    private var dataStatusBanner: some View {
+        if shouldShowStatusCard {
+            if isStatusExpanded || (searchService.dataValidationResult?.hasErrors ?? false) {
+                QuranDataStatusView(searchService: searchService)
+                    .padding(.horizontal)
+                    .padding(.bottom, 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            } else {
+                QuranDownloadBannerView(
+                    searchService: searchService,
+                    isExpanded: $isStatusExpanded
+                )
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+            }
+        }
+    }
+
+    private var shouldShowStatusCard: Bool {
+        searchService.isBackgroundLoading ||
+        !searchService.isCompleteDataLoaded() ||
+        (searchService.dataValidationResult?.hasErrors ?? false)
+    }
     
     // MARK: - Content Views
     
     @ViewBuilder
     private var loadingView: some View {
         VStack(spacing: 16) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: ColorPalette.primary))
-                .scaleEffect(1.2)
-            
-            Text("Searching Quran...")
-                .font(.subheadline)
-                .foregroundColor(ColorPalette.textSecondary)
+            if searchService.isBackgroundLoading {
+                ProgressView(value: searchService.loadingProgress)
+                    .progressViewStyle(LinearProgressViewStyle(tint: ColorPalette.primary))
+                    .frame(maxWidth: 200)
+                
+                Text("Preparing Quran data...")
+                    .font(.headline)
+                    .foregroundColor(ColorPalette.textPrimary)
+                
+                Text("\(Int(searchService.loadingProgress * 100))% complete")
+                    .font(.subheadline)
+                    .foregroundColor(ColorPalette.textSecondary)
+                
+                Text("\(searchService.getLoadedVersesCount())/\(QuranDataValidator.EXPECTED_TOTAL_VERSES) verses loaded")
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.textSecondary)
+            } else {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: ColorPalette.primary))
+                    .scaleEffect(1.2)
+                
+                Text("Searching Quran...")
+                    .font(.subheadline)
+                    .foregroundColor(ColorPalette.textSecondary)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -274,22 +328,6 @@ struct QuranSearchView: View {
                     subtitle: "Find verses that speak to your heart and situation"
                 )
                 
-                // Subtle data loading indicator (only when background loading)
-                if searchService.isBackgroundLoading {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Loading Quran data...")
-                            .font(.caption)
-                            .foregroundColor(ColorPalette.textTertiary)
-                    }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 12)
-                    .background(ColorPalette.backgroundSecondary)
-                    .cornerRadius(8)
-                    .opacity(0.8)
-                }
-                
                 // Quick access buttons
                 quickAccessButtonsView
                 
@@ -318,6 +356,8 @@ struct QuranSearchView: View {
                 .font(.body)
                 .foregroundColor(ColorPalette.textSecondary)
                 .multilineTextAlignment(.center)
+                .lineLimit(nil) // Allow unlimited lines to prevent truncation
+                .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
         }
     }
     
@@ -425,6 +465,68 @@ struct QuranSearchView: View {
             } else {
                 await searchService.searchVerses(query: queryToSearch, searchOptions: searchOptions)
             }
+        }
+    }
+}
+
+// MARK: - Supporting Views
+
+private struct QuranDownloadBannerView: View {
+    @ObservedObject var searchService: QuranSearchService
+    @Binding var isExpanded: Bool
+
+    private var progressValue: Double {
+        max(0.0, min(searchService.loadingProgress, 1.0))
+    }
+
+    private var loadedVerseText: String {
+        let loaded = searchService.getLoadedVersesCount()
+        let total = QuranDataValidator.EXPECTED_TOTAL_VERSES
+        return "\(loaded)/\(total) verses"
+    }
+
+    var body: some View {
+        if searchService.isBackgroundLoading {
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    ProgressView(value: progressValue == 0 ? nil : progressValue)
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.9)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Downloading Quran • \(Int(progressValue * 100))%")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(ColorPalette.textPrimary)
+                            .lineLimit(1) // Prevent text truncation
+                            .minimumScaleFactor(0.8) // Shrink if needed on small devices
+
+                        Text(loadedVerseText)
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .lineLimit(1) // Prevent text truncation
+                    }
+                    .layoutPriority(1) // Give text priority over Spacer
+
+                    Spacer()
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                }
+                .padding()
+                .background(ColorPalette.backgroundSecondary)
+                .cornerRadius(12)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Quran download progress \(Int(progressValue * 100)) percent. \(loadedVerseText)")
+                .accessibilityHint("Double tap to see detailed loading information and validation status.")
+            }
+            .buttonStyle(.plain)
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 }

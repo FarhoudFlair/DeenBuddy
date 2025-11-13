@@ -1,10 +1,15 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+import CoreLocation
 
 /// Enhanced onboarding coordinator that manages the complete flow
 public struct EnhancedOnboardingFlow: View {
     private let settingsService: any SettingsServiceProtocol
     private let locationService: any LocationServiceProtocol
     private let notificationService: any NotificationServiceProtocol
+    private let userAccountService: any UserAccountServiceProtocol
     private let onShowPremiumTrial: () -> Void
     
     let onComplete: () -> Void
@@ -17,8 +22,16 @@ public struct EnhancedOnboardingFlow: View {
     @State private var notificationPermissionGranted = false
     @State private var isLoading = false
     @State private var savedUserName: String = ""
+    
+    // Account step state
+    @State private var accountEmail: String = ""
+    @State private var accountPassword: String = ""
+    @State private var usePassword: Bool = false
+    @State private var isSigningIn: Bool = false
+    @State private var signInError: String? = nil
+    @State private var emailLinkSent: Bool = false
 
-    private let totalSteps = 7
+    private let totalSteps = 6
     private let analyticsService = AnalyticsService.shared
     private let accessibilityService = AccessibilityService.shared
     private let localizationService = SharedInstances.localizationService
@@ -31,6 +44,7 @@ public struct EnhancedOnboardingFlow: View {
         settingsService: any SettingsServiceProtocol,
         locationService: any LocationServiceProtocol,
         notificationService: any NotificationServiceProtocol,
+        userAccountService: any UserAccountServiceProtocol,
         initialStep: Int? = nil,
         onShowPremiumTrial: @escaping () -> Void,
         onComplete: @escaping () -> Void
@@ -38,8 +52,21 @@ public struct EnhancedOnboardingFlow: View {
         self.settingsService = settingsService
         self.locationService = locationService
         self.notificationService = notificationService
+        self.userAccountService = userAccountService
         self.onShowPremiumTrial = onShowPremiumTrial
         self.onComplete = onComplete
+
+        let coordinate = locationService.currentLocation?.coordinate
+            ?? locationService.currentLocationInfo?.coordinate.clLocationCoordinate
+        let countryName = locationService.currentLocationInfo?.country
+        let defaultConfiguration = DefaultPrayerConfigurationProvider().configuration(
+            coordinate: coordinate,
+            countryName: countryName
+        )
+        self._selectedCalculationMethod = State(initialValue: defaultConfiguration.calculationMethod)
+        self._selectedMadhab = State(initialValue: defaultConfiguration.madhab)
+        print("🧭 Onboarding defaults -> Method: \(defaultConfiguration.calculationMethod.displayName), Madhab: \(defaultConfiguration.madhab.displayName)")
+
         if let initialStep = initialStep {
             self._currentStep = State(initialValue: min(max(0, initialStep), totalSteps - 1))
         }
@@ -59,30 +86,35 @@ public struct EnhancedOnboardingFlow: View {
                         isNameValid: !trimmedUserName.isEmpty,
                         onNameSaved: { Task { await saveUserNameImmediately() } }
                     ).tag(1)
-                    CalculationMethodStepView(
-                        selectedMethod: $selectedCalculationMethod,
-                        selectedMadhab: $selectedMadhab,
-                        userName: trimmedUserName
-                    ).tag(2)
-                    MadhabStepView(
-                        selectedMadhab: $selectedMadhab,
-                        selectedCalculationMethod: selectedCalculationMethod,
-                        userName: trimmedUserName
-                    ).tag(3)
                     LocationPermissionStepView(
                         permissionGranted: $locationPermissionGranted,
                         locationService: locationService,
                         userName: trimmedUserName
-                    ).tag(4)
+                    ).tag(2)
                     NotificationPermissionStepView(
                         permissionGranted: $notificationPermissionGranted,
                         notificationService: notificationService,
                         userName: trimmedUserName
-                    ).tag(5)
+                    ).tag(3)
                     PremiumTrialStepView(
                         userName: trimmedUserName,
                         onStartTrial: presentPremiumTrial
-                    ).tag(6)
+                    ).tag(4)
+                    AccountEmailStepView(
+                        email: $accountEmail,
+                        password: $accountPassword,
+                        usePassword: $usePassword,
+                        isSigningIn: $isSigningIn,
+                        signInError: $signInError,
+                        emailLinkSent: $emailLinkSent,
+                        userAccountService: userAccountService,
+                        onSignInSuccess: {
+                            Task { await completeOnboarding() }
+                        },
+                        onSkip: {
+                            Task { await completeOnboarding() }
+                        }
+                    ).tag(5)
                 }
                 .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
                 .animation(.easeInOut(duration: accessibilityService.getAnimationDuration(0.3)), value: currentStep)
@@ -110,11 +142,9 @@ public struct EnhancedOnboardingFlow: View {
         switch currentStep {
         case 0: return true // Welcome step - no validation needed
         case 1: return !trimmedUserName.isEmpty
-        case 2: return true // Calculation method has default value - always valid
-        case 3: return true // Madhab has default value - always valid
-        case 4: return locationPermissionGranted // Location permission required
-        case 5: return true // Notification permission is optional
-        case 6: return true // Premium trial step can always proceed
+        case 2: return locationPermissionGranted // Location permission required
+        case 3: return true // Notification permission is optional
+        case 4: return true // Premium trial step can always proceed
         default: return true
         }
     }
@@ -147,6 +177,8 @@ public struct EnhancedOnboardingFlow: View {
     private func nextStep() {
         guard currentStep < totalSteps - 1 else { return }
 
+        dismissKeyboardIfNeeded()
+
         Task {
             // Manually save user name immediately when advancing from name collection step
             // to avoid losing freshly-typed name if debounce save is cancelled by view disappearing
@@ -165,6 +197,14 @@ public struct EnhancedOnboardingFlow: View {
             }
         }
     }
+
+#if canImport(UIKit)
+    private func dismissKeyboardIfNeeded() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+#else
+    private func dismissKeyboardIfNeeded() {}
+#endif
     
     private func previousStep() {
         guard currentStep > 0 else { return }
@@ -227,13 +267,37 @@ public struct EnhancedOnboardingFlow: View {
                 }
             }
             
+            // Sync settings to cloud if user is signed in
+            if userAccountService.currentUser != nil {
+                do {
+                    let snapshot = SettingsSnapshot(
+                        calculationMethod: selectedCalculationMethod.rawValue,
+                        madhab: selectedMadhab.rawValue,
+                        timeFormat: settingsService.timeFormat,
+                        notificationsEnabled: settingsService.notificationsEnabled,
+                        notificationOffset: settingsService.notificationOffset,
+                        liveActivitiesEnabled: settingsService.liveActivitiesEnabled,
+                        showArabicSymbolInWidget: settingsService.showArabicSymbolInWidget,
+                        userName: trimmedUserName,
+                        hasCompletedOnboarding: true,
+                        settingsVersion: settingsService.settingsVersion,
+                        lastSyncDate: Date()
+                    )
+                    try await userAccountService.syncSettingsSnapshot(snapshot)
+                    print("☁️ Settings synced to cloud after onboarding")
+                } catch {
+                    print("⚠️ Failed to sync settings to cloud: \(error.localizedDescription)")
+                }
+            }
+            
             // Track completion
             analyticsService.trackUserAction("onboarding_completed", parameters: [
                 "calculation_method": selectedCalculationMethod.rawValue,
                 "madhab": selectedMadhab.rawValue,
                 "location_permission": locationPermissionGranted,
                 "notification_permission": notificationPermissionGranted,
-                "has_user_name": !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                "has_user_name": !userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                "has_account": userAccountService.currentUser != nil
             ])
             
             // Automatically fetch location if permission was granted
@@ -381,6 +445,13 @@ public struct EnhancedOnboardingFlow: View {
 //    }
 //}
 
+// MARK: - Unused Onboarding Steps (Commented Out for Future Reference)
+// These views are preserved for potential future use. Currently, the onboarding flow
+// auto-selects calculation method and madhab based on location (ISNA+Shafi for North America,
+// MWL+Shafi elsewhere). If needed in the future, these can be uncommented and added back
+// to the TabView in EnhancedOnboardingFlow.
+
+/*
 private struct CalculationMethodStepView: View {
     @Binding var selectedMethod: CalculationMethod
     @Binding var selectedMadhab: Madhab
@@ -756,6 +827,8 @@ private struct MadhabSelectionCard: View {
         .accessibilityValue(isCompatible ? "Compatible with \(calculationMethod.displayName)" : "Less compatible with \(calculationMethod.displayName)")
     }
 }
+*/
+// End of commented out onboarding steps
 
 private struct LocationPermissionStepView: View {
     @Binding var permissionGranted: Bool

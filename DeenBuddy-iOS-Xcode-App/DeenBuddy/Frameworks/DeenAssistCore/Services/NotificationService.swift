@@ -138,6 +138,32 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             return false
         }
     }
+
+    /// Request permission that includes the critical alert entitlement.
+    public func requestCriticalAlertPermission() async throws -> Bool {
+        #if DEBUG
+        if mockNotificationCenter != nil {
+            logger.debug("Skipping critical alert permission request in mock mode")
+            return true
+        }
+        #endif
+
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge, .criticalAlert]
+
+        do {
+            let granted = try await notificationCenter.requestAuthorization(options: options)
+            await updatePermissionStatus()
+            if granted {
+                logger.info("Critical alert permission granted")
+            } else {
+                logger.warning("Critical alert permission denied")
+            }
+            return granted
+        } catch {
+            logger.error("Failed to request critical alert permission: \(error.localizedDescription)")
+            throw error
+        }
+    }
     
     /// Schedules prayer notifications for the given prayer times with enhanced per-prayer configuration.
     /// - Parameters:
@@ -293,6 +319,12 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         at prayerTime: Date,
         reminderMinutes: Int = 0
     ) async throws {
+        // Gate by global notifications enabled setting
+        guard notificationSettings.isEnabled else {
+            logger.info("Tracking notifications disabled globally; skipping \(prayer.displayName)")
+            return
+        }
+        
         guard authorizationStatus == .authorized || authorizationStatus == .provisional else {
             throw NotificationError.permissionDenied
         }
@@ -484,14 +516,14 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         // Create notification categories
         let prayerReminderCategory = UNNotificationCategory(
             identifier: "PRAYER_REMINDER",
-            actions: [completedAction, willDoLaterAction, openQiblaAction],
+            actions: [completedAction, willDoLaterAction, snooze5Action, snooze10Action, openQiblaAction],
             intentIdentifiers: [],
             options: [.customDismissAction, .allowInCarPlay]
         )
 
         let prayerTimeCategory = UNNotificationCategory(
             identifier: "PRAYER_TIME",
-            actions: [completedAction, willDoLaterAction, skipAction, openQiblaAction],
+            actions: [completedAction, willDoLaterAction, snooze5Action, snooze10Action, skipAction, openQiblaAction],
             intentIdentifiers: [],
             options: [.customDismissAction, .allowInCarPlay]
         )
@@ -1010,15 +1042,36 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
     
     /// Update app badge count for prayer notifications
     public func updateAppBadge() async {
-        // Get count of active prayer notifications
+        // Badge strategy: count distinct enabled prayers scheduled for today that are not yet completed
+        // This requires PrayerTrackingService to check completion status
+        // For now, we'll count distinct enabled prayers from pending notifications for today
         let pendingNotifications = await getPendingNotifications()
-        let upcomingPrayerCount = pendingNotifications.filter { notification in
-            // Only count prayer notifications that are coming up soon (within 24 hours)
-            let hoursUntil = notification.scheduledTime.timeIntervalSince(Date()) / 3600
-            return hoursUntil >= 0 && hoursUntil <= 24
-        }.count
         
-        await setBadgeCount(upcomingPrayerCount)
+        // Get distinct prayers scheduled for today
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        
+        var distinctPrayers = Set<Prayer>()
+        for notification in pendingNotifications {
+            // Only count prayer notifications scheduled for today
+            guard notification.scheduledTime >= today && notification.scheduledTime < tomorrow else {
+                continue
+            }
+            
+            // Extract prayer from userInfo
+            if let prayerString = notification.userInfo["prayer"] as? String,
+               let prayer = Prayer(rawValue: prayerString) {
+                // Check if this prayer is enabled in settings
+                let config = notificationSettings.configForPrayer(prayer)
+                if config.isEnabled {
+                    distinctPrayers.insert(prayer)
+                }
+            }
+        }
+        
+        let badgeCount = distinctPrayers.count
+        await setBadgeCount(badgeCount)
     }
     
     /// Set app badge count
@@ -1044,14 +1097,8 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
     
     /// Update badge count when prayer is completed
     public func updateBadgeForCompletedPrayer() async {
-        // Decrease badge count by 1 when a prayer is marked as completed
-        await MainActor.run {
-            let currentBadge = UIApplication.shared.applicationIconBadgeNumber
-            if currentBadge > 0 {
-                UIApplication.shared.applicationIconBadgeNumber = currentBadge - 1
-                print("📱 Decreased app badge count to \(currentBadge - 1) for completed prayer")
-            }
-        }
+        // Recalculate badge count based on remaining uncompleted prayers
+        await updateAppBadge()
     }
 
     // MARK: - Helper Methods
