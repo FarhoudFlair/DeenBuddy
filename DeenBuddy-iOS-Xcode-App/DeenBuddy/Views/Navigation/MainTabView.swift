@@ -29,6 +29,7 @@ public struct MainTabView: View {
                 prayerTrackingService: coordinator.prayerTrackingService,
                 prayerTimeService: coordinator.prayerTimeService,
                 notificationService: coordinator.notificationService,
+                prayerAnalyticsService: coordinator.prayerAnalyticsService,
                 onDismiss: { } // No dismiss needed in tab mode
             )
             .tabItem {

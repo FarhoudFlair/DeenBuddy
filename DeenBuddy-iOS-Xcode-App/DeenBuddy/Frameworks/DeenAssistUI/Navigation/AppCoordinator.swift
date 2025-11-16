@@ -137,6 +137,8 @@ public class AppCoordinator: ObservableObject {
                     showingSuccess = true
                 }
                 
+                await applyCloudSettingsIfAvailable()
+                
                 print("✅ Successfully signed in via magic link")
                 
             } catch {
@@ -160,6 +162,24 @@ public class AppCoordinator: ObservableObject {
                 
                 print("❌ Failed to sign in with magic link: \(error.localizedDescription)")
             }
+        }
+    }
+    
+    private func applyCloudSettingsIfAvailable() async {
+        guard let settingsService = settingsService as? SettingsService else {
+            print("⚠️ SettingsService is not concrete; skipping cloud settings apply")
+            return
+        }
+        
+        do {
+            if let snapshot = try await userAccountService.fetchSettingsSnapshot() {
+                try await settingsService.applySnapshot(snapshot)
+                print("☁️ Applied cloud settings snapshot")
+            } else {
+                print("☁️ No cloud settings snapshot available to apply")
+            }
+        } catch {
+            print("⚠️ Failed to apply cloud settings snapshot: \(error)")
         }
     }
 
@@ -369,8 +389,13 @@ public class AppCoordinator: ObservableObject {
     }
 
     private func setupNotificationSettingsBridge() {
+        guard let observableSettings = settingsService as? SettingsService else {
+            print("⚠️ SettingsService does not support observation; skipping notification bridge")
+            return
+        }
+
         // Observe notificationsEnabled changes
-        settingsService.publisher(for: \.notificationsEnabled)
+        observableSettings.$notificationsEnabled
             .sink { [weak self] isEnabled in
                 guard let self = self else { return }
                 var settings = self.notificationService.getNotificationSettings()
@@ -385,7 +410,7 @@ public class AppCoordinator: ObservableObject {
             .store(in: &cancellables)
 
         // Observe notificationOffset changes
-        settingsService.publisher(for: \.notificationOffset)
+        observableSettings.$notificationOffset
             .sink { [weak self] offsetSeconds in
                 guard let self = self else { return }
                 let offsetMinutes = Int(offsetSeconds / 60)
@@ -781,6 +806,7 @@ private struct SimpleTabView: View {
                 prayerTrackingService: coordinator.prayerTrackingService,
                 prayerTimeService: coordinator.prayerTimeService,
                 notificationService: coordinator.notificationService,
+                prayerAnalyticsService: coordinator.prayerAnalyticsService,
                 onDismiss: { } // No dismiss needed in tab mode
             )
             .tabItem {

@@ -1,6 +1,5 @@
 import Foundation
-// NOTE: Firebase import will be added when SPM package is installed
-// import FirebaseCore
+import FirebaseCore
 
 /// Handles Firebase initialization with safety guards for testing
 public class FirebaseInitializer {
@@ -27,13 +26,9 @@ public class FirebaseInitializer {
         }
         #endif
         
-        // TODO: Uncomment when Firebase is added via SPM
-        // FirebaseApp.configure()
-        // isConfigured = true
-        // print("🔥 Firebase configured successfully")
-
-        print("🔥 Firebase configuration placeholder (waiting for SPM package)")
-        isConfigured = true // Prevent repeated configuration attempts during SPM placeholder phase
+        FirebaseApp.configure()
+        isConfigured = true
+        print("🔥 Firebase configured successfully")
     }
     
     /// Reset configuration state (for testing purposes only)

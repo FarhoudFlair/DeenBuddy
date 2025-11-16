@@ -12,6 +12,7 @@ public struct AccountSettingsScreen: View {
     @State private var showingDeleteConfirmation: Bool = false
     @State private var showingSignOutConfirmation: Bool = false
     @State private var errorMessage: String? = nil
+    @State private var infoMessage: String? = nil
     @State private var isProgrammaticMarketingRevert: Bool = false
     
     public init(userAccountService: any UserAccountServiceProtocol) {
@@ -97,6 +98,18 @@ public struct AccountSettingsScreen: View {
                 if userAccountService.currentUser != nil {
                     Section {
                         Button(action: {
+                            sendPasswordResetEmail()
+                        }) {
+                            HStack {
+                                Image(systemName: "envelope.badge")
+                                    .foregroundColor(ColorPalette.primary)
+                                Text("Send Password Reset Email")
+                                    .foregroundColor(ColorPalette.textPrimary)
+                            }
+                        }
+                        .disabled(isLoading)
+                        
+                        Button(action: {
                             showingSignOutConfirmation = true
                         }) {
                             HStack {
@@ -128,6 +141,14 @@ public struct AccountSettingsScreen: View {
                         Text(error)
                             .font(.caption)
                             .foregroundColor(.red)
+                    }
+                }
+                
+                if let info = infoMessage {
+                    Section {
+                        Text(info)
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.primary)
                     }
                 }
             }
@@ -181,6 +202,37 @@ public struct AccountSettingsScreen: View {
         let privacyManager = PrivacyManager.shared
         marketingOptIn = privacyManager.hasMarketingConsent() ?? false
         previousMarketingOptIn = marketingOptIn
+    }
+    
+    private func sendPasswordResetEmail() {
+        guard let email = userAccountService.currentUser?.email else {
+            errorMessage = "No email address is associated with this account."
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        infoMessage = nil
+        
+        Task {
+            do {
+                try await userAccountService.sendPasswordResetEmail(to: email)
+                await MainActor.run {
+                    isLoading = false
+                    infoMessage = "Password reset email sent to \(email)."
+                }
+            } catch let error as AccountServiceError {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.errorDescription
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 
     private func updateMarketingOptIn(_ enabled: Bool) {

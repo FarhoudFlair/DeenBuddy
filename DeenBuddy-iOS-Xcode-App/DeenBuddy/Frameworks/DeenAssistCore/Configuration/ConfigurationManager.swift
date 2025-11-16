@@ -14,11 +14,8 @@ public struct SupabaseConfiguration {
 }
 
 public struct FirebaseConfiguration {
-    public let dynamicLinksDomain: String?
-    
-    public init(dynamicLinksDomain: String? = nil) {
-        self.dynamicLinksDomain = dynamicLinksDomain
-    }
+    // Dynamic Links is deprecated - consider Firebase Hosting or Universal Links instead
+    public init() {}
 }
 
 /// Configuration manager for secure app configuration

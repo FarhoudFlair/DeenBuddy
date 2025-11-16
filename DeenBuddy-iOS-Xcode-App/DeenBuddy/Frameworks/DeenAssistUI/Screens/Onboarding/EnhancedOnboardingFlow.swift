@@ -270,17 +270,20 @@ public struct EnhancedOnboardingFlow: View {
             // Sync settings to cloud if user is signed in
             if userAccountService.currentUser != nil {
                 do {
+                    let settingsVersion = (settingsService as? SettingsService)?
+                        .exportSettings()["version"] as? Int ?? 1
+                    
                     let snapshot = SettingsSnapshot(
                         calculationMethod: selectedCalculationMethod.rawValue,
                         madhab: selectedMadhab.rawValue,
-                        timeFormat: settingsService.timeFormat,
+                        timeFormat: settingsService.timeFormat.rawValue,
                         notificationsEnabled: settingsService.notificationsEnabled,
                         notificationOffset: settingsService.notificationOffset,
                         liveActivitiesEnabled: settingsService.liveActivitiesEnabled,
                         showArabicSymbolInWidget: settingsService.showArabicSymbolInWidget,
                         userName: trimmedUserName,
                         hasCompletedOnboarding: true,
-                        settingsVersion: settingsService.settingsVersion,
+                        settingsVersion: settingsVersion,
                         lastSyncDate: Date()
                     )
                     try await userAccountService.syncSettingsSnapshot(snapshot)

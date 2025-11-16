@@ -768,6 +768,30 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         try await saveSettings()
     }
     
+    /// Apply a settings snapshot (e.g., from cloud sync) in a single, debounced update
+    public func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        await MainActor.run {
+            isRestoring = true
+            defer { isRestoring = false }
+            
+            calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? .muslimWorldLeague
+            madhab = Madhab(rawValue: snapshot.madhab) ?? .shafi
+            useAstronomicalMaghrib = false
+            notificationsEnabled = snapshot.notificationsEnabled
+            theme = theme // keep existing theme preference
+            timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? .twelveHour
+            notificationOffset = snapshot.notificationOffset
+            overrideBatteryOptimization = overrideBatteryOptimization
+            hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+            userName = snapshot.userName
+            showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+            liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        }
+        
+        try await saveSettings()
+        print("☁️ Applied cloud settings snapshot")
+    }
+    
     /// Get the last sync date
     public var lastSyncDate: Date? {
         return userDefaults.object(forKey: UnifiedSettingsKeys.lastSyncDate) as? Date

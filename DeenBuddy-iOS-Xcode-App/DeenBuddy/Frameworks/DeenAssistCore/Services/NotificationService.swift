@@ -1075,14 +1075,12 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
                 continue
             }
             
-            // Extract prayer from userInfo
-            if let prayerString = notification.userInfo["prayer"] as? String,
-               let prayer = Prayer(rawValue: prayerString) {
-                // Check if this prayer is enabled in settings
-                let config = notificationSettings.configForPrayer(prayer)
-                if config.isEnabled {
-                    distinctPrayers.insert(prayer)
-                }
+            let prayer = notification.prayer
+            
+            // Check if this prayer is enabled in settings
+            let config = notificationSettings.configForPrayer(prayer)
+            if config.isEnabled {
+                distinctPrayers.insert(prayer)
             }
         }
         

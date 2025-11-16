@@ -145,7 +145,7 @@ public struct PrayerAnalyticsView: View {
             }
             .sheet(isPresented: $showingExportSheet) {
                 ExportOptionsView(
-                    selectedPeriod: selectedPeriod,
+                    selectedPeriod: selectedPeriod.title,
                     onExport: { format in
                         exportData(format: format)
                     }
@@ -377,8 +377,9 @@ public struct PrayerAnalyticsView: View {
         case .streak: return "flame.fill"
         case .improvement: return "arrow.up.circle.fill"
         case .achievement: return "star.fill"
-        case .reminder: return "bell.fill"
-        case .consistency: return "chart.line.uptrend.xyaxis"
+        case .pattern: return "chart.line.uptrend.xyaxis"
+        case .concern: return "exclamationmark.triangle.fill"
+        case .recommendation: return "lightbulb.fill"
         }
     }
     
@@ -387,8 +388,9 @@ public struct PrayerAnalyticsView: View {
         case .streak: return .orange
         case .improvement: return .blue
         case .achievement: return .green
-        case .reminder: return .purple
-        case .consistency: return .cyan
+        case .pattern: return .cyan
+        case .concern: return .red
+        case .recommendation: return .purple
         }
     }
 
@@ -513,34 +515,30 @@ public struct PrayerAnalyticsView: View {
     // MARK: - Helper Methods
     
     /// Returns appropriate axis stride based on selected period
-    /// - Parameter period: The selected time period ("week", "month", "year")
+    /// - Parameter period: The selected time period (AnalyticsPeriod)
     /// - Returns: AxisMarkValues for appropriate stride
-    private func axisStride(for period: String) -> AxisMarkValues {
+    private func axisStride(for period: AnalyticsPeriod) -> AxisMarkValues {
         switch period {
-        case "week":
+        case .week:
             return .stride(by: .day)
-        case "month":
+        case .month:
             return .stride(by: .day, count: 5)
-        case "year":
+        case .year:
             return .stride(by: .month)
-        default:
-            return .stride(by: .day)
         }
     }
     
     /// Returns appropriate date format style based on selected period
-    /// - Parameter period: The selected time period ("week", "month", "year")
+    /// - Parameter period: The selected time period (AnalyticsPeriod)
     /// - Returns: Date.FormatStyle for axis labels
-    private func axisFormat(for period: String) -> Date.FormatStyle {
+    private func axisFormat(for period: AnalyticsPeriod) -> Date.FormatStyle {
         switch period {
-        case "week":
+        case .week:
             return .dateTime.weekday(.abbreviated)
-        case "month":
+        case .month:
             return .dateTime.day()
-        case "year":
+        case .year:
             return .dateTime.month(.abbreviated)
-        default:
-            return .dateTime.weekday(.abbreviated)
         }
     }
 
@@ -592,7 +590,7 @@ public struct PrayerAnalyticsView: View {
 
     private func generateExportData() -> ExportData {
         return ExportData(
-            period: selectedPeriod,
+            period: selectedPeriod.title,
             completionRate: "85%",
             currentStreak: "5 days",
             totalPrayers: "127",
@@ -635,7 +633,7 @@ public struct PrayerAnalyticsView: View {
             csvContent += "\(escapeCsvValue(insight))\n"
         }
 
-        shareContent(csvContent, fileName: "prayer_analytics_\(data.period).csv")
+        shareContent(csvContent, fileName: "prayer_analytics_\(selectedPeriod.rawValue).csv")
     }
 
     private func sharePDF(data: ExportData) {
@@ -648,7 +646,7 @@ public struct PrayerAnalyticsView: View {
             return
         }
 
-        shareContent(pdfContent, fileName: "prayer_analytics_\(data.period).txt")
+        shareContent(pdfContent, fileName: "prayer_analytics_\(selectedPeriod.rawValue).pdf")
     }
 
     private func shareText(data: ExportData) {
@@ -660,7 +658,7 @@ public struct PrayerAnalyticsView: View {
             return
         }
 
-        shareContent(textContent, fileName: "prayer_analytics_\(data.period).txt")
+        shareContent(textContent, fileName: "prayer_analytics_\(selectedPeriod.rawValue).txt")
     }
 
     private func formatDataForPDF(_ data: ExportData) -> String {

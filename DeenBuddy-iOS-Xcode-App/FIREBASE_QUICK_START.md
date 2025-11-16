@@ -9,7 +9,7 @@
 - [ ] Enable **Email/Password** authentication
 - [ ] Enable **Email link** authentication
 - [ ] Create Firestore database (test mode for dev)
-- [ ] (Optional) Set up Dynamic Links domain
+- [ ] (Optional) Configure Firebase Hosting or a custom domain for magic links
 
 ### 2. Xcode Setup
 - [ ] Add `GoogleService-Info.plist` to `DeenBuddy/App/` folder

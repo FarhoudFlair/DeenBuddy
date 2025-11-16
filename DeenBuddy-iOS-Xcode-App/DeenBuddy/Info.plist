@@ -10,6 +10,21 @@
 		<string>com.deenbuddy.app.refresh</string>
 		<string>com.deenbuddy.app.prayer-update</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLIconFile</key>
+			<string>mascot_still</string>
+			<key>CFBundleURLName</key>
+			<string>com.deenbuddy.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>deenbuddy</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>

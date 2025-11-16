@@ -99,11 +99,114 @@ This guide will walk you through setting up Firebase Authentication and Firestor
    }
    ```
 
-## Step 8: Configure Dynamic Links (Optional, for Magic Links)
+## Step 8: Configure Custom Domain for Magic Links (Optional)
 
-1. In Firebase Console, go to **"Dynamic Links"** → **"Get started"**
-2. Create a domain (e.g., `deenbuddy.page.link`)
-3. Note the domain name for later configuration
+**Note**: Firebase Dynamic Links is deprecated. For magic links, you can use:
+
+1. **Firebase Hosting** (recommended): Host a simple HTML page that redirects to your app
+2. **Custom domain**: Configure your own domain for email action links
+3. **Universal Links**: Use Apple's Universal Links for seamless deep linking
+
+For Firebase Hosting approach:
+1. In Firebase Console, go to **"Hosting"** → **"Get started"**
+2. Follow setup instructions to connect a custom domain
+3. Create the following files in your hosting directory:
+
+**`index.html`** (main page):
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DeenBuddy - Sign In</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { margin-bottom: 20px; }
+        p { margin-bottom: 30px; opacity: 0.9; }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🕌 DeenBuddy</h1>
+        <p>Welcome! Click below to open the app and complete your sign-in.</p>
+        <a href="#" onclick="openApp()" class="btn">Open DeenBuddy</a>
+    </div>
+
+    <script>
+        function openApp() {
+            // Try to open the app with the current URL
+            const currentUrl = window.location.href;
+            const appScheme = 'deenbuddy://';
+
+            // Try app scheme first
+            window.location.href = appScheme + currentUrl.split('://')[1];
+
+            // Fallback: redirect to app store or show message
+            setTimeout(() => {
+                document.querySelector('.container').innerHTML = `
+                    <h1>🕌 DeenBuddy</h1>
+                    <p>If the app didn't open automatically, please open DeenBuddy manually to complete your sign-in.</p>
+                    <p style="font-size: 14px; opacity: 0.8;">You can close this browser tab now.</p>
+                `;
+            }, 2000);
+        }
+
+        // Auto-attempt to open app when page loads
+        window.onload = openApp;
+    </script>
+</body>
+</html>
+```
+
+**`firebase.json`** (hosting configuration):
+```json
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
+```
+
+4. Deploy: `firebase deploy --only hosting`
 
 ## Step 9: Update Code to Use Firebase
 
@@ -154,6 +257,10 @@ public class FirebaseInitializer {
 ```
 
 ### 9.2: Update FirebaseUserAccountService.swift
+### 9.3: Wire Password Reset UI
+
+`AccountSettingsScreen` now exposes a **“Send Password Reset Email”** button that calls `userAccountService.sendPasswordResetEmail(to:)` for the currently signed-in user. Success and error states are shown inline via the screen’s existing messaging banner.
+
 
 Open `DeenBuddy/Frameworks/DeenAssistCore/Services/FirebaseUserAccountService.swift`:
 
@@ -371,6 +478,40 @@ private func mapFirebaseError(_ error: NSError) -> AccountServiceError {
 }
 ```
 
+#### Password reset helpers
+
+`FirebaseUserAccountService` now implements both password reset entry points:
+
+```swift
+try await auth.sendPasswordReset(withEmail: email)
+try await auth.confirmPasswordReset(withCode: trimmedCode, newPassword: newPassword)
+```
+
+Any `NSError` coming back from Firebase is mapped through `mapFirebaseError(_:)`, so UI layers can surface friendly `AccountServiceError` values (invalid email, weak password, etc.).
+
+#### Cloud settings sync
+
+- `syncSettingsSnapshot(_:)` writes to `users/{uid}/settings/current`.
+- `fetchSettingsSnapshot()` reads the same document and rebuilds a `SettingsSnapshot`.
+- `AppCoordinator` calls `applyCloudSettingsIfAvailable()` after each successful sign-in. If a snapshot exists, it is loaded and applied via the new `SettingsService.applySnapshot(_:)` helper (which temporarily toggles `isRestoring` so individual property observers don’t fire).
+- The Firestore document mirrors `SettingsSnapshot`:
+
+| Field                       | Type      |
+|-----------------------------|-----------|
+| `calculationMethod`         | String    |
+| `madhab`                    | String    |
+| `timeFormat`                | String    |
+| `notificationsEnabled`      | Bool      |
+| `notificationOffset`        | Double    |
+| `liveActivitiesEnabled`     | Bool      |
+| `showArabicSymbolInWidget`  | Bool      |
+| `userName`                  | String    |
+| `hasCompletedOnboarding`    | Bool      |
+| `settingsVersion`           | Int       |
+| `lastSyncDate`              | Timestamp |
+
+This keeps cloud and local settings in sync across devices.
+
 ## Step 10: Configure URL Scheme for Magic Links
 
 1. In Xcode, select **"DeenBuddy"** target
@@ -383,32 +524,13 @@ private func mapFirebaseError(_ error: NSError) -> AccountServiceError {
    - **Role**: `Editor`
 6. Save
 
-## Step 11: Update AppDelegate/SceneDelegate for URL Handling
+## Step 11: Firebase Initialization & URL Handling
 
-The app already handles magic links via `AppCoordinator.handleMagicLink()`. Ensure your app delegate handles URLs:
+**Firebase initialization is already configured** in the app via `AppCoordinator.start()`. The app calls `FirebaseInitializer.configureIfNeeded()` early in the startup process.
 
-In `DeenBuddyApp.swift`, add URL handling:
+**✅ URL handling for magic links is already configured** in `DeenBuddyApp.swift` with the `onOpenURL` modifier that calls `appCoordinator.handleMagicLink(url)`.
 
-```swift
-import SwiftUI
-
-@main
-struct DeenBuddyApp: App {
-    private let appCoordinator = AppCoordinator.production()
-    @StateObject private var userPreferencesService = UserPreferencesService()
-
-    var body: some Scene {
-        WindowGroup {
-            EnhancedDeenAssistApp(coordinator: appCoordinator)
-                .environmentObject(userPreferencesService)
-                .onOpenURL { url in
-                    // Handle magic link URLs
-                    appCoordinator.handleMagicLink(url)
-                }
-        }
-    }
-}
-```
+**Note**: Do NOT add `UIApplicationDelegateAdaptor` or Firebase initialization code to `DeenBuddyApp.swift` - it's already handled by `FirebaseInitializer` in the AppCoordinator.
 
 ## Step 12: Test Firebase Setup
 
@@ -422,19 +544,21 @@ struct DeenBuddyApp: App {
    - Try creating an account
    - Try signing in with email/password
    - Try magic link sign-in
+   - Trigger a password reset email from `AccountSettingsScreen`
 
 ## Step 13: Security Checklist
 
 - [ ] `GoogleService-Info.plist` is **NOT** committed to git (add to `.gitignore`)
 - [ ] Firestore security rules are configured for production
 - [ ] Authentication methods are properly enabled in Firebase Console
-- [ ] Dynamic Links domain is configured (if using magic links)
+- [ ] Magic links configured (Firebase Hosting or custom domain)
 - [ ] Test authentication flows work correctly
 
 ## Troubleshooting
 
 ### Error: "FirebaseApp.configure() can only be called once"
 - ✅ Already handled by `FirebaseInitializer` with `isConfigured` flag
+- If you see this error, check that you're not calling `FirebaseApp.configure()` manually anywhere else in your code
 
 ### Error: "GoogleService-Info.plist not found"
 - Check file is in `DeenBuddy/App/` folder
@@ -448,8 +572,9 @@ struct DeenBuddyApp: App {
 
 ### Magic Links Not Working
 - Verify URL scheme is configured in Info.plist
-- Check Dynamic Links domain is set in Firebase Console
+- Check that Firebase Hosting or custom domain is properly configured
 - Ensure `onOpenURL` handler is in app entry point
+- Verify the email action URL matches your configured domain
 
 ### Authentication Errors
 - Check Firebase Console → Authentication → Sign-in methods are enabled
@@ -458,18 +583,25 @@ struct DeenBuddyApp: App {
 
 ## Next Steps
 
-1. **Set up Firestore Security Rules** for production
+1. **Set up Firestore Security Rules** for production (include `users/{uid}/settings/current`)
 2. **Configure Firebase Analytics** (if desired)
 3. **Set up Firebase Crashlytics** for error reporting
-4. **Test all authentication flows** thoroughly
-5. **Update ConfigurationManager** with Dynamic Links domain (if using)
+4. **Test all authentication flows** thoroughly (email/password, magic link, password reset)
+5. **Configure Firebase Hosting** or custom domain for magic links (if using)
 
 ## Additional Resources
 
 - [Firebase iOS Documentation](https://firebase.google.com/docs/ios/setup)
 - [Firebase Auth Documentation](https://firebase.google.com/docs/auth/ios/start)
 - [Firestore Documentation](https://firebase.google.com/docs/firestore/ios/start)
-- [Firebase Dynamic Links](https://firebase.google.com/docs/dynamic-links/ios/receive)
+- [Firebase Hosting](https://firebase.google.com/docs/hosting) (for custom domains)
+- [Universal Links Setup](https://developer.apple.com/documentation/xcode/supporting-universal-links-in-your-app)
+
+## Important Notes
+
+- **Firebase Dynamic Links is deprecated** and will be shut down. Use Firebase Hosting or Universal Links instead.
+- **Magic links work without custom domains** but provide a better user experience with them.
+- **Test thoroughly** before deploying to production, especially authentication flows.
 
 ---
 

@@ -1,7 +1,8 @@
 import Foundation
-// NOTE: Firebase imports will be added when SPM packages are installed
-// import FirebaseAuth
-// import FirebaseFirestore
+import FirebaseAuth
+import FirebaseFirestore
+
+private typealias FirebaseAuthUser = FirebaseAuth.User
 
 /// Firebase-backed implementation of UserAccountServiceProtocol
 @MainActor
@@ -14,9 +15,9 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
     private let userDefaults = UserDefaults.standard
     private let configurationManager = ConfigurationManager.shared
     
-    // Firebase instances (will be initialized when Firebase is added)
-    // private let auth: Auth
-    // private let firestore: Firestore
+    // Firebase instances
+    private let auth: Auth
+    private let firestore: Firestore
     
     // MARK: - Cache Keys
     
@@ -28,10 +29,10 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
     // MARK: - Initialization
     
     public init() {
-        // Initialize Firebase instances when available
-        // self.auth = Auth.auth()
-        // self.firestore = Firestore.firestore()
-        
+        // Initialize Firebase instances
+        self.auth = Auth.auth()
+        self.firestore = Firestore.firestore()
+
         // Load current user if authenticated
         loadCurrentUser()
     }
@@ -46,25 +47,27 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         // Store email for later verification
         userDefaults.set(email, forKey: CacheKeys.pendingEmail)
         
-        // TODO: Implement when Firebase is added
-        // let actionCodeSettings = ActionCodeSettings()
-        // actionCodeSettings.url = URL(string: "https://deenbuddy.app/finishSignUp")
-        // actionCodeSettings.handleCodeInApp = true
-        // actionCodeSettings.setIOSBundleID(Bundle.main.bundleIdentifier ?? "")
-        //
-        // if let dynamicLinksDomain = configurationManager.getAppConfiguration()?.firebase?.dynamicLinksDomain {
-        //     actionCodeSettings.dynamicLinkDomain = dynamicLinksDomain
-        // }
-        //
-        // try await auth.sendSignInLink(toEmail: email, actionCodeSettings: actionCodeSettings)
+        let actionCodeSettings = ActionCodeSettings()
+        actionCodeSettings.url = URL(string: "https://deenbuddy.app/finishSignUp")
+        actionCodeSettings.handleCodeInApp = true
+        actionCodeSettings.setIOSBundleID(Bundle.main.bundleIdentifier ?? "")
+
+        // Note: Dynamic Links is deprecated. For production, consider:
+        // - Firebase Hosting with custom domain
+        // - Universal Links
+        // - Custom email action URL handling
+
+        try await auth.sendSignInLink(toEmail: email, actionCodeSettings: actionCodeSettings)
         
-        print("📧 Sign-in link would be sent to: \(email)")
+        #if DEBUG
+        print("📧 Sign-in link sent to: \(email)")
+        #else
+        print("📧 Sign-in link sent")
+        #endif
     }
     
     public func isSignInWithEmailLink(_ url: URL) -> Bool {
-        // TODO: Implement when Firebase is added
-        // return auth.isSignIn(withEmailLink: url.absoluteString)
-        return url.absoluteString.contains("finishSignUp")
+        return auth.isSignIn(withEmailLink: url.absoluteString)
     }
     
     public func signIn(withEmail email: String, linkURL: URL) async throws {
@@ -72,17 +75,17 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.invalidEmail
         }
         
-        // TODO: Implement when Firebase is added
-        // let result = try await auth.signIn(withEmail: email, link: linkURL.absoluteString)
-        // await handleSuccessfulSignIn(result.user)
-        
-        // Temporary stub user for testing
-        currentUser = AccountUser(uid: UUID().uuidString, email: email)
-        
+        let result = try await auth.signIn(withEmail: email, link: linkURL.absoluteString)
+        await handleSuccessfulSignIn(result.user)
+
         // Clear pending email
         userDefaults.removeObject(forKey: CacheKeys.pendingEmail)
-        
+
+        #if DEBUG
         print("✅ Signed in with email link: \(email)")
+        #else
+        print("✅ Signed in with email link")
+        #endif
     }
     
     public func createUser(email: String, password: String) async throws {
@@ -94,18 +97,18 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.weakPassword
         }
         
-        // TODO: Implement when Firebase is added
-        // do {
-        //     let result = try await auth.createUser(withEmail: email, password: password)
-        //     await handleSuccessfulSignIn(result.user)
-        // } catch let error as NSError {
-        //     throw mapFirebaseError(error)
-        // }
-        
-        // Temporary stub user for testing
-        currentUser = AccountUser(uid: UUID().uuidString, email: email)
-        
+        do {
+            let result = try await auth.createUser(withEmail: email, password: password)
+            await handleSuccessfulSignIn(result.user)
+        } catch let error as NSError {
+            throw mapFirebaseError(error)
+        }
+
+        #if DEBUG
         print("✅ Created user account: \(email)")
+        #else
+        print("✅ Created user account")
+        #endif
     }
     
     public func signIn(email: String, password: String) async throws {
@@ -113,18 +116,18 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.invalidEmail
         }
         
-        // TODO: Implement when Firebase is added
-        // do {
-        //     let result = try await auth.signIn(withEmail: email, password: password)
-        //     await handleSuccessfulSignIn(result.user)
-        // } catch let error as NSError {
-        //     throw mapFirebaseError(error)
-        // }
-        
-        // Temporary stub user for testing
-        currentUser = AccountUser(uid: UUID().uuidString, email: email)
-        
+        do {
+            let result = try await auth.signIn(withEmail: email, password: password)
+            await handleSuccessfulSignIn(result.user)
+        } catch let error as NSError {
+            throw mapFirebaseError(error)
+        }
+
+        #if DEBUG
         print("✅ Signed in with password: \(email)")
+        #else
+        print("✅ Signed in with password")
+        #endif
     }
 
     public func sendPasswordResetEmail(to email: String) async throws {
@@ -132,10 +135,16 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.invalidEmail
         }
 
-        // TODO: Implement when Firebase is added
-        // try await auth.sendPasswordReset(withEmail: email)
-
-        print("📧 Password reset email would be sent to: \(email)")
+        do {
+            try await auth.sendPasswordReset(withEmail: email)
+            #if DEBUG
+            print("📧 Password reset email sent to: \(email)")
+            #else
+            print("📧 Password reset email sent")
+            #endif
+        } catch let error as NSError {
+            throw mapFirebaseError(error)
+        }
     }
 
     public func confirmPasswordReset(code: String, newPassword: String) async throws {
@@ -154,17 +163,21 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.weakPassword
         }
 
-        // TODO: Implement when Firebase is added
-        // try await auth.confirmPasswordReset(withCode: trimmedCode, newPassword: newPassword)
-        // await handleSuccessfulSignIn(auth.currentUser)
-
-        print("🔐 Password reset confirmed for code: \(trimmedCode.prefix(4))***")
+        do {
+            try await auth.confirmPasswordReset(withCode: trimmedCode, newPassword: newPassword)
+            #if DEBUG
+            print("🔐 Password reset confirmed for code: \(trimmedCode.prefix(4))***")
+            #else
+            print("🔐 Password reset confirmed")
+            #endif
+        } catch let error as NSError {
+            throw mapFirebaseError(error)
+        }
     }
     
     public func signOut() async throws {
-        // TODO: Implement when Firebase is added
-        // try auth.signOut()
-        
+        try auth.signOut()
+
         currentUser = nil
         print("👋 Signed out")
     }
@@ -174,18 +187,17 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.notAuthenticated
         }
         
-        // TODO: Implement when Firebase is added
-        // guard let user = auth.currentUser else {
-        //     throw AccountServiceError.notAuthenticated
-        // }
-        //
-        // // Delete Firestore data
-        // let uid = user.uid
-        // try await firestore.collection("users").document(uid).delete()
-        //
-        // // Delete auth account
-        // try await user.delete()
-        
+                guard let user = auth.currentUser as FirebaseAuthUser? else {
+            throw AccountServiceError.notAuthenticated
+        }
+
+        // Delete Firestore data
+        let uid = user.uid
+        try await firestore.collection("users").document(uid).delete()
+
+        // Delete auth account
+        try await user.delete()
+
         currentUser = nil
         print("🗑️ Account deleted")
     }
@@ -216,24 +228,36 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.notAuthenticated
         }
         
-        // TODO: Implement when Firebase is added
-        // let data: [String: Any] = [
-        //     "calculationMethod": snapshot.calculationMethod,
-        //     "madhab": snapshot.madhab,
-        //     "timeFormat": snapshot.timeFormat,
-        //     "notificationsEnabled": snapshot.notificationsEnabled,
-        //     "notificationOffset": snapshot.notificationOffset,
-        //     "liveActivitiesEnabled": snapshot.liveActivitiesEnabled,
-        //     "showArabicSymbolInWidget": snapshot.showArabicSymbolInWidget,
-        //     "userName": snapshot.userName,
-        //     "hasCompletedOnboarding": snapshot.hasCompletedOnboarding,
-        //     "settingsVersion": snapshot.settingsVersion,
-        //     "lastSyncDate": Timestamp(date: snapshot.lastSyncDate)
-        // ]
-        //
-        // try await firestore.collection("users").document(user.uid).collection("settings").document("current").setData(data)
+        let data: [String: Any] = [
+            "calculationMethod": snapshot.calculationMethod,
+            "madhab": snapshot.madhab,
+            "timeFormat": snapshot.timeFormat,
+            "notificationsEnabled": snapshot.notificationsEnabled,
+            "notificationOffset": snapshot.notificationOffset,
+            "liveActivitiesEnabled": snapshot.liveActivitiesEnabled,
+            "showArabicSymbolInWidget": snapshot.showArabicSymbolInWidget,
+            "userName": snapshot.userName,
+            "hasCompletedOnboarding": snapshot.hasCompletedOnboarding,
+            "settingsVersion": snapshot.settingsVersion,
+            "lastSyncDate": Timestamp(date: snapshot.lastSyncDate)
+        ]
         
-        print("☁️ Settings synced to cloud for user: \(user.uid)")
+        do {
+            try await firestore
+                .collection("users")
+                .document(user.uid)
+                .collection("settings")
+                .document("current")
+                .setData(data, merge: true)
+            
+            #if DEBUG
+            print("☁️ Settings synced to cloud for user: \(user.uid)")
+            #else
+            print("☁️ Settings synced to cloud")
+            #endif
+        } catch {
+            throw AccountServiceError.unknown(error)
+        }
     }
     
     public func fetchSettingsSnapshot() async throws -> SettingsSnapshot? {
@@ -241,60 +265,81 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             throw AccountServiceError.notAuthenticated
         }
         
-        // TODO: Implement when Firebase is added
-        // let doc = try await firestore.collection("users").document(user.uid).collection("settings").document("current").getDocument()
-        //
-        // guard doc.exists, let data = doc.data() else {
-        //     return nil
-        // }
-        //
-        // return SettingsSnapshot(
-        //     calculationMethod: data["calculationMethod"] as? String ?? "muslimWorldLeague",
-        //     madhab: data["madhab"] as? String ?? "shafi",
-        //     timeFormat: data["timeFormat"] as? String ?? "12",
-        //     notificationsEnabled: data["notificationsEnabled"] as? Bool ?? true,
-        //     notificationOffset: data["notificationOffset"] as? Double ?? 300,
-        //     liveActivitiesEnabled: data["liveActivitiesEnabled"] as? Bool ?? true,
-        //     showArabicSymbolInWidget: data["showArabicSymbolInWidget"] as? Bool ?? true,
-        //     userName: data["userName"] as? String ?? "",
-        //     hasCompletedOnboarding: data["hasCompletedOnboarding"] as? Bool ?? false,
-        //     settingsVersion: data["settingsVersion"] as? Int ?? 1,
-        //     lastSyncDate: (data["lastSyncDate"] as? Timestamp)?.dateValue() ?? Date()
-        // )
-        
-        print("☁️ Settings fetched from cloud for user: \(user.uid)")
-        return nil
+        do {
+            let doc = try await firestore
+                .collection("users")
+                .document(user.uid)
+                .collection("settings")
+                .document("current")
+                .getDocument()
+            
+            guard doc.exists, let data = doc.data() else {
+                return nil
+            }
+            
+            let snapshot = SettingsSnapshot(
+                calculationMethod: data["calculationMethod"] as? String ?? "muslimWorldLeague",
+                madhab: data["madhab"] as? String ?? "shafi",
+                timeFormat: data["timeFormat"] as? String ?? "12",
+                notificationsEnabled: data["notificationsEnabled"] as? Bool ?? true,
+                notificationOffset: data["notificationOffset"] as? Double ?? 300,
+                liveActivitiesEnabled: data["liveActivitiesEnabled"] as? Bool ?? true,
+                showArabicSymbolInWidget: data["showArabicSymbolInWidget"] as? Bool ?? true,
+                userName: data["userName"] as? String ?? "",
+                hasCompletedOnboarding: data["hasCompletedOnboarding"] as? Bool ?? false,
+                settingsVersion: data["settingsVersion"] as? Int ?? 1,
+                lastSyncDate: (data["lastSyncDate"] as? Timestamp)?.dateValue() ?? Date()
+            )
+            
+            #if DEBUG
+            print("☁️ Settings fetched from cloud for user: \(user.uid)")
+            #else
+            print("☁️ Settings fetched from cloud")
+            #endif
+            return snapshot
+        } catch {
+            throw AccountServiceError.unknown(error)
+        }
     }
     
     // MARK: - Private Helpers
     
     private func loadCurrentUser() {
-        // TODO: Implement when Firebase is added
-        // if let firebaseUser = auth.currentUser {
-        //     currentUser = AccountUser(
-        //         uid: firebaseUser.uid,
-        //         email: firebaseUser.email
-        //     )
-        //     print("👤 Loaded current user: \(firebaseUser.email ?? "unknown")")
-        // }
+        if let firebaseUser = auth.currentUser as FirebaseAuthUser? {
+            currentUser = AccountUser(
+                uid: firebaseUser.uid,
+                email: firebaseUser.email
+            )
+            #if DEBUG
+            print("👤 Loaded current user: \(firebaseUser.email ?? "unknown")")
+            #else
+            print("👤 Loaded current user")
+            #endif
+        }
     }
     
-    private func handleSuccessfulSignIn(_ firebaseUser: Any) async {
-        // TODO: Implement when Firebase is added
-        // currentUser = AccountUser(
-        //     uid: firebaseUser.uid,
-        //     email: firebaseUser.email
-        // )
-        //
-        // // Create or update profile document
-        // let profileData: [String: Any] = [
-        //     "email": firebaseUser.email ?? "",
-        //     "createdAt": FieldValue.serverTimestamp(),
-        //     "lastLoginAt": FieldValue.serverTimestamp(),
-        //     "marketingOptIn": userDefaults.bool(forKey: CacheKeys.marketingOptIn)
-        // ]
-        //
-        // try? await firestore.collection("users").document(firebaseUser.uid).collection("profile").document("info").setData(profileData, merge: true)
+    private func handleSuccessfulSignIn(_ firebaseUser: FirebaseAuthUser) async {
+        currentUser = AccountUser(
+            uid: firebaseUser.uid,
+            email: firebaseUser.email
+        )
+
+        // Create or update profile document
+        let profileData: [String: Any] = [
+            "email": firebaseUser.email ?? "",
+            "createdAt": FieldValue.serverTimestamp(),
+            "lastLoginAt": FieldValue.serverTimestamp(),
+            "marketingOptIn": userDefaults.bool(forKey: CacheKeys.marketingOptIn)
+        ]
+
+        do {
+            try await firestore.collection("users").document(firebaseUser.uid).collection("profile").document("info").setData(profileData, merge: true)
+        } catch {
+            print("⚠️ Failed to create/update user profile: \(error)")
+            // Consider whether to throw here or handle gracefully
+            // Throwing would prevent sign-in if profile creation fails
+            // Not throwing leaves inconsistent state but allows user to proceed
+        }
     }
     
     private func isValidEmail(_ email: String) -> Bool {
@@ -304,19 +349,21 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
     }
     
     private func mapFirebaseError(_ error: NSError) -> AccountServiceError {
-        // TODO: Map Firebase error codes when available
-        // switch error.code {
-        // case AuthErrorCode.emailAlreadyInUse.rawValue:
-        //     return .emailAlreadyInUse
-        // case AuthErrorCode.userNotFound.rawValue:
-        //     return .userNotFound
-        // case AuthErrorCode.wrongPassword.rawValue:
-        //     return .wrongPassword
-        // case AuthErrorCode.networkError.rawValue:
-        //     return .networkError
-        // default:
-        //     return .unknown(error)
-        // }
-        return .unknown(error)
+        switch error.code {
+        case AuthErrorCode.emailAlreadyInUse.rawValue:
+            return .emailAlreadyInUse
+        case AuthErrorCode.userNotFound.rawValue:
+            return .userNotFound
+        case AuthErrorCode.wrongPassword.rawValue:
+            return .wrongPassword
+        case AuthErrorCode.networkError.rawValue:
+            return .networkError
+        case AuthErrorCode.invalidEmail.rawValue:
+            return .invalidEmail
+        case AuthErrorCode.weakPassword.rawValue:
+            return .weakPassword
+        default:
+            return .unknown(error)
+        }
     }
 }

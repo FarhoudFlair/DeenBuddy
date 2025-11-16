@@ -16,6 +16,10 @@ struct DeenBuddyApp: App {
         WindowGroup {
             EnhancedDeenAssistApp(coordinator: appCoordinator)
                 .environmentObject(userPreferencesService)
+                .onOpenURL { url in
+                    // Handle magic link URLs
+                    appCoordinator.handleMagicLink(url)
+                }
         }
     }
 }
