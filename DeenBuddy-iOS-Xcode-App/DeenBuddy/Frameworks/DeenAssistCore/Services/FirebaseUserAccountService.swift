@@ -76,7 +76,7 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         }
         
         let result = try await auth.signIn(withEmail: email, link: linkURL.absoluteString)
-        await handleSuccessfulSignIn(result.user)
+        try await handleSuccessfulSignIn(result.user)
 
         // Clear pending email
         userDefaults.removeObject(forKey: CacheKeys.pendingEmail)
@@ -99,7 +99,7 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         
         do {
             let result = try await auth.createUser(withEmail: email, password: password)
-            await handleSuccessfulSignIn(result.user)
+            try await handleSuccessfulSignIn(result.user)
         } catch let error as NSError {
             throw mapFirebaseError(error)
         }
@@ -118,7 +118,7 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         
         do {
             let result = try await auth.signIn(withEmail: email, password: password)
-            await handleSuccessfulSignIn(result.user)
+            try await handleSuccessfulSignIn(result.user)
         } catch let error as NSError {
             throw mapFirebaseError(error)
         }
@@ -318,7 +318,7 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         }
     }
     
-    private func handleSuccessfulSignIn(_ firebaseUser: FirebaseAuthUser) async {
+    private func handleSuccessfulSignIn(_ firebaseUser: FirebaseAuthUser) async throws {
         currentUser = AccountUser(
             uid: firebaseUser.uid,
             email: firebaseUser.email
@@ -333,12 +333,15 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         ]
 
         do {
-            try await firestore.collection("users").document(firebaseUser.uid).collection("profile").document("info").setData(profileData, merge: true)
+            try await firestore
+                .collection("users")
+                .document(firebaseUser.uid)
+                .collection("profile")
+                .document("info")
+                .setData(profileData, merge: true)
         } catch {
             print("⚠️ Failed to create/update user profile: \(error)")
-            // Consider whether to throw here or handle gracefully
-            // Throwing would prevent sign-in if profile creation fails
-            // Not throwing leaves inconsistent state but allows user to proceed
+            throw AccountServiceError.unknown(error)
         }
     }
     
