@@ -58,7 +58,7 @@ This guide will walk you through setting up Firebase Authentication and Firestor
    https://github.com/firebase/firebase-ios-sdk
    ```
 6. Click **"Add Package"**
-7. Select version: **"Up to Next Major Version"** with **10.0.0** or latest
+7. Select version: **"Up to Next Major Version"** (default, which automatically selects latest)
 8. Click **"Add Package"**
 9. Select these products (checkboxes):
    - ✅ **FirebaseAuth**

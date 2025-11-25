@@ -45,6 +45,14 @@ public enum GeographicRegion {
 public struct DefaultPrayerConfiguration {
     public let calculationMethod: CalculationMethod
     public let madhab: Madhab
+
+    public init(
+        calculationMethod: CalculationMethod,
+        madhab: Madhab
+    ) {
+        self.calculationMethod = calculationMethod
+        self.madhab = madhab
+    }
 }
 
 /// Provides sensible defaults for onboarding based on coarse geography
@@ -217,17 +225,18 @@ public struct DefaultPrayerConfigurationProvider {
         let lat = coordinate.latitude
         let lon = coordinate.longitude
 
-        // Middle East (most specific - Jordan, Palestine, Lebanon, Syria, Iraq)
+        // Middle East (most specific - Jordan, Palestine, Lebanon, Syria, Iraq, Sinai)
         // Checked first to avoid being shadowed by Gulf States
-        // Longitude limited to 44° to exclude Iran and create clear boundary with Gulf States
-        if lat >= 29 && lat <= 37 && lon >= 34 && lon <= 44 {
+        // Includes Sinai Peninsula (lon >= 33) and extends to include Baghdad (lon < 45)
+        // Upper longitude is exclusive (< 45) to avoid overlap with Central Asia
+        if lat >= 29 && lat <= 37 && lon >= 33 && lon < 45 {
             return .middleEast
         }
 
         // Gulf States (Saudi Arabia, UAE, Kuwait, Qatar, Bahrain, Oman, Yemen)
-        // Latitude starts at 29° to be mutually exclusive with Middle East
-        // Longitude starts at 44° to create clear boundary with Middle East
-        if lat >= 12 && lat < 29 && lon >= 44 && lon <= 60 {
+        // Latitude 15-29 to be mutually exclusive with Middle East (lat >= 29) and East Africa (lat < 15)
+        // Longitude starts at 35° to include Mecca, Jeddah, Medina (Arabian Peninsula)
+        if lat >= 15 && lat < 29 && lon >= 35 && lon <= 60 {
             return .gulfStates
         }
 
@@ -238,29 +247,32 @@ public struct DefaultPrayerConfigurationProvider {
         }
 
         // South Asia (Pakistan, India, Bangladesh, Afghanistan, Sri Lanka)
-        // Latitude limited to 35° to avoid overlap with Central Asia at northern Afghanistan/Pakistan
-        if lat >= 5 && lat < 35 && lon >= 60 && lon <= 95 {
+        // Latitude limited to < 35° to avoid overlap with Central Asia at northern Afghanistan/Pakistan
+        // Upper longitude is exclusive (< 95) to avoid overlap with Southeast Asia
+        if lat >= 5 && lat < 35 && lon >= 60 && lon < 95 {
             return .southAsia
         }
 
-        // Central Asia (Turkey, Kazakhstan, Uzbekistan, Turkmenistan)
-        // Latitude starts at 40° to be exclusive with South Asia and Europe's southern regions
-        // This properly captures Turkey, Caucasus, and Central Asian republics
-        if lat >= 40 && lat <= 55 && lon >= 26 && lon <= 87 {
+        // Central Asia (Turkey, Kazakhstan, Uzbekistan, Turkmenistan, Caucasus)
+        // Latitude starts at 35° to include southeastern Europe/Turkey border region
+        // Longitude starts at 26° to be exclusive with Europe
+        // Eastern boundary extended to < 95 to close the gap with South Asia (which ends at < 35 lat)
+        // This ensures coordinates at lat 35-55, lon 87-95 are covered (e.g., northern Afghanistan, Tajikistan)
+        if lat >= 35 && lat <= 55 && lon >= 26 && lon < 95 {
             return .centralAsia
         }
 
         // North Africa (Egypt, Libya, Tunisia, Algeria, Morocco, Sudan)
-        // Latitude limited to 35° to avoid Mediterranean overlap with Europe
-        // Longitude limited to 34° to avoid overlap with Middle East and Gulf States
-        if lat >= 15 && lat < 35 && lon >= -18 && lon <= 34 {
+        // Latitude limited to < 35° to avoid Mediterranean overlap with Europe
+        // Longitude limited to 33° to avoid overlap with Middle East (Sinai belongs to Middle East)
+        if lat >= 15 && lat < 35 && lon >= -18 && lon < 33 {
             return .northAfrica
         }
 
         // Europe (broad coverage for European Muslim communities)
-        // Longitude limited to 26° to avoid overlap with Central Asia
+        // Longitude limited to < 26° to avoid overlap with Central Asia
         // Starts at latitude 35° to include Mediterranean Europe
-        if lat >= 35 && lat <= 71 && lon >= -10 && lon <= 26 {
+        if lat >= 35 && lat <= 71 && lon >= -10 && lon < 26 {
             return .europe
         }
 

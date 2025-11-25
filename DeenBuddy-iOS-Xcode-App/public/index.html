@@ -29,19 +29,29 @@
             padding: 12px 24px;
             background: white;
             color: #667eea;
-            text-decoration: none;
+            border: none;
             border-radius: 25px;
             font-weight: 600;
-            transition: transform 0.2s;
+            font-size: inherit;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         .btn:hover { transform: translateY(-2px); }
+        .btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6), 0 0 0 5px rgba(102, 126, 234, 0.8);
+        }
+        .btn:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6), 0 0 0 5px rgba(102, 126, 234, 0.8);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🕌 DeenBuddy</h1>
         <p>Welcome! Click below to open the app and complete your sign-in.</p>
-        <a href="#" onclick="openApp()" class="btn">Open DeenBuddy</a>
+        <button type="button" class="btn" onclick="openApp()" aria-label="Open DeenBuddy app">Open DeenBuddy</button>
     </div>
 
     <script>

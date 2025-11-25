@@ -4,19 +4,18 @@ import CoreLocation
 
 /// Comprehensive tests for DefaultPrayerConfigurationProvider
 /// Tests region detection and default prayer configuration assignment based on geography
-@MainActor
 final class DefaultPrayerConfigurationProviderTests: XCTestCase {
 
     private var provider: DefaultPrayerConfigurationProvider!
 
-    override func setUp() async throws {
-        try await super.setUp()
+    override func setUp() {
+        super.setUp()
         provider = DefaultPrayerConfigurationProvider()
     }
 
-    override func tearDown() async throws {
+    override func tearDown() {
         provider = nil
-        try await super.tearDown()
+        super.tearDown()
     }
 
     // MARK: - Region Detection from Country Codes
@@ -617,18 +616,19 @@ final class DefaultPrayerConfigurationProviderTests: XCTestCase {
     }
 
     func testGulfStatesBoundaryWithMiddleEast() throws {
-        // Test boundary between Middle East and Gulf States at longitude 44°
+        // Test boundary between Middle East and Gulf States at latitude 29°
 
-        // Just west of boundary - should be Middle East (Iraq)
+        // Baghdad, Iraq - should be Middle East (lat > 29, lon <= 45)
         let baghdadConfig = provider.configuration(
-            coordinate: CLLocationCoordinate2D(latitude: 33.3152, longitude: 44.3661), // Baghdad is just past boundary
+            coordinate: CLLocationCoordinate2D(latitude: 33.3152, longitude: 44.3661),
             countryName: nil
         )
-        // Baghdad is at 44.36° which is in Gulf States box now (lon >= 44)
+        XCTAssertEqual(baghdadConfig.calculationMethod, .muslimWorldLeague,
+                      "Baghdad should use Muslim World League (Middle East)")
         XCTAssertEqual(baghdadConfig.madhab, .shafi,
                       "Baghdad region should use Shafi madhab")
 
-        // Well into Gulf States - should be Gulf States (Saudi Arabia)
+        // Riyadh - well into Gulf States (lat < 29)
         let riyadhConfig = provider.configuration(
             coordinate: CLLocationCoordinate2D(latitude: 24.7136, longitude: 46.6753),
             countryName: nil
@@ -637,7 +637,7 @@ final class DefaultPrayerConfigurationProviderTests: XCTestCase {
                       "Riyadh should use Umm al-Qura (Gulf States)")
         XCTAssertEqual(riyadhConfig.madhab, .shafi)
 
-        print("✅ Gulf States and Middle East boundary at longitude 44° working correctly")
+        print("✅ Gulf States and Middle East boundary at latitude 29° working correctly")
     }
 
     func testCentralAsiaNotOverlappingWithEurope() throws {
@@ -675,30 +675,30 @@ final class DefaultPrayerConfigurationProviderTests: XCTestCase {
         XCTAssertEqual(kandaharConfig.madhab, .hanafi,
                       "Kandahar should use Hanafi madhab (South Asia)")
 
-        // Northern Afghanistan (above latitude 35°) - should NOT match South Asia
-        // This coordinate should either match Central Asia or fall outside all boxes
+        // Northern Afghanistan (above latitude 35°) - should match Central Asia
         let northAfghanConfig = provider.configuration(
             coordinate: CLLocationCoordinate2D(latitude: 37.0, longitude: 69.0),
             countryName: nil
         )
-        // At lat 37, lon 69, this is below Central Asia's lat 40 threshold
-        // So it should fall into "other" category
+        // At lat 37, lon 69, this matches Central Asia (lat >= 35, lon 26-87)
         XCTAssertEqual(northAfghanConfig.calculationMethod, .muslimWorldLeague,
-                      "Northern Afghanistan should use Muslim World League (fallback)")
+                      "Northern Afghanistan should use Muslim World League (Central Asia)")
+        XCTAssertEqual(northAfghanConfig.madhab, .hanafi,
+                      "Northern Afghanistan should use Hanafi madhab (Central Asia)")
 
         print("✅ South Asia and Central Asia boundary at latitude 35° working correctly")
     }
 
     func testNorthAfricaBoundariesWithMultipleRegions() throws {
-        // Eastern Egypt (Sinai) - should be North Africa, not Middle East or Gulf States
+        // Eastern Egypt (Sinai) - now matches Middle East (lat >= 29, lon >= 33)
         let sinaiConfig = provider.configuration(
             coordinate: CLLocationCoordinate2D(latitude: 29.5, longitude: 33.8),
             countryName: nil
         )
-        XCTAssertEqual(sinaiConfig.calculationMethod, .egyptian,
-                      "Sinai should use Egyptian method (North Africa)")
+        XCTAssertEqual(sinaiConfig.calculationMethod, .muslimWorldLeague,
+                      "Sinai should use Muslim World League (Middle East)")
         XCTAssertEqual(sinaiConfig.madhab, .shafi,
-                      "Sinai should use Shafi madhab (North Africa)")
+                      "Sinai should use Shafi madhab (Middle East)")
 
         // Northern Morocco (Mediterranean) - should be North Africa, not Europe
         let tangerConfig = provider.configuration(
@@ -775,13 +775,13 @@ final class DefaultPrayerConfigurationProviderTests: XCTestCase {
         XCTAssertEqual(lat35NorthAfricaConfig.calculationMethod, .muslimWorldLeague,
                       "Latitude 35.0 with lon 0 should match Europe, not North Africa")
 
-        // Longitude 44.0 exactly - should match Gulf States (lon >= 44)
-        let lon44Config = provider.configuration(
-            coordinate: CLLocationCoordinate2D(latitude: 25.0, longitude: 44.0),
+        // Longitude 35.0 exactly at lat 25 - should match Gulf States (lon >= 35)
+        let lon35Config = provider.configuration(
+            coordinate: CLLocationCoordinate2D(latitude: 25.0, longitude: 35.0),
             countryName: nil
         )
-        XCTAssertEqual(lon44Config.calculationMethod, .ummAlQura,
-                      "Longitude 44.0 should match Gulf States")
+        XCTAssertEqual(lon35Config.calculationMethod, .ummAlQura,
+                      "Longitude 35.0 at lat 25 should match Gulf States")
 
         print("✅ Boundary edge cases at exact coordinates working correctly")
     }

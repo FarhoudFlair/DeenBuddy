@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import BackgroundTasks
 import ActivityKit
+import FirebaseAuth
 
 /// Main app coordinator that manages navigation and app state
 @MainActor
@@ -82,9 +83,6 @@ public class AppCoordinator: ObservableObject {
     
     public func start() {
         Task {
-            // Initialize Firebase early
-            FirebaseInitializer.configureIfNeeded()
-            
             // PERFORMANCE: Start performance monitoring early
             PerformanceMonitoringService.shared.startMonitoring()
 
@@ -108,20 +106,17 @@ public class AppCoordinator: ObservableObject {
     
     /// Handle magic link URLs for email sign-in
     public func handleMagicLink(_ url: URL) {
-        Task {
+        Task { @MainActor in
+            let isSignInLink = await userAccountService.isSignInWithEmailLink(url)
             // Validate that this is a sign-in link
-            guard userAccountService.isSignInWithEmailLink(url) else {
-                await MainActor.run {
-                    showError(.unknownError("This link is not a valid sign-in link. Please request a new link."))
-                }
+            guard isSignInLink else {
+                showError(.unknownError("This link is not a valid sign-in link. Please request a new link."))
                 return
             }
             
             // Get the email from UserDefaults (stored when link was sent)
             guard let email = UserDefaults.standard.string(forKey: "DeenBuddy.Account.PendingEmail") else {
-                await MainActor.run {
-                    showError(.unknownError("No pending sign-in found. Please start the sign-in process again."))
-                }
+                showError(.unknownError("No pending sign-in found. Please start the sign-in process again."))
                 return
             }
             
@@ -132,45 +127,57 @@ public class AppCoordinator: ObservableObject {
                 UserDefaults.standard.removeObject(forKey: "DeenBuddy.Account.PendingEmail")
                 
                 // Show success message to user
-                await MainActor.run {
-                    successMessage = "Successfully signed in! Welcome back."
-                    showingSuccess = true
-                }
+                successMessage = "Successfully signed in! Welcome back."
+                showingSuccess = true
                 
                 await applyCloudSettingsIfAvailable()
                 
                 print("✅ Successfully signed in via magic link")
                 
             } catch {
-                // Map specific errors to user-friendly messages
-                let errorMessage: String
-                let errorDescription = error.localizedDescription.lowercased()
-                
-                if errorDescription.contains("expired") || errorDescription.contains("invalid") {
-                    errorMessage = "This sign-in link has expired. Please request a new one."
-                } else if errorDescription.contains("network") || errorDescription.contains("connection") {
-                    errorMessage = "Unable to connect. Please check your internet connection and try again."
-                } else if errorDescription.contains("already") {
-                    errorMessage = "This link has already been used. Please request a new sign-in link."
+                var userMessage = "Unable to sign in right now. Please request a new link and try again."
+
+                if let accountError = error as? AccountServiceError {
+                    switch accountError {
+                    case .networkError:
+                        userMessage = "Unable to connect. Please check your internet connection and try again."
+                    case .invalidEmail, .userNotFound, .wrongPassword, .weakPassword, .emailAlreadyInUse:
+                        userMessage = "This sign-in link is invalid. Please request a new one."
+                    case .notAuthenticated:
+                        userMessage = "Please sign in again to continue."
+                    case .unknown:
+                        break
+                    }
                 } else {
-                    errorMessage = "Unable to sign in: \(error.localizedDescription)"
+                    let nsError = error as NSError
+
+                    if nsError.domain == AuthErrorDomain,
+                       let code = AuthErrorCode.Code(rawValue: nsError.code) {
+                        switch code {
+                        case .expiredActionCode:
+                            userMessage = "This sign-in link has expired. Please request a new one."
+                        case .invalidActionCode:
+                            userMessage = "This sign-in link is invalid or has already been used. Please request a new one."
+                        case .networkError:
+                            userMessage = "Unable to connect. Please check your internet connection and try again."
+                        case .credentialAlreadyInUse, .emailAlreadyInUse:
+                            userMessage = "This link has already been used. Please request a new sign-in link."
+                        default:
+                            break
+                        }
+                    } else if nsError.domain == NSURLErrorDomain {
+                        userMessage = "Unable to connect. Please check your internet connection and try again."
+                    }
                 }
-                
-                await MainActor.run {
-                    showError(.unknownError(errorMessage))
-                }
-                
+
+                showError(.unknownError(userMessage))
+
                 print("❌ Failed to sign in with magic link: \(error.localizedDescription)")
             }
         }
     }
     
-    private func applyCloudSettingsIfAvailable() async {
-        guard let settingsService = settingsService as? SettingsService else {
-            print("⚠️ SettingsService is not concrete; skipping cloud settings apply")
-            return
-        }
-        
+    private func applyCloudSettingsIfAvailable(retryAttempt: Int = 0) async {
         do {
             if let snapshot = try await userAccountService.fetchSettingsSnapshot() {
                 try await settingsService.applySnapshot(snapshot)
@@ -179,7 +186,26 @@ public class AppCoordinator: ObservableObject {
                 print("☁️ No cloud settings snapshot available to apply")
             }
         } catch {
-            print("⚠️ Failed to apply cloud settings snapshot: \(error)")
+            let maxRetries = 3
+            let delaySeconds = max(1, 1 << retryAttempt)
+            let shouldRetry = retryAttempt < maxRetries
+
+            let message: String
+            if shouldRetry {
+                message = "We couldn't apply your cloud settings. Retrying in \(delaySeconds)s."
+            } else {
+                message = "We couldn't apply your cloud settings. Please try again."
+            }
+
+            showError(.unknownError(message))
+            print("⚠️ Failed to apply cloud settings snapshot (attempt \(retryAttempt + 1)): \(error)")
+
+            if shouldRetry {
+                Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: UInt64(delaySeconds) * 1_000_000_000)
+                    await self?.applyCloudSettingsIfAvailable(retryAttempt: retryAttempt + 1)
+                }
+            }
         }
     }
 
@@ -389,13 +415,8 @@ public class AppCoordinator: ObservableObject {
     }
 
     private func setupNotificationSettingsBridge() {
-        guard let observableSettings = settingsService as? SettingsService else {
-            print("⚠️ SettingsService does not support observation; skipping notification bridge")
-            return
-        }
-
-        // Observe notificationsEnabled changes
-        observableSettings.$notificationsEnabled
+        // Observe notificationsEnabled changes via protocol publishers to avoid concrete casts
+        settingsService.notificationsEnabledPublisher
             .sink { [weak self] isEnabled in
                 guard let self = self else { return }
                 var settings = self.notificationService.getNotificationSettings()
@@ -410,7 +431,7 @@ public class AppCoordinator: ObservableObject {
             .store(in: &cancellables)
 
         // Observe notificationOffset changes
-        observableSettings.$notificationOffset
+        settingsService.notificationOffsetPublisher
             .sink { [weak self] offsetSeconds in
                 guard let self = self else { return }
                 let offsetMinutes = Int(offsetSeconds / 60)
@@ -423,7 +444,12 @@ public class AppCoordinator: ObservableObject {
                     // Always build a new config with the chosen offset at the front (removing any duplicates)
                     let newConfig = PrayerNotificationConfig(
                         isEnabled: config.isEnabled,
-                        reminderTimes: [offsetMinutes] + config.reminderTimes.filter { $0 != offsetMinutes }
+                        reminderTimes: [offsetMinutes] + config.reminderTimes.filter { $0 != offsetMinutes },
+                        customTitle: config.customTitle,
+                        customBody: config.customBody,
+                        soundName: config.soundName,
+                        soundEnabled: config.soundEnabled,
+                        badgeEnabled: config.badgeEnabled
                     )
                     updatedConfigs[prayer] = newConfig
                 }
@@ -822,13 +848,33 @@ private struct SimpleTabView: View {
                 }
             
             // 5. Settings Tab - Enhanced settings view with full functionality
-            EnhancedSettingsView(
-                settingsService: coordinator.settingsService as! SettingsService,
-                themeManager: coordinator.themeManager,
-                notificationService: coordinator.notificationService,
-                userAccountService: coordinator.userAccountService,
-                onDismiss: { } // No dismiss needed in tab mode
-            )
+            Group {
+                if let settingsService = coordinator.settingsService as? SettingsService {
+                    EnhancedSettingsView(
+                        settingsService: settingsService,
+                        themeManager: coordinator.themeManager,
+                        notificationService: coordinator.notificationService,
+                        userAccountService: coordinator.userAccountService,
+                        onDismiss: { } // No dismiss needed in tab mode
+                    )
+                } else {
+                    // Fallback view in case of cast failure
+                    VStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Text("Settings Unavailable")
+                            .font(.headline)
+                        Text("Unable to load settings service")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .onAppear {
+                        print("❌ SettingsService type mismatch: Expected SettingsService, got \(type(of: coordinator.settingsService))")
+                    }
+                }
+            }
             .tabItem {
                 Image(systemName: "gear")
                 Text("Settings")

@@ -14,6 +14,8 @@ public struct AccountSettingsScreen: View {
     @State private var errorMessage: String? = nil
     @State private var infoMessage: String? = nil
     @State private var isProgrammaticMarketingRevert: Bool = false
+    @State private var showingLinkEmailSheet: Bool = false
+    @State private var linkEmailAddress: String = ""
     
     public init(userAccountService: any UserAccountServiceProtocol) {
         self.userAccountService = userAccountService
@@ -29,15 +31,33 @@ public struct AccountSettingsScreen: View {
                             Image(systemName: "person.circle.fill")
                                 .font(.title2)
                                 .foregroundColor(ColorPalette.primary)
-                            
+
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Signed in as")
+                                Text(NSLocalizedString("AccountSettings.signedInAs", comment: "Label showing user is signed in"))
                                     .font(.caption)
                                     .foregroundColor(ColorPalette.textSecondary)
-                                
-                                Text(user.email ?? "No email")
-                                    .font(.body)
-                                    .foregroundColor(ColorPalette.textPrimary)
+
+                                if let email = user.email {
+                                    Text(email)
+                                        .font(.body)
+                                        .foregroundColor(ColorPalette.textPrimary)
+                                } else {
+                                    Text(NSLocalizedString("AccountSettings.noEmailAssociated", comment: "Message when no email is associated with account"))
+                                        .font(.body)
+                                        .foregroundColor(ColorPalette.textSecondary)
+
+                                    Button(action: {
+                                        showingLinkEmailSheet = true
+                                    }) {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "envelope.badge.fill")
+                                            Text(NSLocalizedString("AccountSettings.linkEmail", comment: "Button to link email to account"))
+                                        }
+                                        .font(.subheadline)
+                                        .foregroundColor(ColorPalette.primary)
+                                    }
+                                    .disabled(isLoading)
+                                }
                             }
                         }
                         .padding(.vertical, 4)
@@ -177,6 +197,19 @@ public struct AccountSettingsScreen: View {
             } message: {
                 Text("This will permanently delete your account and all associated data. This action cannot be undone.")
             }
+            .sheet(isPresented: $showingLinkEmailSheet) {
+                LinkEmailSheetView(
+                    email: $linkEmailAddress,
+                    isLoading: isLoading,
+                    onSendLink: { email in
+                        sendLinkEmail(to: email)
+                    },
+                    onCancel: {
+                        showingLinkEmailSheet = false
+                        linkEmailAddress = ""
+                    }
+                )
+            }
             .overlay {
                 if isLoading {
                     ZStack {
@@ -220,6 +253,37 @@ public struct AccountSettingsScreen: View {
                 await MainActor.run {
                     isLoading = false
                     infoMessage = "Password reset email sent to \(email)."
+                }
+            } catch let error as AccountServiceError {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.errorDescription
+                }
+            } catch {
+                await MainActor.run {
+                    isLoading = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func sendLinkEmail(to email: String) {
+        isLoading = true
+        errorMessage = nil
+        infoMessage = nil
+
+        Task {
+            do {
+                try await userAccountService.sendSignInLink(to: email)
+                await MainActor.run {
+                    isLoading = false
+                    showingLinkEmailSheet = false
+                    linkEmailAddress = ""
+                    infoMessage = String(
+                        format: NSLocalizedString("AccountSettings.linkEmailSent", comment: "Confirmation message after sign-in link sent"),
+                        email
+                    )
                 }
             } catch let error as AccountServiceError {
                 await MainActor.run {
@@ -320,6 +384,97 @@ public struct AccountSettingsScreen: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Link Email Sheet View
+
+private struct LinkEmailSheetView: View {
+    @Binding var email: String
+    let isLoading: Bool
+    let onSendLink: (String) -> Void
+    let onCancel: () -> Void
+
+    @State private var validationError: String? = nil
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(NSLocalizedString("AccountSettings.linkEmailDescription", comment: "Description for link email sheet"))
+                        .font(.body)
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 16)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField(
+                        NSLocalizedString("AccountSettings.emailPlaceholder", comment: "Email input placeholder"),
+                        text: $email
+                    )
+                    .keyboardType(.emailAddress)
+                    .textContentType(.emailAddress)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .padding()
+                    .background(ColorPalette.secondaryBackground)
+                    .cornerRadius(10)
+                    .onChange(of: email) { _ in
+                        validationError = nil
+                    }
+
+                    if let error = validationError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                }
+
+                Button(action: {
+                    if validateEmail() {
+                        onSendLink(email)
+                    }
+                }) {
+                    HStack {
+                        if isLoading {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        }
+                        Text(NSLocalizedString("AccountSettings.sendLinkButton", comment: "Button to send sign-in link"))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(email.isEmpty ? ColorPalette.textSecondary : ColorPalette.primary)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+                .disabled(email.isEmpty || isLoading)
+
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .navigationTitle(NSLocalizedString("AccountSettings.linkEmail", comment: "Link Email sheet title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(NSLocalizedString("AccountSettings.cancel", comment: "Cancel button")) {
+                        onCancel()
+                    }
+                    .disabled(isLoading)
+                }
+            }
+        }
+    }
+
+    private func validateEmail() -> Bool {
+        let emailPredicate = NSPredicate(format: "SELF MATCHES %@", "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,64}")
+        if !emailPredicate.evaluate(with: email) {
+            validationError = NSLocalizedString("AccountSettings.invalidEmailError", comment: "Error shown for invalid email format")
+            return false
+        }
+        return true
     }
 }
 

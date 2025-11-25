@@ -22,6 +22,7 @@ public class FirebaseInitializer {
         #if DEBUG
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
             print("🧪 Test environment detected, skipping Firebase configuration")
+            isConfigured = true
             return
         }
         #endif

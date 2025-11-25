@@ -29,17 +29,21 @@ private actor InitializationActor {
 final class QuranDataCacheManager {
     static let shared = QuranDataCacheManager()
 
-    /// Flag indicating legacy cache migration is in progress
-    /// Reserved exclusively for migrateLegacyCacheIfNeeded() operations
+    /// UserDefaults key for cross-process migration signaling (App Group shared with Widget Extension)
+    /// Note: UserDefaults flags provide inter-process coordination; NSLock provides intra-process thread safety
     static let migrationFlagKey = "com.deenbuddy.quran.migrating"
 
-    /// Flag indicating regular cache write operation is in progress
-    /// Used during normal saveVerses() operations to prevent concurrent writes
+    /// UserDefaults key for cross-process cache write signaling
     static let cacheWriteInProgressKey = "com.deenbuddy.quran.cache.writing"
 
     private let appGroupIdentifier = "group.com.deenbuddy.app"
     private let userDefaults: UserDefaults
     private let fileQueue = DispatchQueue(label: "com.deenbuddy.quran.fileIO", qos: .utility, attributes: .concurrent)
+    
+    /// Intra-process synchronization for migration operations
+    private let migrationLock = NSLock()
+    /// Intra-process synchronization for cache write operations
+    private let cacheWriteLock = NSLock()
 
     private enum MetadataKeys {
         static let quranCacheMetadata = "QuranCacheMetadata"
@@ -96,6 +100,10 @@ final class QuranDataCacheManager {
     }
 
     func migrateLegacyCacheIfNeeded() {
+        // Acquire lock to prevent concurrent migration attempts within the same process
+        migrationLock.lock()
+        defer { migrationLock.unlock() }
+        
         var metadata = loadMigrationMetadata()
 
         switch metadata.state {
@@ -132,6 +140,7 @@ final class QuranDataCacheManager {
             attemptCount: metadata.attemptCount + 1
         )
         saveMigrationMetadata(metadata)
+        // Set UserDefaults flag for cross-process visibility (Widget Extension, BackgroundTaskManager)
         userDefaults.set(true, forKey: Self.migrationFlagKey)
 
         defer {
@@ -160,6 +169,11 @@ final class QuranDataCacheManager {
     }
 
     func saveVerses(_ verses: [QuranVerse]) throws {
+        // Acquire lock to prevent concurrent cache writes within the same process
+        cacheWriteLock.lock()
+        defer { cacheWriteLock.unlock() }
+        
+        // Set UserDefaults flag for cross-process visibility (Widget Extension, BackgroundTaskManager)
         userDefaults.set(true, forKey: Self.cacheWriteInProgressKey)
         defer { userDefaults.set(false, forKey: Self.cacheWriteInProgressKey) }
 
@@ -655,7 +669,6 @@ public class QuranSearchService: ObservableObject {
                     return
                 } else {
                     await MainActor.run {
-                        self.loadingProgress = 0.0
                         self.isBackgroundLoading = true
                     }
                     print("⚠️ Cached data validation failed, fetching fresh data...")

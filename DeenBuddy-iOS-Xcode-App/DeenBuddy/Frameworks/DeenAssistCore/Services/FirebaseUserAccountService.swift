@@ -20,10 +20,14 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
     private let firestore: Firestore
     
     // MARK: - Cache Keys
-    
+
     private enum CacheKeys {
         static let pendingEmail = "DeenBuddy.Account.PendingEmail"
         static let marketingOptIn = "DeenBuddy.Account.MarketingOptIn"
+    }
+
+    private enum AuthConfiguration {
+        static let iosBundleIdentifier = "com.deenbuddy.app"
     }
     
     // MARK: - Initialization
@@ -50,7 +54,8 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         let actionCodeSettings = ActionCodeSettings()
         actionCodeSettings.url = URL(string: "https://deenbuddy.app/finishSignUp")
         actionCodeSettings.handleCodeInApp = true
-        actionCodeSettings.setIOSBundleID(Bundle.main.bundleIdentifier ?? "")
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? AuthConfiguration.iosBundleIdentifier
+        actionCodeSettings.setIOSBundleID(bundleIdentifier)
 
         // Note: Dynamic Links is deprecated. For production, consider:
         // - Firebase Hosting with custom domain
@@ -186,17 +191,21 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         guard currentUser != nil else {
             throw AccountServiceError.notAuthenticated
         }
-        
-                guard let user = auth.currentUser as FirebaseAuthUser? else {
+
+        guard let user = auth.currentUser else {
             throw AccountServiceError.notAuthenticated
         }
 
-        // Delete Firestore data
         let uid = user.uid
+
+        try await user.delete()
+
+        // Delete Firestore data after auth account removal succeeds
         try await firestore.collection("users").document(uid).delete()
 
-        // Delete auth account
-        try await user.delete()
+        // Clear cached account data
+        userDefaults.removeObject(forKey: CacheKeys.pendingEmail)
+        userDefaults.removeObject(forKey: CacheKeys.marketingOptIn)
 
         currentUser = nil
         print("🗑️ Account deleted")
@@ -212,11 +221,15 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
         // Cache locally
         userDefaults.set(enabled, forKey: CacheKeys.marketingOptIn)
         
-        // TODO: Implement when Firebase is added
-        // try await firestore.collection("users").document(user.uid).collection("profile").document("info").setData([
-        //     "marketingOptIn": enabled,
-        //     "updatedAt": FieldValue.serverTimestamp()
-        // ], merge: true)
+        do {
+            try await firestore.collection("users").document(user.uid).collection("profile").document("info").setData([
+                "marketingOptIn": enabled,
+                "updatedAt": FieldValue.serverTimestamp()
+            ], merge: true)
+        } catch {
+            print("⚠️ Failed to update marketing opt-in: \(error)")
+            throw AccountServiceError.unknown(error)
+        }
         
         print("📧 Marketing opt-in updated: \(enabled)")
     }
@@ -303,9 +316,9 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
     }
     
     // MARK: - Private Helpers
-    
+
     private func loadCurrentUser() {
-        if let firebaseUser = auth.currentUser as FirebaseAuthUser? {
+        if let firebaseUser = auth.currentUser {
             currentUser = AccountUser(
                 uid: firebaseUser.uid,
                 email: firebaseUser.email

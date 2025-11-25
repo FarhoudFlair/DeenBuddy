@@ -506,6 +506,14 @@ public struct PrivacyPreferences: Codable {
     public let hasAcceptedAnalyticsConsent: Bool
     public let consentDate: Date
     
+    private enum CodingKeys: String, CodingKey {
+        case hasAcceptedPrivacyPolicy
+        case hasAcceptedLocationConsent
+        case hasAcceptedNotificationConsent
+        case hasAcceptedAnalyticsConsent
+        case consentDate
+    }
+    
     public init(
         hasAcceptedPrivacyPolicy: Bool,
         hasAcceptedLocationConsent: Bool,
@@ -518,6 +526,16 @@ public struct PrivacyPreferences: Codable {
         self.hasAcceptedNotificationConsent = hasAcceptedNotificationConsent
         self.hasAcceptedAnalyticsConsent = hasAcceptedAnalyticsConsent
         self.consentDate = consentDate
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hasAcceptedPrivacyPolicy = try container.decode(Bool.self, forKey: .hasAcceptedPrivacyPolicy)
+        hasAcceptedLocationConsent = try container.decode(Bool.self, forKey: .hasAcceptedLocationConsent)
+        hasAcceptedNotificationConsent = try container.decode(Bool.self, forKey: .hasAcceptedNotificationConsent)
+        // Fallback for older saved preferences without analytics consent
+        hasAcceptedAnalyticsConsent = try container.decodeIfPresent(Bool.self, forKey: .hasAcceptedAnalyticsConsent) ?? false
+        consentDate = try container.decode(Date.self, forKey: .consentDate)
     }
 }
 

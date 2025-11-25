@@ -146,7 +146,9 @@ struct QuranSearchView: View {
     @ViewBuilder
     private var dataStatusBanner: some View {
         if shouldShowStatusCard {
-            if isStatusExpanded || (searchService.dataValidationResult?.hasErrors ?? false) {
+            if isStatusExpanded ||
+                (searchService.dataValidationResult?.hasErrors ?? false) ||
+                !searchService.isCompleteDataLoaded() {
                 QuranDataStatusView(searchService: searchService)
                     .padding(.horizontal)
                     .padding(.bottom, 12)
@@ -527,11 +529,49 @@ private struct QuranDownloadBannerView: View {
             }
             .buttonStyle(.plain)
             .transition(.move(edge: .top).combined(with: .opacity))
+        } else if !searchService.isCompleteDataLoaded() {
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    isExpanded = true
+                }
+                searchService.refreshQuranData()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.headline)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Quran data incomplete")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(ColorPalette.textPrimary)
+                            .lineLimit(1)
+
+                        Text("Tap to retry download and view details.")
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .lineLimit(1)
+                    }
+                    .layoutPriority(1)
+
+                    Spacer()
+
+                    Image(systemName: "arrow.clockwise")
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(.subheadline)
+                }
+                .padding()
+                .background(ColorPalette.backgroundSecondary)
+                .cornerRadius(12)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Quran data incomplete. Double tap to retry download and view details.")
+            }
+            .buttonStyle(.plain)
+            .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
 }
-
-// MARK: - Supporting Views
 
 struct QuickSearchButton: View {
     let title: String

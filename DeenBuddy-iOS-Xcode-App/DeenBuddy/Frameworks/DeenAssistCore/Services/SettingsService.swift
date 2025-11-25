@@ -252,6 +252,14 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
     }
+
+    public var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    public var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
+    }
     
     // MARK: - Private Properties
 
@@ -776,7 +784,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? .muslimWorldLeague
             madhab = Madhab(rawValue: snapshot.madhab) ?? .shafi
-            useAstronomicalMaghrib = false
+            // useAstronomicalMaghrib is not included in SettingsSnapshot; keep existing local value
             notificationsEnabled = snapshot.notificationsEnabled
             theme = theme // keep existing theme preference
             timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? .twelveHour

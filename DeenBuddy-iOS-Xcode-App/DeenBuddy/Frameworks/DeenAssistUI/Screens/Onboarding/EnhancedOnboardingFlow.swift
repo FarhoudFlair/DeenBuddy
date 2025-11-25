@@ -270,8 +270,7 @@ public struct EnhancedOnboardingFlow: View {
             // Sync settings to cloud if user is signed in
             if userAccountService.currentUser != nil {
                 do {
-                    let settingsVersion = (settingsService as? SettingsService)?
-                        .exportSettings()["version"] as? Int ?? 1
+                    let settingsVersion = 1  // or inject as init parameter
                     
                     let snapshot = SettingsSnapshot(
                         calculationMethod: selectedCalculationMethod.rawValue,

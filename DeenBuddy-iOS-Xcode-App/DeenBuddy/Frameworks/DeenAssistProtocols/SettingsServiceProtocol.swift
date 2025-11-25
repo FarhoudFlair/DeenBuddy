@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// Protocol for user settings management
 @MainActor
@@ -42,6 +43,12 @@ public protocol SettingsServiceProtocol: ObservableObject {
     /// Whether Live Activities are enabled for prayer countdowns
     var liveActivitiesEnabled: Bool { get set }
 
+    /// Publisher for notifications enabled changes
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> { get }
+
+    /// Publisher for notification offset changes (seconds)
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> { get }
+
     /// Save current settings
     func saveSettings() async throws
     
@@ -50,10 +57,14 @@ public protocol SettingsServiceProtocol: ObservableObject {
     
     /// Reset all settings to defaults
     func resetToDefaults() async throws
-    
+
     /// Force immediate save without debouncing - critical for onboarding
     func saveImmediately() async throws
-    
+
     /// Save critical onboarding settings with enhanced error handling
     func saveOnboardingSettings() async throws
+
+    /// Apply a cloud-provided snapshot to local settings
+    /// - Parameter snapshot: Snapshot pulled from the user's cloud data
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws
 }
