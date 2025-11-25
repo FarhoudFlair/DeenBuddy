@@ -419,7 +419,7 @@ private struct LinkEmailSheetView: View {
                     .autocapitalization(.none)
                     .autocorrectionDisabled()
                     .padding()
-                    .background(ColorPalette.secondaryBackground)
+                    .background(ColorPalette.backgroundSecondary)
                     .cornerRadius(10)
                     .onChange(of: email) { _ in
                         validationError = nil

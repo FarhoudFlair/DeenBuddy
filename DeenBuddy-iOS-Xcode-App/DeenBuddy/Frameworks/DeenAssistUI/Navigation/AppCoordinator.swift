@@ -151,8 +151,8 @@ public class AppCoordinator: ObservableObject {
                 } else {
                     let nsError = error as NSError
 
-                    if nsError.domain == AuthErrorDomain,
-                       let code = AuthErrorCode.Code(rawValue: nsError.code) {
+                    if nsError.domain == AuthErrorDomain {
+                        let code = AuthErrorCode(_bridgedNSError: nsError)
                         switch code {
                         case .expiredActionCode:
                             userMessage = "This sign-in link has expired. Please request a new one."
