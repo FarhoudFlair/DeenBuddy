@@ -94,7 +94,7 @@ struct CircularNextPrayerView: View {
                 }
             }
         }
-        .widgetBackground(AccessoryWidgetBackground())
+        .accessoryWidgetBackground()
         .accessibilityLabel(accessibilityLabel)
     }
     
@@ -161,7 +161,7 @@ struct CircularCountdownView: View {
                 }
             }
         }
-        .widgetBackground(AccessoryWidgetBackground())
+        .accessoryWidgetBackground()
         .accessibilityLabel(countdownAccessibilityLabel)
     }
     
@@ -229,7 +229,7 @@ struct RectangularNextPrayerView: View {
             }
         }
         .padding(.horizontal, 4)
-        .widgetBackground(AccessoryWidgetBackground())
+        .accessoryWidgetBackground()
         .accessibilityLabel(rectangularAccessibilityLabel)
     }
     
@@ -284,7 +284,7 @@ struct RectangularCountdownView: View {
             }
         }
         .padding(.horizontal, 4)
-        .widgetBackground(AccessoryWidgetBackground())
+        .accessoryWidgetBackground()
         .accessibilityLabel(rectangularCountdownAccessibilityLabel)
     }
     
@@ -386,7 +386,7 @@ struct InlineNextPrayerView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .widgetBackground(AccessoryWidgetBackground())
+        .accessoryWidgetBackground()
         .accessibilityLabel(inlineAccessibilityLabel)
     }
     
@@ -443,7 +443,7 @@ struct InlineCountdownView: View {
                     .foregroundStyle(.orange)
             }
         }
-        .widgetBackground(AccessoryWidgetBackground())
+        .accessoryWidgetBackground()
         .accessibilityLabel(inlineCountdownAccessibilityLabel)
     }
     

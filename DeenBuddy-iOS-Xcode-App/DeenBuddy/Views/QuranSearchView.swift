@@ -147,8 +147,7 @@ struct QuranSearchView: View {
     private var dataStatusBanner: some View {
         if shouldShowStatusCard {
             if isStatusExpanded ||
-                (searchService.dataValidationResult?.hasErrors ?? false) ||
-                !searchService.isCompleteDataLoaded() {
+                (searchService.dataValidationResult?.hasErrors ?? false) {
                 QuranDataStatusView(searchService: searchService)
                     .padding(.horizontal)
                     .padding(.bottom, 12)

@@ -188,22 +188,23 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
     }
     
     public func deleteAccount() async throws {
-        guard currentUser != nil else {
+        guard let firebaseUser = auth.currentUser else {
             throw AccountServiceError.notAuthenticated
         }
 
-        guard let user = auth.currentUser else {
+        if let cachedUser = currentUser, cachedUser.uid != firebaseUser.uid {
             throw AccountServiceError.notAuthenticated
         }
 
-        let uid = user.uid
+        let uid = firebaseUser.uid
 
-        try await user.delete()
-
-        // Delete Firestore data after auth account removal succeeds
+        // Delete Firestore data first to avoid orphaned documents
         try await firestore.collection("users").document(uid).delete()
 
-        // Clear cached account data
+        // Then delete the Firebase auth user
+        try await firebaseUser.delete()
+
+        // Clear cached account data after both deletions succeed
         userDefaults.removeObject(forKey: CacheKeys.pendingEmail)
         userDefaults.removeObject(forKey: CacheKeys.marketingOptIn)
 

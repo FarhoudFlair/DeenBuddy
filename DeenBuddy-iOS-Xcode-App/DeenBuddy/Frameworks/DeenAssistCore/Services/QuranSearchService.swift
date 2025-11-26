@@ -669,6 +669,7 @@ public class QuranSearchService: ObservableObject {
                     return
                 } else {
                     await MainActor.run {
+                        self.isDataLoaded = false
                         self.isBackgroundLoading = true
                     }
                     print("⚠️ Cached data validation failed, fetching fresh data...")

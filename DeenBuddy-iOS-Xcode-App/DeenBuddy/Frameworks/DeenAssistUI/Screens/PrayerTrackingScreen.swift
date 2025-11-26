@@ -162,6 +162,7 @@ public struct PrayerTrackingScreen: View {
     private var analyticsView: some View {
         PrayerAnalyticsView(
             prayerAnalyticsService: prayerAnalyticsService,
+            isEmbedded: true,
             onDismiss: { }
         )
     }

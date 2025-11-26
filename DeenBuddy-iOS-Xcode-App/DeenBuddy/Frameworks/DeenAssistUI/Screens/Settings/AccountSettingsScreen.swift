@@ -200,7 +200,7 @@ public struct AccountSettingsScreen: View {
             .sheet(isPresented: $showingLinkEmailSheet) {
                 LinkEmailSheetView(
                     email: $linkEmailAddress,
-                    isLoading: isLoading,
+                    isLoading: $isLoading,
                     onSendLink: { email in
                         sendLinkEmail(to: email)
                     },
@@ -391,7 +391,7 @@ public struct AccountSettingsScreen: View {
 
 private struct LinkEmailSheetView: View {
     @Binding var email: String
-    let isLoading: Bool
+    @Binding var isLoading: Bool
     let onSendLink: (String) -> Void
     let onCancel: () -> Void
 

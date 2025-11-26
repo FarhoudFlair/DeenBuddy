@@ -70,6 +70,7 @@ public struct PrayerAnalyticsView: View {
 
     private let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     private let onDismiss: () -> Void
+    private let isEmbedded: Bool
 
     // MARK: - State
 
@@ -85,72 +86,94 @@ public struct PrayerAnalyticsView: View {
 
     // MARK: - Initialization
 
+    /// Creates a PrayerAnalyticsView
+    /// - Parameters:
+    ///   - prayerAnalyticsService: Service for analytics data
+    ///   - isEmbedded: When true, view is embedded in parent NavigationView (no wrapping NavigationView, no Done button)
+    ///   - onDismiss: Callback when view should be dismissed
     public init(
         prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
+        isEmbedded: Bool = false,
         onDismiss: @escaping () -> Void
     ) {
         self.prayerAnalyticsService = prayerAnalyticsService
+        self.isEmbedded = isEmbedded
         self.onDismiss = onDismiss
     }
     
     // MARK: - Body
     
     public var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Period Selector
-                    periodSelector
-                    
-                    // Key Metrics Cards
-                    keyMetricsSection
-                    
-                    // Charts Section
-                    chartsSection
-                    
-                    // Prayer Breakdown
-                    prayerBreakdownSection
-                    
-                    // Insights Section
-                    insightsSection
+        Group {
+            if isEmbedded {
+                // When embedded in parent NavigationView, don't wrap in another NavigationView
+                analyticsContent
+            } else {
+                // Standalone mode: wrap in NavigationView
+                NavigationView {
+                    analyticsContent
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Done") {
+                                    onDismiss()
+                                }
+                            }
+                        }
                 }
-                .padding()
             }
-            .navigationTitle("Prayer Analytics")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        onDismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingExportSheet = true
-                    }) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-
+        }
+    }
+    
+    // MARK: - Analytics Content
+    
+    @ViewBuilder
+    private var analyticsContent: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Period Selector
+                periodSelector
+                
+                // Key Metrics Cards
+                keyMetricsSection
+                
+                // Charts Section
+                chartsSection
+                
+                // Prayer Breakdown
+                prayerBreakdownSection
+                
+                // Insights Section
+                insightsSection
             }
-            .task {
-                await loadInsights()
+            .padding()
+        }
+        .navigationTitle(isEmbedded ? "" : "Prayer Analytics")
+        .navigationBarTitleDisplayMode(isEmbedded ? .inline : .large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    showingExportSheet = true
+                }) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
+        }
+        .task {
+            await loadInsights()
+            await loadChartData()
+        }
+        .onChange(of: selectedPeriod) { _ in
+            Task {
                 await loadChartData()
             }
-            .onChange(of: selectedPeriod) { _ in
-                Task {
-                    await loadChartData()
+        }
+        .sheet(isPresented: $showingExportSheet) {
+            ExportOptionsView(
+                selectedPeriod: selectedPeriod.title,
+                onExport: { format in
+                    exportData(format: format)
                 }
-            }
-            .sheet(isPresented: $showingExportSheet) {
-                ExportOptionsView(
-                    selectedPeriod: selectedPeriod.title,
-                    onExport: { format in
-                        exportData(format: format)
-                    }
-                )
-            }
+            )
         }
     }
     
@@ -242,7 +265,7 @@ public struct PrayerAnalyticsView: View {
     
     @ViewBuilder
     private var chartsSection: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Trends")
                     .font(.headline)
@@ -262,21 +285,21 @@ public struct PrayerAnalyticsView: View {
                 .pickerStyle(MenuPickerStyle())
             }
 
-            // Chart
-            RoundedRectangle(cornerRadius: 16)
-                .fill(ColorPalette.surfaceSecondary)
-                .overlay(
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(metricTitle(for: selectedMetric))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(ColorPalette.textSecondary)
+            // Chart Container with proper layout
+            VStack(alignment: .leading, spacing: 12) {
+                Text(metricTitle(for: selectedMetric))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(ColorPalette.textSecondary)
 
-                        chartPlaceholder
-                    }
-                    .padding()
-                )
-                .frame(maxWidth: .infinity)
+                chartPlaceholder
+            }
+            .padding()
+            .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ColorPalette.surfaceSecondary)
+            )
         }
     }
     
@@ -284,34 +307,32 @@ public struct PrayerAnalyticsView: View {
     
     @ViewBuilder
     private var prayerBreakdownSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Prayer Breakdown")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Prayer Breakdown")
+                .font(.headline)
+                .fontWeight(.semibold)
             
-            RoundedRectangle(cornerRadius: 16)
-                .fill(ColorPalette.surfaceSecondary)
-                .overlay(
-                    VStack(spacing: 12) {
-                        let prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
-                        ForEach(Array(prayers.enumerated()), id: \.offset) { index, prayer in
-                            PrayerBreakdownRow(
-                                prayer: prayer,
-                                completionRate: getPrayerCompletionRate(prayer),
-                                totalCount: getPrayerCount(prayer)
-                            )
+            VStack(spacing: 12) {
+                let prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+                ForEach(Array(prayers.enumerated()), id: \.offset) { index, prayer in
+                    PrayerBreakdownRow(
+                        prayer: prayer,
+                        completionRate: getPrayerCompletionRate(prayer),
+                        totalCount: getPrayerCount(prayer)
+                    )
 
-                            if index < prayers.count - 1 {
-                                Divider()
-                            }
-                        }
+                    if index < prayers.count - 1 {
+                        Divider()
+                            .background(ColorPalette.textSecondary.opacity(0.3))
                     }
-                    .padding()
-                )
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ColorPalette.surfaceSecondary)
+            )
         }
     }
     
@@ -319,7 +340,7 @@ public struct PrayerAnalyticsView: View {
 
     @ViewBuilder
     private var insightsSection: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Insights")
                     .font(.headline)
@@ -335,26 +356,27 @@ public struct PrayerAnalyticsView: View {
 
             if insights.isEmpty && !isLoadingInsights {
                 // Empty state
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(ColorPalette.surfaceSecondary)
-                    .overlay(
-                        VStack(spacing: 12) {
-                            Image(systemName: "lightbulb")
-                                .font(.title2)
-                                .foregroundColor(ColorPalette.textSecondary)
+                VStack(spacing: 12) {
+                    Image(systemName: "lightbulb")
+                        .font(.system(size: 32))
+                        .foregroundColor(ColorPalette.textSecondary)
 
-                            Text("No insights available")
-                                .font(.subheadline)
-                                .foregroundColor(ColorPalette.textSecondary)
+                    Text("No insights available")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(ColorPalette.textSecondary)
 
-                            Text("Complete more prayers to see personalized insights")
-                                .font(.caption)
-                                .foregroundColor(ColorPalette.textSecondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding()
-                    )
-                    .frame(height: 120)
+                    Text("Complete more prayers to see personalized insights")
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, minHeight: 120)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(ColorPalette.surfaceSecondary)
+                )
             } else {
                 VStack(spacing: 12) {
                     ForEach(insights) { insight in
@@ -817,32 +839,40 @@ private struct PrayerMetricCard: View {
     let icon: String
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(.background)
-            .overlay(
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: icon)
-                            .foregroundColor(.blue)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(ColorPalette.primary)
 
-                        Spacer()
+                Spacer()
 
-                        Text(change)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(isPositive ? .green : .red)
-                    }
-
-                    Text(value)
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text(title)
+                if !change.isEmpty {
+                    Text(change)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .fontWeight(.medium)
+                        .foregroundColor(isPositive ? .green : .red)
                 }
-                .padding()
-            )
+            }
+
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(ColorPalette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Text(title)
+                .font(.caption)
+                .foregroundColor(ColorPalette.textSecondary)
+                .lineLimit(1)
+        }
+        .padding()
+        .frame(minHeight: 100)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ColorPalette.surfaceSecondary)
+        )
     }
 }
 
@@ -917,30 +947,37 @@ private struct InsightCard: View {
     let color: Color
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(.background)
-            .overlay(
-                HStack(spacing: 12) {
-                    Image(systemName: icon)
-                        .font(.title2)
-                        .foregroundColor(color)
-                        .frame(width: 30)
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+                .frame(width: 36, height: 36)
+                .background(
+                    Circle()
+                        .fill(color.opacity(0.15))
+                )
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorPalette.textPrimary)
 
-                        Text(description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.leading)
-                    }
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.textSecondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-                    Spacer()
-                }
-                .padding()
-            )
+            Spacer()
+        }
+        .padding()
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ColorPalette.surfaceSecondary)
+        )
     }
 }
 
@@ -1004,38 +1041,39 @@ private struct ExportFormatRow: View {
 
     var body: some View {
         Button(action: onTap) {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .overlay(
-                    HStack(spacing: 16) {
-                        Image(systemName: format.icon)
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                            .frame(width: 40)
+            HStack(spacing: 16) {
+                Image(systemName: format.icon)
+                    .font(.title2)
+                    .foregroundColor(ColorPalette.primary)
+                    .frame(width: 40)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(format.rawValue)
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(format.rawValue)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorPalette.textPrimary)
 
-                            Text(format.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                    Text(format.description)
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                }
 
-                        Spacer()
+                Spacer()
 
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(.secondary.opacity(0.2), lineWidth: 1)
-                )
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.textSecondary)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, minHeight: 70)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ColorPalette.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(ColorPalette.textSecondary.opacity(0.2), lineWidth: 1)
+            )
         }
         .buttonStyle(PlainButtonStyle())
     }

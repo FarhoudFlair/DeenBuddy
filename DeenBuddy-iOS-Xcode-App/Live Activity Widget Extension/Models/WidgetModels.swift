@@ -76,6 +76,7 @@ struct PrayerTime: Codable, Identifiable {
 }
 
 /// Simplified Hijri date model for widget extension
+/// Note: The main app's HijriDate includes an 'era' field which we ignore here
 struct HijriDate: Codable {
     let day: Int
     let month: String
@@ -85,6 +86,7 @@ struct HijriDate: Codable {
         case day
         case month
         case year
+        case era // Main app includes this field - we decode but ignore it
     }
 
     init(day: Int, month: String, year: Int) {
@@ -95,36 +97,43 @@ struct HijriDate: Codable {
 
     init(from date: Date) {
         // Simple implementation - in a real app this would use proper Hijri calendar
-        let calendar = Calendar.current
+        let calendar = Calendar(identifier: .islamicCivil)
         let components = calendar.dateComponents([.day, .month, .year], from: date)
         self.day = components.day ?? 1
-        self.year = (components.year ?? 2024) - 579 // Approximate conversion
+        self.year = components.year ?? 1446
 
         self.month = HijriDate.monthName(for: components.month ?? 1)
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Decode required fields
         day = try container.decode(Int.self, forKey: .day)
         year = try container.decode(Int.self, forKey: .year)
+        
+        // Ignore 'era' field if present (main app includes it, we don't need it)
+        _ = try? container.decode(String.self, forKey: .era)
 
+        // Handle month field - can be String (month name) or Int (month number)
         if let monthString = try? container.decode(String.self, forKey: .month) {
             // If the decoded string is actually a numeric value (e.g. "9"),
             // normalize it to a month name instead of showing the digits.
             if let numeric = Int(monthString.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 if numeric < 1 || numeric > 12 {
-                    print("⚠️ HijriDate month value out of range: parsed \(numeric) from '\(monthString)', expected 1-12. Clamping will occur.")
+                    print("⚠️ Widget HijriDate: month value out of range: \(numeric), clamping to valid range")
                 }
                 month = HijriDate.monthName(for: numeric)
             } else {
                 month = monthString
             }
+            print("✅ Widget HijriDate: Decoded month as String: \(month)")
         } else if let monthInt = try? container.decode(Int.self, forKey: .month) {
             month = HijriDate.monthName(for: monthInt)
+            print("✅ Widget HijriDate: Decoded month as Int: \(monthInt) -> \(month)")
         } else {
             // Log the decoding failure to help diagnose data corruption issues
-            print("⚠️ HijriDate decoding failed: month field missing or invalid (day: \(day), year: \(year)). Falling back to Muharram.")
-            print("🔍 This may indicate data corruption in the widget data or shared container.")
+            print("⚠️ Widget HijriDate: month field missing or invalid (day: \(day), year: \(year)). Falling back to Muharram.")
             // Fall back to a safe default if the payload is missing/invalid
             month = HijriDate.monthName(for: 1)
         }
@@ -314,32 +323,71 @@ class WidgetDataManager {
     }
     
     func loadWidgetData() -> WidgetData? {
+        print("🔄 Widget: loadWidgetData() called")
+        
         guard let sharedDefaults = sharedDefaults else {
-            print("⚠️ Widget: Failed to access shared UserDefaults for group: \(groupIdentifier)")
-            print("🔍 Widget: This may indicate an app group configuration issue")
+            print("❌ Widget: Failed to access shared UserDefaults for group: \(groupIdentifier)")
+            print("🔍 Widget: This may indicate an app group configuration issue in Xcode")
+            print("💡 Widget: Verify App Group capability is enabled for both main app and widget extension")
             return nil
         }
+        
+        print("✅ Widget: Successfully accessed shared UserDefaults")
 
         guard let data = sharedDefaults.data(forKey: widgetDataKey) else {
             print("ℹ️ Widget: No widget data found in shared container for key: \(widgetDataKey)")
-            print("🔍 Widget: Available keys in shared container: \(Array(sharedDefaults.dictionaryRepresentation().keys))")
-            print("🔍 Widget: This usually means the main app hasn't saved widget data yet")
+            let allKeys = Array(sharedDefaults.dictionaryRepresentation().keys).sorted()
+            print("🔍 Widget: Available keys in shared container (\(allKeys.count) total):")
+            for key in allKeys.prefix(10) {
+                print("   - \(key)")
+            }
+            if allKeys.count > 10 {
+                print("   ... and \(allKeys.count - 10) more keys")
+            }
+            print("💡 Widget: Open the DeenBuddy app to initialize widget data")
             return nil
         }
+        
+        print("✅ Widget: Found widget data, size: \(data.count) bytes")
 
         do {
             let widgetData = try JSONDecoder().decode(WidgetData.self, from: data)
-            print("✅ Widget: Successfully loaded widget data")
-            print("🔍 Widget: Next prayer: \(widgetData.nextPrayer?.prayer.displayName ?? "None")")
-            print("🔍 Widget: Location: \(widgetData.location)")
-            print("🔍 Widget: Last updated: \(widgetData.lastUpdated)")
+            print("✅ Widget: Successfully decoded widget data")
+            print("📍 Widget Data Summary:")
+            print("   - Next prayer: \(widgetData.nextPrayer?.prayer.displayName ?? "None")")
+            print("   - Next prayer time: \(widgetData.nextPrayer?.time.description ?? "N/A")")
+            print("   - Time until next: \(widgetData.timeUntilNextPrayer.map { "\(Int($0/60)) minutes" } ?? "N/A")")
+            print("   - Location: \(widgetData.location)")
+            print("   - Hijri date: \(widgetData.hijriDate.formatted)")
+            print("   - Calculation method: \(widgetData.calculationMethod.displayName)")
+            print("   - Last updated: \(widgetData.lastUpdated)")
+            print("   - Today's prayers count: \(widgetData.todaysPrayerTimes.count)")
             return widgetData
-        } catch {
-            print("❌ Widget: Failed to decode widget data: \(error)")
-            print("🔍 Widget: Data size: \(data.count) bytes")
-            // Try to provide a more helpful error message
+        } catch let decodingError as DecodingError {
+            print("❌ Widget: JSON decoding error: \(decodingError)")
+            // Provide detailed error information
+            switch decodingError {
+            case .typeMismatch(let type, let context):
+                print("🔍 Type mismatch: Expected \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))")
+                print("🔍 Debug description: \(context.debugDescription)")
+            case .valueNotFound(let type, let context):
+                print("🔍 Value not found: \(type) at \(context.codingPath.map(\.stringValue).joined(separator: "."))")
+            case .keyNotFound(let key, let context):
+                print("🔍 Key not found: \(key.stringValue) at \(context.codingPath.map(\.stringValue).joined(separator: "."))")
+            case .dataCorrupted(let context):
+                print("🔍 Data corrupted at \(context.codingPath.map(\.stringValue).joined(separator: ".")): \(context.debugDescription)")
+            @unknown default:
+                print("🔍 Unknown decoding error")
+            }
+            // Show raw JSON for debugging
             if let jsonString = String(data: data, encoding: .utf8) {
-                print("🔍 Widget: Raw JSON data: \(jsonString.prefix(200))...")
+                print("🔍 Widget: Raw JSON data (first 500 chars): \(jsonString.prefix(500))")
+            }
+            return nil
+        } catch {
+            print("❌ Widget: Unexpected error decoding widget data: \(error)")
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("🔍 Widget: Raw JSON data (first 500 chars): \(jsonString.prefix(500))")
             }
             return nil
         }

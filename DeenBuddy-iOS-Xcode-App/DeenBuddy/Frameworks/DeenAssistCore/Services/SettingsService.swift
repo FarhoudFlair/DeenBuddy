@@ -786,10 +786,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             madhab = Madhab(rawValue: snapshot.madhab) ?? .shafi
             // useAstronomicalMaghrib is not included in SettingsSnapshot; keep existing local value
             notificationsEnabled = snapshot.notificationsEnabled
-            theme = theme // keep existing theme preference
+            // theme is not included in SettingsSnapshot; preserve local device preference
             timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? .twelveHour
             notificationOffset = snapshot.notificationOffset
-            overrideBatteryOptimization = overrideBatteryOptimization
+            // overrideBatteryOptimization is not included in SettingsSnapshot; preserve local device preference
             hasCompletedOnboarding = snapshot.hasCompletedOnboarding
             userName = snapshot.userName
             showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
