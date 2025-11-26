@@ -353,6 +353,7 @@ class WidgetDataManager {
         do {
             let widgetData = try JSONDecoder().decode(WidgetData.self, from: data)
             print("✅ Widget: Successfully decoded widget data")
+            #if DEBUG
             print("📍 Widget Data Summary:")
             print("   - Next prayer: \(widgetData.nextPrayer?.prayer.displayName ?? "None")")
             print("   - Next prayer time: \(widgetData.nextPrayer?.time.description ?? "N/A")")
@@ -362,6 +363,7 @@ class WidgetDataManager {
             print("   - Calculation method: \(widgetData.calculationMethod.displayName)")
             print("   - Last updated: \(widgetData.lastUpdated)")
             print("   - Today's prayers count: \(widgetData.todaysPrayerTimes.count)")
+            #endif
             return widgetData
         } catch let decodingError as DecodingError {
             print("❌ Widget: JSON decoding error: \(decodingError)")
@@ -379,16 +381,21 @@ class WidgetDataManager {
             @unknown default:
                 print("🔍 Unknown decoding error")
             }
-            // Show raw JSON for debugging
+            #if DEBUG
+            // Show raw JSON for debugging (contains PII - location, prayer times, etc.)
             if let jsonString = String(data: data, encoding: .utf8) {
                 print("🔍 Widget: Raw JSON data (first 500 chars): \(jsonString.prefix(500))")
             }
+            #endif
             return nil
         } catch {
             print("❌ Widget: Unexpected error decoding widget data: \(error)")
+            #if DEBUG
+            // Show raw JSON for debugging (contains PII - location, prayer times, etc.)
             if let jsonString = String(data: data, encoding: .utf8) {
                 print("🔍 Widget: Raw JSON data (first 500 chars): \(jsonString.prefix(500))")
             }
+            #endif
             return nil
         }
     }

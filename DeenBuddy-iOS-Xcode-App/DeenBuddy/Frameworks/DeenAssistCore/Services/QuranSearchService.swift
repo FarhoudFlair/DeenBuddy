@@ -647,20 +647,21 @@ public class QuranSearchService: ObservableObject {
                 let surahs = self.createSurahsFromVerses(cachedData)
                 let validation = QuranDataValidator.validateQuranData(cachedData)
 
-                // Update UI on main thread
-                await MainActor.run {
-                    self.allVerses = cachedData
-                    self.allSurahs = surahs
-                    self.isDataLoaded = true
-                    self.dataValidationResult = validation
-                    self.loadingProgress = 0.0
-                }
-
-                // Animate progress to provide feedback even with instant cache loads
-                await self.animateCacheRestoreProgress()
-
+                // Only proceed with cache if validation passes to avoid UI state flickering
                 if validation.isValid {
+                    // Update UI on main thread - data is valid, safe to mark as loaded
                     await MainActor.run {
+                        self.allVerses = cachedData
+                        self.allSurahs = surahs
+                        self.dataValidationResult = validation
+                        self.loadingProgress = 0.0
+                    }
+
+                    // Animate progress to provide feedback even with instant cache loads
+                    await self.animateCacheRestoreProgress()
+
+                    await MainActor.run {
+                        self.isDataLoaded = true
                         self.loadingProgress = 1.0
                         self.isBackgroundLoading = false
                     }
@@ -668,8 +669,9 @@ public class QuranSearchService: ObservableObject {
                     print("🔧 DEBUG: Cache validation successful, allVerses.count = \(cachedData.count)")
                     return
                 } else {
+                    // Validation failed - store result for UI feedback but don't set isDataLoaded
                     await MainActor.run {
-                        self.isDataLoaded = false
+                        self.dataValidationResult = validation
                         self.isBackgroundLoading = true
                     }
                     print("⚠️ Cached data validation failed, fetching fresh data...")

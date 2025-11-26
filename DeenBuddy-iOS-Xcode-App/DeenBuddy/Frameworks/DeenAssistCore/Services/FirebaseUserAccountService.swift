@@ -198,11 +198,20 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
 
         let uid = firebaseUser.uid
 
-        // Delete Firestore data first to avoid orphaned documents
-        try await firestore.collection("users").document(uid).delete()
+        // Delete the Firebase auth user first; if this fails (e.g., requires re-auth), abort
+        do {
+            try await firebaseUser.delete()
+        } catch let error as NSError {
+            if error.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                throw AccountServiceError.requiresRecentLogin
+            }
+            throw mapFirebaseError(error)
+        }
 
-        // Then delete the Firebase auth user
-        try await firebaseUser.delete()
+        // Delete Firestore data after auth account removal succeeds
+        try await firestore.collection("users").document(uid).collection("profile").document("info").delete()
+        try await firestore.collection("users").document(uid).collection("settings").document("current").delete()
+        try await firestore.collection("users").document(uid).delete()
 
         // Clear cached account data after both deletions succeed
         userDefaults.removeObject(forKey: CacheKeys.pendingEmail)
@@ -379,6 +388,8 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             return .invalidEmail
         case AuthErrorCode.weakPassword.rawValue:
             return .weakPassword
+        case AuthErrorCode.requiresRecentLogin.rawValue:
+            return .requiresRecentLogin
         default:
             return .unknown(error)
         }

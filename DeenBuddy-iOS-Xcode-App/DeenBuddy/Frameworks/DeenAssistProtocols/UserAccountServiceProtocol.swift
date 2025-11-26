@@ -131,6 +131,7 @@ public enum AccountServiceError: Error, LocalizedError {
     case userNotFound
     case wrongPassword
     case networkError
+    case requiresRecentLogin
     case unknown(Error)
     
     public var errorDescription: String? {
@@ -169,6 +170,11 @@ public enum AccountServiceError: Error, LocalizedError {
             return NSLocalizedString(
                 "UserAccountError.networkError",
                 comment: "Error shown when a network issue prevents completing the request"
+            )
+        case .requiresRecentLogin:
+            return NSLocalizedString(
+                "UserAccountError.requiresRecentLogin",
+                comment: "Error shown when a sensitive action requires the user to reauthenticate"
             )
         case .unknown(let error):
             return error.localizedDescription
