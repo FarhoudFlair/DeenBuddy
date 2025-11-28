@@ -79,11 +79,11 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
         await startSession(dhikr: dhikr)
     }
 
-    public func increment(by value: Int) async {
+    public func increment(by value: Int, feedback: Bool = true) async {
         if service.currentSession == nil { await ensureSession() }
         guard service.currentSession != nil else { return }
         do {
-            await service.incrementCount(by: value)
+            await service.incrementCount(by: value, feedback: feedback)
             if let error = service.error { throw error }
         } catch { present(error) }
     }

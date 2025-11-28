@@ -346,7 +346,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
     
     // MARK: - Counting Operations
     
-    public func incrementCount(by increment: Int = 1) async {
+    public func incrementCount(by increment: Int = 1, feedback: Bool = true) async {
         guard var session = currentSession, !session.isPaused else { return }
         
         let newCount = min(session.currentCount + increment, currentCounter.maxCount)
@@ -370,7 +370,9 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         currentSession = session
         
         // Provide feedback
-        await provideFeedback()
+        if feedback {
+            await provideFeedback()
+        }
         
         // Auto-complete if target reached
         if newCount >= session.targetCount && currentCounter.resetOnComplete {
