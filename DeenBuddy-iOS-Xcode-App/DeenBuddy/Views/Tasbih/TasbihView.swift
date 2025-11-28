@@ -5,6 +5,9 @@ struct TasbihView: View {
     private let onShowHistory: () -> Void
     private let onShowSettings: () -> Void
     
+    // Local optimistic counter to prevent race conditions in haptic feedback
+    @State private var localCount: Int = 0
+    
     // Haptic generators
     private let lightImpact = UIImpactFeedbackGenerator(style: .light)
     private let mediumImpact = UIImpactFeedbackGenerator(style: .medium)
@@ -153,9 +156,19 @@ struct TasbihView: View {
                 .padding(.bottom, 20)
             }
         }
-        .task { await viewModel.ensureSession() }
+        .task { 
+            await viewModel.ensureSession()
+            localCount = viewModel.currentCount
+        }
         .onChange(of: viewModel.currentSession?.id) { _ in
             viewModel.syncStateWithSession()
+            localCount = viewModel.currentCount
+        }
+        .onChange(of: viewModel.currentCount) { newVal in
+            // Sync local count if it falls behind or resets
+            if newVal == 0 || newVal > localCount {
+                localCount = newVal
+            }
         }
     }
     
@@ -184,11 +197,12 @@ struct TasbihView: View {
     }
     
     private func performCount() {
-        // Haptic feedback logic
-        let nextCount = viewModel.currentCount + 1
+        // Optimistically increment local count
+        localCount += 1
         
+        // Haptic feedback logic based on local count
         if viewModel.service.currentCounter.hapticFeedback {
-            if nextCount % 33 == 0 {
+            if localCount % 33 == 0 {
                 heavyImpact.impactOccurred()
             } else {
                 lightImpact.impactOccurred()
