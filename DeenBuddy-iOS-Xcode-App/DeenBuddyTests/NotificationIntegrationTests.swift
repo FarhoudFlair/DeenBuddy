@@ -469,6 +469,18 @@ class MockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var liveActivitiesEnabled: Bool = true {
         didSet { notifySettingsChanged() }
     }
+    @Published var enableIslamicPatterns: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var maxLookaheadMonths: Int = 60 {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var useRamadanIshaOffset: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
+    @Published var showLongRangePrecision: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -536,6 +548,21 @@ class MockPrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     func refreshTodaysPrayerTimes() async {}
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
     func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] { return [] }
+    func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        return FuturePrayerTimeResult(
+            date: date,
+            prayerTimes: try await calculatePrayerTimes(for: location ?? CLLocation(latitude: 0, longitude: 0), date: date),
+            hijriDate: HijriDate(from: date),
+            isRamadan: false,
+            disclaimerLevel: .shortTerm,
+            calculationTimezone: TimeZone.current,
+            isHighLatitude: false,
+            precision: .exact
+        )
+    }
+    func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] { return [] }
+    func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel { .today }
+    func isHighLatitudeLocation(_ location: CLLocation) -> Bool { false }
     func getCurrentLocation() async throws -> CLLocation { throw NSError(domain: "Mock", code: 0) }
     func triggerDynamicIslandForNextPrayer() async {}
 }

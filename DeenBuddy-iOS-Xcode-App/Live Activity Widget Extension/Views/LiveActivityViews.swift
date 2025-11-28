@@ -192,29 +192,105 @@ struct PrayerTimeProvider: TimelineProvider {
         let currentEntry = getCurrentEntry()
         var entries: [PrayerWidgetEntry] = []
         let currentDate = Date()
+        let calendar = Calendar.current
         
         print("🔧 Widget Timeline: Generating entries starting from \(currentDate)")
         
-        // Generate a timeline for the next 60 minutes, updating every minute
-        for minuteOffset in 0..<60 {
-            let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: currentDate)!
-            var updatedData = currentEntry.widgetData
+        // Strategy: Generate entries at key moments for accurate countdown display
+        // 1. Immediate entry (now)
+        // 2. Entries at each remaining prayer time today
+        // 3. Entries every 15 minutes for countdown updates
+        // 4. Entry at midnight for day transition
+        
+        let todaysPrayers = currentEntry.widgetData.todaysPrayerTimes
+        let upcomingPrayers = todaysPrayers.filter { $0.time > currentDate }
+        
+        // Add immediate entry
+        entries.append(currentEntry)
+        
+        // Generate entries every 15 minutes for the next 24 hours for smooth countdown
+        var entryTime = currentDate
+        let endTime = calendar.date(byAdding: .hour, value: 24, to: currentDate) ?? currentDate
+        var prayerIndex = 0
+        
+        while entryTime < endTime && entries.count < 96 { // Max 96 entries (every 15 min for 24h)
+            // Check if we've passed a prayer time - create an entry at that moment
+            while prayerIndex < upcomingPrayers.count && upcomingPrayers[prayerIndex].time <= entryTime {
+                let prayerTime = upcomingPrayers[prayerIndex].time
+                
+                // Create entry at prayer time (countdown = 0)
+                var prayerMomentData = currentEntry.widgetData
+                prayerMomentData.timeUntilNextPrayer = 0
+                
+                let prayerEntry = PrayerWidgetEntry(
+                    date: prayerTime,
+                    widgetData: prayerMomentData,
+                    configuration: currentEntry.configuration
+                )
+                
+                // Avoid duplicate entries
+                if !entries.contains(where: { abs($0.date.timeIntervalSince(prayerTime)) < 60 }) {
+                    entries.append(prayerEntry)
+                }
+                
+                prayerIndex += 1
+            }
             
-            // Recalculate time until next prayer for the entry's date
-            if let nextPrayerTime = updatedData.nextPrayer?.time {
-                updatedData.timeUntilNextPrayer = nextPrayerTime.timeIntervalSince(entryDate)
+            // Advance by 15 minutes
+            guard let nextTime = calendar.date(byAdding: .minute, value: 15, to: entryTime) else { break }
+            entryTime = nextTime
+            
+            // Find the current next prayer for this time
+            let nextPrayerForTime = todaysPrayers.first { $0.time > entryTime }
+            
+            var updatedData = currentEntry.widgetData
+            if let nextPrayer = nextPrayerForTime {
+                updatedData.timeUntilNextPrayer = nextPrayer.time.timeIntervalSince(entryTime)
+                // Update nextPrayer reference if it changed
+                updatedData = WidgetData(
+                    nextPrayer: nextPrayer,
+                    timeUntilNextPrayer: nextPrayer.time.timeIntervalSince(entryTime),
+                    todaysPrayerTimes: updatedData.todaysPrayerTimes,
+                    hijriDate: updatedData.hijriDate,
+                    location: updatedData.location,
+                    calculationMethod: updatedData.calculationMethod,
+                    lastUpdated: updatedData.lastUpdated
+                )
+            } else {
+                // All prayers passed - set nil
+                updatedData = WidgetData(
+                    nextPrayer: nil,
+                    timeUntilNextPrayer: nil,
+                    todaysPrayerTimes: updatedData.todaysPrayerTimes,
+                    hijriDate: updatedData.hijriDate,
+                    location: updatedData.location,
+                    calculationMethod: updatedData.calculationMethod,
+                    lastUpdated: updatedData.lastUpdated
+                )
             }
             
             let entry = PrayerWidgetEntry(
-                date: entryDate,
+                date: entryTime,
                 widgetData: updatedData,
                 configuration: currentEntry.configuration
             )
             entries.append(entry)
         }
-
-        // Set the refresh policy to update after the last generated entry
-        let nextRefreshDate = entries.last?.date ?? Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
+        
+        // Sort entries by date
+        entries.sort { $0.date < $1.date }
+        
+        // Determine next refresh time - at the next prayer time or 1 hour from last entry
+        let nextRefreshDate: Date
+        if let nextPrayer = upcomingPrayers.first {
+            // Refresh at next prayer time to update the "next prayer" reference
+            nextRefreshDate = nextPrayer.time
+        } else {
+            // All prayers done, refresh at midnight or 1 hour
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
+            let midnight = calendar.startOfDay(for: tomorrow)
+            nextRefreshDate = min(midnight, calendar.date(byAdding: .hour, value: 1, to: entries.last?.date ?? currentDate) ?? currentDate)
+        }
         
         let timeline = Timeline(
             entries: entries,

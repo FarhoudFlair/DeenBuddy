@@ -29,6 +29,8 @@ public struct HomeScreen: View {
     @State private var locationUpdateTick = 0
     @State private var resolvedLocationDisplay: String?
     @State private var isResolvingLocationName = false
+    @State private var hasAppeared = false
+    @StateObject private var timerManager = CountdownTimerManager()
 
     private let timeUpdateTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     private let scheduleColumns: [GridItem] = [
@@ -60,28 +62,85 @@ public struct HomeScreen: View {
         self.onTasbihTapped = onTasbihTapped
         self.onCalendarTapped = onCalendarTapped
     }
-    
+
+    // MARK: - Environment & Computed Properties
+
+    @Environment(\.currentTheme) private var currentTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var themeColors: ThemeAwareColorPalette {
+        ThemeAwareColorPalette(theme: currentTheme)
+    }
+
+    private var premiumTokens: PremiumDesignTokens {
+        PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
+    }
+
+    private var calculatedTimeRemaining: TimeInterval? {
+        guard let nextPrayer = prayerTimeService.nextPrayer else { return nil }
+        let remaining = nextPrayer.time.timeIntervalSince(timerManager.currentTime)
+        return remaining > 0 ? remaining : nil
+    }
+
+    private var isImminent: Bool {
+        guard let interval = calculatedTimeRemaining else { return false }
+        return interval < 300 // Less than 5 minutes
+    }
+
+    private static let prayerTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.locale = Locale.autoupdatingCurrent
+        return formatter
+    }()
+
+    private func formatTimeRemaining(_ interval: TimeInterval) -> String {
+        let totalSeconds = Int(interval)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else if minutes > 0 {
+            return "\(minutes)m"
+        } else {
+            return "<1m"
+        }
+    }
+
     public var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 48) {
                     headerView
+                        .opacity(hasAppeared ? 1 : 0)
+                        .offset(y: hasAppeared ? 0 : 20)
+                        .appAnimation(AppAnimations.staggeredEntry(delay: 0.0), value: hasAppeared)
 
                     quickActionsSection
-
-                    CountdownTimer(
-                        nextPrayer: prayerTimeService.nextPrayer,
-                        timeRemaining: prayerTimeService.timeUntilNextPrayer
-                    )
+                        .opacity(hasAppeared ? 1 : 0)
+                        .offset(y: hasAppeared ? 0 : 20)
+                        .appAnimation(AppAnimations.staggeredEntry(delay: 0.1), value: hasAppeared)
 
                     prayerTimesSection
+                        .opacity(hasAppeared ? 1 : 0)
+                        .offset(y: hasAppeared ? 0 : 20)
+                        .appAnimation(AppAnimations.staggeredEntry(delay: 0.2), value: hasAppeared)
 
                     dashboardSummarySection
+                        .opacity(hasAppeared ? 1 : 0)
+                        .offset(y: hasAppeared ? 0 : 20)
+                        .appAnimation(AppAnimations.staggeredEntry(delay: 0.3), value: hasAppeared)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 24)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 32)
             }
-            .background(ColorPalette.backgroundPrimary)
+            .background(
+                ZStack {
+                    ColorPalette.backgroundPrimary
+                    ConditionalIslamicPatternOverlay(enabled: settingsService.enableIslamicPatterns)
+                }
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
             .refreshable {
@@ -110,6 +169,7 @@ public struct HomeScreen: View {
             }
         }
         .onAppear {
+            hasAppeared = true
             Task { await updateResolvedLocationDisplay(force: true) }
         }
         .overlay(
@@ -134,7 +194,8 @@ public struct HomeScreen: View {
     
     @ViewBuilder
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 24) {
+            // Top Navigation Bar
             HStack(alignment: .center, spacing: 12) {
                 MascotTitleView.navigationTitle(titleText: "DeenBuddy")
                     .accessibilityHidden(true)
@@ -151,70 +212,125 @@ public struct HomeScreen: View {
                 .accessibilityLabel("Open settings")
             }
 
-            VStack(alignment: .leading, spacing: 12) {
+            // PRAYER INFO FIRST (most prominent) - Progressive Disclosure Design
+            if let nextPrayer = prayerTimeService.nextPrayer {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Prayer name as HERO element
+                    Text("\(nextPrayer.prayer.displayName) Prayer")
+                        .font(.system(size: 52, weight: .bold, design: .rounded))
+                        .foregroundColor(themeColors.primary)
+                        .minimumScaleFactor(0.8)
+                        .lineLimit(1)
+
+                    // Prayer time and countdown on same line
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(Self.prayerTimeFormatter.string(from: nextPrayer.time))
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(ColorPalette.textPrimary)
+                            .monospacedDigit()
+
+                        if let timeRemaining = calculatedTimeRemaining {
+                            Text("•")
+                                .foregroundColor(ColorPalette.textSecondary)
+                                .font(.system(size: 24))
+
+                            Text("in \(formatTimeRemaining(timeRemaining))")
+                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .foregroundStyle(premiumTokens.countdownGradient)
+                                .appAnimation(AppAnimations.timerUpdate, value: formatTimeRemaining(timeRemaining))
+                        }
+                    }
+                    .scaleEffect(isImminent ? 1.02 : 1.0)
+                    .appAnimation(
+                        isImminent ?
+                        Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true) :
+                        AppAnimations.smooth,
+                        value: isImminent
+                    )
+                }
+            }
+
+            // CURRENT TIME CAPSULE (secondary, clearly labeled)
+            HStack(spacing: 8) {
+                Text("Current time:")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(ColorPalette.textSecondary)
+
+                Text(formattedTimeString)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(ColorPalette.textPrimary)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(themeColors.surfaceSecondary.opacity(0.6))
+            )
+
+            // Greeting and location
+            VStack(alignment: .leading, spacing: 8) {
+                Text(greetingText)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(ColorPalette.textSecondary)
+
+                // Location badge - refined design
                 HStack(spacing: 8) {
-                    Image(systemName: "mappin.and.ellipse")
-                        .foregroundColor(ColorPalette.primary)
-                        .font(.headline)
+                    Image(systemName: "location.fill")
+                        .foregroundColor(themeColors.primary.opacity(0.8))
+                        .font(.system(size: 11))
 
                     if let location = locationService.currentLocation {
                         Text(displayLocationText(for: location))
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(ColorPalette.textPrimary)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(ColorPalette.textSecondary)
 
                         Button(action: { showLocationDiagnostic = true }) {
                             Image(systemName: "info.circle")
-                                .font(.caption)
-                                .foregroundColor(ColorPalette.textTertiary)
+                                .font(.system(size: 11))
+                                .foregroundColor(ColorPalette.textSecondary.opacity(0.6))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("View location details")
                     } else {
                         Text(locationStatusText)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(locationStatusColor)
                     }
-
-                    Spacer(minLength: 0)
 
                     if locationService.isUpdatingLocation || isRefreshing {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: ColorPalette.primary))
-                            .scaleEffect(0.8)
+                            .scaleEffect(0.6)
                     } else if locationService.currentLocation == nil {
                         Button(action: {
                             Task { await requestLocationAndRefreshPrayers() }
                         }) {
-                            Image(systemName: "location.circle")
+                            Image(systemName: "arrow.clockwise.circle.fill")
                                 .foregroundColor(ColorPalette.primary)
-                                .font(.title3)
+                                .font(.caption)
                         }
                         .accessibilityLabel("Refresh location")
                     }
                 }
-
-                Text(formattedTimeString)
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
-                    .foregroundColor(ColorPalette.textPrimary)
-                    .minimumScaleFactor(0.8)
-
-                Text(formattedDateLine)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(ColorPalette.textSecondary)
-                    .lineLimit(1)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(themeColors.primary.opacity(0.08))
+                )
             }
-
-            Text(greetingText)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(ColorPalette.textSecondary)
         }
-        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 22, x: 0, y: 10)
-        )
+        .onReceive(timerManager.$currentTime) { _ in
+            // Trigger UI updates when timer ticks
+        }
+        .onAppear {
+            timerManager.startTimer()
+        }
+        .onDisappear {
+            timerManager.stopTimer()
+        }
     }
     
     @ViewBuilder
@@ -298,13 +414,13 @@ public struct HomeScreen: View {
                 }
             }
         }
-        .padding(24)
+        .padding(28)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
                 .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 18, x: 0, y: 8)
         )
+        .premiumShadow(.level2)
     }
 
     @ViewBuilder
@@ -387,6 +503,7 @@ public struct HomeScreen: View {
                     icon: "safari.fill",
                     title: "Qibla",
                     subtitle: "Find direction",
+                    actionType: .qibla,
                     action: {
                         onCompassTapped()
                     }
@@ -396,6 +513,7 @@ public struct HomeScreen: View {
                     icon: SymbolLibrary.tasbih,
                     title: "Tasbih",
                     subtitle: onTasbihTapped != nil ? "Digital beads" : "Coming soon",
+                    actionType: .tasbih,
                     action: {
                         onTasbihTapped?()
                     }
@@ -407,6 +525,7 @@ public struct HomeScreen: View {
                     icon: "calendar",
                     title: "Calendar",
                     subtitle: onCalendarTapped != nil ? "Plan prayers" : "Coming soon",
+                    actionType: .calendar,
                     action: {
                         onCalendarTapped?()
                     }
@@ -588,13 +707,18 @@ public struct HomeScreen: View {
         guard let trackingService = prayerTrackingService else { return }
 
         Task {
+            let wasCompleted = completedPrayers.contains(prayer)
+
             await MainActor.run {
                 isUpdatingPrayers.insert(prayer)
             }
 
-            if completedPrayers.contains(prayer) {
+            if wasCompleted {
                 if let entry = await MainActor.run(body: { dailyProgress?.getEntry(for: prayer) }) {
                     await trackingService.removePrayerEntry(entry.id)
+                }
+                await MainActor.run {
+                    HapticFeedback.light()
                 }
             } else {
                 await trackingService.markPrayerCompleted(
@@ -608,10 +732,10 @@ public struct HomeScreen: View {
                     congregation: .individual,
                     isQada: false
                 )
-            }
-
-            await MainActor.run {
-                HapticFeedback.light()
+                // Success haptic and celebration animation for completion
+                await MainActor.run {
+                    HapticFeedback.success()
+                }
             }
 
             await loadTrackingData()
@@ -634,6 +758,18 @@ private struct PrayerScheduleRow: View {
     let columns: [GridItem]
     let toggle: () -> Void
 
+    @Environment(\.currentTheme) private var currentTheme
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var celebrationScale: CGFloat = 1.0
+
+    private var premiumTokens: PremiumDesignTokens {
+        PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
+    }
+
+    private var themeColors: ThemeAwareColorPalette {
+        ThemeAwareColorPalette(theme: currentTheme)
+    }
+
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
@@ -646,8 +782,22 @@ private struct PrayerScheduleRow: View {
             LazyVGrid(columns: columns, spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
-                            .foregroundColor(isCompleted ? ColorPalette.primary : ColorPalette.textSecondary)
+                        // Premium gradient checkbox
+                        ZStack {
+                            if isCompleted {
+                                Circle()
+                                    .fill(themeColors.primary)
+                                    .frame(width: 24, height: 24)
+
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(.white)
+                            } else {
+                                Circle()
+                                    .strokeBorder(ColorPalette.textSecondary.opacity(0.4), lineWidth: 2)
+                                    .frame(width: 24, height: 24)
+                            }
+                        }
 
                         Text(prayer.prayer.displayName)
                             .font(.system(size: 16, weight: .semibold, design: .rounded))
@@ -656,11 +806,13 @@ private struct PrayerScheduleRow: View {
                         if isNext {
                             Text("Next")
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundColor(ColorPalette.primary)
-                                .padding(.horizontal, 8)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
-                                .background(ColorPalette.primary.opacity(0.12))
-                                .clipShape(Capsule())
+                                .background(
+                                    Capsule()
+                                        .fill(themeColors.nextPrayerHighlight)
+                                )
                         }
                     }
 
@@ -678,20 +830,31 @@ private struct PrayerScheduleRow: View {
                     .monospacedDigit()
 
                 Text("\(prayer.prayer.defaultRakahCount)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(ColorPalette.rakahText)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 8)
+            .padding(.vertical, 20)
+            .padding(.horizontal, 12)
             .background(rowBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius16))
         }
         .buttonStyle(.plain)
         .disabled(isProcessing)
         .opacity(isProcessing ? 0.6 : 1.0)
+        .scaleEffect(celebrationScale)
+        .appAnimation(AppAnimations.cardPress, value: celebrationScale)
         .accessibilityLabel(labelText)
         .accessibilityHint("Double tap to toggle completion for this prayer")
+        .onChange(of: isCompleted) { newValue in
+            if newValue {
+                // Trigger celebration animation on completion
+                celebrationScale = 1.08
+                withAnimation(AppAnimations.cardPress.delay(0.1)) {
+                    celebrationScale = 1.0
+                }
+            }
+        }
     }
 
     private var timeString: String {
@@ -766,19 +929,28 @@ private struct ActionCard: View {
     let icon: String
     let title: String
     let subtitle: String
+    let actionType: PremiumDesignTokens.ActionType
     let action: () -> Void
+
+    @Environment(\.currentTheme) private var currentTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var premiumTokens: PremiumDesignTokens {
+        PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
+    }
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
+                // Icon with gradient background
                 ZStack {
                     Circle()
-                        .fill(ColorPalette.primary.opacity(0.12))
-                        .frame(width: 50, height: 50)
+                        .fill(premiumTokens.actionGradient(actionType))
+                        .frame(width: 52, height: 52)
 
                     Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundColor(ColorPalette.primary)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -789,15 +961,16 @@ private struct ActionCard: View {
                     Text(subtitle)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(ColorPalette.textSecondary)
+                        .lineLimit(1)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
+            .padding(18)
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius20)
                     .fill(ColorPalette.surfacePrimary)
-                    .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 6)
             )
+            .premiumShadow(.level1)
         }
         .buttonStyle(.plain)
     }
@@ -818,37 +991,60 @@ private struct WeeklyProgressCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                Image(systemName: "chart.bar.fill")
-                    .foregroundColor(ColorPalette.primary)
+        HStack(spacing: 24) {
+            // Circular Progress Ring
+            ZStack {
+                AnimatedProgressRing(progress: completionRate, lineWidth: 10)
+                    .frame(width: 80, height: 80)
+
+                VStack(spacing: 2) {
+                    Text("\(completionPercentage)")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(ColorPalette.textPrimary)
+
+                    Text("%")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(ColorPalette.textSecondary)
+                }
+            }
+
+            // Metrics
+            VStack(alignment: .leading, spacing: 12) {
                 Text("This Week's Progress")
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(ColorPalette.textPrimary)
-            }
 
-            HStack(spacing: 12) {
-                MetricPill(title: "Completed", value: "\(completionPercentage)%")
-                MetricPill(title: "Day Streak", value: "\(streakCount)")
-                MetricPill(title: "Today", value: "\(todaysCompleted)/5")
-            }
+                HStack(spacing: 16) {
+                    MetricPill(
+                        icon: "flame.fill",
+                        title: "Streak",
+                        value: "\(streakCount)"
+                    )
 
-            ProgressView(value: completionRate)
-                .progressViewStyle(LinearProgressViewStyle(tint: ColorPalette.primary))
+                    MetricPill(
+                        icon: "checkmark.circle.fill",
+                        title: "Today",
+                        value: "\(todaysCompleted)/5"
+                    )
+                }
+            }
         }
-        .padding(20)
+        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
                 .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 18, x: 0, y: 8)
         )
+        .premiumShadow(.level2)
     }
 }
 
 /// Islamic calendar summary card
 private struct IslamicCalendarCard: View {
     let currentDate: Date
+
+    @Environment(\.currentTheme) private var currentTheme
+    @Environment(\.colorScheme) private var colorScheme
 
     private var hijriDate: HijriDate {
         HijriDate(from: currentDate)
@@ -862,31 +1058,47 @@ private struct IslamicCalendarCard: View {
         Self.gregorianFormatter.string(from: currentDate)
     }
 
+    private var premiumTokens: PremiumDesignTokens {
+        PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        HStack(spacing: 16) {
+            // Calendar icon with gradient background
+            ZStack {
+                Circle()
+                    .fill(premiumTokens.actionGradient(.calendar))
+                    .frame(width: 48, height: 48)
+
                 Image(systemName: "calendar")
-                    .foregroundColor(ColorPalette.primary)
-                Text("Islamic Calendar")
-                    .font(.headline)
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.white)
             }
+            .premiumShadow(.level1)
 
-            Text(hijriString)
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(ColorPalette.textPrimary)
+            // Calendar content
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Islamic Calendar")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(ColorPalette.textSecondary)
+                    .textCase(.uppercase)
 
-            Text("Corresponding to \(gregorianString)")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(ColorPalette.textSecondary)
+                Text(hijriString)
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(ColorPalette.textPrimary)
+
+                Text("Corresponding to \(gregorianString)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(ColorPalette.textSecondary)
+            }
         }
-        .padding(20)
+        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
                 .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 18, x: 0, y: 8)
         )
+        .premiumShadow(.level2)
     }
 
     private static let gregorianFormatter: DateFormatter = {
@@ -899,19 +1111,31 @@ private struct IslamicCalendarCard: View {
 
 /// Small pill-style metric display
 private struct MetricPill: View {
+    let icon: String
     let title: String
     let value: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value)
-                .font(.system(size: 17, weight: .semibold))
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(ColorPalette.primary)
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(ColorPalette.textSecondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(ColorPalette.textPrimary)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(ColorPalette.textSecondary)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(ColorPalette.primary.opacity(0.08))
+        )
     }
 }
 
@@ -1013,6 +1237,33 @@ private struct EmptyPrayerTimesView: View {
         default:
             return "Retry"
         }
+    }
+}
+
+// MARK: - Timer Manager
+
+@MainActor
+private class CountdownTimerManager: ObservableObject {
+    @Published var currentTime = Date()
+
+    private let timerManager = BatteryAwareTimerManager.shared
+    private let timerID = "homescreen-countdown-timer-\(UUID().uuidString)"
+
+    func startTimer() {
+        timerManager.scheduleTimer(id: timerID, type: .countdownUI) { [weak self] in
+            Task { @MainActor in
+                self?.currentTime = Date()
+            }
+        }
+    }
+
+    func stopTimer() {
+        timerManager.cancelTimer(id: timerID)
+    }
+
+    deinit {
+        // Use the synchronous timer cancellation method designed for deinit
+        timerManager.cancelTimerSync(id: timerID)
     }
 }
 

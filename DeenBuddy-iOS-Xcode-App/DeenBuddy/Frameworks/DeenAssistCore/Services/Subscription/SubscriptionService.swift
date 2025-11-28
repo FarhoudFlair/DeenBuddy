@@ -25,8 +25,8 @@ public class SubscriptionService: BaseService, SubscriptionServiceProtocol {
     
     // MARK: - Initialization
     
-    public init(performanceMonitor: PerformanceMonitor = .shared) {
-        self.performanceMonitor = performanceMonitor
+    public init(performanceMonitor: PerformanceMonitor? = nil) {
+        self.performanceMonitor = performanceMonitor ?? PerformanceMonitor.shared
         super.init(serviceName: "SubscriptionService")
         
         // Load cached status

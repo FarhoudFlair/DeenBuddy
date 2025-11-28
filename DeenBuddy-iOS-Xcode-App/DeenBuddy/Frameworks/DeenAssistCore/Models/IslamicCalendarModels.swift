@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - Islamic Calendar Models
 
 /// Represents a Hijri (Islamic) date
-public struct HijriDate: Codable, Equatable, Comparable {
+public struct HijriDate: Codable, Equatable, Comparable, Hashable {
     public let day: Int
     public let month: HijriMonth
     public let year: Int
@@ -182,7 +182,7 @@ public enum HijriEra: String, Codable {
 }
 
 /// Islamic event or observance
-public struct IslamicEvent: Codable, Identifiable, Equatable {
+public struct IslamicEvent: Codable, Identifiable, Equatable, Hashable {
     public let id: UUID
     public let name: String
     public let arabicName: String?

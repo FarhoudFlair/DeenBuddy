@@ -150,6 +150,31 @@ public extension EnvironmentValues {
     }
 }
 
+// MARK: - Premium Gradient Helpers
+
+extension ThemeAwareColorPalette {
+
+    /// Get countdown gradient for current theme
+    public func countdownGradient(colorScheme: ColorScheme) -> LinearGradient {
+        PremiumDesignTokens(theme: theme, colorScheme: colorScheme).countdownGradient
+    }
+
+    /// Get prayer glow gradient for current theme
+    public func prayerGlow(colorScheme: ColorScheme) -> RadialGradient {
+        PremiumDesignTokens(theme: theme, colorScheme: colorScheme).prayerGlow
+    }
+
+    /// Get action gradient for current theme
+    public func actionGradient(_ action: PremiumDesignTokens.ActionType, colorScheme: ColorScheme) -> LinearGradient {
+        PremiumDesignTokens(theme: theme, colorScheme: colorScheme).actionGradient(action)
+    }
+
+    /// Get header gradient overlay for current theme
+    public func headerGradientOverlay(colorScheme: ColorScheme) -> LinearGradient {
+        PremiumDesignTokens(theme: theme, colorScheme: colorScheme).headerGradientOverlay
+    }
+}
+
 // MARK: - Theme-Aware Color Palette
 
 /// Theme-aware color palette that returns different colors based on current theme

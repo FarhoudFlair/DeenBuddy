@@ -5,7 +5,7 @@ import UIKit
 public struct MainTabView: View {
     @State private var selectedTab: Int = 0
     @State private var activeTasbihSheet: TasbihSheet?
-    private let coordinator: AppCoordinator
+    @ObservedObject private var coordinator: AppCoordinator
     
     public init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -99,6 +99,21 @@ public struct MainTabView: View {
         }
         .accentColor(ColorPalette.primary)
         .themed(with: coordinator.themeManager)
+        .sheet(isPresented: $coordinator.showingIslamicCalendar) {
+            IslamicCalendarScreen(
+                prayerTimeService: coordinator.prayerTimeService,
+                islamicCalendarService: coordinator.islamicCalendarService,
+                locationService: coordinator.locationService,
+                settingsService: coordinator.settingsService,
+                onDismiss: {
+                    coordinator.dismissIslamicCalendar()
+                },
+                onSettingsTapped: {
+                    coordinator.dismissIslamicCalendar()
+                    coordinator.showSettings()
+                }
+            )
+        }
     }
 }
 
@@ -128,7 +143,7 @@ private struct MainAppView: View {
                     onSelectTab(3)
                 },
                 onCalendarTapped: {
-                    onSelectTab(1)
+                    coordinator.showIslamicCalendar()
                 }
             )
 

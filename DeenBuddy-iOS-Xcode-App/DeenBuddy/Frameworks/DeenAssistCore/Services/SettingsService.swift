@@ -247,6 +247,83 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
     }
 
+    @Published public var enableIslamicPatterns: Bool = false {
+        didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.enableIslamicPatterns = oldValue
+                    }
+                },
+                propertyName: "enableIslamicPatterns",
+                oldValue: oldValue,
+                newValue: enableIslamicPatterns
+            )
+        }
+    }
+
+    @Published public var maxLookaheadMonths: Int = 60 {
+        didSet {
+            guard !isRestoring else { return }
+
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.maxLookaheadMonths = oldValue
+                    }
+                },
+                propertyName: "maxLookaheadMonths",
+                oldValue: oldValue,
+                newValue: maxLookaheadMonths
+            )
+        }
+    }
+
+    @Published public var useRamadanIshaOffset: Bool = true {
+        didSet {
+            guard !isRestoring else { return }
+
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.useRamadanIshaOffset = oldValue
+                    }
+                },
+                propertyName: "useRamadanIshaOffset",
+                oldValue: oldValue,
+                newValue: useRamadanIshaOffset
+            )
+        }
+    }
+
+    @Published public var showLongRangePrecision: Bool = false {
+        didSet {
+            guard !isRestoring else { return }
+
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.showLongRangePrecision = oldValue
+                    }
+                },
+                propertyName: "showLongRangePrecision",
+                oldValue: oldValue,
+                newValue: showLongRangePrecision
+            )
+        }
+    }
+
     // Alias for enableNotifications
     public var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -347,6 +424,14 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
             // Save Live Activities setting
             userDefaults.set(liveActivitiesEnabled, forKey: UnifiedSettingsKeys.liveActivitiesEnabled)
+
+            // Save Islamic patterns setting
+            userDefaults.set(enableIslamicPatterns, forKey: UnifiedSettingsKeys.enableIslamicPatterns)
+
+            // Save future prayer time settings
+            userDefaults.set(maxLookaheadMonths, forKey: UnifiedSettingsKeys.maxLookaheadMonths)
+            userDefaults.set(useRamadanIshaOffset, forKey: UnifiedSettingsKeys.useRamadanIshaOffset)
+            userDefaults.set(showLongRangePrecision, forKey: UnifiedSettingsKeys.showLongRangePrecision)
 
             // Save metadata
             userDefaults.set(Date(), forKey: UnifiedSettingsKeys.lastSyncDate)
@@ -453,6 +538,28 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             liveActivitiesEnabled = true // Default to true for new feature adoption
         }
 
+        // Load Islamic patterns setting (default to false - opt-in feature)
+        if userDefaults.object(forKey: UnifiedSettingsKeys.enableIslamicPatterns) != nil {
+            enableIslamicPatterns = userDefaults.bool(forKey: UnifiedSettingsKeys.enableIslamicPatterns)
+        } else {
+            enableIslamicPatterns = false // Default to false - users can opt-in
+        }
+
+        // Load future prayer time settings with safe defaults
+        if let lookahead = userDefaults.object(forKey: UnifiedSettingsKeys.maxLookaheadMonths) as? Int {
+            maxLookaheadMonths = lookahead
+        } else {
+            maxLookaheadMonths = 60
+        }
+
+        if userDefaults.object(forKey: UnifiedSettingsKeys.useRamadanIshaOffset) != nil {
+            useRamadanIshaOffset = userDefaults.bool(forKey: UnifiedSettingsKeys.useRamadanIshaOffset)
+        } else {
+            useRamadanIshaOffset = true
+        }
+
+        showLongRangePrecision = userDefaults.bool(forKey: UnifiedSettingsKeys.showLongRangePrecision)
+
         // Perform comprehensive validation
         try validateSettingsConsistency()
     }
@@ -552,6 +659,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             UnifiedSettingsKeys.userName,
             UnifiedSettingsKeys.showArabicSymbolInWidget,
             UnifiedSettingsKeys.liveActivitiesEnabled,
+            UnifiedSettingsKeys.enableIslamicPatterns,
             UnifiedSettingsKeys.settingsVersion
         ]
 
@@ -590,6 +698,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
                 userName = "" // Reset user name to empty string
                 showArabicSymbolInWidget = true
                 liveActivitiesEnabled = true
+                enableIslamicPatterns = false
+                maxLookaheadMonths = 60
+                useRamadanIshaOffset = true
+                showLongRangePrecision = false
             }
 
             // Save the defaults
@@ -794,8 +906,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             userName = snapshot.userName
             showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
             liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+            enableIslamicPatterns = snapshot.enableIslamicPatterns
         }
-        
+
         try await saveSettings()
         print("☁️ Applied cloud settings snapshot")
     }

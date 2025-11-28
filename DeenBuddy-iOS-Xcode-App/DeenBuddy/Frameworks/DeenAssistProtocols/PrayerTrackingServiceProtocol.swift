@@ -5,6 +5,7 @@ import Combine
 
 /// Protocol for enhanced prayer tracking functionality
 /// This extends the existing PrayerTimeService with tracking capabilities
+@MainActor
 public protocol PrayerTrackingServiceProtocol: ObservableObject {
     
     // MARK: - Published Properties

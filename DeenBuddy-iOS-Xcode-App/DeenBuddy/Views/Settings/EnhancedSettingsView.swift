@@ -82,7 +82,7 @@ public struct EnhancedSettingsView: View {
                         value: settingsService.madhab.displayName,
                         action: { showingMadhabPicker = true }
                     )
-                    
+
                     SettingsRow(
                         icon: "moon.stars.fill",
                         title: "Calculation Method",
@@ -90,7 +90,47 @@ public struct EnhancedSettingsView: View {
                         action: { showingCalculationMethodPicker = true }
                     )
                 }
-                
+
+                // Islamic Calendar & Future Prayer Times Section
+                Section {
+                    HStack {
+                        Image(systemName: "calendar.badge.clock")
+                            .foregroundColor(ColorPalette.primary)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Future Prayer Times Range")
+                                .font(Typography.bodyMedium)
+                                .foregroundColor(ColorPalette.textPrimary)
+
+                            Text("Maximum months ahead to calculate")
+                                .font(Typography.labelSmall)
+                                .foregroundColor(ColorPalette.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Stepper(
+                            value: Binding(
+                                get: { settingsService.maxLookaheadMonths },
+                                set: { settingsService.maxLookaheadMonths = $0 }
+                            ),
+                            in: 12...60,
+                            step: 6
+                        ) {
+                            Text("\(settingsService.maxLookaheadMonths) months")
+                                .font(Typography.bodyMedium)
+                                .foregroundColor(ColorPalette.primary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Islamic Calendar & Future Prayer Times")
+                } footer: {
+                    Text("Adjust how far into the future you can view prayer times. Higher values provide more long-term planning capability but may have lower accuracy. Recommended: 12-60 months.")
+                        .font(Typography.labelSmall)
+                }
+
                 // Notification Settings Section
                 Section("Notifications") {
                     SettingsToggle(

@@ -441,6 +441,12 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
         return currentHijriDate.month == .ramadan
     }
 
+    public func isDateInRamadan(_ date: Date) async -> Bool {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+        let month = hijriCalendar.component(.month, from: date)
+        return month == HijriMonth.ramadan.rawValue
+    }
+
     public func isHolyMonth() async -> Bool {
         return currentHijriDate.month.isHolyMonth
     }
@@ -501,6 +507,59 @@ public class IslamicCalendarService: BaseService, IslamicCalendarServiceProtocol
         let endDate = hajjEnd.toGregorianDate()
 
         return DateInterval(start: startDate, end: endDate)
+    }
+
+    public func estimateRamadanDates(for hijriYear: Int) async -> DateInterval? {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+
+        var components = DateComponents()
+        components.year = hijriYear
+        components.month = 9
+        components.day = 1
+
+        guard let ramadanStart = hijriCalendar.date(from: components),
+              let ramadanEnd = hijriCalendar.date(byAdding: .day, value: 29, to: ramadanStart) else {
+            return nil
+        }
+
+        return DateInterval(start: ramadanStart, end: ramadanEnd)
+    }
+
+    public func estimateEidAlFitr(for hijriYear: Int) async -> Date? {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+
+        var components = DateComponents()
+        components.year = hijriYear
+        components.month = 10
+        components.day = 1
+
+        return hijriCalendar.date(from: components)
+    }
+
+    public func estimateEidAlAdha(for hijriYear: Int) async -> Date? {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+
+        var components = DateComponents()
+        components.year = hijriYear
+        components.month = 12
+        components.day = 10
+
+        return hijriCalendar.date(from: components)
+    }
+
+    public func getEventConfidence(for date: Date) -> EventConfidence {
+        let calendar = Calendar.current
+        let today = Date()
+
+        guard let monthsDiff = calendar.dateComponents([.month], from: today, to: date).month else {
+            return .low
+        }
+
+        switch monthsDiff {
+        case 0...12: return .high
+        case 13...60: return .medium
+        default: return .low
+        }
     }
 
     // MARK: - Notifications & Reminders

@@ -5,7 +5,8 @@ import UserNotifications
 // MARK: - iOS 17+ Live Activity Permission Manager
 
 @available(iOS 16.1, *)
-class LiveActivityPermissionManager: ObservableObject {
+@MainActor
+final class LiveActivityPermissionManager: ObservableObject {
     
     @Published var isAuthorized: Bool = false
     @Published var pushToStartTokens: [String] = []
@@ -34,27 +35,21 @@ class LiveActivityPermissionManager: ObservableObject {
         let settings = await center.notificationSettings()
         
         switch settings.authorizationStatus {
-        case .authorized, .provisional:
+        case .authorized, .provisional, .ephemeral:
             // User has push notifications enabled, so Live Activities are automatically available
-            DispatchQueue.main.async {
-                self.isAuthorized = true
-            }
+            self.isAuthorized = true
             await setupPushToStartTokens()
             
         case .denied:
             // User denied push notifications, Live Activities also unavailable
-            DispatchQueue.main.async {
-                self.isAuthorized = false
-            }
+            self.isAuthorized = false
             
         case .notDetermined:
             // Request push notification permission (which will also enable Live Activities in iOS 17+)
             await requestPushNotificationPermission()
             
         @unknown default:
-            DispatchQueue.main.async {
-                self.isAuthorized = false
-            }
+            self.isAuthorized = false
         }
     }
     
@@ -63,9 +58,7 @@ class LiveActivityPermissionManager: ObservableObject {
         let center = UNUserNotificationCenter.current()
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
-            DispatchQueue.main.async {
-                self.isAuthorized = granted
-            }
+            self.isAuthorized = granted
             
             if granted {
                 await setupPushToStartTokens()
@@ -83,9 +76,7 @@ class LiveActivityPermissionManager: ObservableObject {
         let center = UNUserNotificationCenter.current()
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .badge, .sound])
-            DispatchQueue.main.async {
-                self.isAuthorized = granted
-            }
+            self.isAuthorized = granted
             
             if granted {
                 await setupPushToStartTokens()
@@ -101,30 +92,25 @@ class LiveActivityPermissionManager: ObservableObject {
     
     private func setupPushToStartTokens() async {
         if #available(iOS 17.2, *) {
-            do {
-                // Request push-to-start tokens for remote Live Activity management
-                let optionalTokenData = try await Activity<PrayerCountdownActivity>.pushToStartToken
-                guard let tokenData = optionalTokenData else {
-                    print("⚠️ Push-to-start token unavailable")
-                    return
-                }
-                let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
-
-                DispatchQueue.main.async {
-                    // Only append if not already present (deduplication)
-                    if !self.pushToStartTokens.contains(tokenString) {
-                        self.pushToStartTokens.append(tokenString)
-                    }
-                }
-                
-                print("✅ Push-to-start token obtained: \(tokenString.prefix(16))...")
-                
-                // Send token to your server for remote Live Activity management
-                await sendTokenToServer(tokenString)
-                
-            } catch {
-                print("⚠️ Failed to get push-to-start token: \(error)")
+            // Request push-to-start tokens for remote Live Activity management
+            let optionalTokenData = Activity<PrayerCountdownActivity>.pushToStartToken
+            guard let tokenData = optionalTokenData else {
+                print("⚠️ Push-to-start token unavailable")
+                return
             }
+            let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
+
+            DispatchQueue.main.async {
+                // Only append if not already present (deduplication)
+                if !self.pushToStartTokens.contains(tokenString) {
+                    self.pushToStartTokens.append(tokenString)
+                }
+            }
+
+            print("✅ Push-to-start token obtained: \(tokenString.prefix(16))...")
+
+            // Send token to your server for remote Live Activity management
+            await sendTokenToServer(tokenString)
         }
     }
     
@@ -152,10 +138,11 @@ class LiveActivityPermissionManager: ObservableObject {
     
     private func checkCurrentAuthorizationStatus() {
         let center = UNUserNotificationCenter.current()
-        center.getNotificationSettings { settings in
+        center.getNotificationSettings { [weak self] settings in
+            guard let self else { return }
             DispatchQueue.main.async {
                 switch settings.authorizationStatus {
-                case .authorized, .provisional:
+                case .authorized, .provisional, .ephemeral:
                     self.isAuthorized = true
                 case .denied, .notDetermined:
                     self.isAuthorized = false
@@ -302,14 +289,9 @@ struct ModernLiveActivityConfiguration {
         // Set stale date to the prayer time or next reasonable refresh (e.g., 1 minute from now)
         let staleDate = timeRemaining > 60 ? Calendar.current.date(byAdding: .minute, value: 1, to: now) : prayerTime
 
-        do {
-            if #available(iOS 16.2, *) {
-                await activity.update(.init(state: newState, staleDate: staleDate))
-                print("✅ Live Activity state updated - Next: \(nextPrayer), Time remaining: \(Int(timeRemaining))s")
-            }
-        } catch {
-            print("⚠️ Failed to update Live Activity, it may have ended: \(error.localizedDescription)")
-            stopManualRefresh()
+        if #available(iOS 16.2, *) {
+            await activity.update(.init(state: newState, staleDate: staleDate))
+            print("✅ Live Activity state updated - Next: \(nextPrayer), Time remaining: \(Int(timeRemaining))s")
         }
     }
     

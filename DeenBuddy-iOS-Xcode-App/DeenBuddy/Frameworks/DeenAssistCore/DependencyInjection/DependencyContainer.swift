@@ -576,8 +576,7 @@ public extension DependencyContainer {
         )
 
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
-        
-        let resolvedUserAccountService = ServiceFactory.createUserAccountService()
+        let resolvedUserAccountService: any UserAccountServiceProtocol = MockUserAccountService()
 
         return DependencyContainer(
             locationService: resolvedLocationService,
@@ -598,4 +597,25 @@ public extension DependencyContainer {
             isTestEnvironment: true
         )
     }
+}
+
+// MARK: - Test Doubles
+
+/// Lightweight mock user account service for tests and previews to avoid real Firebase initialization
+@MainActor
+private final class MockUserAccountService: UserAccountServiceProtocol {
+    var currentUser: AccountUser?
+
+    func sendSignInLink(to email: String) async throws {}
+    func isSignInWithEmailLink(_ url: URL) -> Bool { false }
+    func signIn(withEmail email: String, linkURL: URL) async throws {}
+    func createUser(email: String, password: String) async throws {}
+    func signIn(email: String, password: String) async throws {}
+    func sendPasswordResetEmail(to email: String) async throws {}
+    func confirmPasswordReset(code: String, newPassword: String) async throws {}
+    func signOut() async throws { currentUser = nil }
+    func deleteAccount() async throws { currentUser = nil }
+    func updateMarketingOptIn(_ enabled: Bool) async throws {}
+    func syncSettingsSnapshot(_ snapshot: SettingsSnapshot) async throws {}
+    func fetchSettingsSnapshot() async throws -> SettingsSnapshot? { nil }
 }

@@ -16,7 +16,6 @@ public class BackgroundTaskManager: ObservableObject {
     
     private let backgroundTaskIdentifier = "com.deenbuddy.app.refresh"
     private let prayerUpdateIdentifier = "com.deenbuddy.app.prayer-update"
-    private let quranMigrationFlag = QuranDataCacheManager.migrationFlagKey
     
     // MARK: - Dependencies
 
@@ -168,7 +167,7 @@ public class BackgroundTaskManager: ObservableObject {
     }
     
     private func performBackgroundRefresh() async {
-        if UserDefaults.standard.bool(forKey: quranMigrationFlag) {
+        if QuranDataCacheManager.isMigrationInProgress() {
             print("⏸️ Skipping background refresh during Quran cache migration")
             return
         }
@@ -192,7 +191,7 @@ public class BackgroundTaskManager: ObservableObject {
     }
     
     private func performPrayerTimeUpdate() async {
-        if UserDefaults.standard.bool(forKey: quranMigrationFlag) {
+        if QuranDataCacheManager.isMigrationInProgress() {
             print("⏸️ Skipping prayer time update during Quran cache migration")
             return
         }

@@ -16,6 +16,7 @@ public class AppCoordinator: ObservableObject {
     // @Published public var showingARCompass = false // AR compass disabled - too buggy
     @Published public var showingGuides = false
     @Published public var showingQuranSearch = false
+    @Published public var showingIslamicCalendar = false
     @Published public var showingError = false
     @Published public var currentError: ErrorType?
     @Published public var showingSuccess = false
@@ -32,6 +33,7 @@ public class AppCoordinator: ObservableObject {
     public let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     public let tasbihService: any TasbihServiceProtocol
     public let settingsService: any SettingsServiceProtocol
+    public let islamicCalendarService: any IslamicCalendarServiceProtocol
     public let userAccountService: any UserAccountServiceProtocol
     public let themeManager: ThemeManager
     private let backgroundTaskManager: BackgroundTaskManager
@@ -56,6 +58,7 @@ public class AppCoordinator: ObservableObject {
         prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
         tasbihService: any TasbihServiceProtocol,
         settingsService: any SettingsServiceProtocol,
+        islamicCalendarService: any IslamicCalendarServiceProtocol,
         userAccountService: any UserAccountServiceProtocol,
         themeManager: ThemeManager,
         backgroundTaskManager: BackgroundTaskManager,
@@ -69,6 +72,7 @@ public class AppCoordinator: ObservableObject {
         self.prayerAnalyticsService = prayerAnalyticsService
         self.tasbihService = tasbihService
         self.settingsService = settingsService
+        self.islamicCalendarService = islamicCalendarService
         self.userAccountService = userAccountService
         self.themeManager = themeManager
         self.backgroundTaskManager = backgroundTaskManager
@@ -145,6 +149,8 @@ public class AppCoordinator: ObservableObject {
                         userMessage = "This sign-in link is invalid. Please request a new one."
                     case .notAuthenticated:
                         userMessage = "Please sign in again to continue."
+                    case .requiresRecentLogin:
+                        userMessage = "For security reasons, please sign in again to continue."
                     case .unknown:
                         break
                     }
@@ -190,21 +196,17 @@ public class AppCoordinator: ObservableObject {
             let delaySeconds = max(1, 1 << retryAttempt)
             let shouldRetry = retryAttempt < maxRetries
 
-            let message: String
-            if shouldRetry {
-                message = "We couldn't apply your cloud settings. Retrying in \(delaySeconds)s."
-            } else {
-                message = "We couldn't apply your cloud settings. Please try again."
-            }
-
-            showError(.unknownError(message))
             print("⚠️ Failed to apply cloud settings snapshot (attempt \(retryAttempt + 1)): \(error)")
 
             if shouldRetry {
+                print("🔄 Retrying cloud settings application in \(delaySeconds)s...")
                 Task { [weak self] in
                     try? await Task.sleep(nanoseconds: UInt64(delaySeconds) * 1_000_000_000)
                     await self?.applyCloudSettingsIfAvailable(retryAttempt: retryAttempt + 1)
                 }
+            } else {
+                let message = "We couldn't apply your cloud settings. Please try again."
+                showError(.unknownError(message))
             }
         }
     }
@@ -287,6 +289,14 @@ public class AppCoordinator: ObservableObject {
 
     public func dismissQuranSearch() {
         showingQuranSearch = false
+    }
+
+    public func showIslamicCalendar() {
+        showingIslamicCalendar = true
+    }
+
+    public func dismissIslamicCalendar() {
+        showingIslamicCalendar = false
     }
 
     public func showError(_ error: ErrorType) {
@@ -638,7 +648,9 @@ private struct MainAppView: View {
                     coordinator.showSettings()
                 },
                 onTasbihTapped: { },
-                onCalendarTapped: { }
+                onCalendarTapped: {
+                    coordinator.showIslamicCalendar()
+                }
             )
 
             // Loading overlay
@@ -653,6 +665,21 @@ private struct MainAppView: View {
                 locationService: coordinator.locationService,
                 onDismiss: {
                     coordinator.dismissCompass()
+                }
+            )
+        }
+        .sheet(isPresented: $coordinator.showingIslamicCalendar) {
+            IslamicCalendarScreen(
+                prayerTimeService: coordinator.prayerTimeService,
+                islamicCalendarService: coordinator.islamicCalendarService,
+                locationService: coordinator.locationService,
+                settingsService: coordinator.settingsService,
+                onDismiss: {
+                    coordinator.dismissIslamicCalendar()
+                },
+                onSettingsTapped: {
+                    coordinator.dismissIslamicCalendar()
+                    coordinator.showSettings()
                 }
             )
         }
@@ -901,6 +928,7 @@ public extension AppCoordinator {
             prayerAnalyticsService: container.prayerAnalyticsService,
             tasbihService: container.tasbihService,
             settingsService: container.settingsService,
+            islamicCalendarService: container.islamicCalendarService,
             userAccountService: container.userAccountService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
@@ -928,6 +956,7 @@ public extension AppCoordinator {
             prayerAnalyticsService: container.prayerAnalyticsService,
             tasbihService: container.tasbihService,
             settingsService: container.settingsService,
+            islamicCalendarService: container.islamicCalendarService,
             userAccountService: container.userAccountService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,

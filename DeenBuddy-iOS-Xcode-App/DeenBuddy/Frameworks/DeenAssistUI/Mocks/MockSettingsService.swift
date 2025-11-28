@@ -40,6 +40,18 @@ public class MockSettingsService: SettingsServiceProtocol {
     @Published public var liveActivitiesEnabled: Bool = true {
         didSet { notifySettingsChanged() }
     }
+    @Published public var enableIslamicPatterns: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var maxLookaheadMonths: Int = 60 {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var useRamadanIshaOffset: Bool = true {
+        didSet { notifySettingsChanged() }
+    }
+    @Published public var showLongRangePrecision: Bool = false {
+        didSet { notifySettingsChanged() }
+    }
 
     public var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -77,6 +89,10 @@ public class MockSettingsService: SettingsServiceProtocol {
         print("- Override Battery Optimization: \(overrideBatteryOptimization)")
         print("- Show Arabic Symbol in Widget: \(showArabicSymbolInWidget)")
         print("- Live Activities Enabled: \(liveActivitiesEnabled)")
+        print("- Islamic Patterns Enabled: \(enableIslamicPatterns)")
+        print("- Max Lookahead Months: \(maxLookaheadMonths)")
+        print("- Ramadan Isha Offset: \(useRamadanIshaOffset)")
+        print("- Show Long-range Precision: \(showLongRangePrecision)")
     }
     
     public func loadSettings() async throws {
@@ -94,6 +110,10 @@ public class MockSettingsService: SettingsServiceProtocol {
         userName = ""
         overrideBatteryOptimization = false
         showArabicSymbolInWidget = true
+        enableIslamicPatterns = false
+        maxLookaheadMonths = 60
+        useRamadanIshaOffset = true
+        showLongRangePrecision = false
 
         print("Mock: Settings loaded")
     }
@@ -113,6 +133,10 @@ public class MockSettingsService: SettingsServiceProtocol {
         userName = ""
         overrideBatteryOptimization = false
         showArabicSymbolInWidget = true
+        enableIslamicPatterns = false
+        maxLookaheadMonths = 60
+        useRamadanIshaOffset = true
+        showLongRangePrecision = false
 
         print("Mock: Settings reset to defaults")
     }
@@ -145,6 +169,7 @@ public class MockSettingsService: SettingsServiceProtocol {
         notificationOffset = snapshot.notificationOffset
         liveActivitiesEnabled = snapshot.liveActivitiesEnabled
         showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        enableIslamicPatterns = snapshot.enableIslamicPatterns
         userName = snapshot.userName
         hasCompletedOnboarding = snapshot.hasCompletedOnboarding
     }

@@ -4,7 +4,7 @@ import WidgetKit
 // MARK: - Widget Data Models
 
 /// Shared data structure for widget content
-public struct WidgetData: Codable, Sendable {
+public struct WidgetData: Codable {
     public let nextPrayer: PrayerTime?
     public var timeUntilNextPrayer: TimeInterval?
     public let todaysPrayerTimes: [PrayerTime]

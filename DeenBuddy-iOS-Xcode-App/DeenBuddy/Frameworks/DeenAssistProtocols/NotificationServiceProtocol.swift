@@ -64,6 +64,9 @@ public struct PrayerTime: Codable {
     }
 }
 
+/// Alias to avoid type-name ambiguity across modules
+public typealias AppPrayerTime = PrayerTime
+
 // MARK: - Notification Settings Types
 
 /// Prayer-specific notification configuration

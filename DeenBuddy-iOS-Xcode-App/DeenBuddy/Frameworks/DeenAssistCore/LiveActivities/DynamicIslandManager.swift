@@ -23,18 +23,8 @@ public class DynamicIslandManager: ObservableObject {
     
     /// Check if device supports Dynamic Island
     public func checkDynamicIslandSupport() {
-        // Dynamic Island is available on iPhone 14 Pro and later
-        let deviceModel = UIDevice.current.model
-        let systemVersion = UIDevice.current.systemVersion
-        
-        // Check for iOS 16.1+ and iPhone 14 Pro models
-        if #available(iOS 16.1, *) {
-            // In a real implementation, you would check specific device models
-            // For now, we'll assume it's supported if Live Activities are available
-            isDynamicIslandSupported = ActivityAuthorizationInfo().areActivitiesEnabled
-        } else {
-            isDynamicIslandSupported = false
-        }
+        // Dynamic Island is available on iPhone 14 Pro and later; class is already iOS16.1+
+        isDynamicIslandSupported = ActivityAuthorizationInfo().areActivitiesEnabled
         
         print("📱 Dynamic Island support: \(isDynamicIslandSupported)")
     }

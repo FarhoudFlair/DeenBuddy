@@ -36,12 +36,12 @@ public class SubscriptionViewModel: ObservableObject {
     
     // MARK: - Private Properties
     
-    private let subscriptionService: SubscriptionServiceProtocol
+    private let subscriptionService: any SubscriptionServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
     
-    public init(subscriptionService: SubscriptionServiceProtocol) {
+    public init(subscriptionService: any SubscriptionServiceProtocol) {
         self.subscriptionService = subscriptionService
         observeService()
     }

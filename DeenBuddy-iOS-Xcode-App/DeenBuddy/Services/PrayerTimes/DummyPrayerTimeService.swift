@@ -29,6 +29,22 @@ public class DummyPrayerTimeService: PrayerTimeServiceProtocol {
         throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
     }
 
+    public func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
+    public func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] {
+        throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
+    public func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel {
+        throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
+    public func isHighLatitudeLocation(_ location: CLLocation) -> Bool {
+        false
+    }
+
     public func getCurrentLocation() async throws -> CLLocation {
         throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Dummy service cannot provide location"])
     }

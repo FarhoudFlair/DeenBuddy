@@ -332,6 +332,21 @@ class Phase1MockPrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     func refreshTodaysPrayerTimes() async {}
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
     func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] { return [] }
+    func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        return FuturePrayerTimeResult(
+            date: date,
+            prayerTimes: [],
+            hijriDate: HijriDate(from: date),
+            isRamadan: false,
+            disclaimerLevel: .today,
+            calculationTimezone: TimeZone.current,
+            isHighLatitude: false,
+            precision: .exact
+        )
+    }
+    func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] { return [] }
+    func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel { .today }
+    func isHighLatitudeLocation(_ location: CLLocation) -> Bool { false }
     func getCurrentLocation() async throws -> CLLocation { throw NSError(domain: "Mock", code: 0) }
     func triggerDynamicIslandForNextPrayer() async {}
 }

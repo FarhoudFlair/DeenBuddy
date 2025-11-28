@@ -271,6 +271,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				Resources/Assets.xcassets,
 			);
 			target = 23F09EF72E17292A00E25D2F /* DeenBuddy */;
 		};

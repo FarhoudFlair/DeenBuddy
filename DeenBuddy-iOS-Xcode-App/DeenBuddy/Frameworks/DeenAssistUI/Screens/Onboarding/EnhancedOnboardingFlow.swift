@@ -280,6 +280,7 @@ public struct EnhancedOnboardingFlow: View {
                         notificationOffset: settingsService.notificationOffset,
                         liveActivitiesEnabled: settingsService.liveActivitiesEnabled,
                         showArabicSymbolInWidget: settingsService.showArabicSymbolInWidget,
+                        enableIslamicPatterns: settingsService.enableIslamicPatterns,
                         userName: trimmedUserName,
                         hasCompletedOnboarding: true,
                         settingsVersion: settingsVersion,

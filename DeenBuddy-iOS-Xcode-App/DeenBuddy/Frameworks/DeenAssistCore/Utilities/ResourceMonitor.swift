@@ -4,6 +4,7 @@ import os.log
 
 /// Comprehensive resource monitoring utility for DeenBuddy app
 /// Tracks memory usage, task counts, and system resource consumption
+@MainActor
 public class ResourceMonitor: ObservableObject {
     
     // MARK: - Singleton

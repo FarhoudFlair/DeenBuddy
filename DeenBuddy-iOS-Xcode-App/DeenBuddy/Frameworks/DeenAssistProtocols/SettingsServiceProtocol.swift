@@ -43,6 +43,18 @@ public protocol SettingsServiceProtocol: ObservableObject {
     /// Whether Live Activities are enabled for prayer countdowns
     var liveActivitiesEnabled: Bool { get set }
 
+    /// Whether to show subtle Islamic geometric patterns in the UI
+    var enableIslamicPatterns: Bool { get set }
+
+    /// Maximum lookahead window in months for future prayer times (default 60)
+    var maxLookaheadMonths: Int { get set }
+
+    /// Whether to apply Ramadan Isha offset (+30m) for Umm Al Qura/Qatar
+    var useRamadanIshaOffset: Bool { get set }
+
+    /// Whether to show exact times for long-range (>12 months) calculations
+    var showLongRangePrecision: Bool { get set }
+
     /// Publisher for notifications enabled changes
     var notificationsEnabledPublisher: AnyPublisher<Bool, Never> { get }
 
@@ -67,4 +79,23 @@ public protocol SettingsServiceProtocol: ObservableObject {
     /// Apply a cloud-provided snapshot to local settings
     /// - Parameter snapshot: Snapshot pulled from the user's cloud data
     func applySnapshot(_ snapshot: SettingsSnapshot) async throws
+}
+
+// MARK: - Default Implementations for Optional Settings
+
+public extension SettingsServiceProtocol {
+    var maxLookaheadMonths: Int {
+        get { 60 }
+        set { _ = newValue }
+    }
+
+    var useRamadanIshaOffset: Bool {
+        get { true }
+        set { _ = newValue }
+    }
+
+    var showLongRangePrecision: Bool {
+        get { false }
+        set { _ = newValue }
+    }
 }

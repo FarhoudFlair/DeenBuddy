@@ -94,7 +94,10 @@ public class AppLifecycleManager: ObservableObject {
         isInBackground = true
         startBackgroundTask()
         
-        print("📱 App entered background")
+        // Schedule background refresh tasks for widgets and prayer updates
+        BackgroundProcessingOptimizer.shared.scheduleOptimizedBackgroundRefresh()
+        
+        print("📱 App entered background - scheduled background refresh tasks")
     }
     
     public func handleAppWillEnterForeground() {

@@ -24,11 +24,12 @@ public struct SettingsSnapshot: Codable, Sendable {
     public let notificationOffset: Double
     public let liveActivitiesEnabled: Bool
     public let showArabicSymbolInWidget: Bool
+    public let enableIslamicPatterns: Bool
     public let userName: String
     public let hasCompletedOnboarding: Bool
     public let settingsVersion: Int
     public let lastSyncDate: Date
-    
+
     public init(
         calculationMethod: String,
         madhab: String,
@@ -37,6 +38,7 @@ public struct SettingsSnapshot: Codable, Sendable {
         notificationOffset: Double,
         liveActivitiesEnabled: Bool,
         showArabicSymbolInWidget: Bool,
+        enableIslamicPatterns: Bool,
         userName: String,
         hasCompletedOnboarding: Bool,
         settingsVersion: Int,
@@ -49,6 +51,7 @@ public struct SettingsSnapshot: Codable, Sendable {
         self.notificationOffset = notificationOffset
         self.liveActivitiesEnabled = liveActivitiesEnabled
         self.showArabicSymbolInWidget = showArabicSymbolInWidget
+        self.enableIslamicPatterns = enableIslamicPatterns
         self.userName = userName
         self.hasCompletedOnboarding = hasCompletedOnboarding
         self.settingsVersion = settingsVersion

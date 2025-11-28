@@ -4,9 +4,9 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.deenbuddy.widget-refresh</string>
-		<string>com.deenbuddy.prayer-notification</string>
-		<string>com.deenbuddy.prayer-refresh</string>
+		<string>com.deenbuddy.app.widget-refresh</string>
+		<string>com.deenbuddy.app.prayer-notification</string>
+		<string>com.deenbuddy.app.prayer-refresh</string>
 		<string>com.deenbuddy.app.refresh</string>
 		<string>com.deenbuddy.app.prayer-update</string>
 	</array>

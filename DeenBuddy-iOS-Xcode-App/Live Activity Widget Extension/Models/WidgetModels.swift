@@ -76,7 +76,7 @@ struct PrayerTime: Codable, Identifiable {
 }
 
 /// Simplified Hijri date model for widget extension
-/// Note: The main app's HijriDate includes an 'era' field which we ignore here
+/// Note: The main app's HijriDate includes an 'era' field (HijriEra enum) which we decode robustly
 struct HijriDate: Codable {
     let day: Int
     let month: String
@@ -108,14 +108,23 @@ struct HijriDate: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        // Decode required fields
-        day = try container.decode(Int.self, forKey: .day)
-        year = try container.decode(Int.self, forKey: .year)
+        // Robustly decode day with fallback
+        day = (try? container.decode(Int.self, forKey: .day)) ?? 1
         
-        // Ignore 'era' field if present (main app includes it, we don't need it)
-        _ = try? container.decode(String.self, forKey: .era)
+        // Robustly decode year with fallback
+        year = (try? container.decode(Int.self, forKey: .year)) ?? 1445
+        
+        // Robustly handle 'era' field - could be String, Int, or nested object (HijriEra enum)
+        // We don't need it, so we just try to decode and ignore any errors
+        if let _ = try? container.decode(String.self, forKey: .era) {
+            // Era decoded as String - ignored
+        } else if let _ = try? container.decode(Int.self, forKey: .era) {
+            // Era decoded as Int - ignored
+        } else {
+            // Era field missing, invalid, or nested object - ignored
+        }
 
-        // Handle month field - can be String (month name) or Int (month number)
+        // Handle month field - can be String (month name), Int (month number), or nested object (HijriMonth enum)
         if let monthString = try? container.decode(String.self, forKey: .month) {
             // If the decoded string is actually a numeric value (e.g. "9"),
             // normalize it to a month name instead of showing the digits.
@@ -256,6 +265,16 @@ struct WidgetData: Codable {
         } else {
             return "\(minutes)m"
         }
+    }
+    
+    /// Check if widget data is stale (older than 24 hours)
+    var isStale: Bool {
+        Date().timeIntervalSince(lastUpdated) > 24 * 60 * 60 // 24 hours
+    }
+    
+    /// Check if data needs refresh (older than 5 minutes)
+    var needsRefresh: Bool {
+        Date().timeIntervalSince(lastUpdated) > 5 * 60 // 5 minutes
     }
 }
 

@@ -74,8 +74,8 @@ public enum TimeFormat: String, CaseIterable, Codable, Identifiable {
     
     public var example: String {
         switch self {
-        case .twelveHour: return "6:30 AM"
-        case .twentyFourHour: return "06:30"
+        case .twelveHour: return "6:30 PM"
+        case .twentyFourHour: return "18:30"
         }
     }
 }
