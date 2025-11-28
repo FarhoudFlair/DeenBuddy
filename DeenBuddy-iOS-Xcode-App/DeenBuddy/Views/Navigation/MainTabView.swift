@@ -467,20 +467,54 @@ private struct TasbihPreferencesView<Service: TasbihServiceProtocol>: View {
                     }
                 }
 
-                Section(footer: Text("Each tap currently adds +\(max(1, tasbihService.currentCounter.countIncrement)) beads.")) {
-                    HStack {
-                        Text("Active Counter")
-                        Spacer()
-                        Text(tasbihService.currentCounter.name)
-                            .foregroundColor(ColorPalette.textSecondary)
+                Section(header: Text("Configuration"), footer: Text("Each tap adds +\(max(1, tasbihService.currentCounter.countIncrement)) beads.")) {
+                    Picker("Active Counter", selection: Binding(
+                        get: { tasbihService.currentCounter.id },
+                        set: { newId in
+                            if let counter = tasbihService.availableCounters.first(where: { $0.id == newId }) {
+                                Task { await tasbihService.setActiveCounter(counter) }
+                            }
+                        }
+                    )) {
+                        ForEach(tasbihService.availableCounters) { counter in
+                            Text(counter.name).tag(counter.id)
+                        }
                     }
-
-                    if let target = tasbihService.currentSession?.targetCount {
-                        HStack {
-                            Text("Current Target")
-                            Spacer()
-                            Text("\(target)")
-                                .foregroundColor(ColorPalette.textSecondary)
+                    
+                    if let session = tasbihService.currentSession {
+                        VStack(alignment: .leading) {
+                            Stepper("Target Count: \(session.targetCount)", value: Binding(
+                                get: { session.targetCount },
+                                set: { newValue in
+                                    Task { await tasbihService.updateTargetCount(newValue) }
+                                }
+                            ), in: 1...9999)
+                            
+                            // Quick presets
+                            HStack {
+                                Text("Presets:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Button("33") {
+                                    Task { await tasbihService.updateTargetCount(33) }
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                                
+                                Button("99") {
+                                    Task { await tasbihService.updateTargetCount(99) }
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                                
+                                Button("100") {
+                                    Task { await tasbihService.updateTargetCount(100) }
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                            }
+                            .padding(.top, 4)
                         }
                     }
                 }
