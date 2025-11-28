@@ -48,7 +48,7 @@ public class IslamicCalendarViewModel: ObservableObject {
 
     public var maxLookaheadDate: Date {
         let maxMonths = settingsService.maxLookaheadMonths
-        return Calendar.current.date(byAdding: .month, value: maxMonths, to: Date()) ?? Date()
+        return Calendar.current.date(byAdding: .month, value: maxMonths, to: Date()) ?? Date.distantFuture
     }
 
     public var calculationMethod: CalculationMethod {

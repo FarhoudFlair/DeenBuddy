@@ -328,6 +328,28 @@ public struct PrayerDynamicIslandView: View {
 }
 #endif
 
+@available(iOS 16.1, *)
+private extension DynamicIslandManager {
+    func hasDynamicIslandHardware() -> Bool {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let modelCode = withUnsafePointer(to: &systemInfo.machine) { ptr -> String in
+            let int8Ptr = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
+            return String(cString: int8Ptr)
+        }
+
+        // Dynamic Island exists on iPhone 14 Pro/Pro Max and newer Pro models
+        let supportedModels: Set<String> = [
+            "iPhone15,2", // 14 Pro
+            "iPhone15,3", // 14 Pro Max
+            "iPhone16,1", // 15 Pro
+            "iPhone16,2"  // 15 Pro Max
+        ]
+
+        return supportedModels.contains(modelCode)
+    }
+}
+
 // MARK: - Dynamic Island Integration Service
 
 @available(iOS 16.1, *)

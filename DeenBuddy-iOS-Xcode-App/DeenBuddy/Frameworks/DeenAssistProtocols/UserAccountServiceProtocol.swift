@@ -66,6 +66,41 @@ public struct SettingsSnapshot: Codable, Sendable {
         self.settingsVersion = settingsVersion
         self.lastSyncDate = lastSyncDate
     }
+
+    // MARK: - Codable Implementation
+
+    private enum CodingKeys: String, CodingKey {
+        case calculationMethod, madhab, timeFormat
+        case notificationsEnabled, notificationOffset
+        case liveActivitiesEnabled, showArabicSymbolInWidget
+        case enableIslamicPatterns, maxLookaheadMonths
+        case useRamadanIshaOffset, showLongRangePrecision
+        case userName, hasCompletedOnboarding
+        case settingsVersion, lastSyncDate
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Core required properties (should always exist)
+        calculationMethod = try container.decode(String.self, forKey: .calculationMethod)
+        madhab = try container.decode(String.self, forKey: .madhab)
+        timeFormat = try container.decode(String.self, forKey: .timeFormat)
+        settingsVersion = try container.decode(Int.self, forKey: .settingsVersion)
+        lastSyncDate = try container.decode(Date.self, forKey: .lastSyncDate)
+
+        // Backward compatible properties (use decodeIfPresent with defaults)
+        notificationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? true
+        notificationOffset = try container.decodeIfPresent(Double.self, forKey: .notificationOffset) ?? 300
+        liveActivitiesEnabled = try container.decodeIfPresent(Bool.self, forKey: .liveActivitiesEnabled) ?? true
+        showArabicSymbolInWidget = try container.decodeIfPresent(Bool.self, forKey: .showArabicSymbolInWidget) ?? true
+        enableIslamicPatterns = try container.decodeIfPresent(Bool.self, forKey: .enableIslamicPatterns) ?? false
+        maxLookaheadMonths = try container.decodeIfPresent(Int.self, forKey: .maxLookaheadMonths) ?? 60
+        useRamadanIshaOffset = try container.decodeIfPresent(Bool.self, forKey: .useRamadanIshaOffset) ?? false
+        showLongRangePrecision = try container.decodeIfPresent(Bool.self, forKey: .showLongRangePrecision) ?? false
+        userName = try container.decodeIfPresent(String.self, forKey: .userName) ?? ""
+        hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
+    }
 }
 
 // MARK: - User Account Service Protocol

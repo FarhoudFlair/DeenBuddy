@@ -143,10 +143,17 @@ public struct IslamicCalendarScreen: View {
                     }
                     .padding(PremiumDesignTokens.spacing16)
                 }
+                .allowsHitTesting(viewModel.error == nil)
 
                 // Error overlay
                 if let error = viewModel.error {
-                    errorOverlay(error)
+                    Color.clear
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .overlay {
+                            errorOverlay(error)
+                        }
+                        .transition(.opacity)
                 }
             }
             .navigationTitle("Islamic Calendar")

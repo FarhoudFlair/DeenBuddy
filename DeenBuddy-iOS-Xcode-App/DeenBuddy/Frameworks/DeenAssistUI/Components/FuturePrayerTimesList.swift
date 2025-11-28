@@ -129,27 +129,31 @@ public struct FuturePrayerTimesList: View {
         ThemeAwareColorPalette(theme: currentTheme)
     }
 
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
     private func prayerTime(for prayer: Prayer) -> Date? {
         prayerTimeResult.prayerTimes.first { $0.prayer == prayer }?.time
     }
 
     private func formatExactTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        Self.timeFormatter.string(from: date)
     }
 
     private func formatWindowTime(_ date: Date, windowMinutes: Int) -> String {
         let calendar = Calendar.current
-        guard let startTime = calendar.date(byAdding: .minute, value: -windowMinutes / 2, to: date),
-              let endTime = calendar.date(byAdding: .minute, value: windowMinutes / 2, to: date) else {
+        let halfSeconds = Double(windowMinutes) * 60.0 / 2.0
+        let halfSecondsRounded = Int(round(halfSeconds))
+
+        guard let startTime = calendar.date(byAdding: .second, value: -halfSecondsRounded, to: date),
+              let endTime = calendar.date(byAdding: .second, value: halfSecondsRounded, to: date) else {
             return formatExactTime(date)
         }
 
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-
-        return "\(formatter.string(from: startTime)) - \(formatter.string(from: endTime))"
+        return "\(Self.timeFormatter.string(from: startTime)) - \(Self.timeFormatter.string(from: endTime))"
     }
 
     private func formatTimeOfDay(_ date: Date) -> String {

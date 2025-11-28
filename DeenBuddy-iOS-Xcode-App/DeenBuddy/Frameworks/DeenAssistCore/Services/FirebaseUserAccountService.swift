@@ -198,7 +198,15 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
 
         let uid = firebaseUser.uid
 
-        // Delete the Firebase auth user first; if this fails (e.g., requires re-auth), abort
+        // Delete Firestore data first (batch) to avoid orphaning if auth deletion fails
+        let userDoc = firestore.collection("users").document(uid)
+        let batch = firestore.batch()
+        batch.deleteDocument(userDoc.collection("profile").document("info"))
+        batch.deleteDocument(userDoc.collection("settings").document("current"))
+        batch.deleteDocument(userDoc)
+        try await batch.commit()
+
+        // Then delete the Firebase auth user; surface re-auth requirements
         do {
             try await firebaseUser.delete()
         } catch let error as NSError {
@@ -207,11 +215,6 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             }
             throw mapFirebaseError(error)
         }
-
-        // Delete Firestore data after auth account removal succeeds
-        try await firestore.collection("users").document(uid).collection("profile").document("info").delete()
-        try await firestore.collection("users").document(uid).collection("settings").document("current").delete()
-        try await firestore.collection("users").document(uid).delete()
 
         // Clear cached account data after both deletions succeed
         userDefaults.removeObject(forKey: CacheKeys.pendingEmail)
@@ -260,6 +263,9 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             "liveActivitiesEnabled": snapshot.liveActivitiesEnabled,
             "showArabicSymbolInWidget": snapshot.showArabicSymbolInWidget,
             "enableIslamicPatterns": snapshot.enableIslamicPatterns,
+            "maxLookaheadMonths": snapshot.maxLookaheadMonths,
+            "useRamadanIshaOffset": snapshot.useRamadanIshaOffset,
+            "showLongRangePrecision": snapshot.showLongRangePrecision,
             "userName": snapshot.userName,
             "hasCompletedOnboarding": snapshot.hasCompletedOnboarding,
             "settingsVersion": snapshot.settingsVersion,
@@ -310,6 +316,9 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
                 liveActivitiesEnabled: data["liveActivitiesEnabled"] as? Bool ?? true,
                 showArabicSymbolInWidget: data["showArabicSymbolInWidget"] as? Bool ?? true,
                 enableIslamicPatterns: data["enableIslamicPatterns"] as? Bool ?? false,
+                maxLookaheadMonths: data["maxLookaheadMonths"] as? Int ?? 60,
+                useRamadanIshaOffset: data["useRamadanIshaOffset"] as? Bool ?? false,
+                showLongRangePrecision: data["showLongRangePrecision"] as? Bool ?? false,
                 userName: data["userName"] as? String ?? "",
                 hasCompletedOnboarding: data["hasCompletedOnboarding"] as? Bool ?? false,
                 settingsVersion: data["settingsVersion"] as? Int ?? 1,

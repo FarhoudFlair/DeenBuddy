@@ -6,6 +6,7 @@ public struct CountdownTimer: View {
     let timeRemaining: TimeInterval?
     
     @State private var currentTime = Date()
+    @State private var isPulsing = false
     @StateObject private var timerManager = CountdownTimerManager()
     @Environment(\.currentTheme) private var currentTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -117,13 +118,7 @@ public struct CountdownTimer: View {
                 )
         )
         .premiumShadow(.level3)
-        .scaleEffect(isImminent ? 1.02 : 1.0)
-        .appAnimation(
-            isImminent ?
-            Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true) :
-            AppAnimations.smooth,
-            value: isImminent
-        )
+        .scaleEffect(isImminent && isPulsing ? 1.02 : 1.0)
         .onReceive(timerManager.$currentTime) { time in
             currentTime = time
         }
@@ -132,6 +127,23 @@ public struct CountdownTimer: View {
         }
         .onDisappear {
             timerManager.stopTimer()
+        }
+        .onChange(of: isImminent) { newValue in
+            handleImminentChange(isImminent: newValue)
+        }
+    }
+
+    private func handleImminentChange(isImminent: Bool) {
+        if isImminent {
+            // Start pulsing animation when imminent
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        } else {
+            // Stop pulsing and reset scale when not imminent
+            withAnimation(.easeOut(duration: 0.3)) {
+                isPulsing = false
+            }
         }
     }
     

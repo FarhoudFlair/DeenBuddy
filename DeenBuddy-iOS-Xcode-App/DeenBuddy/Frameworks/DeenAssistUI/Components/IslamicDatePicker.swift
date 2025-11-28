@@ -264,7 +264,11 @@ public struct IslamicDatePicker: View {
 
         var days: [Date?] = Array(repeating: nil, count: paddingDays)
 
-        let range = gregorianCalendar.range(of: .day, in: .month, for: displayedMonth)!
+        guard let range = gregorianCalendar.range(of: .day, in: .month, for: displayedMonth) else {
+            // Fallback to an empty month when the calendar cannot resolve the range
+            return []
+        }
+
         for day in range {
             if let date = gregorianCalendar.date(byAdding: .day, value: day - 1, to: monthInterval.start) {
                 days.append(date)
@@ -398,4 +402,3 @@ extension Color {
 // MARK: - Preview
 
 // Previews removed due to Swift 6 inline @State restrictions.
-

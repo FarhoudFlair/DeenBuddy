@@ -74,25 +74,25 @@ public struct PremiumLoadingView: View {
                 .fill(skeletonColor)
                 .frame(height: 24)
                 .frame(width: 200)
-                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 8)
 
             // Content skeleton
             VStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(skeletonColor)
                     .frame(height: 16)
-                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 6)
 
                 RoundedRectangle(cornerRadius: 6)
                     .fill(skeletonColor)
                     .frame(height: 16)
-                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 6)
 
                 RoundedRectangle(cornerRadius: 6)
                     .fill(skeletonColor)
                     .frame(height: 16)
                     .frame(width: 250)
-                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 6)
             }
         }
         .padding(24)
@@ -111,12 +111,12 @@ public struct PremiumLoadingView: View {
                     Circle()
                         .fill(skeletonColor)
                         .frame(width: 24, height: 24)
-                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 12)
 
                     RoundedRectangle(cornerRadius: 6)
                         .fill(skeletonColor)
                         .frame(height: 16)
-                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 6)
                 }
                 .padding(.vertical, 12)
             }
@@ -129,19 +129,19 @@ public struct PremiumLoadingView: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(skeletonColor)
                 .frame(width: 100, height: 14)
-                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 6)
 
             // Large time display
             RoundedRectangle(cornerRadius: 12)
                 .fill(skeletonColor)
                 .frame(width: 200, height: 56)
-                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 12)
 
             // Prayer name badge
             RoundedRectangle(cornerRadius: 16)
                 .fill(skeletonColor)
                 .frame(width: 80, height: 32)
-                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 16)
 
             Spacer().frame(height: 8)
 
@@ -149,13 +149,13 @@ public struct PremiumLoadingView: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(skeletonColor)
                 .frame(width: 80, height: 14)
-                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 6)
 
             // Countdown display
             RoundedRectangle(cornerRadius: 10)
                 .fill(skeletonColor)
                 .frame(width: 120, height: 40)
-                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 10)
         }
         .padding(28)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -172,24 +172,24 @@ public struct PremiumLoadingView: View {
             Circle()
                 .fill(skeletonColor)
                 .frame(width: 80, height: 80)
-                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 40)
 
             VStack(alignment: .leading, spacing: 12) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(skeletonColor)
                     .frame(width: 150, height: 16)
-                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                    .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 6)
 
                 HStack(spacing: 12) {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(skeletonColor)
                         .frame(width: 70, height: 32)
-                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 12)
 
                     RoundedRectangle(cornerRadius: 12)
                         .fill(skeletonColor)
                         .frame(width: 70, height: 32)
-                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor)
+                        .shimmerEffect(phase: shimmerPhase, shimmerColor: shimmerColor, cornerRadius: 12)
                 }
             }
         }
@@ -215,7 +215,7 @@ public struct PremiumLoadingView: View {
 // MARK: - Shimmer Effect Modifier
 
 private extension View {
-    func shimmerEffect(phase: CGFloat, shimmerColor: Color) -> some View {
+    func shimmerEffect(phase: CGFloat, shimmerColor: Color, cornerRadius: CGFloat = 8) -> some View {
         self.overlay(
             GeometryReader { geometry in
                 LinearGradient(
@@ -230,7 +230,7 @@ private extension View {
                 .frame(width: geometry.size.width * 2)
                 .offset(x: -geometry.size.width + (geometry.size.width * 2 * phase))
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         )
     }
 }

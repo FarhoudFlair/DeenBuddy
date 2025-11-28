@@ -118,6 +118,9 @@ private class TimeFormatPreviewMockSettingsService: SettingsServiceProtocol, Obs
     @Published var showArabicSymbolInWidget: Bool = true
     @Published var liveActivitiesEnabled: Bool = true
     @Published var enableIslamicPatterns: Bool = false
+    @Published var maxLookaheadMonths: Int = 12
+    @Published var useRamadanIshaOffset: Bool = false
+    @Published var showLongRangePrecision: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
@@ -145,6 +148,9 @@ private class TimeFormatPreviewMockSettingsService: SettingsServiceProtocol, Obs
         notificationOffset = snapshot.notificationOffset
         liveActivitiesEnabled = snapshot.liveActivitiesEnabled
         showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        maxLookaheadMonths = snapshot.maxLookaheadMonths
+        useRamadanIshaOffset = snapshot.useRamadanIshaOffset
+        showLongRangePrecision = snapshot.showLongRangePrecision
         userName = snapshot.userName
         hasCompletedOnboarding = snapshot.hasCompletedOnboarding
     }

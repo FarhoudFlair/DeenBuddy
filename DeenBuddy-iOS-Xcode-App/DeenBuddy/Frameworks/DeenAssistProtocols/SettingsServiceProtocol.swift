@@ -47,13 +47,13 @@ public protocol SettingsServiceProtocol: ObservableObject {
     var enableIslamicPatterns: Bool { get set }
 
     /// Maximum lookahead window in months for future prayer times (default 60)
-    var maxLookaheadMonths: Int { get set }
+    var maxLookaheadMonths: Int { get }
 
     /// Whether to apply Ramadan Isha offset (+30m) for Umm Al Qura/Qatar
-    var useRamadanIshaOffset: Bool { get set }
+    var useRamadanIshaOffset: Bool { get }
 
     /// Whether to show exact times for long-range (>12 months) calculations
-    var showLongRangePrecision: Bool { get set }
+    var showLongRangePrecision: Bool { get }
 
     /// Publisher for notifications enabled changes
     var notificationsEnabledPublisher: AnyPublisher<Bool, Never> { get }
@@ -82,20 +82,3 @@ public protocol SettingsServiceProtocol: ObservableObject {
 }
 
 // MARK: - Default Implementations for Optional Settings
-
-public extension SettingsServiceProtocol {
-    var maxLookaheadMonths: Int {
-        get { 60 }
-        set { _ = newValue }
-    }
-
-    var useRamadanIshaOffset: Bool {
-        get { true }
-        set { _ = newValue }
-    }
-
-    var showLongRangePrecision: Bool {
-        get { false }
-        set { _ = newValue }
-    }
-}
