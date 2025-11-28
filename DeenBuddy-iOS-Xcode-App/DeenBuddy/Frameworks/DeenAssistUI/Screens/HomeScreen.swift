@@ -335,9 +335,9 @@ public struct HomeScreen: View {
     
     @ViewBuilder
     private var prayerTimesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .center) {
-                Text("Today's Prayer Schedule")
+                Text("Today's Timeline")
                     .headlineSmall()
                     .foregroundColor(ColorPalette.textPrimary)
 
@@ -371,50 +371,29 @@ public struct HomeScreen: View {
                 let nextPrayerInstance = prayerTimeService.nextPrayer
 
                 VStack(spacing: 0) {
-                    LazyVGrid(columns: scheduleColumns, spacing: 8) {
-                        Text("Prayer")
-                            .font(.caption)
-                            .foregroundColor(ColorPalette.textSecondary)
-
-                        Text("Time")
-                            .font(.caption)
-                            .foregroundColor(ColorPalette.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-
-                        Text("Rakah")
-                            .font(.caption)
-                            .foregroundColor(ColorPalette.textSecondary)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-                    .padding(.bottom, 8)
-
-                    Divider()
-
                     ForEach(Array(prayers.enumerated()), id: \.element.prayer) { index, prayerTime in
                         let isNext = {
                             guard let nextPrayerInstance else { return false }
                             return prayerTime.prayer == nextPrayerInstance.prayer &&
                                 Calendar.current.isDate(prayerTime.time, equalTo: nextPrayerInstance.time, toGranularity: .minute)
                         }()
+                        
+                        let isLast = index == prayers.count - 1
 
-                        PrayerScheduleRow(
+                        PrayerTimelineRow(
                             prayer: prayerTime,
                             status: getPrayerStatus(for: prayerTime),
                             isNext: isNext,
+                            isLast: isLast,
                             isCompleted: completedPrayers.contains(prayerTime.prayer),
                             isProcessing: isUpdatingPrayers.contains(prayerTime.prayer),
-                            columns: scheduleColumns,
                             toggle: { togglePrayer(prayerTime.prayer) }
                         )
-
-                        if index < prayers.count - 1 {
-                            Divider()
-                        }
                     }
                 }
             }
         }
-        .padding(28)
+        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
@@ -748,26 +727,156 @@ public struct HomeScreen: View {
     
 }
 
-/// Prayer schedule row styled for the home screen list
-private struct PrayerScheduleRow: View {
+/// Prayer timeline row with vertical connecting line
+private struct PrayerTimelineRow: View {
     let prayer: PrayerTime
     let status: PrayerStatus
     let isNext: Bool
+    let isLast: Bool
     let isCompleted: Bool
     let isProcessing: Bool
-    let columns: [GridItem]
     let toggle: () -> Void
 
     @Environment(\.currentTheme) private var currentTheme
     @Environment(\.colorScheme) private var colorScheme
     @State private var celebrationScale: CGFloat = 1.0
 
+    private var themeColors: ThemeAwareColorPalette {
+        ThemeAwareColorPalette(theme: currentTheme)
+    }
+    
     private var premiumTokens: PremiumDesignTokens {
         PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
     }
 
-    private var themeColors: ThemeAwareColorPalette {
-        ThemeAwareColorPalette(theme: currentTheme)
+    var body: some View {
+        Button(action: toggle) {
+            HStack(alignment: .top, spacing: 16) {
+                // 1. Timeline Column
+                VStack(spacing: 0) {
+                    // Top connector (invisible for first item if we wanted, but usually we want a continuous line or just from center)
+                    // For this design, we'll draw the line behind the node
+                    
+                    ZStack {
+                        // Vertical Line
+                        if !isLast {
+                            Rectangle()
+                                .fill(lineColor)
+                                .frame(width: 2)
+                                .frame(maxHeight: .infinity)
+                                .offset(y: 14) // Start from center of node
+                        }
+                        
+                        // Node
+                        ZStack {
+                            if isCompleted {
+                                Circle()
+                                    .fill(themeColors.primary)
+                                    .frame(width: 28, height: 28)
+                                    .premiumShadow(.level1)
+                                
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                            } else {
+                                if isNext {
+                                    Circle()
+                                        .fill(nodeFillColor)
+                                        .frame(width: 28, height: 28)
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(nodeStrokeColor, lineWidth: 3)
+                                        )
+                                        .premiumShadow(.level1)
+                                } else {
+                                    Circle()
+                                        .fill(nodeFillColor)
+                                        .frame(width: 28, height: 28)
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(nodeStrokeColor, lineWidth: 2)
+                                        )
+                                }
+                            }
+                        }
+                    }
+                    .frame(width: 28)
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+
+                // 2. Content Column
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(prayer.prayer.displayName)
+                            .font(.system(size: 17, weight: isNext || isCompleted ? .semibold : .medium, design: .rounded))
+                            .foregroundColor(primaryTextColor)
+                        
+                        if isNext {
+                            Text("Next")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    Capsule()
+                                        .fill(themeColors.nextPrayerHighlight)
+                                )
+                        }
+                        
+                        Spacer()
+                        
+                        // Time
+                        Text(Self.timeFormatter.string(from: prayer.time))
+                            .font(.system(size: 17, weight: isNext ? .semibold : .regular, design: .rounded))
+                            .foregroundColor(timeColor)
+                            .monospacedDigit()
+                    }
+                    
+                    HStack {
+                        // Rakah Badge
+                        HStack(spacing: 4) {
+                            Text("\(prayer.prayer.defaultRakahCount)")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Rakah")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(ColorPalette.surfaceSecondary)
+                        )
+                        
+                        Spacer()
+                        
+                        // Relative Time
+                        if let relative = relativeTimeString {
+                            Text(relative)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(isNext ? themeColors.primary : ColorPalette.textSecondary)
+                        }
+                    }
+                }
+                .padding(.bottom, 24) // Spacing between rows
+                .contentShape(Rectangle()) // Make entire area tappable
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(isProcessing)
+        .opacity(isProcessing ? 0.6 : 1.0)
+        .scaleEffect(celebrationScale)
+        .appAnimation(AppAnimations.cardPress, value: celebrationScale)
+        .accessibilityLabel(labelText)
+        .accessibilityHint("Double tap to toggle completion")
+        .onChange(of: isCompleted) { newValue in
+            if newValue {
+                celebrationScale = 1.05
+                withAnimation(AppAnimations.cardPress.delay(0.1)) {
+                    celebrationScale = 1.0
+                }
+            }
+        }
     }
 
     private static let timeFormatter: DateFormatter = {
@@ -776,146 +885,62 @@ private struct PrayerScheduleRow: View {
         formatter.locale = Locale.autoupdatingCurrent
         return formatter
     }()
-
-    var body: some View {
-        Button(action: toggle) {
-            LazyVGrid(columns: columns, spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        // Premium gradient checkbox
-                        ZStack {
-                            if isCompleted {
-                                Circle()
-                                    .fill(themeColors.primary)
-                                    .frame(width: 24, height: 24)
-
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                            } else {
-                                Circle()
-                                    .strokeBorder(ColorPalette.textSecondary.opacity(0.4), lineWidth: 2)
-                                    .frame(width: 24, height: 24)
-                            }
-                        }
-
-                        Text(prayer.prayer.displayName)
-                            .font(.system(size: 16, weight: .semibold, design: .rounded))
-                            .foregroundColor(primaryTextColor)
-
-                        if isNext {
-                            Text("Next")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(
-                                    Capsule()
-                                        .fill(themeColors.nextPrayerHighlight)
-                                )
-                        }
-                    }
-
-                    if let relative = relativeTimeString {
-                        Text(relative)
-                            .font(.caption)
-                            .foregroundColor(ColorPalette.textSecondary)
-                    }
-                }
-
-                Text(timeString)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(timeColor)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .monospacedDigit()
-
-                Text("\(prayer.prayer.defaultRakahCount)")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(ColorPalette.rakahText)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .padding(.vertical, 20)
-            .padding(.horizontal, 12)
-            .background(rowBackground)
-            .clipShape(RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius16))
+    
+    // MARK: - Visual Helpers
+    
+    private var lineColor: Color {
+        if isCompleted {
+            return themeColors.primary.opacity(0.3)
         }
-        .buttonStyle(.plain)
-        .disabled(isProcessing)
-        .opacity(isProcessing ? 0.6 : 1.0)
-        .scaleEffect(celebrationScale)
-        .appAnimation(AppAnimations.cardPress, value: celebrationScale)
-        .accessibilityLabel(labelText)
-        .accessibilityHint("Double tap to toggle completion for this prayer")
-        .onChange(of: isCompleted) { newValue in
-            if newValue {
-                // Trigger celebration animation on completion
-                celebrationScale = 1.08
-                withAnimation(AppAnimations.cardPress.delay(0.1)) {
-                    celebrationScale = 1.0
-                }
-            }
-        }
+        return ColorPalette.surfaceSecondary.opacity(0.8) // Subtle line
     }
-
-    private var timeString: String {
-        Self.timeFormatter.string(from: prayer.time)
+    
+    private var nodeFillColor: Color {
+        if isNext {
+            return themeColors.primary.opacity(0.1)
+        }
+        return ColorPalette.surfacePrimary
+    }
+    
+    private var nodeStrokeColor: Color {
+        if isNext {
+            return themeColors.primary
+        }
+        return ColorPalette.textSecondary.opacity(0.3)
     }
 
     private var primaryTextColor: Color {
         if isCompleted {
-            return ColorPalette.primary
+            return ColorPalette.textSecondary // Dim completed items
         }
-        switch status {
-        case .completed:
-            return ColorPalette.textSecondary
-        default:
-            return isNext ? ColorPalette.primary : ColorPalette.textPrimary
-        }
+        return isNext ? ColorPalette.textPrimary : ColorPalette.textPrimary.opacity(0.9)
     }
 
     private var timeColor: Color {
         if isCompleted {
-            return ColorPalette.primary
-        }
-        switch status {
-        case .completed:
             return ColorPalette.textSecondary
-        case .active:
-            return ColorPalette.primary
-        default:
-            return ColorPalette.textPrimary
         }
+        return isNext ? themeColors.primary : ColorPalette.textPrimary
     }
 
     private var relativeTimeString: String? {
         guard isNext else { return nil }
 
         let interval = prayer.time.timeIntervalSince(Date())
-        guard interval > 0 else { return "Starting now" }
+        guard interval > 0 else { return "Now" }
 
         let totalMinutes = Int(interval) / 60
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
 
         if totalMinutes == 0 {
-            return "In <1m"
+            return "<1m"
         }
 
-        var components: [String] = []
         if hours > 0 {
-            components.append("\(hours)h")
+            return "in \(hours)h \(minutes)m"
         }
-        components.append("\(minutes)m")
-
-        return "In \(components.joined(separator: " "))"
-    }
-
-    private var rowBackground: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(
-                isCompleted ? ColorPalette.primary.opacity(0.12) :
-                    (isNext ? ColorPalette.primary.opacity(0.08) : ColorPalette.surfaceSecondary.opacity(0.6))
-            )
+        return "in \(minutes)m"
     }
 
     private var labelText: String {

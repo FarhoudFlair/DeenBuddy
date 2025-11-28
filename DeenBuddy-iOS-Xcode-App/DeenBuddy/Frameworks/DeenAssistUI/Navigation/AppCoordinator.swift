@@ -110,8 +110,21 @@ public class AppCoordinator: ObservableObject {
     
     /// Handle magic link URLs for email sign-in
     public func handleMagicLink(_ url: URL) {
+        // Fix for custom scheme rewriting:
+        // The hosting page rewrites https://... to deenbuddy://...
+        // We need to convert it back to https:// for Firebase Auth to accept it.
+        var effectiveURL = url
+        if url.scheme == "deenbuddy" {
+            if var components = URLComponents(url: url, resolvingAgainstBaseURL: true) {
+                components.scheme = "https"
+                if let newURL = components.url {
+                    effectiveURL = newURL
+                }
+            }
+        }
+
         Task { @MainActor in
-            let isSignInLink = await userAccountService.isSignInWithEmailLink(url)
+            let isSignInLink = await userAccountService.isSignInWithEmailLink(effectiveURL)
             // Validate that this is a sign-in link
             guard isSignInLink else {
                 showError(.unknownError("This link is not a valid sign-in link. Please request a new link."))
@@ -125,7 +138,7 @@ public class AppCoordinator: ObservableObject {
             }
             
             do {
-                try await userAccountService.signIn(withEmail: email, linkURL: url)
+                try await userAccountService.signIn(withEmail: email, linkURL: effectiveURL)
                 
                 // Clear pending email on success
                 UserDefaults.standard.removeObject(forKey: "DeenBuddy.Account.PendingEmail")

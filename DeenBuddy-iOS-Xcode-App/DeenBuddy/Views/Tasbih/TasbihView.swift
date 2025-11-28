@@ -63,6 +63,18 @@ struct TasbihView: View {
                             .padding()
                             .background(.ultraThinMaterial)
                             .cornerRadius(16)
+                        } else {
+                            // Fallback for initial load
+                            VStack(spacing: 8) {
+                                Text("Select Dhikr")
+                                    .font(.system(size: 32, weight: .bold))
+                                    .foregroundColor(ColorPalette.textSecondary)
+                                
+                                Text("Tap to start")
+                                    .font(.headline)
+                                    .foregroundColor(ColorPalette.textSecondary)
+                            }
+                            .padding()
                         }
                         
                         Spacer()
@@ -170,6 +182,11 @@ struct TasbihView: View {
                 localCount = newVal
             }
         }
+        .alert("Error", isPresented: $viewModel.showError) {
+            Button("OK", role: .cancel) { viewModel.showError = false }
+        } message: {
+            Text(viewModel.errorMessage)
+        }
     }
     
     private var header: some View {
@@ -210,7 +227,7 @@ struct TasbihView: View {
         }
         
         Task {
-            await viewModel.increment(by: 1, feedback: false)
+            await viewModel.increment(by: 1, playHaptics: false, playSound: true)
         }
     }
 }

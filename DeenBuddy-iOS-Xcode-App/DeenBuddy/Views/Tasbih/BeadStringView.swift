@@ -27,17 +27,27 @@ struct BeadStringView: View {
                 .stroke(Color.gray.opacity(0.3), lineWidth: 2)
                 
                 // Draw beads
-                ForEach(-2..<visibleBeads + 2, id: \.self) { index in
-                    let safeTarget = max(1, targetCount)
-                    let beadIndex = (currentCount + index) % safeTarget
-                    let isTargetBead = beadIndex == 0 && currentCount > 0
+                // We render a range of beads centered around the current count
+                ForEach(-3..<visibleBeads + 2, id: \.self) { index in
+                    // Calculate the actual bead number (0 to targetCount-1)
+                    // We handle negative indices to wrap around correctly for the loop
+                    let rawIndex = currentCount + index
+                    let beadIndex = (rawIndex % targetCount + targetCount) % targetCount
+                    
+                    let isMarkerBead = beadIndex == 0
+                    
+                    // Coloring Logic:
+                    // index > 0: Already counted (passed center) -> Theme Color
+                    // index == 0: Currently at center (Active) -> Theme Color
+                    // index < 0: Upcoming (from top) -> White/Gray
+                    let isCounted = index >= 0
                     
                     Circle()
                         .fill(
                             RadialGradient(
                                 gradient: Gradient(colors: [
-                                    isTargetBead ? themeColor.opacity(0.8) : Color.white,
-                                    isTargetBead ? themeColor : Color(UIColor.systemGray4)
+                                    colorForBead(isCounted: isCounted, isMarker: isMarkerBead, shade: .light),
+                                    colorForBead(isCounted: isCounted, isMarker: isMarkerBead, shade: .dark)
                                 ]),
                                 center: .topLeading,
                                 startRadius: 5,
@@ -50,27 +60,65 @@ struct BeadStringView: View {
                             Circle()
                                 .stroke(Color.black.opacity(0.1), lineWidth: 1)
                         )
+                        // Marker indicator (small dot or ring)
+                        .overlay(
+                            Group {
+                                if isMarkerBead {
+                                    Circle()
+                                        .stroke(Color.orange, lineWidth: 2)
+                                        .frame(width: beadSize + 4, height: beadSize + 4)
+                                }
+                            }
+                        )
                         .position(
                             x: centerX,
-                            y: centerY + (CGFloat(index) * (beadSize + beadSpacing)) - offset
+                            // Animation Logic:
+                            // We add 'offset' to Y.
+                            // When count increments, we snap offset to -(size+spacing) [Shift UP]
+                            // Then animate offset to 0 [Slide DOWN]
+                            y: centerY + (CGFloat(index) * (beadSize + beadSpacing)) + offset
                         )
-                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: offset)
                 }
             }
             .drawingGroup() // Optimize rendering
             .contentShape(Rectangle())
             .clipped()
         }
-        .onChange(of: currentCount) { _ in
+        .onChange(of: currentCount) {
             animateBeadMovement()
         }
     }
     
+    private enum Shade { case light, dark }
+    
+    private func colorForBead(isCounted: Bool, isMarker: Bool, shade: Shade) -> Color {
+        if isMarker {
+            // Gold/Orange for marker
+            switch shade {
+            case .light: return Color.orange.opacity(0.8)
+            case .dark: return Color.orange
+            }
+        } else if isCounted {
+            // Green/Theme for counted beads
+            switch shade {
+            case .light: return themeColor.opacity(0.8)
+            case .dark: return themeColor
+            }
+        } else {
+            // White/Gray for upcoming
+            switch shade {
+            case .light: return Color.white
+            case .dark: return Color(UIColor.systemGray4)
+            }
+        }
+    }
+    
     private func animateBeadMovement() {
-        // To simulate pulling beads DOWN (towards the user), we start with a positive offset
-        // (which renders beads lower) and animate to 0.
-        offset = beadSize + beadSpacing
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+        // 1. Snap to "Previous" visual state (shifted UP)
+        offset = -(beadSize + beadSpacing)
+        
+        // 2. Animate to "Current" state (Slide DOWN to 0)
+        withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.8)) {
             offset = 0
         }
     }
