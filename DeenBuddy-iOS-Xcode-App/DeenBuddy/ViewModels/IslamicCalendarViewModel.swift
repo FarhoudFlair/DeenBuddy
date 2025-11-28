@@ -16,6 +16,7 @@ public class IslamicCalendarViewModel: ObservableObject {
     @Published public var error: AppError?
     @Published public var showDisclaimer = true
     @Published public var showHighLatitudeWarning = false
+    @Published public var lastSuccessfulDate: Date = Date()
 
     // MARK: - Computed Properties
 
@@ -97,7 +98,8 @@ public class IslamicCalendarViewModel: ObservableObject {
 
     public func retry() {
         error = nil
-        Task {
+        Task { @MainActor in
+            selectedDate = lastSuccessfulDate
             await loadPrayerTimes()
         }
     }
@@ -130,6 +132,7 @@ public class IslamicCalendarViewModel: ObservableObject {
             )
 
             prayerTimeResult = result
+            lastSuccessfulDate = selectedDate
             showHighLatitudeWarning = result.isHighLatitude
             isLoading = false
         } catch {
