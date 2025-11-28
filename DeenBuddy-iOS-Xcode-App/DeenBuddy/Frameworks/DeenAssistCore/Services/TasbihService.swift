@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import AVFoundation
 import UIKit
+import AudioToolbox
 
 /// Real implementation of TasbihServiceProtocol
 @MainActor
@@ -44,10 +45,12 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         setupDefaultData()
         loadCachedData()
         setupObservers()
+        setupAudio()
     }
     
     deinit {
         sessionTimer?.invalidate()
+        cleanupAudio()
     }
     
     // MARK: - Setup Methods
@@ -104,7 +107,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         
         // Setup default counters
         let defaultCounters = [
-            TasbihCounter(name: "Default", maxCount: 99, isDefault: true),
+            TasbihCounter(name: "Default", maxCount: 33, isDefault: true),
             TasbihCounter(name: "33 Count", maxCount: 33),
             TasbihCounter(name: "100 Count", maxCount: 100),
             TasbihCounter(name: "Unlimited", maxCount: 9999)
@@ -526,14 +529,38 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         }
     }
     
+    // MARK: - Audio Setup
+    
+    private var tasbihSoundIDs: [SystemSoundID] = []
+    
+    private func setupAudio() {
+        // Preload sound files into system sound services for lowest latency
+        for i in 1...4 {
+            if let url = Bundle.main.url(forResource: "tasbih_click_\(i)", withExtension: "caf") {
+                var soundID: SystemSoundID = 0
+                let status = AudioServicesCreateSystemSoundID(url as CFURL, &soundID)
+                if status == kAudioServicesNoError {
+                    tasbihSoundIDs.append(soundID)
+                }
+            }
+        }
+    }
+    
+    private func cleanupAudio() {
+        for soundID in tasbihSoundIDs {
+            AudioServicesDisposeSystemSoundID(soundID)
+        }
+        tasbihSoundIDs.removeAll()
+    }
+
     private func playSound(named soundName: String) {
-        guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else { return }
-        
-        do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.play()
-        } catch {
-            // Handle audio error silently
+        // Use preloaded system sounds for zero-latency playback
+        if !tasbihSoundIDs.isEmpty {
+            let randomIndex = Int.random(in: 0..<tasbihSoundIDs.count)
+            AudioServicesPlaySystemSound(tasbihSoundIDs[randomIndex])
+        } else {
+            // Fallback to standard system click
+            AudioServicesPlaySystemSound(1104)
         }
     }
     
