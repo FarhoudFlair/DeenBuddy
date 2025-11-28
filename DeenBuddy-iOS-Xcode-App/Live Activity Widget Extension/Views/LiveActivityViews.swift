@@ -250,6 +250,7 @@ struct PrayerTimeProvider: TimelineProvider {
                 updatedData = WidgetData(
                     nextPrayer: nextPrayer,
                     timeUntilNextPrayer: nextPrayer.time.timeIntervalSince(entryTime),
+                    currentPrayerInterval: computeInterval(from: updatedData),
                     todaysPrayerTimes: updatedData.todaysPrayerTimes,
                     hijriDate: updatedData.hijriDate,
                     location: updatedData.location,
@@ -261,6 +262,7 @@ struct PrayerTimeProvider: TimelineProvider {
                 updatedData = WidgetData(
                     nextPrayer: nil,
                     timeUntilNextPrayer: nil,
+                    currentPrayerInterval: nil,
                     todaysPrayerTimes: updatedData.todaysPrayerTimes,
                     hijriDate: updatedData.hijriDate,
                     location: updatedData.location,
@@ -323,9 +325,19 @@ struct PrayerTimeProvider: TimelineProvider {
                 return PrayerWidgetEntry.errorEntry()
             }
             
+            let dataWithInterval = WidgetData(
+                nextPrayer: widgetData.nextPrayer,
+                timeUntilNextPrayer: widgetData.timeUntilNextPrayer,
+                currentPrayerInterval: computeInterval(from: widgetData),
+                todaysPrayerTimes: widgetData.todaysPrayerTimes,
+                hijriDate: widgetData.hijriDate,
+                location: widgetData.location,
+                calculationMethod: widgetData.calculationMethod,
+                lastUpdated: widgetData.lastUpdated
+            )
             return PrayerWidgetEntry(
                 date: Date(),
-                widgetData: widgetData,
+                widgetData: dataWithInterval,
                 configuration: configuration
             )
         } else {
@@ -356,6 +368,7 @@ struct PrayerTimeProvider: TimelineProvider {
                     updatedWidgetData = WidgetData(
                         nextPrayer: updatedWidgetData.nextPrayer,
                         timeUntilNextPrayer: timeUntilNext,
+                        currentPrayerInterval: computeInterval(from: updatedWidgetData),
                         todaysPrayerTimes: updatedWidgetData.todaysPrayerTimes,
                         hijriDate: updatedWidgetData.hijriDate,
                         location: updatedWidgetData.location,
@@ -397,4 +410,17 @@ struct PrayerTimeProvider: TimelineProvider {
         
         return min(midnight, defaultRefresh)
     }
+
+    private func computeInterval(from data: WidgetData) -> TimeInterval? {
+        guard let next = data.nextPrayer else { return nil }
+        let sorted = data.todaysPrayerTimes.sorted { $0.time < $1.time }
+        guard let idx = sorted.firstIndex(where: { $0.time == next.time && $0.prayer == next.prayer }) ?? sorted.firstIndex(where: { $0.time > next.time }) else {
+            return nil
+        }
+        let previous = sorted[..<idx].last
+        guard let prevTime = previous?.time else { return nil }
+        let interval = next.time.timeIntervalSince(prevTime)
+        return interval > 0 ? interval : nil
+    }
+
 }

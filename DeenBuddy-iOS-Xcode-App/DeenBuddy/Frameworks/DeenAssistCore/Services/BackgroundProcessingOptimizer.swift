@@ -274,6 +274,13 @@ public class BackgroundProcessingOptimizer: ObservableObject {
                     let widgetManager = WidgetDataManager.shared
                     
                     if var existingData = widgetManager.loadWidgetData() {
+                        let calendar = Calendar.current
+                        if !calendar.isDateInToday(existingData.lastUpdated) {
+                            print("⚠️ Stale widget data detected (lastUpdated=\(existingData.lastUpdated)); reloading timelines and aborting refresh")
+                            WidgetCenter.shared.reloadAllTimelines()
+                            return
+                        }
+
                         let now = Date()
                         
                         // Recalculate time until next prayer
@@ -288,8 +295,8 @@ public class BackgroundProcessingOptimizer: ObservableObject {
                             } else {
                                 // Next prayer has passed - find the new next prayer
                                 let upcomingPrayers = existingData.todaysPrayerTimes.filter { $0.time > now }
-                                
-                                if let newNextPrayer = upcomingPrayers.first {
+
+                                if let newNextPrayer = upcomingPrayers.min(by: { $0.time < $1.time }) {
                                     let newTimeUntil = newNextPrayer.time.timeIntervalSince(now)
                                     let updatedData = WidgetData(
                                         nextPrayer: newNextPrayer,

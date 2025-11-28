@@ -478,7 +478,7 @@ struct RectangularNextPrayerEnhancedView: View {
                             )
                             .lineLimit(1)
                     } else {
-                        Text("Current Location")
+                        Text("Location unavailable")
                             .font(.system(size: 11))
                             .foregroundStyle(Color(.tertiaryLabel))
                     }

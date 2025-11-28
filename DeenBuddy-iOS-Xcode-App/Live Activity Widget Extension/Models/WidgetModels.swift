@@ -5,7 +5,7 @@ import WidgetKit
 // MARK: - Widget Data Models
 
 /// Simplified prayer enum for widget extension (scoped to extension)
-enum WidgetPrayer: String, CaseIterable, Codable {
+enum WidgetPrayer: String, CaseIterable, Codable, Sendable {
     case fajr = "fajr"
     case dhuhr = "dhuhr"
     case asr = "asr"
@@ -56,7 +56,7 @@ enum WidgetPrayer: String, CaseIterable, Codable {
 }
 
 /// Simplified prayer time model for widget extension
-struct PrayerTime: Codable, Identifiable {
+struct PrayerTime: Codable, Identifiable, Sendable {
     let id = UUID()
     let prayer: WidgetPrayer
     let time: Date
@@ -77,7 +77,7 @@ struct PrayerTime: Codable, Identifiable {
 
 /// Simplified Hijri date model for widget extension
 /// Note: The main app's HijriDate includes an 'era' field (HijriEra enum) which we decode robustly
-struct HijriDate: Codable {
+struct HijriDate: Codable, Sendable {
     let day: Int
     let month: String
     let year: Int
@@ -217,9 +217,10 @@ enum CalculationMethod: String, Codable {
 }
 
 /// Widget data structure
-struct WidgetData: Codable {
+struct WidgetData: Codable, Sendable {
     let nextPrayer: PrayerTime?
     var timeUntilNextPrayer: TimeInterval?
+    var currentPrayerInterval: TimeInterval?
     let todaysPrayerTimes: [PrayerTime]
     let hijriDate: HijriDate
     let location: String
@@ -230,6 +231,7 @@ struct WidgetData: Codable {
     static let placeholder = WidgetData(
         nextPrayer: PrayerTime(prayer: WidgetPrayer.maghrib, time: Date().addingTimeInterval(3600), location: nil),
         timeUntilNextPrayer: 3600,
+        currentPrayerInterval: 7200,
         todaysPrayerTimes: [
             PrayerTime(prayer: WidgetPrayer.fajr, time: Date().addingTimeInterval(-18000), location: nil),
             PrayerTime(prayer: WidgetPrayer.dhuhr, time: Date().addingTimeInterval(-7200), location: nil),
@@ -247,6 +249,7 @@ struct WidgetData: Codable {
     static let errorState = WidgetData(
         nextPrayer: nil,
         timeUntilNextPrayer: nil,
+        currentPrayerInterval: nil,
         todaysPrayerTimes: [],
         hijriDate: HijriDate(from: Date()),
         location: "Open DeenBuddy App",
@@ -279,7 +282,7 @@ struct WidgetData: Codable {
 }
 
 /// Widget entry
-struct PrayerWidgetEntry: TimelineEntry {
+struct PrayerWidgetEntry: TimelineEntry, Sendable {
     let date: Date
     let widgetData: WidgetData
     let configuration: PrayerWidgetConfiguration
@@ -302,7 +305,7 @@ struct PrayerWidgetEntry: TimelineEntry {
 }
 
 /// Widget configuration
-struct PrayerWidgetConfiguration: Codable {
+struct PrayerWidgetConfiguration: Codable, Sendable {
     let showArabicText: Bool
     let showCountdown: Bool
     let theme: WidgetTheme
@@ -314,7 +317,7 @@ struct PrayerWidgetConfiguration: Codable {
     )
 }
 
-enum WidgetTheme: String, Codable {
+enum WidgetTheme: String, Codable, Sendable {
     case light, dark, auto
 }
 

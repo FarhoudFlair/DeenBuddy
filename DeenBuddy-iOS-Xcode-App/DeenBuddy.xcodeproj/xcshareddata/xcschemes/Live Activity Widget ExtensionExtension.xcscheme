@@ -94,7 +94,11 @@
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
-            key = " _XCWidgetKind"
+         <EnvironmentVariable
+             key = "_XCWidgetKind"
+             value = "NextPrayerLockScreenWidget"
+             isEnabled = "YES">
+         </EnvironmentVariable>
             value = "NextPrayerLockScreenWidget"
             isEnabled = "YES">
          </EnvironmentVariable>

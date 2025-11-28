@@ -25,6 +25,9 @@ public struct SettingsSnapshot: Codable, Sendable {
     public let liveActivitiesEnabled: Bool
     public let showArabicSymbolInWidget: Bool
     public let enableIslamicPatterns: Bool
+    public let maxLookaheadMonths: Int
+    public let useRamadanIshaOffset: Bool
+    public let showLongRangePrecision: Bool
     public let userName: String
     public let hasCompletedOnboarding: Bool
     public let settingsVersion: Int
@@ -39,6 +42,9 @@ public struct SettingsSnapshot: Codable, Sendable {
         liveActivitiesEnabled: Bool,
         showArabicSymbolInWidget: Bool,
         enableIslamicPatterns: Bool,
+        maxLookaheadMonths: Int,
+        useRamadanIshaOffset: Bool,
+        showLongRangePrecision: Bool,
         userName: String,
         hasCompletedOnboarding: Bool,
         settingsVersion: Int,
@@ -52,6 +58,9 @@ public struct SettingsSnapshot: Codable, Sendable {
         self.liveActivitiesEnabled = liveActivitiesEnabled
         self.showArabicSymbolInWidget = showArabicSymbolInWidget
         self.enableIslamicPatterns = enableIslamicPatterns
+        self.maxLookaheadMonths = maxLookaheadMonths
+        self.useRamadanIshaOffset = useRamadanIshaOffset
+        self.showLongRangePrecision = showLongRangePrecision
         self.userName = userName
         self.hasCompletedOnboarding = hasCompletedOnboarding
         self.settingsVersion = settingsVersion

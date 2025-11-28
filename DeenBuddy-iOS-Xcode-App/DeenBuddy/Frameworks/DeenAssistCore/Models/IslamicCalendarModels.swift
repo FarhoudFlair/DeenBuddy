@@ -28,6 +28,29 @@ public struct HijriDate: Codable, Equatable, Comparable, Hashable {
         self.year = components.year ?? 1445
         self.era = .afterHijra
     }
+
+    /// Create HijriDate from Gregorian date using specified calculation method (calendar identifier)
+    public init(from gregorianDate: Date, calculationMethod: IslamicCalendarMethod) {
+        let identifier: Calendar.Identifier
+        switch calculationMethod {
+        case .ummalqura:
+            identifier = .islamicUmmAlQura
+        case .civil:
+            identifier = .islamicCivil
+        case .astronomical:
+            identifier = .islamicTabular
+        case .tabular:
+            identifier = .islamicTabular
+        }
+
+        let calendar = Calendar(identifier: identifier)
+        let components = calendar.dateComponents([.day, .month, .year], from: gregorianDate)
+
+        self.day = components.day ?? 1
+        self.month = HijriMonth(rawValue: components.month ?? 1) ?? .muharram
+        self.year = components.year ?? 1445
+        self.era = .afterHijra
+    }
     
     /// Convert to Gregorian date
     public func toGregorianDate() -> Date {

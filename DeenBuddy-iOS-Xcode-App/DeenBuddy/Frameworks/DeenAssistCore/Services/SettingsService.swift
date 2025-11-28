@@ -267,9 +267,15 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
     }
 
-    @Published public var maxLookaheadMonths: Int = 60 {
+    @Published public var maxLookaheadMonths: Int = 12 {
         didSet {
             guard !isRestoring else { return }
+
+            guard maxLookaheadMonths >= maxLookaheadMin && maxLookaheadMonths <= maxLookaheadMax else {
+                print("⚠️ Invalid maxLookaheadMonths \(maxLookaheadMonths); reverting to \(oldValue)")
+                maxLookaheadMonths = oldValue
+                return
+            }
 
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
@@ -362,6 +368,8 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     // MARK: - Constants
     
     private let currentSettingsVersion = 1
+    private let maxLookaheadMin = 0
+    private let maxLookaheadMax = 120
     
     // MARK: - Initialization
     
@@ -583,6 +591,12 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             throw SettingsError.validationFailed("Notification offset out of valid range: \(offset)")
         }
 
+        // Validate max lookahead bounds
+        let lookahead = userDefaults.integer(forKey: UnifiedSettingsKeys.maxLookaheadMonths)
+        if lookahead < maxLookaheadMin || lookahead > maxLookaheadMax {
+            throw SettingsError.validationFailed("Max lookahead out of valid range: \(lookahead)")
+        }
+
         // Check for duplicate or conflicting legacy keys
         var foundLegacyKeys: [String] = []
         for legacyKey in UnifiedSettingsKeys.legacyKeys {
@@ -660,6 +674,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             UnifiedSettingsKeys.showArabicSymbolInWidget,
             UnifiedSettingsKeys.liveActivitiesEnabled,
             UnifiedSettingsKeys.enableIslamicPatterns,
+            UnifiedSettingsKeys.maxLookaheadMonths,
+            UnifiedSettingsKeys.useRamadanIshaOffset,
+            UnifiedSettingsKeys.showLongRangePrecision,
             UnifiedSettingsKeys.settingsVersion
         ]
 
@@ -907,6 +924,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
             liveActivitiesEnabled = snapshot.liveActivitiesEnabled
             enableIslamicPatterns = snapshot.enableIslamicPatterns
+            maxLookaheadMonths = snapshot.maxLookaheadMonths
+            useRamadanIshaOffset = snapshot.useRamadanIshaOffset
+            showLongRangePrecision = snapshot.showLongRangePrecision
         }
 
         try await saveSettings()

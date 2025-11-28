@@ -1,7 +1,9 @@
 import SwiftUI
 
 /// Subtle Islamic geometric pattern overlay for background decoration
-/// Respects user preference via `enableIslamicPatterns` setting
+/// Note: This view always renders the pattern when instantiated. It does not check the
+/// `enableIslamicPatterns` setting. Callers must check the setting before using this view,
+/// or use `ConditionalIslamicPatternOverlay` which handles the setting check automatically.
 public struct IslamicPatternOverlay: View {
     @Environment(\.currentTheme) private var currentTheme
     @Environment(\.colorScheme) private var colorScheme
