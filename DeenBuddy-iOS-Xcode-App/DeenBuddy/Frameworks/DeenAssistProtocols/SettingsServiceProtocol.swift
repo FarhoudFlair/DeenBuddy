@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// Protocol for user settings management
 @MainActor
@@ -8,7 +9,7 @@ public protocol SettingsServiceProtocol: ObservableObject {
     
     /// Current prayer calculation madhab
     var madhab: Madhab { get set }
-
+    
     /// Whether to use astronomical calculation for Ja'fari Maghrib (vs fixed delay)
     var useAstronomicalMaghrib: Bool { get set }
 
@@ -42,6 +43,24 @@ public protocol SettingsServiceProtocol: ObservableObject {
     /// Whether Live Activities are enabled for prayer countdowns
     var liveActivitiesEnabled: Bool { get set }
 
+    /// Whether to show subtle Islamic geometric patterns in the UI
+    var enableIslamicPatterns: Bool { get set }
+
+    /// Maximum lookahead window in months for future prayer times (default 60)
+    var maxLookaheadMonths: Int { get }
+
+    /// Whether to apply Ramadan Isha offset (+30m) for Umm Al Qura/Qatar
+    var useRamadanIshaOffset: Bool { get }
+
+    /// Whether to show exact times for long-range (>12 months) calculations
+    var showLongRangePrecision: Bool { get }
+
+    /// Publisher for notifications enabled changes
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> { get }
+
+    /// Publisher for notification offset changes (seconds)
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> { get }
+
     /// Save current settings
     func saveSettings() async throws
     
@@ -50,11 +69,16 @@ public protocol SettingsServiceProtocol: ObservableObject {
     
     /// Reset all settings to defaults
     func resetToDefaults() async throws
-    
+
     /// Force immediate save without debouncing - critical for onboarding
     func saveImmediately() async throws
-    
+
     /// Save critical onboarding settings with enhanced error handling
     func saveOnboardingSettings() async throws
+
+    /// Apply a cloud-provided snapshot to local settings
+    /// - Parameter snapshot: Snapshot pulled from the user's cloud data
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws
 }
 
+// MARK: - Default Implementations for Optional Settings

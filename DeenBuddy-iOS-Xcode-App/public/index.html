@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>DeenBuddy - Sign In</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { margin-bottom: 20px; }
+        p { margin-bottom: 30px; opacity: 0.9; }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: inherit;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6), 0 0 0 5px rgba(102, 126, 234, 0.8);
+        }
+        .btn:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6), 0 0 0 5px rgba(102, 126, 234, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🕌 DeenBuddy</h1>
+        <p>Welcome! Click below to open the app and complete your sign-in.</p>
+        <button type="button" class="btn" onclick="openApp()" aria-label="Open DeenBuddy app">Open DeenBuddy</button>
+    </div>
+
+    <script>
+        function openApp() {
+            // Try to open the app with the current URL
+            const currentUrl = window.location.href;
+            const appScheme = 'deenbuddy://';
+
+            // Try app scheme first
+            window.location.href = appScheme + currentUrl.split('://')[1];
+
+            // Fallback: redirect to app store or show message
+            setTimeout(() => {
+                const container = document.querySelector('.container');
+                if (!container) {
+                    return;
+                }
+
+                container.innerHTML = '';
+
+                const title = document.createElement('h1');
+                title.textContent = '🕌 DeenBuddy';
+
+                const message = document.createElement('p');
+                message.textContent = "If the app didn't open automatically, please open DeenBuddy manually to complete your sign-in.";
+
+                const note = document.createElement('p');
+                note.textContent = 'You can close this browser tab now.';
+                note.style.fontSize = '14px';
+                note.style.opacity = '0.8';
+
+                container.append(title, message, note);
+            }, 2000);
+        }
+
+        // Auto-attempt to open app when page loads
+        window.onload = openApp;
+    </script>
+</body>
+</html>

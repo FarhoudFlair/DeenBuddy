@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import BackgroundTasks
 import ActivityKit
+import FirebaseAuth
 
 /// Main app coordinator that manages navigation and app state
 @MainActor
@@ -15,8 +16,11 @@ public class AppCoordinator: ObservableObject {
     // @Published public var showingARCompass = false // AR compass disabled - too buggy
     @Published public var showingGuides = false
     @Published public var showingQuranSearch = false
+    @Published public var showingIslamicCalendar = false
     @Published public var showingError = false
     @Published public var currentError: ErrorType?
+    @Published public var showingSuccess = false
+    @Published public var successMessage: String?
     @Published public var isLoading = false
     @Published public var navigationPath = NavigationPath()
 
@@ -29,6 +33,8 @@ public class AppCoordinator: ObservableObject {
     public let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     public let tasbihService: any TasbihServiceProtocol
     public let settingsService: any SettingsServiceProtocol
+    public let islamicCalendarService: any IslamicCalendarServiceProtocol
+    public let userAccountService: any UserAccountServiceProtocol
     public let themeManager: ThemeManager
     private let backgroundTaskManager: BackgroundTaskManager
     private let backgroundPrayerRefreshService: BackgroundPrayerRefreshService
@@ -52,6 +58,8 @@ public class AppCoordinator: ObservableObject {
         prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
         tasbihService: any TasbihServiceProtocol,
         settingsService: any SettingsServiceProtocol,
+        islamicCalendarService: any IslamicCalendarServiceProtocol,
+        userAccountService: any UserAccountServiceProtocol,
         themeManager: ThemeManager,
         backgroundTaskManager: BackgroundTaskManager,
         backgroundPrayerRefreshService: BackgroundPrayerRefreshService,
@@ -64,6 +72,8 @@ public class AppCoordinator: ObservableObject {
         self.prayerAnalyticsService = prayerAnalyticsService
         self.tasbihService = tasbihService
         self.settingsService = settingsService
+        self.islamicCalendarService = islamicCalendarService
+        self.userAccountService = userAccountService
         self.themeManager = themeManager
         self.backgroundTaskManager = backgroundTaskManager
         self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
@@ -97,6 +107,122 @@ public class AppCoordinator: ObservableObject {
     @Published public var showingPaywall = false
     public func showPaywall() { showingPaywall = true }
     public func dismissPaywall() { showingPaywall = false }
+    
+    /// Handle magic link URLs for email sign-in
+    public func handleMagicLink(_ url: URL) {
+        // Fix for custom scheme rewriting:
+        // The hosting page rewrites https://... to deenbuddy://...
+        // We need to convert it back to https:// for Firebase Auth to accept it.
+        var effectiveURL = url
+        if url.scheme == "deenbuddy" {
+            if var components = URLComponents(url: url, resolvingAgainstBaseURL: true) {
+                components.scheme = "https"
+                if let newURL = components.url {
+                    effectiveURL = newURL
+                }
+            }
+        }
+
+        Task { @MainActor in
+            let isSignInLink = await userAccountService.isSignInWithEmailLink(effectiveURL)
+            // Validate that this is a sign-in link
+            guard isSignInLink else {
+                showError(.unknownError("This link is not a valid sign-in link. Please request a new link."))
+                return
+            }
+            
+            // Get the email from UserDefaults (stored when link was sent)
+            guard let email = UserDefaults.standard.string(forKey: "DeenBuddy.Account.PendingEmail") else {
+                showError(.unknownError("No pending sign-in found. Please start the sign-in process again."))
+                return
+            }
+            
+            do {
+                try await userAccountService.signIn(withEmail: email, linkURL: effectiveURL)
+                
+                // Clear pending email on success
+                UserDefaults.standard.removeObject(forKey: "DeenBuddy.Account.PendingEmail")
+                
+                // Show success message to user
+                successMessage = "Successfully signed in! Welcome back."
+                showingSuccess = true
+                
+                await applyCloudSettingsIfAvailable()
+                
+                print("✅ Successfully signed in via magic link")
+                
+            } catch {
+                var userMessage = "Unable to sign in right now. Please request a new link and try again."
+
+                if let accountError = error as? AccountServiceError {
+                    switch accountError {
+                    case .networkError:
+                        userMessage = "Unable to connect. Please check your internet connection and try again."
+                    case .invalidEmail, .userNotFound, .wrongPassword, .weakPassword, .emailAlreadyInUse:
+                        userMessage = "This sign-in link is invalid. Please request a new one."
+                    case .notAuthenticated:
+                        userMessage = "Please sign in again to continue."
+                    case .requiresRecentLogin:
+                        userMessage = "For security reasons, please sign in again to continue."
+                    case .unknown:
+                        break
+                    }
+                } else {
+                    let nsError = error as NSError
+
+                    if nsError.domain == AuthErrorDomain {
+                        let code = AuthErrorCode(_bridgedNSError: nsError)
+                        switch code {
+                        case .expiredActionCode:
+                            userMessage = "This sign-in link has expired. Please request a new one."
+                        case .invalidActionCode:
+                            userMessage = "This sign-in link is invalid or has already been used. Please request a new one."
+                        case .networkError:
+                            userMessage = "Unable to connect. Please check your internet connection and try again."
+                        case .credentialAlreadyInUse, .emailAlreadyInUse:
+                            userMessage = "This link has already been used. Please request a new sign-in link."
+                        default:
+                            break
+                        }
+                    } else if nsError.domain == NSURLErrorDomain {
+                        userMessage = "Unable to connect. Please check your internet connection and try again."
+                    }
+                }
+
+                showError(.unknownError(userMessage))
+
+                print("❌ Failed to sign in with magic link: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func applyCloudSettingsIfAvailable(retryAttempt: Int = 0) async {
+        do {
+            if let snapshot = try await userAccountService.fetchSettingsSnapshot() {
+                try await settingsService.applySnapshot(snapshot)
+                print("☁️ Applied cloud settings snapshot")
+            } else {
+                print("☁️ No cloud settings snapshot available to apply")
+            }
+        } catch {
+            let maxRetries = 3
+            let delaySeconds = max(1, 1 << retryAttempt)
+            let shouldRetry = retryAttempt < maxRetries
+
+            print("⚠️ Failed to apply cloud settings snapshot (attempt \(retryAttempt + 1)): \(error)")
+
+            if shouldRetry {
+                print("🔄 Retrying cloud settings application in \(delaySeconds)s...")
+                Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: UInt64(delaySeconds) * 1_000_000_000)
+                    await self?.applyCloudSettingsIfAvailable(retryAttempt: retryAttempt + 1)
+                }
+            } else {
+                let message = "We couldn't apply your cloud settings. Please try again."
+                showError(.unknownError(message))
+            }
+        }
+    }
 
     private func refreshSubscriptionStatus() async {
         do { try await subscriptionService.refreshStatus() } catch { }
@@ -178,6 +304,14 @@ public class AppCoordinator: ObservableObject {
         showingQuranSearch = false
     }
 
+    public func showIslamicCalendar() {
+        showingIslamicCalendar = true
+    }
+
+    public func dismissIslamicCalendar() {
+        showingIslamicCalendar = false
+    }
+
     public func showError(_ error: ErrorType) {
         currentError = error
         showingError = true
@@ -186,6 +320,16 @@ public class AppCoordinator: ObservableObject {
     public func dismissError() {
         currentError = nil
         showingError = false
+    }
+    
+    public func showSuccess(_ message: String) {
+        successMessage = message
+        showingSuccess = true
+    }
+    
+    public func dismissSuccess() {
+        successMessage = nil
+        showingSuccess = false
     }
 
     public func setLoading(_ loading: Bool) {
@@ -271,6 +415,9 @@ public class AppCoordinator: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Bridge SettingsService notification toggles to NotificationService
+        setupNotificationSettingsBridge()
+
         // Initialize background services
         Task {
             do {
@@ -290,6 +437,56 @@ public class AppCoordinator: ObservableObject {
         print("🚀 Enhanced services initialized")
     }
 
+    private func setupNotificationSettingsBridge() {
+        // Observe notificationsEnabled changes via protocol publishers to avoid concrete casts
+        settingsService.notificationsEnabledPublisher
+            .sink { [weak self] isEnabled in
+                guard let self = self else { return }
+                var settings = self.notificationService.getNotificationSettings()
+                settings = NotificationSettings(
+                    isEnabled: isEnabled,
+                    globalSoundEnabled: settings.globalSoundEnabled,
+                    globalBadgeEnabled: settings.globalBadgeEnabled,
+                    prayerConfigs: settings.prayerConfigs
+                )
+                self.notificationService.updateNotificationSettings(settings)
+            }
+            .store(in: &cancellables)
+
+        // Observe notificationOffset changes
+        settingsService.notificationOffsetPublisher
+            .sink { [weak self] offsetSeconds in
+                guard let self = self else { return }
+                let offsetMinutes = Int(offsetSeconds / 60)
+                var settings = self.notificationService.getNotificationSettings()
+                
+                // Update default reminder times for all prayers
+                var updatedConfigs = settings.prayerConfigs
+                for prayer in Prayer.allCases {
+                    let config = updatedConfigs[prayer] ?? PrayerNotificationConfig(isEnabled: true, reminderTimes: [offsetMinutes])
+                    // Always build a new config with the chosen offset at the front (removing any duplicates)
+                    let newConfig = PrayerNotificationConfig(
+                        isEnabled: config.isEnabled,
+                        reminderTimes: [offsetMinutes] + config.reminderTimes.filter { $0 != offsetMinutes },
+                        customTitle: config.customTitle,
+                        customBody: config.customBody,
+                        soundName: config.soundName,
+                        soundEnabled: config.soundEnabled,
+                        badgeEnabled: config.badgeEnabled
+                    )
+                    updatedConfigs[prayer] = newConfig
+                }
+                
+                settings = NotificationSettings(
+                    isEnabled: settings.isEnabled,
+                    globalSoundEnabled: settings.globalSoundEnabled,
+                    globalBadgeEnabled: settings.globalBadgeEnabled,
+                    prayerConfigs: updatedConfigs
+                )
+                self.notificationService.updateNotificationSettings(settings)
+            }
+            .store(in: &cancellables)
+    }
 
     
     private func loadSettings() async {
@@ -352,24 +549,20 @@ public enum AppScreen: Equatable {
 public enum OnboardingStep: Equatable {
     case welcome
     case locationPermission
-    case calculationMethod
     case notificationPermission
 
     /// Maps OnboardingStep to EnhancedOnboardingFlow TabView index.
     /// Gaps exist for steps not represented in this enum:
     /// - Index 1: Name Collection (handled internally by flow)
-    /// - Index 3: Madhab Selection (handled internally by flow)
-    /// - Index 6: Premium Trial (handled internally by flow)
+    /// - Index 4: Premium Trial (handled internally by flow)
     var flowIndex: Int {
         switch self {
         case .welcome:
             return 0
-        case .calculationMethod:
-            return 2
         case .locationPermission:
-            return 4
+            return 2
         case .notificationPermission:
-            return 5
+            return 3
         }
     }
 }
@@ -422,6 +615,7 @@ public struct OnboardingCoordinatorView: View {
             settingsService: coordinator.settingsService,
             locationService: coordinator.locationService,
             notificationService: coordinator.notificationService,
+            userAccountService: coordinator.userAccountService,
             initialStep: mapOnboardingStep(step),
             onShowPremiumTrial: {
                 coordinator.showPaywall()
@@ -467,7 +661,9 @@ private struct MainAppView: View {
                     coordinator.showSettings()
                 },
                 onTasbihTapped: { },
-                onCalendarTapped: { }
+                onCalendarTapped: {
+                    coordinator.showIslamicCalendar()
+                }
             )
 
             // Loading overlay
@@ -485,12 +681,28 @@ private struct MainAppView: View {
                 }
             )
         }
+        .sheet(isPresented: $coordinator.showingIslamicCalendar) {
+            IslamicCalendarScreen(
+                prayerTimeService: coordinator.prayerTimeService,
+                islamicCalendarService: coordinator.islamicCalendarService,
+                locationService: coordinator.locationService,
+                settingsService: coordinator.settingsService,
+                onDismiss: {
+                    coordinator.dismissIslamicCalendar()
+                },
+                onSettingsTapped: {
+                    coordinator.dismissIslamicCalendar()
+                    coordinator.showSettings()
+                }
+            )
+        }
         .sheet(isPresented: $coordinator.showingSettings) {
             if let settingsService = coordinator.settingsService as? SettingsService {
                 NavigationView {
                     EnhancedSettingsView(
                         settingsService: settingsService,
                         themeManager: coordinator.themeManager,
+                        notificationService: coordinator.notificationService,
                         onDismiss: {
                             coordinator.dismissSettings()
                         }
@@ -660,6 +872,7 @@ private struct SimpleTabView: View {
                 prayerTrackingService: coordinator.prayerTrackingService,
                 prayerTimeService: coordinator.prayerTimeService,
                 notificationService: coordinator.notificationService,
+                prayerAnalyticsService: coordinator.prayerAnalyticsService,
                 onDismiss: { } // No dismiss needed in tab mode
             )
             .tabItem {
@@ -675,11 +888,33 @@ private struct SimpleTabView: View {
                 }
             
             // 5. Settings Tab - Enhanced settings view with full functionality
-            EnhancedSettingsView(
-                settingsService: coordinator.settingsService as! SettingsService,
-                themeManager: coordinator.themeManager,
-                onDismiss: { } // No dismiss needed in tab mode
-            )
+            Group {
+                if let settingsService = coordinator.settingsService as? SettingsService {
+                    EnhancedSettingsView(
+                        settingsService: settingsService,
+                        themeManager: coordinator.themeManager,
+                        notificationService: coordinator.notificationService,
+                        userAccountService: coordinator.userAccountService,
+                        onDismiss: { } // No dismiss needed in tab mode
+                    )
+                } else {
+                    // Fallback view in case of cast failure
+                    VStack {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Text("Settings Unavailable")
+                            .font(.headline)
+                        Text("Unable to load settings service")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .onAppear {
+                        print("❌ SettingsService type mismatch: Expected SettingsService, got \(type(of: coordinator.settingsService))")
+                    }
+                }
+            }
             .tabItem {
                 Image(systemName: "gear")
                 Text("Settings")
@@ -706,6 +941,8 @@ public extension AppCoordinator {
             prayerAnalyticsService: container.prayerAnalyticsService,
             tasbihService: container.tasbihService,
             settingsService: container.settingsService,
+            islamicCalendarService: container.islamicCalendarService,
+            userAccountService: container.userAccountService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
             backgroundPrayerRefreshService: container.backgroundPrayerRefreshService,
@@ -732,6 +969,8 @@ public extension AppCoordinator {
             prayerAnalyticsService: container.prayerAnalyticsService,
             tasbihService: container.tasbihService,
             settingsService: container.settingsService,
+            islamicCalendarService: container.islamicCalendarService,
+            userAccountService: container.userAccountService,
             themeManager: themeManager,
             backgroundTaskManager: container.backgroundTaskManager,
             backgroundPrayerRefreshService: container.backgroundPrayerRefreshService,

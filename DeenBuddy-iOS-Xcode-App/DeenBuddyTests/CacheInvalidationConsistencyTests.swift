@@ -353,6 +353,14 @@ class CacheInvalidationConsistencyMockSettingsService: SettingsServiceProtocol, 
         set { notificationsEnabled = newValue }
     }
 
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
+    }
+
     private func notifySettingsChanged() {
         print("DEBUG: CacheInvalidationConsistencyMockSettingsService - Posting settingsDidChange notification")
         NotificationCenter.default.post(name: .settingsDidChange, object: self)
@@ -377,6 +385,18 @@ class CacheInvalidationConsistencyMockSettingsService: SettingsServiceProtocol, 
     func saveOnboardingSettings() async throws {
         // Mock implementation
     }
+
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 /// Mock notification service for cache invalidation consistency tests
@@ -386,6 +406,10 @@ class CacheInvalidationConsistencyMockNotificationService: NotificationServicePr
     @Published var notificationsEnabled: Bool = true
 
     func requestNotificationPermission() async throws -> Bool {
+        return true
+    }
+
+    func requestCriticalAlertPermission() async throws -> Bool {
         return true
     }
 

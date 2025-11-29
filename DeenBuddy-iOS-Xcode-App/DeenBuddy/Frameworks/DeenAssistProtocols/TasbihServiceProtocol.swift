@@ -65,7 +65,12 @@ public protocol TasbihServiceProtocol: ObservableObject {
     
     /// Increment the count in current session
     /// - Parameter increment: Number to increment by (default: 1)
-    func incrementCount(by increment: Int) async
+    /// - Parameter playHaptics: Whether to play haptic feedback (default: true)
+    /// - Parameter playSound: Whether to play sound feedback (default: true)
+    func incrementCount(by increment: Int, playHaptics: Bool, playSound: Bool) async
+    
+    /// Play sound feedback if enabled without triggering haptics
+    func playSoundFeedbackIfEnabled() async
     
     /// Decrement the count in current session
     /// - Parameter decrement: Number to decrement by (default: 1)

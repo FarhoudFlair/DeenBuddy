@@ -167,6 +167,10 @@ public class BackgroundTaskManager: ObservableObject {
     }
     
     private func performBackgroundRefresh() async {
+        if QuranDataCacheManager.isMigrationInProgress() {
+            print("⏸️ Skipping background refresh during Quran cache migration")
+            return
+        }
         do {
             // Refresh prayer times if needed
             if let prayerTimeService = prayerTimeService {
@@ -187,6 +191,10 @@ public class BackgroundTaskManager: ObservableObject {
     }
     
     private func performPrayerTimeUpdate() async {
+        if QuranDataCacheManager.isMigrationInProgress() {
+            print("⏸️ Skipping prayer time update during Quran cache migration")
+            return
+        }
         do {
             // Get current location
             guard let locationService = locationService,

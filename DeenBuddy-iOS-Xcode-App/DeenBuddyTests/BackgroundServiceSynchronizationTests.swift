@@ -343,11 +343,30 @@ class BackgroundSyncMockSettingsService: SettingsServiceProtocol, ObservableObje
         set { notificationsEnabled = newValue }
     }
 
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
+    }
+
     func saveSettings() async throws {}
     func loadSettings() async throws {}
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 @MainActor
@@ -356,6 +375,7 @@ class BackgroundSyncMockNotificationService: NotificationServiceProtocol, Observ
     @Published var notificationsEnabled: Bool = true
 
     func requestNotificationPermission() async throws -> Bool { return true }
+    func requestCriticalAlertPermission() async throws -> Bool { return true }
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {}
     func cancelAllNotifications() async {}
     func cancelNotifications(for prayer: Prayer) async {}

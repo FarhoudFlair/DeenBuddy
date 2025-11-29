@@ -39,6 +39,22 @@ public struct AppAnimations {
         dampingFraction: 0.9,
         blendDuration: 0.1
     )
+
+    // MARK: - Premium Animations
+
+    /// Staggered entry animation with configurable delay
+    public static func staggeredEntry(delay: Double) -> Animation {
+        Animation.easeOut(duration: 0.4).delay(delay)
+    }
+
+    /// Urgent pulse for time-sensitive elements
+    public static let urgentPulse = Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+
+    /// Card press spring feedback
+    public static let cardPress = Animation.spring(response: 0.4, dampingFraction: 0.6)
+
+    /// Gradient glow animation
+    public static let gradientGlow = Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true)
     
     // MARK: - Specialized Animations
     

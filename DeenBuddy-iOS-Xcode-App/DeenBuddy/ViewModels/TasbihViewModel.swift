@@ -38,6 +38,12 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
                 self.statistics = self.service.statistics
             }
             .store(in: &cancellables)
+        
+        // Ensure initial selection
+        if selectedDhikrID == nil, let first = availableDhikr.first {
+            selectedDhikrID = first.id
+            targetCount = first.targetCount
+        }
     }
 
     public func ensureSession() async {
@@ -47,6 +53,7 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
             return
         }
 
+        // Try to find previously selected
         if let selected = selectedDhikrID,
            let dhikr = service.availableDhikr.first(where: { $0.id == selected }) {
             targetCount = dhikr.targetCount
@@ -54,7 +61,9 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
             return
         }
 
+        // Default to SubhanAllah (usually first) or just first available
         if let first = service.availableDhikr.first {
+            print("Force starting default session with: \(first.transliteration)")
             selectedDhikrID = first.id
             targetCount = first.targetCount
             await startSession(dhikr: first)
@@ -79,13 +88,17 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
         await startSession(dhikr: dhikr)
     }
 
-    public func increment(by value: Int) async {
+    public func increment(by value: Int, playHaptics: Bool = true, playSound: Bool = true) async {
         if service.currentSession == nil { await ensureSession() }
         guard service.currentSession != nil else { return }
         do {
-            await service.incrementCount(by: value)
+            await service.incrementCount(by: value, playHaptics: playHaptics, playSound: playSound)
             if let error = service.error { throw error }
         } catch { present(error) }
+    }
+    
+    public func playSoundFeedbackIfEnabled() async {
+        await service.playSoundFeedbackIfEnabled()
     }
 
     public func completeSession() async {
@@ -136,7 +149,6 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
         }
     }
 }
-
 
 
 

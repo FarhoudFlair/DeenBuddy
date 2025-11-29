@@ -7,6 +7,7 @@ import UserNotifications
 public class MockNotificationService: NotificationServiceProtocol {
     @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @Published public var notificationsEnabled: Bool = false
+    private var criticalAlertsAuthorized = false
     
     public init() {}
     
@@ -19,6 +20,17 @@ public class MockNotificationService: NotificationServiceProtocol {
         notificationsEnabled = true
         
         return true
+    }
+
+    public func requestCriticalAlertPermission() async throws -> Bool {
+        // Simulate a quick permission request and assume success in mock mode
+        try await Task.sleep(nanoseconds: 200_000_000)
+        criticalAlertsAuthorized = true
+        return true
+    }
+
+    public func getCriticalAlertAuthorizationStatus() async -> Bool {
+        criticalAlertsAuthorized
     }
     
     public func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {

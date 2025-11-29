@@ -274,10 +274,22 @@ private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var userName: String = ""
     @Published var showArabicSymbolInWidget: Bool = true
     @Published var liveActivitiesEnabled: Bool = true
+    @Published var enableIslamicPatterns: Bool = false
+    @Published var maxLookaheadMonths: Int = 12
+    @Published var useRamadanIshaOffset: Bool = false
+    @Published var showLongRangePrecision: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
     }
     
     func saveSettings() async throws {}
@@ -285,5 +297,18 @@ private class DummySettingsService: SettingsServiceProtocol, ObservableObject {
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        maxLookaheadMonths = snapshot.maxLookaheadMonths
+        useRamadanIshaOffset = snapshot.useRamadanIshaOffset
+        showLongRangePrecision = snapshot.showLongRangePrecision
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
-

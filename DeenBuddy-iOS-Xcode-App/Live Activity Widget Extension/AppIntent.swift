@@ -14,9 +14,9 @@ import OSLog
 // MARK: - Prayer Widget Configuration Intent
 
 @available(iOS 16.1, *)
-class PrayerWidgetConfigurationIntent: INIntent, WidgetConfigurationIntent {
-    static var title: LocalizedStringResource { "Prayer Widget Configuration" }
-    static var description: IntentDescription { "Configure your DeenBuddy prayer widgets" }
+final class PrayerWidgetConfigurationIntent: INIntent, WidgetConfigurationIntent {
+    nonisolated static var title: LocalizedStringResource { "Prayer Widget Configuration" }
+    nonisolated static var description: IntentDescription { "Configure your DeenBuddy prayer widgets" }
     
     override class var supportsSecureCoding: Bool { true }
 
@@ -32,14 +32,14 @@ class PrayerWidgetConfigurationIntent: INIntent, WidgetConfigurationIntent {
     @Parameter(title: "Theme", default: "auto")
     var theme: String
     
-    required override init() {
+    nonisolated required override init() {
         super.init()
         self.showArabicText = true
         self.showCountdown = true
         self.theme = "auto"
     }
     
-    required override init?(coder: NSCoder) {
+    nonisolated required init?(coder: NSCoder) {
         super.init(coder: coder)
         self.showArabicText = coder.decodeBool(forKey: "showArabicText")
         self.showCountdown = coder.decodeBool(forKey: "showCountdown")
@@ -59,6 +59,10 @@ class PrayerWidgetConfigurationIntent: INIntent, WidgetConfigurationIntent {
         return .result()
     }
 }
+
+// Silence strict Sendable checks for generated Intent class
+@available(iOS 16.1, *)
+extension PrayerWidgetConfigurationIntent: @unchecked Sendable {}
 
 // MARK: - Live Activity Configuration Intent
 

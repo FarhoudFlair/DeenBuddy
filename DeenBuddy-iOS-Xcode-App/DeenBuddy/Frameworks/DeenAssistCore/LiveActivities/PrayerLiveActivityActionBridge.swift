@@ -42,6 +42,7 @@ public final class PrayerLiveActivityActionBridge {
     private var migrationComplete = false
 
 #if canImport(UIKit)
+    private let observerLock = NSLock()
     private var observerPointer: UnsafeMutableRawPointer?
     private var consumerHandler: (([PrayerCompletionAction]) async -> Void)?
 #endif
@@ -137,22 +138,32 @@ public final class PrayerLiveActivityActionBridge {
     /// Unregister the consumer and stop listening for Darwin notifications.
     @MainActor
     public func unregisterConsumer() {
-        if let pointer = observerPointer {
+        let pointerToRemove: UnsafeMutableRawPointer?
+        observerLock.lock()
+        pointerToRemove = observerPointer
+        observerPointer = nil
+        observerLock.unlock()
+
+        if let pointer = pointerToRemove {
             CFNotificationCenterRemoveObserver(
                 CFNotificationCenterGetDarwinNotifyCenter(),
                 pointer,
                 CFNotificationName(Self.darwinNotificationName as CFString),
                 nil
             )
-            observerPointer = nil
         }
         consumerHandler = nil
     }
     
     /// Clean up observer on deallocation to prevent use-after-free
-    @MainActor
     deinit {
-        if let pointer = observerPointer {
+        let pointerToRemove: UnsafeMutableRawPointer?
+        observerLock.lock()
+        pointerToRemove = observerPointer
+        observerPointer = nil
+        observerLock.unlock()
+
+        if let pointer = pointerToRemove {
             CFNotificationCenterRemoveObserver(
                 CFNotificationCenterGetDarwinNotifyCenter(),
                 pointer,
@@ -244,10 +255,15 @@ public final class PrayerLiveActivityActionBridge {
 #if canImport(UIKit)
     @MainActor
     private func setupObserverIfNeeded() {
-        guard observerPointer == nil else { return }
-
-        let pointer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        observerPointer = pointer
+        var pointerToRegister: UnsafeMutableRawPointer?
+        observerLock.lock()
+        if observerPointer == nil {
+            let newPointer = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+            observerPointer = newPointer
+            pointerToRegister = newPointer
+        }
+        observerLock.unlock()
+        guard let pointer = pointerToRegister else { return }
 
         let callback: CFNotificationCallback = { _, observer, _, _, _ in
             guard let observer else { return }
@@ -330,8 +346,8 @@ public final class PrayerLiveActivityActionBridge {
         guard !migrationComplete else { return }
         migrationComplete = true
 
-        guard let defaults = userDefaults,
-              let legacyData = defaults.data(forKey: Self.queueKey) else {
+        guard userDefaults != nil,
+              let legacyData = userDefaults?.data(forKey: Self.queueKey) else {
             return
         }
 
@@ -365,7 +381,7 @@ public final class PrayerLiveActivityActionBridge {
 
                 // Remove legacy queue from UserDefaults on main thread
                 await MainActor.run {
-                    defaults.removeObject(forKey: Self.queueKey)
+                    self.userDefaults?.removeObject(forKey: Self.queueKey)
                     self.logger.info("Successfully migrated \(legacyQueue.count) actions from UserDefaults")
                 }
 
@@ -373,7 +389,7 @@ public final class PrayerLiveActivityActionBridge {
                 self.logger.error("Failed to decode legacy queue during migration: \(error.localizedDescription, privacy: .public)")
                 // Remove corrupted legacy queue on main thread
                 await MainActor.run {
-                    defaults.removeObject(forKey: Self.queueKey)
+                    self.userDefaults?.removeObject(forKey: Self.queueKey)
                 }
             }
         }

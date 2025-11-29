@@ -283,6 +283,14 @@ class Phase1MockSettingsService: SettingsServiceProtocol, ObservableObject {
         set { notificationsEnabled = newValue }
     }
 
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
+    }
+
     /// Send notification when settings change (to match real SettingsService behavior)
     private func notifySettingsChanged() {
         NotificationCenter.default.post(name: .settingsDidChange, object: self)
@@ -293,6 +301,17 @@ class Phase1MockSettingsService: SettingsServiceProtocol, ObservableObject {
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 @MainActor
@@ -313,6 +332,21 @@ class Phase1MockPrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     func refreshTodaysPrayerTimes() async {}
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
     func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] { return [] }
+    func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        return FuturePrayerTimeResult(
+            date: date,
+            prayerTimes: [],
+            hijriDate: HijriDate(from: date),
+            isRamadan: false,
+            disclaimerLevel: .today,
+            calculationTimezone: TimeZone.current,
+            isHighLatitude: false,
+            precision: .exact
+        )
+    }
+    func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] { return [] }
+    func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel { .today }
+    func isHighLatitudeLocation(_ location: CLLocation) -> Bool { false }
     func getCurrentLocation() async throws -> CLLocation { throw NSError(domain: "Mock", code: 0) }
     func triggerDynamicIslandForNextPrayer() async {}
 }

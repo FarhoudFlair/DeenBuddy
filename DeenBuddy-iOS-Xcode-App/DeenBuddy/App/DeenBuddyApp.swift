@@ -9,13 +9,23 @@ import SwiftUI
 
 @main
 struct DeenBuddyApp: App {
-    private let appCoordinator = AppCoordinator.production()
-    @StateObject private var userPreferencesService = UserPreferencesService()
+    private let appCoordinator: AppCoordinator
+    @StateObject private var userPreferencesService: UserPreferencesService
+
+    init() {
+        FirebaseInitializer.configureIfNeeded()
+        self.appCoordinator = AppCoordinator.production()
+        self._userPreferencesService = StateObject(wrappedValue: UserPreferencesService())
+    }
 
     var body: some Scene {
         WindowGroup {
             EnhancedDeenAssistApp(coordinator: appCoordinator)
                 .environmentObject(userPreferencesService)
+                .onOpenURL { url in
+                    // Handle magic link URLs
+                    appCoordinator.handleMagicLink(url)
+                }
         }
     }
 }

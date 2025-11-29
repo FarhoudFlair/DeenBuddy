@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// Detailed notification settings view
 public struct NotificationSettingsView: View {
@@ -63,6 +64,8 @@ public struct NotificationSettingsView: View {
                     Text("Choose how many minutes before each prayer time you'd like to receive a notification.")
                         .bodySmall()
                         .foregroundColor(ColorPalette.textSecondary)
+                        .lineLimit(nil) // Allow unlimited lines to prevent truncation
+                        .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                 }
             }
             .navigationTitle("Notification Settings")
@@ -100,10 +103,22 @@ private class NotificationPreviewMockSettingsService: SettingsServiceProtocol, O
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
     @Published var liveActivitiesEnabled: Bool = true
+    @Published var enableIslamicPatterns: Bool = false
+    @Published var maxLookaheadMonths: Int = 12
+    @Published var useRamadanIshaOffset: Bool = false
+    @Published var showLongRangePrecision: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
     }
     
     func saveSettings() async throws {}
@@ -111,4 +126,18 @@ private class NotificationPreviewMockSettingsService: SettingsServiceProtocol, O
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        maxLookaheadMonths = snapshot.maxLookaheadMonths
+        useRamadanIshaOffset = snapshot.useRamadanIshaOffset
+        showLongRangePrecision = snapshot.showLongRangePrecision
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }

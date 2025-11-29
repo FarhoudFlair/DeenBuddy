@@ -224,6 +224,9 @@ struct NextPrayerWidgetView: View {
 // MARK: - Widget Background Extension
 
 extension View {
+    /// Applies the appropriate background for widgets based on iOS version
+    /// - For iOS 17+: Uses containerBackground modifier
+    /// - For iOS 16 and earlier: Uses standard background modifier
     func widgetBackground(_ backgroundView: some View) -> some View {
         if #available(iOS 17.0, *) {
             return containerBackground(for: .widget) {
@@ -231,6 +234,18 @@ extension View {
             }
         } else {
             return background(backgroundView)
+        }
+    }
+    
+    /// Applies the appropriate background for accessory (lock screen) widgets
+    /// - For iOS 17+: Uses containerBackground with .fill.tertiary for proper rendering
+    /// - For iOS 16: Uses AccessoryWidgetBackground or provided background
+    @available(iOS 16.0, *)
+    func accessoryWidgetBackground() -> some View {
+        if #available(iOS 17.0, *) {
+            return containerBackground(.fill.tertiary, for: .widget)
+        } else {
+            return background(AccessoryWidgetBackground())
         }
     }
 }

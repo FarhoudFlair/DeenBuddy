@@ -12,6 +12,12 @@ public protocol NotificationServiceProtocol: ObservableObject {
     
     /// Request notification permission from user
     func requestNotificationPermission() async throws -> Bool
+
+    /// Request permission for critical alerts (if the entitlement is available)
+    func requestCriticalAlertPermission() async throws -> Bool
+
+    /// Check if critical alert authorization is currently enabled
+    func getCriticalAlertAuthorizationStatus() async -> Bool
     
     /// Schedule prayer notifications
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws
@@ -57,6 +63,9 @@ public struct PrayerTime: Codable {
         self.location = location
     }
 }
+
+/// Alias to avoid type-name ambiguity across modules
+public typealias AppPrayerTime = PrayerTime
 
 // MARK: - Notification Settings Types
 

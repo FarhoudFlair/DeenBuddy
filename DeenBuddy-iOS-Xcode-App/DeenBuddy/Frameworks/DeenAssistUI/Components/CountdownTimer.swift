@@ -6,18 +6,40 @@ public struct CountdownTimer: View {
     let timeRemaining: TimeInterval?
     
     @State private var currentTime = Date()
+    @State private var isPulsing = false
     @StateObject private var timerManager = CountdownTimerManager()
     @Environment(\.currentTheme) private var currentTheme
-    
+    @Environment(\.colorScheme) private var colorScheme
+
     public init(nextPrayer: PrayerTime?, timeRemaining: TimeInterval?) {
         self.nextPrayer = nextPrayer
         self.timeRemaining = timeRemaining
     }
-    
+
     private var themeColors: ThemeAwareColorPalette {
         ThemeAwareColorPalette(theme: currentTheme)
     }
-    
+
+    private var premiumTokens: PremiumDesignTokens {
+        PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
+    }
+
+    private var isImminent: Bool {
+        guard let interval = timeRemainingInterval else { return false }
+        return interval < 300 // Less than 5 minutes
+    }
+
+    private var borderGlowOpacity: CGFloat {
+        switch currentTheme {
+        case .dark where colorScheme == .dark:
+            return 0.40 // System Dark: 40%
+        case .islamicGreen:
+            return 0.25 // Islamic Green: 25%
+        default:
+            return 0.30 // System Light: 30%
+        }
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if let nextPrayer = nextPrayer {
@@ -52,8 +74,8 @@ public struct CountdownTimer: View {
 
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Text(components.display)
-                                .font(.system(size: 26, weight: .semibold, design: .rounded))
-                                .foregroundColor(themeColors.nextPrayerHighlight)
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundStyle(premiumTokens.countdownGradient)
                                 .appAnimation(AppAnimations.timerUpdate, value: components.display)
                                 .countdownAccessibility(
                                     prayer: nextPrayer.prayer.displayName,
@@ -82,17 +104,21 @@ public struct CountdownTimer: View {
                 }
             }
         }
-        .padding(24)
+        .padding(28)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 16, x: 0, y: 8)
+            RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
+                .fill(themeColors.surfacePrimary)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24)
-                .stroke(ColorPalette.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
+                .stroke(
+                    themeColors.primary.opacity(borderGlowOpacity),
+                    lineWidth: 1
+                )
         )
+        .premiumShadow(.level3)
+        .scaleEffect(isImminent && isPulsing ? 1.02 : 1.0)
         .onReceive(timerManager.$currentTime) { time in
             currentTime = time
         }
@@ -101,6 +127,23 @@ public struct CountdownTimer: View {
         }
         .onDisappear {
             timerManager.stopTimer()
+        }
+        .onChange(of: isImminent) { newValue in
+            handleImminentChange(isImminent: newValue)
+        }
+    }
+
+    private func handleImminentChange(isImminent: Bool) {
+        if isImminent {
+            // Start pulsing animation when imminent
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        } else {
+            // Stop pulsing and reset scale when not imminent
+            withAnimation(.easeOut(duration: 0.3)) {
+                isPulsing = false
+            }
         }
     }
     

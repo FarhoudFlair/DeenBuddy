@@ -4,7 +4,7 @@ import SwiftUI
 // MARK: - Islamic Calendar Models
 
 /// Represents a Hijri (Islamic) date
-public struct HijriDate: Codable, Equatable, Comparable {
+public struct HijriDate: Codable, Equatable, Comparable, Hashable {
     public let day: Int
     public let month: HijriMonth
     public let year: Int
@@ -23,6 +23,29 @@ public struct HijriDate: Codable, Equatable, Comparable {
         let calendar = Calendar(identifier: .islamicCivil)
         let components = calendar.dateComponents([.day, .month, .year], from: gregorianDate)
         
+        self.day = components.day ?? 1
+        self.month = HijriMonth(rawValue: components.month ?? 1) ?? .muharram
+        self.year = components.year ?? 1445
+        self.era = .afterHijra
+    }
+
+    /// Create HijriDate from Gregorian date using specified calculation method (calendar identifier)
+    public init(from gregorianDate: Date, calculationMethod: IslamicCalendarMethod) {
+        let identifier: Calendar.Identifier
+        switch calculationMethod {
+        case .ummalqura:
+            identifier = .islamicUmmAlQura
+        case .civil:
+            identifier = .islamicCivil
+        case .astronomical:
+            identifier = .islamicTabular
+        case .tabular:
+            identifier = .islamicTabular
+        }
+
+        let calendar = Calendar(identifier: identifier)
+        let components = calendar.dateComponents([.day, .month, .year], from: gregorianDate)
+
         self.day = components.day ?? 1
         self.month = HijriMonth(rawValue: components.month ?? 1) ?? .muharram
         self.year = components.year ?? 1445
@@ -182,7 +205,7 @@ public enum HijriEra: String, Codable {
 }
 
 /// Islamic event or observance
-public struct IslamicEvent: Codable, Identifiable, Equatable {
+public struct IslamicEvent: Codable, Identifiable, Equatable, Hashable {
     public let id: UUID
     public let name: String
     public let arabicName: String?

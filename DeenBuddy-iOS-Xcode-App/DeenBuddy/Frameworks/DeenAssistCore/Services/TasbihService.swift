@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import AVFoundation
 import UIKit
+import AudioToolbox
 
 /// Real implementation of TasbihServiceProtocol
 @MainActor
@@ -44,10 +45,12 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         setupDefaultData()
         loadCachedData()
         setupObservers()
+        setupAudio()
     }
     
     deinit {
         sessionTimer?.invalidate()
+        cleanupAudio()
     }
     
     // MARK: - Setup Methods
@@ -104,7 +107,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         
         // Setup default counters
         let defaultCounters = [
-            TasbihCounter(name: "Default", maxCount: 99, isDefault: true),
+            TasbihCounter(name: "Default", maxCount: 33, isDefault: true),
             TasbihCounter(name: "33 Count", maxCount: 33),
             TasbihCounter(name: "100 Count", maxCount: 100),
             TasbihCounter(name: "Unlimited", maxCount: 9999)
@@ -346,7 +349,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
     
     // MARK: - Counting Operations
     
-    public func incrementCount(by increment: Int = 1) async {
+    public func incrementCount(by increment: Int = 1, playHaptics: Bool = true, playSound: Bool = true) async {
         guard var session = currentSession, !session.isPaused else { return }
         
         let newCount = min(session.currentCount + increment, currentCounter.maxCount)
@@ -370,7 +373,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         currentSession = session
         
         // Provide feedback
-        await provideFeedback()
+        await provideFeedback(haptics: playHaptics, sound: playSound)
         
         // Auto-complete if target reached
         if newCount >= session.targetCount && currentCounter.resetOnComplete {
@@ -511,27 +514,58 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         currentSession = session
     }
     
-    private func provideFeedback() async {
+    private func provideFeedback(haptics: Bool = true, sound: Bool = true) async {
         // Haptic feedback
-        if currentCounter.hapticFeedback {
+        if haptics && currentCounter.hapticFeedback {
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
         }
         
         // Sound feedback
-        if currentCounter.soundFeedback, let soundName = currentCounter.soundName {
-            playSound(named: soundName)
+        if sound && currentCounter.soundFeedback {
+            playRandomSound()
         }
     }
     
-    private func playSound(named soundName: String) {
-        guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else { return }
-        
-        do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.play()
-        } catch {
-            // Handle audio error silently
+    // Play only sound feedback without haptics (used when UI supplies its own haptics)
+    public func playSoundFeedbackIfEnabled() async {
+        if currentCounter.soundFeedback {
+            playRandomSound()
+        }
+    }
+    
+    // MARK: - Audio Setup
+
+    nonisolated(unsafe) private var tasbihSoundIDs: [SystemSoundID] = []
+
+    nonisolated private func setupAudio() {
+        // Preload sound files into system sound services for lowest latency
+        for i in 1...4 {
+            if let url = Bundle.main.url(forResource: "tasbih_click_\(i)", withExtension: "caf") {
+                var soundID: SystemSoundID = 0
+                let status = AudioServicesCreateSystemSoundID(url as CFURL, &soundID)
+                if status == kAudioServicesNoError {
+                    tasbihSoundIDs.append(soundID)
+                }
+            }
+        }
+    }
+    
+    nonisolated private func cleanupAudio() {
+        for soundID in tasbihSoundIDs {
+            AudioServicesDisposeSystemSoundID(soundID)
+        }
+        tasbihSoundIDs.removeAll()
+    }
+
+    nonisolated private func playRandomSound() {
+        // Use preloaded system sounds for zero-latency playback
+        if !tasbihSoundIDs.isEmpty {
+            let randomIndex = Int.random(in: 0..<tasbihSoundIDs.count)
+            AudioServicesPlaySystemSound(tasbihSoundIDs[randomIndex])
+        } else {
+            // Fallback to standard system click
+            AudioServicesPlaySystemSound(1104)
         }
     }
     
@@ -975,13 +1009,13 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
                         "category": session.dhikr.category.rawValue
                     ],
                     "startTime": ISO8601DateFormatter().string(from: session.startTime),
-                    "endTime": session.endTime.map { ISO8601DateFormatter().string(from: $0) },
+                    "endTime": session.endTime.map { ISO8601DateFormatter().string(from: $0) } as String?,
                     "currentCount": session.currentCount,
                     "targetCount": session.targetCount,
                     "isCompleted": session.isCompleted,
                     "totalDuration": session.totalDuration,
-                    "notes": session.notes,
-                    "mood": session.mood?.rawValue
+                    "notes": session.notes as String?,
+                    "mood": session.mood?.rawValue as String?
                 ]
             },
             "exportDate": ISO8601DateFormatter().string(from: Date()),

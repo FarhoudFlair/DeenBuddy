@@ -181,7 +181,7 @@ struct PrayerTimesErrorView: View {
             
             // Action Buttons
             VStack(spacing: 12) {
-                if error == .locationUnavailable || error == .permissionDenied {
+                if error.isLocationIssue {
                     Button("Enable Location Access") {
                         onRequestLocation()
                     }
@@ -207,6 +207,17 @@ struct PrayerTimesErrorView: View {
             return "exclamationmark.triangle"
         default:
             return "xmark.circle"
+        }
+    }
+}
+
+private extension PrayerTimeError {
+    var isLocationIssue: Bool {
+        switch self {
+        case .locationUnavailable, .permissionDenied:
+            return true
+        default:
+            return false
         }
     }
 }

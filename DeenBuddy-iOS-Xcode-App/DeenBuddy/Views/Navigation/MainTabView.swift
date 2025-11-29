@@ -5,7 +5,7 @@ import UIKit
 public struct MainTabView: View {
     @State private var selectedTab: Int = 0
     @State private var activeTasbihSheet: TasbihSheet?
-    private let coordinator: AppCoordinator
+    @ObservedObject private var coordinator: AppCoordinator
     
     public init(coordinator: AppCoordinator) {
         self.coordinator = coordinator
@@ -29,6 +29,7 @@ public struct MainTabView: View {
                 prayerTrackingService: coordinator.prayerTrackingService,
                 prayerTimeService: coordinator.prayerTimeService,
                 notificationService: coordinator.notificationService,
+                prayerAnalyticsService: coordinator.prayerAnalyticsService,
                 onDismiss: { } // No dismiss needed in tab mode
             )
             .tabItem {
@@ -56,6 +57,7 @@ public struct MainTabView: View {
                         EnhancedSettingsView(
                             settingsService: settingsService,
                             themeManager: coordinator.themeManager,
+                            notificationService: coordinator.notificationService,
                             onDismiss: { } // No dismiss needed in tab mode
                         )
 
@@ -97,6 +99,21 @@ public struct MainTabView: View {
         }
         .accentColor(ColorPalette.primary)
         .themed(with: coordinator.themeManager)
+        .sheet(isPresented: $coordinator.showingIslamicCalendar) {
+            IslamicCalendarScreen(
+                prayerTimeService: coordinator.prayerTimeService,
+                islamicCalendarService: coordinator.islamicCalendarService,
+                locationService: coordinator.locationService,
+                settingsService: coordinator.settingsService,
+                onDismiss: {
+                    coordinator.dismissIslamicCalendar()
+                },
+                onSettingsTapped: {
+                    coordinator.dismissIslamicCalendar()
+                    coordinator.showSettings()
+                }
+            )
+        }
     }
 }
 
@@ -126,7 +143,7 @@ private struct MainAppView: View {
                     onSelectTab(3)
                 },
                 onCalendarTapped: {
-                    onSelectTab(1)
+                    coordinator.showIslamicCalendar()
                 }
             )
 
@@ -165,6 +182,7 @@ private struct MainAppView: View {
                     EnhancedSettingsView(
                         settingsService: settingsService,
                         themeManager: coordinator.themeManager,
+                        notificationService: coordinator.notificationService,
                         onDismiss: {
                             coordinator.dismissSettings()
                         }
@@ -216,7 +234,7 @@ extension MainTabView {
     @ViewBuilder
     private var tasbihTab: some View {
         if let tasbihService = coordinator.tasbihService as? TasbihService {
-            TasbihScreenView(
+            TasbihView(
                 tasbihService: tasbihService,
                 onShowHistory: {
                     activeTasbihSheet = .history
@@ -254,479 +272,7 @@ private let tasbihHistoryDateFormatter: DateFormatter = {
     return formatter
 }()
 
-// MARK: - Tasbih Screen Implementation
 
-private struct TasbihScreenView<Service: TasbihServiceProtocol>: View {
-    @StateObject private var viewModel: TasbihViewModel<Service>
-    private let onShowHistory: () -> Void
-    private let onShowSettings: () -> Void
-
-    private var currentSession: TasbihSession? { viewModel.currentSession }
-    private var currentDhikr: Dhikr? {
-        if let session = currentSession { return session.dhikr }
-        if let selected = viewModel.selectedDhikrID {
-            return viewModel.availableDhikr.first { $0.id == selected }
-        }
-        return viewModel.availableDhikr.first
-    }
-
-    private var isCompleted: Bool {
-        guard let session = currentSession else { return false }
-        return session.isCompleted || viewModel.currentCount >= session.targetCount
-    }
-
-    private var progress: Double {
-        guard let session = currentSession, session.targetCount > 0 else { return 0 }
-        return min(Double(viewModel.currentCount) / Double(session.targetCount), 1.0)
-    }
-
-    private var formattedProgress: String {
-        String(format: "%.0f%%", progress * 100)
-    }
-
-    private var sessionDurationText: String {
-        guard let session = currentSession else { return "0s" }
-        return formatDuration(session.totalDuration)
-    }
-
-    private var sessionRemainingText: String {
-        let remaining: Int
-        if let session = currentSession {
-            remaining = session.remainingCount
-        } else {
-            remaining = max(0, viewModel.targetCount - viewModel.currentCount)
-        }
-        return remaining > 0 ? "\(remaining)" : "Complete"
-    }
-
-    private var countIncrement: Int {
-        max(1, viewModel.service.currentCounter.countIncrement)
-    }
-
-    private var metricColumns: [GridItem] {
-        [GridItem(.flexible()), GridItem(.flexible())]
-    }
-
-    init(
-        tasbihService: Service,
-        onShowHistory: @escaping () -> Void,
-        onShowSettings: @escaping () -> Void
-    ) {
-        self._viewModel = StateObject(wrappedValue: TasbihViewModel(service: tasbihService))
-        self.onShowHistory = onShowHistory
-        self.onShowSettings = onShowSettings
-    }
-
-    var body: some View {
-        ZStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    header
-                    dhikrSelector
-                    currentDhikrCard
-                    counterCard
-                    actionButtons
-                    insightsSection
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 24)
-                .padding(.bottom, 40)
-            }
-            .background(ColorPalette.backgroundPrimary.ignoresSafeArea())
-
-            if viewModel.service.isLoading || viewModel.isLoadingSelection {
-                Color.black.opacity(0.15)
-                    .ignoresSafeArea()
-
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: ColorPalette.primary))
-            }
-        }
-        .task { await viewModel.ensureSession() }
-        .onChange(of: viewModel.currentSession?.id) { _ in
-            viewModel.syncStateWithSession()
-        }
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(viewModel.errorMessage)
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Tasbih")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .foregroundColor(ColorPalette.textPrimary)
-
-                Text("Digital Dhikr Counter")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(ColorPalette.textSecondary)
-            }
-
-            Spacer()
-
-            HStack(spacing: 16) {
-                Button(action: onShowHistory) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(ColorPalette.textPrimary)
-                }
-                .accessibilityLabel("Tasbih history")
-
-                Button(action: onShowSettings) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(ColorPalette.textPrimary)
-                }
-                .accessibilityLabel("Tasbih settings")
-            }
-        }
-    }
-
-    private var dhikrSelector: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Select Dhikr")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(ColorPalette.textPrimary)
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-                ForEach(viewModel.availableDhikr) { dhikr in
-                    Button {
-                        Task { await viewModel.changeDhikr(to: dhikr) }
-                    } label: {
-                        Text(dhikr.transliteration)
-                            .font(.system(size: 13, weight: .medium))
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 14)
-                            .background(tagBackground(for: dhikr))
-                            .foregroundColor(tagForeground(for: dhikr))
-                            .clipShape(Capsule())
-                    }
-                    .disabled(viewModel.isLoadingSelection)
-                }
-            }
-        }
-    }
-
-    private var currentDhikrCard: some View {
-        VStack(spacing: 12) {
-            if let dhikr = currentDhikr {
-                Text(dhikr.arabicText)
-                    .font(.system(size: 32, weight: .bold))
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(ColorPalette.textPrimary)
-
-                Text(dhikr.transliteration)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(ColorPalette.primary)
-
-                Text(dhikr.translation)
-                    .font(.system(size: 14))
-                    .foregroundColor(ColorPalette.textSecondary)
-                    .multilineTextAlignment(.center)
-
-                if let reward = dhikr.reward, !reward.isEmpty {
-                    infoRow(icon: "sparkles", text: reward)
-                }
-
-                if let source = dhikr.source, !source.isEmpty {
-                    infoRow(icon: "book", text: source)
-                }
-            } else {
-                Text("Select a dhikr to begin")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(ColorPalette.textSecondary)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(24)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 18, x: 0, y: 8)
-        )
-    }
-
-    private var counterCard: some View {
-        VStack(spacing: 20) {
-            HStack(spacing: 12) {
-                metadataPill(icon: "number.square", title: "Remaining", value: sessionRemainingText)
-                metadataPill(icon: "clock", title: "Duration", value: sessionDurationText)
-            }
-
-            HStack(alignment: .center) {
-                Text("Current Count")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(ColorPalette.textSecondary)
-                Spacer()
-                Text(formattedProgress)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(ColorPalette.primary)
-            }
-
-            Text("\(viewModel.currentCount)")
-                .font(.system(size: 64, weight: .bold, design: .rounded))
-                .foregroundColor(isCompleted ? ColorPalette.primary : ColorPalette.textPrimary)
-
-            targetAdjuster
-
-            Text("Each tap adds +\(countIncrement)")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(ColorPalette.textSecondary)
-
-            ProgressView(value: progress)
-                .progressViewStyle(LinearProgressViewStyle(tint: ColorPalette.primary))
-                .animation(.easeInOut, value: viewModel.currentCount)
-
-            if isCompleted {
-                Text("Target completed—great work!")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(ColorPalette.primary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.05), radius: 18, x: 0, y: 8)
-        )
-    }
-
-    private var targetAdjuster: some View {
-        HStack(spacing: 16) {
-            adjustmentButton(icon: "minus") {
-                Task { await adjustTarget(by: -1) }
-            }
-
-            VStack(spacing: 4) {
-                Text("Target")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(ColorPalette.textSecondary)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "target")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(ColorPalette.primary)
-                    Text("\(viewModel.targetCount)")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(ColorPalette.textPrimary)
-                }
-            }
-
-            adjustmentButton(icon: "plus") {
-                Task { await adjustTarget(by: 1) }
-            }
-        }
-    }
-
-    private func adjustmentButton(icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .bold))
-                .frame(width: 36, height: 36)
-                .background(ColorPalette.surfaceSecondary)
-                .foregroundColor(ColorPalette.textPrimary)
-                .clipShape(Circle())
-        }
-        .disabled(viewModel.service.isLoading || viewModel.isLoadingSelection)
-    }
-
-    private var insightsSection: some View {
-        let stats = viewModel.statistics
-
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("Your Progress")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(ColorPalette.textPrimary)
-                Spacer()
-                if stats.totalSessions > 0 {
-                    Text("Updated")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(ColorPalette.textSecondary)
-                }
-            }
-
-            LazyVGrid(columns: metricColumns, spacing: 12) {
-                metricCard(
-                    title: "Total Dhikr",
-                    value: formatNumber(stats.totalDhikrCount)
-                )
-
-                metricCard(
-                    title: "Completed",
-                    value: formatNumber(stats.completedSessions)
-                )
-
-                metricCard(
-                    title: "Completion Rate",
-                    value: formatPercentage(stats.completionRate)
-                )
-
-                metricCard(
-                    title: "Current Streak",
-                    value: formatNumber(stats.currentStreak),
-                    subtitle: stats.currentStreak == 1 ? "day" : "days"
-                )
-
-                metricCard(
-                    title: "Avg / Day",
-                    value: formatDailyAverage(stats.averageDailyCount)
-                )
-
-                metricCard(
-                    title: "Total Time",
-                    value: formatDuration(stats.totalDuration)
-                )
-            }
-        }
-        .padding(24)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 24)
-                .fill(ColorPalette.surfacePrimary)
-                .shadow(color: Color.black.opacity(0.04), radius: 14, x: 0, y: 6)
-        )
-    }
-
-    private var actionButtons: some View {
-        HStack(spacing: 16) {
-            Button(action: {
-                Task {
-                    await viewModel.service.resetSession()
-                    await viewModel.ensureSession()
-                }
-            }) {
-                Label("Reset", systemImage: "arrow.counterclockwise")
-                    .font(.system(size: 15, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(ColorPalette.surfaceSecondary)
-                    .foregroundColor(ColorPalette.textPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-            }
-            .disabled(viewModel.currentSession == nil && viewModel.currentCount == 0)
-
-            if viewModel.currentCount > 0 {
-                Button(action: {
-                    Task {
-                        await viewModel.completeSession()
-                    }
-                }) {
-                    Label("Save Session", systemImage: "tray.full")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(ColorPalette.primary.opacity(0.1))
-                        .foregroundColor(ColorPalette.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                }
-            }
-
-            Button(action: {
-                Task {
-                    await viewModel.increment(by: countIncrement)
-                }
-            }) {
-                Text("Tap to Count")
-                    .font(.system(size: 17, weight: .bold))
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(ColorPalette.primary)
-                    .foregroundColor(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-            }
-            .accessibilityLabel("Increment counter by \(countIncrement)")
-        }
-    }
-
-    private func tagBackground(for dhikr: Dhikr) -> Color {
-        let isSelected = dhikr.id == (currentDhikr?.id ?? viewModel.selectedDhikrID)
-        return isSelected ? ColorPalette.primary : ColorPalette.surfaceSecondary
-    }
-
-    private func tagForeground(for dhikr: Dhikr) -> Color {
-        let isSelected = dhikr.id == (currentDhikr?.id ?? viewModel.selectedDhikrID)
-        return isSelected ? Color.white : ColorPalette.textPrimary
-    }
-
-    private func adjustTarget(by delta: Int) async {
-        await viewModel.adjustTarget(by: delta)
-    }
-
-
-    private func metadataPill(icon: String, title: String, value: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(ColorPalette.primary)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(ColorPalette.textSecondary)
-                Text(value)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(ColorPalette.textPrimary)
-            }
-        }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(ColorPalette.surfaceSecondary)
-        )
-    }
-
-    private func infoRow(icon: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(ColorPalette.primary)
-                .padding(.top, 2)
-
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundColor(ColorPalette.textSecondary)
-                .multilineTextAlignment(.leading)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func metricCard(title: String, value: String, subtitle: String? = nil) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(ColorPalette.textSecondary)
-
-            Text(value)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(ColorPalette.textPrimary)
-
-            if let subtitle = subtitle {
-                Text(subtitle)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(ColorPalette.textSecondary)
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(ColorPalette.surfaceSecondary)
-        )
-    }
-
-    private func formatDuration(_ interval: TimeInterval) -> String { SharedUtilities.formatDuration(interval) }
-    private func formatPercentage(_ value: Double) -> String { SharedUtilities.formatPercentage(value) }
-    private func formatNumber(_ value: Int) -> String { SharedUtilities.formatNumber(value) }
-    private func formatDailyAverage(_ value: Double) -> String { SharedUtilities.formatDailyAverage(value) }
-}
 
 private struct TasbihHistoryView<Service: TasbihServiceProtocol>: View {
     @ObservedObject var tasbihService: Service
@@ -921,20 +467,54 @@ private struct TasbihPreferencesView<Service: TasbihServiceProtocol>: View {
                     }
                 }
 
-                Section(footer: Text("Each tap currently adds +\(max(1, tasbihService.currentCounter.countIncrement)) beads.")) {
-                    HStack {
-                        Text("Active Counter")
-                        Spacer()
-                        Text(tasbihService.currentCounter.name)
-                            .foregroundColor(ColorPalette.textSecondary)
+                Section(header: Text("Configuration"), footer: Text("Each tap adds +\(max(1, tasbihService.currentCounter.countIncrement)) beads.")) {
+                    Picker("Active Counter", selection: Binding(
+                        get: { tasbihService.currentCounter.id },
+                        set: { newId in
+                            if let counter = tasbihService.availableCounters.first(where: { $0.id == newId }) {
+                                Task { await tasbihService.setActiveCounter(counter) }
+                            }
+                        }
+                    )) {
+                        ForEach(tasbihService.availableCounters) { counter in
+                            Text(counter.name).tag(counter.id)
+                        }
                     }
-
-                    if let target = tasbihService.currentSession?.targetCount {
-                        HStack {
-                            Text("Current Target")
-                            Spacer()
-                            Text("\(target)")
-                                .foregroundColor(ColorPalette.textSecondary)
+                    
+                    if let session = tasbihService.currentSession {
+                        VStack(alignment: .leading) {
+                            Stepper("Target Count: \(session.targetCount)", value: Binding(
+                                get: { session.targetCount },
+                                set: { newValue in
+                                    Task { await tasbihService.updateTargetCount(newValue) }
+                                }
+                            ), in: 1...9999)
+                            
+                            // Quick presets
+                            HStack {
+                                Text("Presets:")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Button("33") {
+                                    Task { await tasbihService.updateTargetCount(33) }
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                                
+                                Button("99") {
+                                    Task { await tasbihService.updateTargetCount(99) }
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                                
+                                Button("100") {
+                                    Task { await tasbihService.updateTargetCount(100) }
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                            }
+                            .padding(.top, 4)
                         }
                     }
                 }

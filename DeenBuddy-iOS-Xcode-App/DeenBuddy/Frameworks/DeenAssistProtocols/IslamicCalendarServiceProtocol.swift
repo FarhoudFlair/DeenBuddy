@@ -133,6 +133,10 @@ public protocol IslamicCalendarServiceProtocol: ObservableObject {
     /// Check if currently in Ramadan
     /// - Returns: True if currently in Ramadan
     func isRamadan() async -> Bool
+
+    /// Check if the given Gregorian date falls in Ramadan
+    /// - Parameter date: Gregorian date to evaluate
+    func isDateInRamadan(_ date: Date) async -> Bool
     
     /// Check if currently in a holy month
     /// - Returns: True if currently in a holy month
@@ -155,6 +159,18 @@ public protocol IslamicCalendarServiceProtocol: ObservableObject {
     /// - Parameter hijriYear: The Hijri year
     /// - Returns: Hajj period information
     func getHajjPeriod(for hijriYear: Int) async -> DateInterval?
+
+    /// Estimate Ramadan period for a Hijri year (planning only)
+    func estimateRamadanDates(for hijriYear: Int) async -> DateInterval?
+
+    /// Estimate Eid al-Fitr date for a Hijri year (planning only)
+    func estimateEidAlFitr(for hijriYear: Int) async -> Date?
+
+    /// Estimate Eid al-Adha date for a Hijri year (planning only)
+    func estimateEidAlAdha(for hijriYear: Int) async -> Date?
+
+    /// Confidence level for an Islamic event based on distance in time
+    func getEventConfidence(for date: Date) -> EventConfidence
     
     // MARK: - Notifications & Reminders
     
@@ -230,6 +246,62 @@ public protocol IslamicCalendarServiceProtocol: ObservableObject {
     
     /// Update calendar data from external sources
     func updateFromExternalSources() async
+}
+
+// MARK: - Default Implementations (non-breaking for mocks)
+
+public extension IslamicCalendarServiceProtocol {
+    func isDateInRamadan(_ date: Date) async -> Bool {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+        return hijriCalendar.component(.month, from: date) == HijriMonth.ramadan.rawValue
+    }
+
+    func estimateRamadanDates(for hijriYear: Int) async -> DateInterval? {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+        var components = DateComponents()
+        components.year = hijriYear
+        components.month = 9
+        components.day = 1
+
+        guard let ramadanStart = hijriCalendar.date(from: components),
+              let ramadanEnd = hijriCalendar.date(byAdding: .day, value: 29, to: ramadanStart) else {
+            return nil
+        }
+
+        return DateInterval(start: ramadanStart, end: ramadanEnd)
+    }
+
+    func estimateEidAlFitr(for hijriYear: Int) async -> Date? {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+        var components = DateComponents()
+        components.year = hijriYear
+        components.month = 10
+        components.day = 1
+        return hijriCalendar.date(from: components)
+    }
+
+    func estimateEidAlAdha(for hijriYear: Int) async -> Date? {
+        let hijriCalendar = Calendar(identifier: .islamicUmmAlQura)
+        var components = DateComponents()
+        components.year = hijriYear
+        components.month = 12
+        components.day = 10
+        return hijriCalendar.date(from: components)
+    }
+
+    func getEventConfidence(for date: Date) -> EventConfidence {
+        let calendar = Calendar.current
+        let today = Date()
+        guard let monthsDiff = calendar.dateComponents([.month], from: today, to: date).month else {
+            return .low
+        }
+
+        switch monthsDiff {
+        case 0...12: return .high
+        case 13...60: return .medium
+        default: return .low
+        }
+    }
 }
 
 // MARK: - Supporting Types

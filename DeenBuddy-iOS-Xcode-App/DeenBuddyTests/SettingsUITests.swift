@@ -72,7 +72,7 @@ class SettingsUITests: XCTestCase {
         try await newSettingsService.loadSettings()
         XCTAssertEqual(newSettingsService.madhab, newMadhab)
     }
-    
+
     /// Test that multiple setting changes work correctly
     func testMultipleSettingsUISync() async throws {
         // Given: Initial settings

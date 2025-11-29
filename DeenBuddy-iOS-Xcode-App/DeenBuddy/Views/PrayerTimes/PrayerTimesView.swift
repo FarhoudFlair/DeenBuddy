@@ -167,7 +167,7 @@ struct PrayerTimesSettingsView: View {
     }
     
     private var madhabSection: some View {
-        Section("School of Jurisprudence") {
+        Section("School of Thought (Madhab)") {
             madhabPicker
         }
     }
@@ -353,6 +353,26 @@ extension Color {
     static let gold = Color(red: 1.0, green: 0.84, blue: 0.0)
 }
 
+#if DEBUG
+@MainActor
+private final class PreviewUserAccountService: UserAccountServiceProtocol {
+    var currentUser: AccountUser? = AccountUser(uid: "preview-user", email: "preview@deenbuddy.app")
+
+    func sendSignInLink(to email: String) async throws {}
+    func isSignInWithEmailLink(_ url: URL) -> Bool { false }
+    func signIn(withEmail email: String, linkURL: URL) async throws {}
+    func createUser(email: String, password: String) async throws {}
+    func signIn(email: String, password: String) async throws {}
+    func sendPasswordResetEmail(to email: String) async throws {}
+    func confirmPasswordReset(code: String, newPassword: String) async throws {}
+    func signOut() async throws {}
+    func deleteAccount() async throws {}
+    func updateMarketingOptIn(_ enabled: Bool) async throws {}
+    func syncSettingsSnapshot(_ snapshot: SettingsSnapshot) async throws {}
+    func fetchSettingsSnapshot() async throws -> SettingsSnapshot? { nil }
+}
+#endif
+
 // MARK: - Preview
 
 #Preview {
@@ -392,6 +412,7 @@ extension Color {
             locationService: MockLocationService()
         ),
         islamicCacheManager: IslamicCacheManager(),
+        userAccountService: PreviewUserAccountService(),
         apiConfiguration: .default,
         isTestEnvironment: true
     ))

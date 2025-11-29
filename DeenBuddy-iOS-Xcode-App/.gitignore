@@ -129,6 +129,10 @@ docs/build/
 .env.local
 config.local.json
 
+## Firebase configuration (contains sensitive keys)
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
 ## Profiling
 *.trace
 

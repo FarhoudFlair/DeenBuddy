@@ -653,6 +653,14 @@ class PrayerTimeSyncMockSettingsService: SettingsServiceProtocol, ObservableObje
         set { notificationsEnabled = newValue }
     }
 
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
+    }
+
     /// Send notification when settings change (to match real SettingsService behavior)
     private func notifySettingsChanged() {
         print("🔔 Mock: Settings changed, posting notification")
@@ -678,6 +686,18 @@ class PrayerTimeSyncMockSettingsService: SettingsServiceProtocol, ObservableObje
     func saveOnboardingSettings() async throws {
         // Mock implementation
     }
+
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 /// Mock notification service for prayer time synchronization tests
@@ -687,6 +707,10 @@ class PrayerTimeSyncMockNotificationService: NotificationServiceProtocol, Observ
     @Published var notificationsEnabled: Bool = true
 
     func requestNotificationPermission() async throws -> Bool {
+        return true
+    }
+
+    func requestCriticalAlertPermission() async throws -> Bool {
         return true
     }
 

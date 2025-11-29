@@ -80,6 +80,10 @@ public struct MadhabPickerView: View {
     let calculationMethod: CalculationMethod
     let onMadhabSelected: (Madhab) -> Void
     
+    private var availableMadhabs: [Madhab] {
+        Madhab.allCases
+    }
+    
     public init(
         selectedMadhab: Madhab,
         calculationMethod: CalculationMethod,
@@ -104,7 +108,7 @@ public struct MadhabPickerView: View {
                                     .font(.headline)
                             }
                             
-                            Text("\(calculationMethod.displayName) is designed for \(preferredMadhab.displayName) jurisprudence.")
+                            Text("\(calculationMethod.displayName) is designed for the \(preferredMadhab.displayName) school.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
@@ -114,7 +118,7 @@ public struct MadhabPickerView: View {
                 
                 // Madhab selection section
                 Section("Select Madhab (Sect)") {
-                    ForEach(Madhab.allCases, id: \.self) { madhab in
+                    ForEach(availableMadhabs, id: \.self) { madhab in
                         EnhancedMadhabRow(
                             madhab: madhab,
                             calculationMethod: calculationMethod,

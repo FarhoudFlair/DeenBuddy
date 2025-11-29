@@ -307,6 +307,14 @@ class CacheInvalidationBasicMockSettingsService: SettingsServiceProtocol, Observ
         set { notificationsEnabled = newValue }
     }
 
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
+    }
+
     private func notifySettingsChanged() {
         print("DEBUG: CacheInvalidationBasicMockSettingsService - Posting settingsDidChange notification")
         NotificationCenter.default.post(name: .settingsDidChange, object: self)
@@ -330,6 +338,18 @@ class CacheInvalidationBasicMockSettingsService: SettingsServiceProtocol, Observ
 
     func saveOnboardingSettings() async throws {
         // Mock implementation
+    }
+
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
     }
 }
 

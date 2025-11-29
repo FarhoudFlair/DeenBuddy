@@ -220,12 +220,12 @@ public class PrayerLiveActivityManager: ObservableObject {
             calculationMethod: currentState.calculationMethod,
             arabicSymbol: currentState.arabicSymbol
         )
-        
+
         do {
-            await activity.update(using: updatedState)
+            try await activity.update(using: updatedState)
             print("🔄 Updated Live Activity countdown: \(updatedState.formattedTimeRemaining)")
         } catch {
-            print("❌ Failed to update Live Activity: \(error)")
+            print("⚠️ Failed to update Live Activity countdown: \(error)")
         }
     }
     
@@ -244,9 +244,9 @@ public class PrayerLiveActivityManager: ObservableObject {
             arabicSymbol: finalState.arabicSymbol
         )
         
+        // Keep the activity visible for 5 minutes after prayer time for better visibility
         do {
-            // Keep the activity visible for 5 minutes after prayer time for better visibility
-            await activity.end(using: completedState, dismissalPolicy: .after(Date().addingTimeInterval(300)))
+            try await activity.end(using: completedState, dismissalPolicy: .after(Date().addingTimeInterval(300)))
 
             await MainActor.run {
                 self.currentActivity = nil
@@ -255,10 +255,10 @@ public class PrayerLiveActivityManager: ObservableObject {
 
             updateTask?.cancel()
             updateTask = nil
-            
+
             print("✅ Ended Live Activity for \(finalState.nextPrayer.displayName) prayer")
         } catch {
-            print("❌ Failed to end Live Activity: \(error)")
+            print("⚠️ Failed to end Live Activity for \(finalState.nextPrayer.displayName): \(error)")
         }
     }
     

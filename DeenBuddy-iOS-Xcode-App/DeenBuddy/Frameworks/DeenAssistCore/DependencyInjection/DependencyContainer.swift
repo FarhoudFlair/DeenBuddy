@@ -20,6 +20,7 @@ public class DependencyContainer: ObservableObject {
     @Published public private(set) var backgroundTaskManager: BackgroundTaskManager
     @Published public private(set) var backgroundPrayerRefreshService: BackgroundPrayerRefreshService
     @Published public private(set) var islamicCacheManager: IslamicCacheManager
+    @Published public private(set) var userAccountService: any UserAccountServiceProtocol
     
     // MARK: - Configuration
     
@@ -43,6 +44,7 @@ public class DependencyContainer: ObservableObject {
         backgroundTaskManager: BackgroundTaskManager,
         backgroundPrayerRefreshService: BackgroundPrayerRefreshService,
         islamicCacheManager: IslamicCacheManager,
+        userAccountService: any UserAccountServiceProtocol,
         apiConfiguration: APIConfiguration = .default,
         isTestEnvironment: Bool = true
     ) {
@@ -59,6 +61,7 @@ public class DependencyContainer: ObservableObject {
         self.backgroundTaskManager = backgroundTaskManager
         self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
         self.islamicCacheManager = islamicCacheManager
+        self.userAccountService = userAccountService
         self.apiConfiguration = apiConfiguration
         self.isTestEnvironment = isTestEnvironment
     }
@@ -155,6 +158,8 @@ public class DependencyContainer: ObservableObject {
         ) }
 
         let resolvedTasbihService = await MainActor.run { TasbihService() }
+        
+        let resolvedUserAccountService = await MainActor.run { ServiceFactory.createUserAccountService() }
 
         let container = DependencyContainer(
             locationService: resolvedLocationService,
@@ -170,6 +175,7 @@ public class DependencyContainer: ObservableObject {
             backgroundTaskManager: resolvedBackgroundTaskManager,
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             islamicCacheManager: resolvedIslamicCacheManager,
+            userAccountService: resolvedUserAccountService,
             apiConfiguration: apiConfiguration,
             isTestEnvironment: isTestEnvironment
         )
@@ -217,6 +223,10 @@ public class DependencyContainer: ObservableObject {
             if let islamicCacheManager = service as? IslamicCacheManager {
                 self.islamicCacheManager = islamicCacheManager
             }
+        case is any UserAccountServiceProtocol.Type:
+            if let userAccountService = service as? any UserAccountServiceProtocol {
+                self.userAccountService = userAccountService
+            }
         default:
             break
         }
@@ -244,6 +254,8 @@ public class DependencyContainer: ObservableObject {
             return islamicCalendarService as? T
         case is IslamicCacheManager.Type:
             return islamicCacheManager as? T
+        case is any UserAccountServiceProtocol.Type:
+            return userAccountService as? T
         default:
             return nil
         }
@@ -300,6 +312,9 @@ public class ServiceFactory {
     
     @MainActor
     private static var _islamicCalendarServiceInstance: IslamicCalendarService?
+    
+    @MainActor
+    private static var _userAccountServiceInstance: FirebaseUserAccountService?
 
     @MainActor
     public static func createLocationService() -> any LocationServiceProtocol {
@@ -406,6 +421,19 @@ public class ServiceFactory {
     ) -> any APIClientProtocol {
         return APIClient(configuration: configuration)
     }
+    
+    @MainActor
+    public static func createUserAccountService() -> any UserAccountServiceProtocol {
+        if let existingInstance = _userAccountServiceInstance {
+            print("🔄 Reusing existing UserAccountService instance")
+            return existingInstance
+        }
+        
+        let newInstance = FirebaseUserAccountService()
+        _userAccountServiceInstance = newInstance
+        print("🏗️ Created new UserAccountService singleton instance")
+        return newInstance
+    }
 }
 
 // MARK: - Environment Detection
@@ -466,6 +494,8 @@ public extension DependencyContainer {
             prayerTimeService: resolvedPrayerTimeService,
             locationService: resolvedLocationService
         )
+        
+        let resolvedUserAccountService = ServiceFactory.createUserAccountService()
 
         return DependencyContainer(
             locationService: resolvedLocationService,
@@ -481,6 +511,7 @@ public extension DependencyContainer {
             backgroundTaskManager: resolvedBackgroundTaskManager,
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             islamicCacheManager: resolvedIslamicCacheManager,
+            userAccountService: resolvedUserAccountService,
             apiConfiguration: .default,
             isTestEnvironment: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         )
@@ -545,6 +576,7 @@ public extension DependencyContainer {
         )
 
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
+        let resolvedUserAccountService: any UserAccountServiceProtocol = MockUserAccountService()
 
         return DependencyContainer(
             locationService: resolvedLocationService,
@@ -560,8 +592,30 @@ public extension DependencyContainer {
             backgroundTaskManager: resolvedBackgroundTaskManager,
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             islamicCacheManager: resolvedIslamicCacheManager,
+            userAccountService: resolvedUserAccountService,
             apiConfiguration: .default,
             isTestEnvironment: true
         )
     }
+}
+
+// MARK: - Test Doubles
+
+/// Lightweight mock user account service for tests and previews to avoid real Firebase initialization
+@MainActor
+private final class MockUserAccountService: UserAccountServiceProtocol {
+    var currentUser: AccountUser?
+
+    func sendSignInLink(to email: String) async throws {}
+    func isSignInWithEmailLink(_ url: URL) -> Bool { false }
+    func signIn(withEmail email: String, linkURL: URL) async throws {}
+    func createUser(email: String, password: String) async throws {}
+    func signIn(email: String, password: String) async throws {}
+    func sendPasswordResetEmail(to email: String) async throws {}
+    func confirmPasswordReset(code: String, newPassword: String) async throws {}
+    func signOut() async throws { currentUser = nil }
+    func deleteAccount() async throws { currentUser = nil }
+    func updateMarketingOptIn(_ enabled: Bool) async throws {}
+    func syncSettingsSnapshot(_ snapshot: SettingsSnapshot) async throws {}
+    func fetchSettingsSnapshot() async throws -> SettingsSnapshot? { nil }
 }
