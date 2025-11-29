@@ -198,15 +198,7 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
 
         let uid = firebaseUser.uid
 
-        // Delete Firestore data first (batch) to avoid orphaning if auth deletion fails
-        let userDoc = firestore.collection("users").document(uid)
-        let batch = firestore.batch()
-        batch.deleteDocument(userDoc.collection("profile").document("info"))
-        batch.deleteDocument(userDoc.collection("settings").document("current"))
-        batch.deleteDocument(userDoc)
-        try await batch.commit()
-
-        // Then delete the Firebase auth user; surface re-auth requirements
+        // First attempt to delete the Firebase auth user; if re-auth is required, bail out before touching Firestore
         do {
             try await firebaseUser.delete()
         } catch let error as NSError {
@@ -215,6 +207,14 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
             }
             throw mapFirebaseError(error)
         }
+
+        // Auth deletion succeeded; now delete Firestore data (batch) to keep data consistent
+        let userDoc = firestore.collection("users").document(uid)
+        let batch = firestore.batch()
+        batch.deleteDocument(userDoc.collection("profile").document("info"))
+        batch.deleteDocument(userDoc.collection("settings").document("current"))
+        batch.deleteDocument(userDoc)
+        try await batch.commit()
 
         // Clear cached account data after both deletions succeed
         userDefaults.removeObject(forKey: CacheKeys.pendingEmail)
