@@ -317,7 +317,7 @@ public class FirebaseUserAccountService: UserAccountServiceProtocol {
                 showArabicSymbolInWidget: data["showArabicSymbolInWidget"] as? Bool ?? true,
                 enableIslamicPatterns: data["enableIslamicPatterns"] as? Bool ?? false,
                 maxLookaheadMonths: data["maxLookaheadMonths"] as? Int ?? 60,
-                useRamadanIshaOffset: data["useRamadanIshaOffset"] as? Bool ?? false,
+                useRamadanIshaOffset: data["useRamadanIshaOffset"] as? Bool ?? true,
                 showLongRangePrecision: data["showLongRangePrecision"] as? Bool ?? false,
                 userName: data["userName"] as? String ?? "",
                 hasCompletedOnboarding: data["hasCompletedOnboarding"] as? Bool ?? false,

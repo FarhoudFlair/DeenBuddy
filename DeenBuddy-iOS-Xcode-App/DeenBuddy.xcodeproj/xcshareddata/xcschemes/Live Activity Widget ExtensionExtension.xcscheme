@@ -80,7 +80,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "_XCWidgetKind"
-            value = ""
+            value = "NextPrayerLockScreenWidget"
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
@@ -91,15 +91,6 @@
          <EnvironmentVariable
             key = "_XCWidgetFamily"
             value = "systemMedium"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-         <EnvironmentVariable
-             key = "_XCWidgetKind"
-             value = "NextPrayerLockScreenWidget"
-             isEnabled = "YES">
-         </EnvironmentVariable>
-            value = "NextPrayerLockScreenWidget"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

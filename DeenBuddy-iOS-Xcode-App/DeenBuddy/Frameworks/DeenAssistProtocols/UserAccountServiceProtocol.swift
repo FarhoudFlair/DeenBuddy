@@ -96,7 +96,7 @@ public struct SettingsSnapshot: Codable, Sendable {
         showArabicSymbolInWidget = try container.decodeIfPresent(Bool.self, forKey: .showArabicSymbolInWidget) ?? true
         enableIslamicPatterns = try container.decodeIfPresent(Bool.self, forKey: .enableIslamicPatterns) ?? false
         maxLookaheadMonths = try container.decodeIfPresent(Int.self, forKey: .maxLookaheadMonths) ?? 60
-        useRamadanIshaOffset = try container.decodeIfPresent(Bool.self, forKey: .useRamadanIshaOffset) ?? false
+        useRamadanIshaOffset = try container.decodeIfPresent(Bool.self, forKey: .useRamadanIshaOffset) ?? true
         showLongRangePrecision = try container.decodeIfPresent(Bool.self, forKey: .showLongRangePrecision) ?? false
         userName = try container.decodeIfPresent(String.self, forKey: .userName) ?? ""
         hasCompletedOnboarding = try container.decodeIfPresent(Bool.self, forKey: .hasCompletedOnboarding) ?? false
