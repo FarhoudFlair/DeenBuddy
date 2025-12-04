@@ -326,7 +326,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     
     public func cancelAllNotifications() async {
         removeAllPendingNotificationRequests()
-        print("Cancelled all prayer notifications")
+        logger.debug("Cancelled all prayer notifications")
     }
 
     /// Schedule a prayer tracking notification with interactive actions
@@ -459,7 +459,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         notificationsEnabled = settings.isEnabled
         saveSettings()
         
-        print("Updated notification settings - enabled: \(settings.isEnabled), reminder: \(settings.reminderMinutes) minutes")
+        logger.debug("Updated notification settings - enabled: \(settings.isEnabled), reminder: \(settings.reminderMinutes) minutes")
     }
     
     public func getNotificationSettings() -> NotificationSettings {
@@ -636,7 +636,9 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             }
         }
 
-        print("📱 NotificationService observers setup - active observers: \(observerCount)/\(Self.maxObservers)")
+        #if DEBUG
+        logger.debug("NotificationService observers setup - active observers: \(self.observerCount)/\(Self.maxObservers)")
+        #endif
     }
 
     /// Handle settings changes that affect notifications with proper debouncing
@@ -668,7 +670,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         loadSettings()
         
         // Only reschedule notifications if necessary to avoid excessive rescheduling during onboarding
-        print("🔄 Notification settings updated due to settings change (debounced)")
+        logger.debug("Notification settings updated due to settings change (debounced)")
         
         // Note: In a production implementation, you might want to reschedule all notifications
         // when settings change, but this should be done carefully to avoid excessive rescheduling

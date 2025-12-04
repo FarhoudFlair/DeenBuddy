@@ -603,19 +603,19 @@ public extension DependencyContainer {
 
 /// Lightweight mock user account service for tests and previews to avoid real Firebase initialization
 @MainActor
-private final class MockUserAccountService: UserAccountServiceProtocol {
-    var currentUser: AccountUser?
+public final class MockUserAccountService: UserAccountServiceProtocol {
+    public var currentUser: AccountUser?
 
-    func sendSignInLink(to email: String) async throws {}
-    func isSignInWithEmailLink(_ url: URL) -> Bool { false }
-    func signIn(withEmail email: String, linkURL: URL) async throws {}
-    func createUser(email: String, password: String) async throws {}
-    func signIn(email: String, password: String) async throws {}
-    func sendPasswordResetEmail(to email: String) async throws {}
-    func confirmPasswordReset(code: String, newPassword: String) async throws {}
-    func signOut() async throws { currentUser = nil }
-    func deleteAccount() async throws { currentUser = nil }
-    func updateMarketingOptIn(_ enabled: Bool) async throws {}
-    func syncSettingsSnapshot(_ snapshot: SettingsSnapshot) async throws {}
-    func fetchSettingsSnapshot() async throws -> SettingsSnapshot? { nil }
+    public func sendSignInLink(to email: String) async throws {}
+    public func isSignInWithEmailLink(_ url: URL) -> Bool { false }
+    public func signIn(withEmail email: String, linkURL: URL) async throws {}
+    public func createUser(email: String, password: String) async throws {}
+    public func signIn(email: String, password: String) async throws {}
+    public func sendPasswordResetEmail(to email: String) async throws {}
+    public func confirmPasswordReset(code: String, newPassword: String) async throws {}
+    public func signOut() async throws { currentUser = nil }
+    public func deleteAccount() async throws { currentUser = nil }
+    public func updateMarketingOptIn(_ enabled: Bool) async throws {}
+    public func syncSettingsSnapshot(_ snapshot: SettingsSnapshot) async throws {}
+    public func fetchSettingsSnapshot() async throws -> SettingsSnapshot? { nil }
 }

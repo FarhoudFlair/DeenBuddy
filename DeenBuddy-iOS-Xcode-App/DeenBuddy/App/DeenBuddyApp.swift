@@ -6,13 +6,16 @@
 //
 
 import SwiftUI
+import UIKit
 
 @main
 struct DeenBuddyApp: App {
+    @UIApplicationDelegateAdaptor(DeenBuddyAppDelegate.self) var appDelegate
     private let appCoordinator: AppCoordinator
     @StateObject private var userPreferencesService: UserPreferencesService
 
     init() {
+        // Ensure Firebase is configured before any services (e.g., AppCoordinator) touch Auth/Firestore
         FirebaseInitializer.configureIfNeeded()
         self.appCoordinator = AppCoordinator.production()
         self._userPreferencesService = StateObject(wrappedValue: UserPreferencesService())
@@ -27,6 +30,14 @@ struct DeenBuddyApp: App {
                     appCoordinator.handleMagicLink(url)
                 }
         }
+    }
+}
+
+final class DeenBuddyAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        FirebaseInitializer.configureIfNeeded()
+        return true
     }
 }
 

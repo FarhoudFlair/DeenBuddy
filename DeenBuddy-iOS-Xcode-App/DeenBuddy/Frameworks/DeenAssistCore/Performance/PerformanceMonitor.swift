@@ -19,6 +19,8 @@ public class PerformanceMonitor: ObservableObject {
     private var performanceHistory: [DetailedPerformanceMetrics] = []
     private let maxHistoryCount = 100
     private var cancellables = Set<AnyCancellable>()
+    private var consecutiveHighCPUCount = 0
+    private var consecutiveCriticalCPUCount = 0
     
     private var previousCPUTime: Double = 0
     private var previousWallTime: Double = 0
@@ -289,14 +291,37 @@ public class PerformanceMonitor: ObservableObject {
     
     private func checkForPerformanceIssues(_ metrics: DetailedPerformanceMetrics) {
         // High CPU usage
-        if metrics.cpuUsage > 80 {
+        if metrics.cpuUsage > 95 {
+            // Require several consecutive high samples to avoid logging on noise
+            consecutiveCriticalCPUCount += 1
+            consecutiveHighCPUCount += 1
+        } else if metrics.cpuUsage > 80 {
+            consecutiveHighCPUCount += 1
+            consecutiveCriticalCPUCount = 0
+        } else {
+            consecutiveHighCPUCount = 0
+            consecutiveCriticalCPUCount = 0
+        }
+        
+        if consecutiveCriticalCPUCount >= 3 {
             addPerformanceIssue(PerformanceIssue(
                 type: .highCPUUsage,
                 description: "High CPU usage: \(String(format: "%.1f", metrics.cpuUsage))%",
-                severity: metrics.cpuUsage > 95 ? .critical : .high,
+                severity: .critical,
                 timestamp: metrics.timestamp,
                 metadata: ["cpu_usage": metrics.cpuUsage]
             ))
+            consecutiveCriticalCPUCount = 0
+            consecutiveHighCPUCount = 0
+        } else if consecutiveHighCPUCount >= 3 {
+            addPerformanceIssue(PerformanceIssue(
+                type: .highCPUUsage,
+                description: "High CPU usage: \(String(format: "%.1f", metrics.cpuUsage))%",
+                severity: .high,
+                timestamp: metrics.timestamp,
+                metadata: ["cpu_usage": metrics.cpuUsage]
+            ))
+            consecutiveHighCPUCount = 0
         }
         
         // High memory usage
