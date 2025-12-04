@@ -1,4 +1,5 @@
 import SwiftUI
+import DeenAssistProtocols
 
 /// Enhanced settings view with profile section and improved UI state synchronization
 public struct EnhancedSettingsView: View {
@@ -6,6 +7,7 @@ public struct EnhancedSettingsView: View {
     @ObservedObject private var themeManager: ThemeManager
     private let notificationService: (any NotificationServiceProtocol)?
     private let userAccountService: (any UserAccountServiceProtocol)?
+    private let locationService: (any LocationServiceProtocol)?
     private let onDismiss: () -> Void
 
     @State private var showingCalculationMethodPicker = false
@@ -23,18 +25,21 @@ public struct EnhancedSettingsView: View {
     @State private var criticalAlertsEnabled = false
     @State private var showingCriticalAlertError = false
     @State private var criticalAlertErrorMessage = ""
+    @State private var showingManualLocationEntry = false
 
     public init(
         settingsService: SettingsService,
         themeManager: ThemeManager,
         notificationService: (any NotificationServiceProtocol)? = nil,
         userAccountService: (any UserAccountServiceProtocol)? = nil,
+        locationService: (any LocationServiceProtocol)? = nil,
         onDismiss: @escaping () -> Void
     ) {
         self._settingsService = ObservedObject(wrappedValue: settingsService)
         self._themeManager = ObservedObject(wrappedValue: themeManager)
         self.notificationService = notificationService
         self.userAccountService = userAccountService
+        self.locationService = locationService
         self.onDismiss = onDismiss
     }
     
@@ -89,6 +94,21 @@ public struct EnhancedSettingsView: View {
                         value: settingsService.calculationMethod.displayName,
                         action: { showingCalculationMethodPicker = true }
                     )
+                }
+
+                // Location Section
+                Section("Location") {
+                    SettingsRow(
+                        icon: "location.fill",
+                        title: "Enter City Manually",
+                        value: "",
+                        action: {
+                            showingManualLocationEntry = true
+                        }
+                    )
+                } footer: {
+                    Text("Use this if GPS is unavailable or inaccurate. We'll search for your city and update prayer times accordingly.")
+                        .font(Typography.labelSmall)
                 }
 
                 // Islamic Calendar & Future Prayer Times Section
@@ -303,6 +323,18 @@ public struct EnhancedSettingsView: View {
                 AccountSettingsScreen(userAccountService: userAccountService)
             }
         }
+        .sheet(isPresented: $showingManualLocationEntry) {
+            if let locationService = locationService {
+                ManualLocationEntrySheet(
+                    locationService: locationService,
+                    onSuccess: { showingManualLocationEntry = false },
+                    onCancel: { showingManualLocationEntry = false }
+                )
+            } else {
+                Text("Manual location is unavailable. Please enable location services.")
+                    .padding()
+            }
+        }
         .alert("Reset Settings", isPresented: $showingResetConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Reset", role: .destructive) {
@@ -384,6 +416,81 @@ public struct EnhancedSettingsView: View {
         await MainActor.run {
             criticalAlertsEnabled = isCriticalAlertAuthorized
             print("📊 Loaded critical alert status: \(isCriticalAlertAuthorized)")
+        }
+    }
+}
+
+// MARK: - Manual Location Entry Sheet (Settings)
+
+private struct ManualLocationEntrySheet: View {
+    let locationService: any LocationServiceProtocol
+    let onSuccess: () -> Void
+    let onCancel: () -> Void
+
+    @State private var cityName: String = ""
+    @State private var isSearching = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Enter Your City")
+                    .headlineSmall()
+                    .foregroundColor(ColorPalette.textPrimary)
+
+                TextField("City name", text: $cityName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .disableAutocorrection(true)
+                    .textInputAutocapitalization(.words)
+                    .onSubmit { search() }
+
+                if let errorMessage = errorMessage {
+                    Text(errorMessage)
+                        .bodySmall()
+                        .foregroundColor(ColorPalette.error)
+                        .multilineTextAlignment(.center)
+                }
+
+                if isSearching {
+                    LoadingView.dots(message: "Searching for city...")
+                } else {
+                    CustomButton.primary("Search") {
+                        search()
+                    }
+                    .disabled(cityName.isEmpty)
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("Manual Location")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { onCancel() }
+                }
+            }
+        }
+    }
+
+    private func search() {
+        guard !cityName.isEmpty else { return }
+        isSearching = true
+        errorMessage = nil
+
+        Task {
+            do {
+                _ = try await locationService.geocodeCity(cityName)
+                await MainActor.run {
+                    isSearching = false
+                    onSuccess()
+                }
+            } catch {
+                await MainActor.run {
+                    isSearching = false
+                    errorMessage = error.localizedDescription
+                }
+            }
         }
     }
 }

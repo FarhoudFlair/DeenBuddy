@@ -17,6 +17,10 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     // MARK: - Published Properties
     
     @Published public var todaysPrayerTimes: [PrayerTime] = []
+    
+    public var todaysPrayerTimesPublisher: AnyPublisher<[PrayerTime], Never> {
+        $todaysPrayerTimes.eraseToAnyPublisher()
+    }
     @Published public var nextPrayer: PrayerTime? = nil
     @Published public var timeUntilNextPrayer: TimeInterval? = nil
     // Computed properties that reference SettingsService (single source of truth)

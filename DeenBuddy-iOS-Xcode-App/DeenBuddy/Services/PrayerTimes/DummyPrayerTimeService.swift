@@ -1,10 +1,15 @@
 import Foundation
+import Combine
 import CoreLocation
 
 /// A dummy implementation of PrayerTimeServiceProtocol for testing and preview purposes
 @MainActor
 public class DummyPrayerTimeService: PrayerTimeServiceProtocol {
     public var todaysPrayerTimes: [PrayerTime] = []
+    
+    public var todaysPrayerTimesPublisher: AnyPublisher<[PrayerTime], Never> {
+        Just(todaysPrayerTimes).eraseToAnyPublisher()
+    }
     public var nextPrayer: PrayerTime? = nil
     public var timeUntilNextPrayer: TimeInterval? = nil
     public var calculationMethod: CalculationMethod = .muslimWorldLeague

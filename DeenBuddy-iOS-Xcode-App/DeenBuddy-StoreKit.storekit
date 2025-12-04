@@ -1,11 +1,11 @@
 {
   "appPolicies" : {
-    "eula" : "",
+    "eula" : "https://deenbuddy.com/terms",
     "policies" : [
       {
         "locale" : "en_US",
-        "policyText" : "",
-        "policyURL" : ""
+        "policyText" : "DeenBuddy collects minimal data to provide prayer time notifications and user preferences. We do not sell your data. See our full privacy policy for details.",
+        "policyURL" : "https://deenbuddy.com/privacy"
       }
     ]
   },
@@ -128,7 +128,7 @@
           "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "  Access all premium features. Save 67% vs monthly.",
+              "description" : "Access all premium features. Save ~44% vs monthly.",
               "displayName" : "Yearly Premium Subscription",
               "locale" : "en_CA"
             }

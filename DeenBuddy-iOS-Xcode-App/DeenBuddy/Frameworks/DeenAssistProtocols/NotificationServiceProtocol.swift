@@ -1,11 +1,15 @@
 import Foundation
 import UserNotifications
+import Combine
 
 /// Protocol for notification services
 @MainActor
 public protocol NotificationServiceProtocol: ObservableObject {
     /// Current notification authorization status
     var authorizationStatus: UNAuthorizationStatus { get }
+    
+    /// Publisher for authorization status
+    var authorizationStatusPublisher: AnyPublisher<UNAuthorizationStatus, Never> { get }
     
     /// Whether notifications are enabled
     var notificationsEnabled: Bool { get }

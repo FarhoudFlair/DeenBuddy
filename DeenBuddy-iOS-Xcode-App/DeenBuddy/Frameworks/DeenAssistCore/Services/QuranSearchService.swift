@@ -1359,7 +1359,9 @@ public class QuranSearchService: ObservableObject {
             queryType: queryType
         )
         
-        queryExpansion = expansion
+        await MainActor.run {
+            self.queryExpansion = expansion
+        }
         
         var results: [EnhancedSearchResult] = []
         
@@ -1799,11 +1801,11 @@ public class QuranSearchService: ObservableObject {
         var highlightedText = verse.textTranslation
         let allTerms = [query] + expandedTerms
         
-        // Simple highlighting - in a real app, this would use AttributedString
         for term in allTerms {
+            let safeTerm = term.replacingOccurrences(of: "*", with: "\\*")
             highlightedText = highlightedText.replacingOccurrences(
                 of: term,
-                with: "**\(term)**",
+                with: "***\(safeTerm)***",
                 options: .caseInsensitive
             )
         }
@@ -1920,10 +1922,10 @@ public class QuranSearchService: ObservableObject {
     }
     
     private func highlightMatches(in text: String, query: String) -> String {
-        // Simple highlighting - in a real app, this would use AttributedString
+        let safeQuery = query.replacingOccurrences(of: "*", with: "\\*")
         return text.replacingOccurrences(
             of: query,
-            with: "**\(query)**",
+            with: "***\(safeQuery)***",
             options: .caseInsensitive
         )
     }

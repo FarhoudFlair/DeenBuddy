@@ -101,8 +101,10 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
     private let maxObservers: Int = 10
     private var locationInfoCache: [String: (info: LocationInfo, timestamp: Date)] = [:]
     private var lastReverseGeocodeAttempt: [String: Date] = [:]
+    private let locationInfoCacheQueue = DispatchQueue(label: "com.deenbuddy.locationInfoCache")
     private let locationInfoCacheTTL: TimeInterval = 3600 // 1 hour cache for city resolution
     private let reverseGeocodeCooldown: TimeInterval = 60 // throttle repeated lookups per coordinate
+    private let throttleExtendedTTL: TimeInterval = 86400 // 24 hours - extended TTL for throttle checks
 
     /// Increments active task count with safety checks
     private func incrementTaskCount() -> Bool {
@@ -655,11 +657,11 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
             return cached
         }
 
-        if let lastAttempt = lastReverseGeocodeAttempt[cacheKey],
+        if let lastAttempt = lastAttemptDate(for: cacheKey),
            Date().timeIntervalSince(lastAttempt) < reverseGeocodeCooldown,
-           let cached = locationInfoCache[cacheKey]?.info {
-            logger.debug("Throttle reverse geocode for \(cacheKey); returning last known info")
-            return cached
+           let cachedInfo = cachedLocationInfo(for: coordinate, ttl: throttleExtendedTTL) {
+            logger.debug("Throttle reverse geocode for \(cacheKey); returning cached info (within 24-hour extended TTL)")
+            return cachedInfo
         }
 
         return try await withCheckedThrowingContinuation { continuation in
@@ -682,19 +684,19 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
                     resumeOnce(.success(cached))
                 } else {
                     self.logger.warning("Reverse geocode timed out for \(cacheKey); returning coordinate-only info")
+                    // Do not cache fallback-without-city so we can retry soon
                     let fallback = LocationInfo(
                         coordinate: coordinate,
                         accuracy: 10.0,
                         city: nil,
                         country: nil
                     )
-                    self.locationInfoCache[cacheKey] = (fallback, Date())
                     resumeOnce(.success(fallback))
                 }
             }
 
             geocoder.reverseGeocodeLocation(clLocation) { placemarks, error in
-                self.lastReverseGeocodeAttempt[cacheKey] = Date()
+                self.setLastAttemptDate(Date(), for: cacheKey)
 
                 if let error = error {
                     if let cached = self.cachedLocationInfo(for: coordinate, ttl: self.locationInfoCacheTTL) {
@@ -709,28 +711,28 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
                         city: nil,
                         country: nil
                     )
-                    self.locationInfoCache[cacheKey] = (fallback, Date())
+                    // Do not cache fallback-without-city so we can retry soon
                     resumeOnce(.success(fallback))
                     return
                 }
 
-                guard let placemark = placemarks?.first else {
-                    if let cached = self.cachedLocationInfo(for: coordinate, ttl: self.locationInfoCacheTTL) {
-                        self.logger.warning("Reverse geocode returned no placemarks for \(cacheKey); using cached city")
-                        resumeOnce(.success(cached))
-                        return
-                    }
-                    let fallback = LocationInfo(
-                        coordinate: coordinate,
-                        accuracy: 10.0,
-                        city: nil,
-                        country: nil
-                    )
-                    self.logger.warning("Reverse geocode returned no placemarks for \(cacheKey); returning coordinate-only info")
-                    self.locationInfoCache[cacheKey] = (fallback, Date())
-                    resumeOnce(.success(fallback))
+            guard let placemark = placemarks?.first else {
+                if let cached = self.cachedLocationInfo(for: coordinate, ttl: self.locationInfoCacheTTL) {
+                    self.logger.warning("Reverse geocode returned no placemarks for \(cacheKey); using cached city")
+                    resumeOnce(.success(cached))
                     return
                 }
+                let fallback = LocationInfo(
+                    coordinate: coordinate,
+                    accuracy: 10.0,
+                    city: nil,
+                    country: nil
+                )
+                self.logger.warning("Reverse geocode returned no placemarks for \(cacheKey); returning coordinate-only info")
+                // Do not cache fallback-without-city so we can retry soon
+                resumeOnce(.success(fallback))
+                return
+            }
 
                 let locationInfo = LocationInfo(
                     coordinate: coordinate,
@@ -739,7 +741,7 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
                     country: placemark.country
                 )
 
-                self.locationInfoCache[cacheKey] = (locationInfo, Date())
+                self.setLocationInfoCache(locationInfo, for: cacheKey)
                 resumeOnce(.success(locationInfo))
             }
         }
@@ -830,12 +832,44 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
 
     private func cachedLocationInfo(for coordinate: LocationCoordinate, ttl: TimeInterval) -> LocationInfo? {
         let key = cacheKey(for: coordinate)
-        guard let cached = locationInfoCache[key] else { return nil }
-        guard Date().timeIntervalSince(cached.timestamp) <= ttl else {
-            locationInfoCache.removeValue(forKey: key)
-            return nil
+        var result: LocationInfo?
+        locationInfoCacheQueue.sync {
+            guard let cached = locationInfoCache[key] else { return }
+            if Date().timeIntervalSince(cached.timestamp) <= ttl {
+                result = cached.info
+            } else {
+                locationInfoCache.removeValue(forKey: key)
+            }
         }
-        return cached.info
+        return result
+    }
+
+    private func cachedLocationInfoEntry(for key: String) -> (info: LocationInfo, timestamp: Date)? {
+        var entry: (info: LocationInfo, timestamp: Date)?
+        locationInfoCacheQueue.sync {
+            entry = locationInfoCache[key]
+        }
+        return entry
+    }
+
+    private func setLocationInfoCache(_ info: LocationInfo, for key: String) {
+        locationInfoCacheQueue.async {
+            self.locationInfoCache[key] = (info, Date())
+        }
+    }
+
+    private func lastAttemptDate(for key: String) -> Date? {
+        var date: Date?
+        locationInfoCacheQueue.sync {
+            date = lastReverseGeocodeAttempt[key]
+        }
+        return date
+    }
+
+    private func setLastAttemptDate(_ date: Date, for key: String) {
+        locationInfoCacheQueue.async {
+            self.lastReverseGeocodeAttempt[key] = date
+        }
     }
     
     public func clearLocationCache() {
@@ -844,7 +878,13 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         userDefaults.removeObject(forKey: CacheKeys.cachedLocation)
         userDefaults.removeObject(forKey: CacheKeys.cachedLocationInfo)
         userDefaults.removeObject(forKey: CacheKeys.cacheTimestamp)
-        
+
+        // Clear in-memory location info caches
+        locationInfoCacheQueue.async(flags: .barrier) {
+            self.locationInfoCache.removeAll()
+            self.lastReverseGeocodeAttempt.removeAll()
+        }
+
         // Also clear "Allow Once" cache
         clearAllowOnceCache()
     }

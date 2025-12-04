@@ -73,42 +73,46 @@ public struct SubscriptionPaywallView: View {
             Text("Unlock Premium")
                 .font(.system(size: 32, weight: .bold))
             
-            Text("Get the most out of DeenBuddy")
-                .font(.system(size: 18))
-                .foregroundColor(.secondary)
+            if viewModel.isBetaPremiumFree {
+                Text("Premium free during beta.")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(12)
+            } else {
+                Text("Get the most out of DeenBuddy")
+                    .font(.system(size: 18))
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(.top, 40)
     }
     
     private var benefitsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Premium Features")
-                .font(.headline)
-                .padding(.horizontal)
-            
-            ForEach(viewModel.benefits, id: \.self) { feature in
-                HStack(spacing: 12) {
-                    Image(systemName: feature.icon)
-                        .font(.title3)
-                        .foregroundColor(.orange)
-                        .frame(width: 30)
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(feature.displayName)
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        
-                        Text(feature.description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Spacer()
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Included Today")
+                    .font(.headline)
+                Text("All Premium members get these right now.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+            .padding(.horizontal)
+
+            benefitList(viewModel.includedBenefits, showComingSoonBadge: false)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Coming Soon (included with Premium)")
+                    .font(.headline)
+                Text("Preview what’s next—no extra charge once released.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+
+            benefitList(viewModel.comingSoonBenefits, showComingSoonBadge: true)
         }
     }
     
@@ -124,14 +128,19 @@ public struct SubscriptionPaywallView: View {
     
     private var purchaseButton: some View {
         Button {
-            Task {
-                let success = await viewModel.purchase()
-                if success {
-                    // Dismiss handled by success alert
+            if viewModel.isBetaPremiumFree {
+                // Beta mode: just close paywall (premium is free). When premium is restored, revert to purchase flow.
+                dismiss()
+            } else {
+                Task {
+                    let success = await viewModel.purchase()
+                    if success {
+                        // Dismiss handled by success alert
+                    }
                 }
             }
         } label: {
-            Text("Subscribe Now")
+            Text(viewModel.isBetaPremiumFree ? "Explore Premium (free during beta)" : "Subscribe Now")
                 .font(.headline)
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
@@ -236,6 +245,47 @@ public struct SubscriptionPaywallView: View {
                 .disabled(viewModel.isLoading)
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    // MARK: - Benefit Helpers
+
+    private func benefitList(_ benefits: [PaywallBenefit], showComingSoonBadge: Bool) -> some View {
+        VStack(spacing: 12) {
+            ForEach(benefits) { benefit in
+                HStack(spacing: 12) {
+                    Image(systemName: benefit.icon)
+                        .font(.title3)
+                        .foregroundColor(.orange)
+                        .frame(width: 30)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(benefit.title)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            if showComingSoonBadge || benefit.isComingSoon {
+                                Text("Coming Soon")
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.orange.opacity(0.15))
+                                    .foregroundColor(.orange)
+                                    .cornerRadius(8)
+                            }
+                        }
+
+                        Text(benefit.description)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+            }
         }
     }
 

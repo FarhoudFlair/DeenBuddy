@@ -6,6 +6,11 @@ import UserNotifications
 @MainActor
 public class MockNotificationService: NotificationServiceProtocol {
     @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    
+    public var authorizationStatusPublisher: AnyPublisher<UNAuthorizationStatus, Never> {
+        $authorizationStatus.eraseToAnyPublisher()
+    }
+    
     @Published public var notificationsEnabled: Bool = false
     private var criticalAlertsAuthorized = false
     

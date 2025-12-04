@@ -322,10 +322,6 @@ This app serves the Muslim community, so **religious accuracy is paramount**:
 - **Future Direction**: Migration to Swift Package Manager modules (planned)
 - **Hybrid Approach**: QiblaKit exists as both local framework and standalone package
 
-[byterover-mcp]
-
-[byterover-mcp]
-
 You are given two tools from Byterover MCP server, including
 ## 1. `byterover-store-knowledge`
 You `MUST` always use this tool when:

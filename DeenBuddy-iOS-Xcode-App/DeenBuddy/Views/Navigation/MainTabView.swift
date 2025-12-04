@@ -58,16 +58,20 @@ public struct MainTabView: View {
                             settingsService: settingsService,
                             themeManager: coordinator.themeManager,
                             notificationService: coordinator.notificationService,
+                            userAccountService: coordinator.userAccountService,
+                            locationService: coordinator.locationService,
                             onDismiss: { } // No dismiss needed in tab mode
                         )
 
                         // Upgrade to Premium button
                         Button {
+                            // Beta mode: just show paywall messaging; no purchase.
+                            // When premium is re-enabled, restore this to coordinator.showPaywall().
                             coordinator.showPaywall()
                         } label: {
                             HStack {
                                 Image(systemName: "crown.fill")
-                                Text("Upgrade to Premium")
+                                Text("Upgrade to Premium • Free in beta.")
                                 Spacer()
                             }
                             .padding()
@@ -183,6 +187,8 @@ private struct MainAppView: View {
                         settingsService: settingsService,
                         themeManager: coordinator.themeManager,
                         notificationService: coordinator.notificationService,
+                        userAccountService: coordinator.userAccountService,
+                        locationService: coordinator.locationService,
                         onDismiss: {
                             coordinator.dismissSettings()
                         }

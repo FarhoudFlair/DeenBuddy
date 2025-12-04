@@ -13,7 +13,7 @@ public class BackgroundPrayerRefreshService: ObservableObject {
     
     // MARK: - Constants
     
-    private static let backgroundTaskIdentifier = "com.deenbuddy.prayer-refresh"
+    private static let backgroundTaskIdentifier = "com.deenbuddy.app.prayer-refresh"
     private static let refreshInterval: TimeInterval = 6 * 60 * 60 // 6 hours
     private static let batteryOptimizedPreloadDays = 3
     private static let normalPreloadDays = 7

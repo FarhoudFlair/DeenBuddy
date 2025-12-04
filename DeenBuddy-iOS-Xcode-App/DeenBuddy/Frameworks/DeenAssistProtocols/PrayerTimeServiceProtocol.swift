@@ -1,11 +1,15 @@
 import Foundation
 import CoreLocation
+import Combine
 
 /// Protocol for prayer time calculation services
 @MainActor
 public protocol PrayerTimeServiceProtocol: ObservableObject {
     /// Current prayer times for today
     var todaysPrayerTimes: [AppPrayerTime] { get }
+    
+    /// Publisher for today's prayer times
+    var todaysPrayerTimesPublisher: AnyPublisher<[AppPrayerTime], Never> { get }
     
     /// Next upcoming prayer
     var nextPrayer: AppPrayerTime? { get }

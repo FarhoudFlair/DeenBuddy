@@ -27,6 +27,10 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     // MARK: - Published Properties
     
     @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined
+    
+    public var authorizationStatusPublisher: AnyPublisher<UNAuthorizationStatus, Never> {
+        $authorizationStatus.eraseToAnyPublisher()
+    }
     @Published public var notificationsEnabled: Bool = true
     
     // MARK: - Publishers
@@ -636,9 +640,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             }
         }
 
-        #if DEBUG
         logger.debug("NotificationService observers setup - active observers: \(self.observerCount)/\(Self.maxObservers)")
-        #endif
     }
 
     /// Handle settings changes that affect notifications with proper debouncing

@@ -2,6 +2,8 @@
 
 This guide helps contributors work effectively on the DeenBuddy iOS app. Keep changes focused, tested, and consistent with the existing project layout and tooling.
 
+You are given two tools from the Byterover MCP server: `byterover-retrieve-knowledge` and `byterover-store-knowledge`.
+
 ## Project Structure & Module Organization
 - `DeenBuddy/` — app source: `App/`, `Models/`, `Services/` (e.g., `PrayerTimes`, `Qibla`), `ViewModels/`, `Views/` (feature folders), `Resources/Assets.xcassets`, `Frameworks/DeenAssist*`.
 - `Live Activity Widget Extension/` — Widget/Live Activities target (views, models, services).

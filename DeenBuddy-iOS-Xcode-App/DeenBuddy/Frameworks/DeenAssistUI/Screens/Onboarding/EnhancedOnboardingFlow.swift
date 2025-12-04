@@ -89,12 +89,14 @@ public struct EnhancedOnboardingFlow: View {
                     LocationPermissionStepView(
                         permissionGranted: $locationPermissionGranted,
                         locationService: locationService,
-                        userName: trimmedUserName
+                        userName: trimmedUserName,
+                        onPermissionGranted: { nextStep() }
                     ).tag(2)
                     NotificationPermissionStepView(
                         permissionGranted: $notificationPermissionGranted,
                         notificationService: notificationService,
-                        userName: trimmedUserName
+                        userName: trimmedUserName,
+                        onPermissionGranted: { nextStep() }
                     ).tag(3)
                     PremiumTrialStepView(
                         userName: trimmedUserName,
@@ -840,10 +842,15 @@ private struct LocationPermissionStepView: View {
     @Binding var permissionGranted: Bool
     let locationService: any LocationServiceProtocol
     let userName: String
-    
+    let onPermissionGranted: (() -> Void)? // Auto-advance callback
+
     @State private var isRequestingPermission = false
     @State private var allowOnceMessage: String?
     @State private var permissionError: String?
+    @State private var hasAutoAdvanced = false // Prevent double-advance
+    @State private var autoAdvanceTask: Task<Void, Never>? // For cancellation
+
+    private let accessibilityService = AccessibilityService.shared
     
     private var personalizedTitle: String {
         if userName.isEmpty {
@@ -953,15 +960,19 @@ private struct LocationPermissionStepView: View {
             print("📍 Authorization status changed to: \(newStatus)")
             updatePermissionStatus()
         }
+        .onDisappear {
+            // Clean up auto-advance task when view disappears
+            autoAdvanceTask?.cancel()
+        }
     }
     
     private func updatePermissionStatus() {
         let status = locationService.authorizationStatus
         let wasGranted = permissionGranted
-        
+
         // Update permission status
         permissionGranted = status == .authorizedWhenInUse || status == .authorizedAlways
-        
+
         // Check for "Allow Once" scenario if permission isn't directly granted
         if !permissionGranted {
             if let locationService = locationService as? LocationService {
@@ -973,13 +984,49 @@ private struct LocationPermissionStepView: View {
                 }
             }
         }
-        
+
         // Log permission status changes
         if permissionGranted != wasGranted {
             print("📍 Permission status changed: \(wasGranted) → \(permissionGranted) (status: \(status))")
+
+            // Auto-advance if permission was just granted
+            if permissionGranted && !wasGranted && !hasAutoAdvanced {
+                triggerAutoAdvance()
+            }
         }
     }
-    
+
+    private func triggerAutoAdvance() {
+        guard !hasAutoAdvanced else { return }
+        hasAutoAdvanced = true
+
+        print("📍 Triggering auto-advance after location permission granted")
+
+        // Cancel any existing task
+        autoAdvanceTask?.cancel()
+
+        // Store new task reference for cleanup
+        autoAdvanceTask = Task { @MainActor in
+            // Show success state for 800ms (scaled for accessibility)
+            let delay = accessibilityService.getAnimationDuration(0.8)
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+
+            // Check if task was cancelled
+            if Task.isCancelled {
+                print("📍 Auto-advance cancelled")
+                return
+            }
+
+            // Trigger the callback
+            onPermissionGranted?()
+
+            // Announce to VoiceOver users
+            accessibilityService.announceToVoiceOver(
+                "Location permission granted. Advancing to next step."
+            )
+        }
+    }
+
     private func checkInitialPermissionStatus() {
         // Use the shared update logic
         updatePermissionStatus()
@@ -987,9 +1034,10 @@ private struct LocationPermissionStepView: View {
     
     private func requestLocationPermission() {
         guard !isRequestingPermission else { return }
-        
-        // Clear any previous errors
+
+        // Clear any previous errors and reset auto-advance flag
         permissionError = nil
+        hasAutoAdvanced = false // Reset for retry scenario
         isRequestingPermission = true
         
         Task {
@@ -1082,9 +1130,14 @@ private struct NotificationPermissionStepView: View {
     @Binding var permissionGranted: Bool
     let notificationService: any NotificationServiceProtocol
     let userName: String
-    
+    let onPermissionGranted: (() -> Void)? // Auto-advance callback
+
     @State private var isRequestingPermission = false
     @State private var permissionError: String?
+    @State private var hasAutoAdvanced = false // Prevent double-advance
+    @State private var autoAdvanceTask: Task<Void, Never>? // For cancellation
+
+    private let accessibilityService = AccessibilityService.shared
     
     private var personalizedTitle: String {
         if userName.isEmpty {
@@ -1185,21 +1238,61 @@ private struct NotificationPermissionStepView: View {
             print("🔔 Notification authorization status changed to: \(newStatus)")
             updatePermissionStatus()
         }
+        .onDisappear {
+            // Clean up auto-advance task when view disappears
+            autoAdvanceTask?.cancel()
+        }
     }
-    
+
     private func updatePermissionStatus() {
         let status = notificationService.authorizationStatus
         let wasGranted = permissionGranted
-        
+
         // Update permission status (notifications support both .authorized and .provisional)
         permissionGranted = status == .authorized || status == .provisional
-        
+
         // Log permission status changes for debugging
         if permissionGranted != wasGranted {
             print("🔔 Notification permission status changed: \(wasGranted) → \(permissionGranted) (status: \(status))")
+
+            // Auto-advance if permission was just granted
+            if permissionGranted && !wasGranted && !hasAutoAdvanced {
+                triggerAutoAdvance()
+            }
         }
     }
-    
+
+    private func triggerAutoAdvance() {
+        guard !hasAutoAdvanced else { return }
+        hasAutoAdvanced = true
+
+        print("🔔 Triggering auto-advance after notification permission granted")
+
+        // Cancel any existing task
+        autoAdvanceTask?.cancel()
+
+        // Store new task reference for cleanup
+        autoAdvanceTask = Task { @MainActor in
+            // Show success state for 800ms (scaled for accessibility)
+            let delay = accessibilityService.getAnimationDuration(0.8)
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+
+            // Check if task was cancelled
+            if Task.isCancelled {
+                print("🔔 Auto-advance cancelled")
+                return
+            }
+
+            // Trigger the callback
+            onPermissionGranted?()
+
+            // Announce to VoiceOver users
+            accessibilityService.announceToVoiceOver(
+                "Notification permission granted. Advancing to next step."
+            )
+        }
+    }
+
     private func checkInitialPermissionStatus() {
         // Use the shared update logic
         updatePermissionStatus()
@@ -1207,9 +1300,10 @@ private struct NotificationPermissionStepView: View {
     
     private func requestNotificationPermission() {
         guard !isRequestingPermission else { return }
-        
-        // Clear any previous errors
+
+        // Clear any previous errors and reset auto-advance flag
         permissionError = nil
+        hasAutoAdvanced = false // Reset for retry scenario
         isRequestingPermission = true
         
         Task {

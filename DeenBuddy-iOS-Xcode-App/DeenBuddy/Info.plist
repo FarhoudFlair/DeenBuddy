@@ -9,7 +9,7 @@
 		<string>com.deenbuddy.app.prayer-refresh</string>
 		<string>com.deenbuddy.app.refresh</string>
 		<string>com.deenbuddy.app.prayer-update</string>
-		<string>com.deenbuddy.prayer-refresh</string>
+
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>

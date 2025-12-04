@@ -412,7 +412,12 @@ private final class PreviewUserAccountService: UserAccountServiceProtocol {
             locationService: MockLocationService()
         ),
         islamicCacheManager: IslamicCacheManager(),
-        userAccountService: MockUserAccountService(),
+        userAccountService: PreviewUserAccountService(),
+        notificationScheduler: NotificationScheduler(
+            notificationService: MockNotificationService(),
+            prayerTimeService: MockPrayerTimeService(),
+            settingsService: MockSettingsService()
+        ),
         apiConfiguration: .default,
         isTestEnvironment: true
     ))

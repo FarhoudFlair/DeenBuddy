@@ -16,12 +16,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build
+        run: |
+          mkdir -p firebase-dist
+          if [ -d "public" ]; then
+            cp -R public/* firebase-dist/
+          else
+            echo "Warning: public/ directory not found. Skipping copy."
+          fi
+
+      - name: Test
+        run: |
+          if [ ! -f firebase-dist/index.html ]; then
+            echo "Error: index.html missing"
+            exit 1
+          fi
+
+      - name: Pre-deploy Security Scan
+        run: |
+          if find firebase-dist -type f \( -name ".env*" -o -name "*.key" -o -name "config.js" -o -name "*.pem" -o -name "*.crt" -o -name "*.p12" -o -name ".git" \) | grep .; then
+            echo "Error: Sensitive files found in deploy artifact"
+            exit 1
+          fi
+
       - name: Deploy to Firebase Hosting (preview channel)
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
           firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEENBUDDY_E47EE }}"
           projectId: deenbuddy-e47ee
-          entryPoint: "."
+          entryPoint: "./firebase-dist"
           channelId: preview
           expires: 7d

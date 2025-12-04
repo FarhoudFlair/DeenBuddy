@@ -50,7 +50,13 @@ struct QuranSearchView: View {
             }
             .onChange(of: searchText) { newValue in
                 // Generate real-time suggestions as user types
-                if !newValue.isEmpty {
+                if newValue.isEmpty {
+                    // Clear state back to welcome view when search is cleared
+                    searchTask?.cancel()
+                    searchService.searchResults = []
+                    searchService.enhancedSearchResults = []
+                    searchService.lastQuery = ""
+                } else {
                     searchService.generateSearchSuggestions(for: newValue)
                 }
             }

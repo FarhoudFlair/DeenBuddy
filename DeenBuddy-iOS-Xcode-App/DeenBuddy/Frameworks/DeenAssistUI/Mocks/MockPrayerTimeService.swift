@@ -6,6 +6,10 @@ import CoreLocation
 @MainActor
 public class MockPrayerTimeService: PrayerTimeServiceProtocol {
     @Published public var todaysPrayerTimes: [PrayerTime] = []
+    
+    public var todaysPrayerTimesPublisher: AnyPublisher<[PrayerTime], Never> {
+        $todaysPrayerTimes.eraseToAnyPublisher()
+    }
     @Published public var nextPrayer: PrayerTime? = nil
     @Published public var timeUntilNextPrayer: TimeInterval? = nil
     @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague

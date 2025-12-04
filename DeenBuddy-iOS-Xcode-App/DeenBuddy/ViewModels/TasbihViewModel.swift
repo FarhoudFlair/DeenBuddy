@@ -19,6 +19,7 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
     public init(service: Service) {
         self.service = service
         bind()
+        Task { await ensureSession() }
     }
 
     private func bind() {
@@ -39,10 +40,10 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
             }
             .store(in: &cancellables)
         
-        // Ensure initial selection
-        if selectedDhikrID == nil, let first = availableDhikr.first {
-            selectedDhikrID = first.id
-            targetCount = first.targetCount
+        // Ensure initial selection (random)
+        if selectedDhikrID == nil, let random = availableDhikr.randomElement() {
+            selectedDhikrID = random.id
+            targetCount = random.targetCount
         }
     }
 
@@ -61,12 +62,13 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
             return
         }
 
-        // Default to SubhanAllah (usually first) or just first available
-        if let first = service.availableDhikr.first {
-            print("Force starting default session with: \(first.transliteration)")
-            selectedDhikrID = first.id
-            targetCount = first.targetCount
-            await startSession(dhikr: first)
+        // Default to a random Dhikr from the list
+        // Default to a random Dhikr from the list
+        if let randomDhikr = service.availableDhikr.randomElement() {
+            print("Force starting default session with random Dhikr: \(randomDhikr.transliteration)")
+            selectedDhikrID = randomDhikr.id
+            targetCount = randomDhikr.targetCount
+            await startSession(dhikr: randomDhikr)
         }
     }
 
@@ -149,7 +151,6 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
         }
     }
 }
-
 
 
 
