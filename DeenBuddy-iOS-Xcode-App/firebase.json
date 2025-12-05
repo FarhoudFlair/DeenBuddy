@@ -8,16 +8,8 @@
     ],
     "rewrites": [
       {
-        "source": "/",
-        "destination": "/landing.html"
-      },
-      {
         "source": "/__/auth/action",
-        "destination": "/index.html"
-      },
-      {
-        "source": "**",
-        "destination": "/index.html"
+        "destination": "/auth.html"
       }
     ]
   }
