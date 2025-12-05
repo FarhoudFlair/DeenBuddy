@@ -7,7 +7,9 @@ struct VerseResultCard: View {
     let isBookmarked: Bool
     let onTap: () -> Void
     let onBookmark: () -> Void
-    
+
+    @State private var cachedHighlightedText: AttributedString?
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 12) {
@@ -49,7 +51,7 @@ struct VerseResultCard: View {
                     .padding(.vertical, 4)
                 
                 // Translation with highlighting (supports bold+italic markdown)
-                Text(attributedHighlight(from: result.highlightedText))
+                Text(cachedHighlightedText ?? AttributedString(result.highlightedText))
                     .font(.body)
                     .foregroundColor(ColorPalette.textPrimary)
                     .multilineTextAlignment(.leading)
@@ -99,6 +101,9 @@ struct VerseResultCard: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .task(id: result.highlightedText) {
+            cachedHighlightedText = attributedHighlight(from: result.highlightedText)
+        }
     }
 }
 
@@ -377,7 +382,9 @@ struct EnhancedVerseResultCard: View {
     let onTap: () -> Void
     let onBookmark: () -> Void
     let onRelatedTap: (QuranVerse) -> Void
-    
+
+    @State private var cachedHighlightedText: AttributedString?
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 12) {
@@ -419,7 +426,7 @@ struct EnhancedVerseResultCard: View {
                     .padding(.vertical, 4)
                 
                 // Highlighted translation
-                Text(attributedHighlight(from: result.highlightedText))
+                Text(cachedHighlightedText ?? AttributedString(result.highlightedText))
                     .font(.body)
                     .foregroundColor(ColorPalette.textPrimary)
                     .multilineTextAlignment(.leading)
@@ -493,6 +500,9 @@ struct EnhancedVerseResultCard: View {
             .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(PlainButtonStyle())
+        .task(id: result.highlightedText) {
+            cachedHighlightedText = attributedHighlight(from: result.highlightedText)
+        }
     }
 }
 

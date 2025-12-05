@@ -47,11 +47,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
     }
     
     deinit {
-        sessionTimer?.invalidate()
-        // Ensure cleanup runs on main actor
-        Task { @MainActor in
-            cleanupAudio()
-        }
+        cleanupAudio()
     }
     
     // MARK: - Setup Methods
@@ -583,11 +579,10 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         }
     }
     
-    nonisolated private func cleanupAudio() {
-        Task { @MainActor in
-            tasbihPlayers.forEach { $0.stop() }
-            tasbihPlayers.removeAll()
-        }
+    private func cleanupAudio() {
+        sessionTimer?.invalidate()
+        tasbihPlayers.forEach { $0.stop() }
+        tasbihPlayers.removeAll()
     }
 
     private func playRandomSound() {

@@ -808,7 +808,14 @@ public class LocationService: NSObject, LocationServiceProtocol, ObservableObjec
         // If no valid cached location, try to get fresh location
         return try await getCurrentLocation()
     }
-    
+
+    /// Set a manual location and notify all subscribers
+    /// This is used when user manually enters a city name
+    @MainActor
+    public func setManualLocation(_ location: CLLocation) async {
+        processLocation(location)
+    }
+
     /// Check if current location is from cache
     public func isCurrentLocationFromCache() -> Bool {
         guard let current = currentLocation, let cached = cachedLocation else {

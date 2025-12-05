@@ -332,8 +332,23 @@ public struct EnhancedSettingsView: View {
                     onCancel: { showingManualLocationEntry = false }
                 )
             } else {
-                Text("Manual location is unavailable. Please enable location services.")
-                    .padding()
+                NavigationView {
+                    VStack {
+                        Spacer()
+                        Text("Manual location is unavailable. Please enable location services.")
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                        Spacer()
+                    }
+                    .navigationTitle("Manual Location")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Close") { showingManualLocationEntry = false }
+                        }
+                    }
+                }
             }
         }
         .alert("Reset Settings", isPresented: $showingResetConfirmation) {
@@ -481,7 +496,8 @@ private struct ManualLocationEntrySheet: View {
 
         Task {
             do {
-                _ = try await locationService.geocodeCity(cityName)
+                let location = try await locationService.geocodeCity(cityName)
+                await locationService.setManualLocation(location)
                 await MainActor.run {
                     isSearching = false
                     onSuccess()

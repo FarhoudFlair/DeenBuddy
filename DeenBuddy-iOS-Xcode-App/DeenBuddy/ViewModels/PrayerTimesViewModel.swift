@@ -258,6 +258,7 @@ private class DummyLocationService: LocationServiceProtocol {
     func getLocationAge() -> TimeInterval? { return nil }
     func searchCity(_ cityName: String) async throws -> [LocationInfo] { throw LocationError.geocodingFailed("Geocoding failed in dummy service") }
     func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo { throw LocationError.geocodingFailed("Geocoding failed in dummy service") }
+    func setManualLocation(_ location: CLLocation) async {}
 }
 
 @MainActor

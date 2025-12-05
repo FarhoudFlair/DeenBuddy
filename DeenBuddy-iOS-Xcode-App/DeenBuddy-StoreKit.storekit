@@ -22,7 +22,7 @@
     "_developerTeamID" : "23TQMQNW28",
     "_failTransactionsEnabled" : false,
     "_lastSynchronizedDate" : 786261029.55245101,
-    "_locale" : "en_US",
+    "_locale" : "en_CA",
     "_renewalBillingIssuesEnabled" : true,
     "_storefront" : "CAN",
     "_storeKitErrors" : [
@@ -103,6 +103,11 @@
               "description" : "Access all premium features, billed monthly.",
               "displayName" : "Monthly Premium Subscription",
               "locale" : "en_CA"
+            },
+            {
+              "description" : "Access all premium features, billed monthly.",
+              "displayName" : "Monthly Premium Subscription",
+              "locale" : "en_US"
             }
           ],
           "productID" : "monthly_premium_sub",
@@ -131,6 +136,11 @@
               "description" : "Access all premium features. Save ~44% vs monthly.",
               "displayName" : "Yearly Premium Subscription",
               "locale" : "en_CA"
+            },
+            {
+              "description" : "Access all premium features. Save ~44% vs monthly.",
+              "displayName" : "Yearly Premium Subscription",
+              "locale" : "en_US"
             }
           ],
           "productID" : "yearly_premium_sub",

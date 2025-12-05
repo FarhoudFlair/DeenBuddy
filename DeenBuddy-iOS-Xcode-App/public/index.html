@@ -103,6 +103,18 @@
             return window.location.search;
         }
 
+        function sanitizeQueryForDisplay(queryParams) {
+            try {
+                const params = new URLSearchParams(queryParams);
+                params.forEach((_, key) => {
+                    params.set(key, '[redacted]');
+                });
+                return '?' + params.toString();
+            } catch (e) {
+                return '[unparseable query]';
+            }
+        }
+
         function buildAppLink(queryParams) {
             // Note: queryParams already includes '?' prefix from getQueryParams()
             // Validate and encode parameters before appending
@@ -110,10 +122,11 @@
                 const params = new URLSearchParams(queryParams);
                 // Re-serialize to ensure proper encoding
                 const encodedQuery = '?' + params.toString();
-                return APP_SCHEME_BASE + encodedQuery;
+                return { link: APP_SCHEME_BASE + encodedQuery };
             } catch (e) {
-                console.error('Invalid query parameters:', e);
-                return APP_SCHEME_BASE;
+                const error = e instanceof Error ? e : new Error('Unknown query parsing error');
+                console.error('Invalid query parameters:', error);
+                return { error };
             }
         }
 
@@ -123,40 +136,102 @@
             const actionsEl = document.getElementById('actions');
             const openAppBtn = document.getElementById('openAppBtn');
             const statusEl = document.getElementById('status');
+            const sanitizedQuery = sanitizeQueryForDisplay(queryParams);
 
             // 1. Validate parameters (explicit check)
-            const params = new URLSearchParams(queryParams);
+            let params;
+            try {
+                params = new URLSearchParams(queryParams);
+            } catch (e) {
+                const detail = e instanceof Error ? e.message : String(e);
+                messageEl.textContent = "Invalid link. Please request a new sign-in link from the app.";
+                statusEl.textContent = `Link parsing failed: ${detail}. Query: ${sanitizedQuery}`;
+                actionsEl.classList.remove('hidden');
+                return;
+            }
+
             const oobCode = params.get('oobCode');
             const mode = params.get('mode');
 
             if (!oobCode || !mode) {
                 messageEl.textContent = "Invalid link. Please request a new sign-in link from the app.";
-                statusEl.textContent = "Missing required parameters (oobCode, mode).";
+                statusEl.textContent = `Missing required parameters (oobCode, mode). Query: ${sanitizedQuery}`;
+                actionsEl.classList.remove('hidden');
                 return;
             }
 
             // 2. Build App Link
-            const appLink = buildAppLink(queryParams);
+            const appLinkResult = buildAppLink(queryParams);
+
+            if (appLinkResult.error) {
+                messageEl.textContent = "Invalid link. Please request a new sign-in link from the app.";
+                statusEl.textContent = `Link parsing error: ${appLinkResult.error.message}. Query: ${sanitizedQuery}`;
+                actionsEl.classList.remove('hidden');
+                return;
+            }
+
+            const appLink = appLinkResult.link;
             openAppBtn.href = appLink;
 
             // 3. Auto-attempt to open app
             statusEl.textContent = "Launching app...";
 
-            // Track if app launched by detecting when user returns to page
-            const appLaunchTime = Date.now();
+            const isTouchDevice = (('ontouchstart' in window) || (navigator.maxTouchPoints || 0) > 0);
+            const fallbackMessage = isTouchDevice
+                ? "Tap 'Open DeenBuddy' to continue signing in."
+                : "Click 'Open DeenBuddy' to continue signing in.";
+
+            let fallbackTimeoutId = null;
+            let fallbackShown = false;
+
+            const clearFallbackTimeout = () => {
+                if (fallbackTimeoutId !== null) {
+                    clearTimeout(fallbackTimeoutId);
+                    fallbackTimeoutId = null;
+                }
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+                window.removeEventListener('focus', handleWindowFocus);
+            };
+
+            const handleVisibilityChange = () => {
+                if (document.visibilityState === 'hidden') {
+                    clearFallbackTimeout();
+                }
+            };
+
+            const handleWindowFocus = () => {
+                // If the user returns to the page (e.g., app did not open), allow fallback to proceed
+                // but cancel any pending fallback timer so we can reschedule below if needed.
+                clearFallbackTimeout();
+                scheduleFallback();
+            };
+
+            const showFallback = () => {
+                if (fallbackShown) return;
+                fallbackShown = true;
+                messageEl.textContent = fallbackMessage;
+                actionsEl.classList.remove('hidden');
+                statusEl.textContent = "";
+            };
+
+            const scheduleFallback = () => {
+                // Ensure we don't double schedule
+                clearFallbackTimeout();
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+                window.addEventListener('focus', handleWindowFocus);
+                // Use 2500ms to reduce premature fallback on slower iOS launches while still keeping the UI responsive.
+                fallbackTimeoutId = setTimeout(() => {
+                    if (document.visibilityState === 'visible' && document.hasFocus()) {
+                        showFallback();
+                    }
+                    clearFallbackTimeout();
+                }, 2500);
+            };
+
             window.location.href = appLink;
 
             // 4. Fallback: If user hasn't left the page after delay, app likely didn't launch
-            setTimeout(() => {
-                // If the difference is small (< 2000ms), it means the browser stayed active (app didn't open).
-                // If the difference is large (>= 2000ms), it means the browser was suspended (app opened) and user returned.
-                // We only want to show the fallback if the app didn't open.
-                if (Date.now() - appLaunchTime < 2000) {
-                    messageEl.textContent = "Tap 'Open DeenBuddy' to continue signing in.";
-                    actionsEl.classList.remove('hidden');
-                    statusEl.textContent = "";
-                }
-            }, 1000);
+            scheduleFallback();
         }
 
         // Run on load

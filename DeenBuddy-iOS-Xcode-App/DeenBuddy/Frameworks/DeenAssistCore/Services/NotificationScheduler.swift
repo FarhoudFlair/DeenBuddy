@@ -20,6 +20,7 @@ public class NotificationScheduler: ObservableObject {
     
     // MARK: - Properties
     
+    private var schedulingTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Initialization
@@ -81,7 +82,12 @@ public class NotificationScheduler: ObservableObject {
     }
     
     private func scheduleNotifications(source: String) {
-        Task {
+        // Cancel any in-flight scheduling to avoid concurrent work
+        schedulingTask?.cancel()
+
+        schedulingTask = Task { @MainActor in
+            guard !Task.isCancelled else { return }
+
             // Check permissions first
             let status = notificationService.authorizationStatus
             guard status == .authorized || status == .provisional else {
@@ -107,6 +113,8 @@ public class NotificationScheduler: ObservableObject {
             } catch {
                 print("❌ NotificationScheduler: Failed to schedule notifications: \(error)")
             }
+
+            schedulingTask = nil
         }
     }
 }

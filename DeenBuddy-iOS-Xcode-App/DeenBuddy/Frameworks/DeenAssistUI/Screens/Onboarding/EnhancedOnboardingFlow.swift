@@ -1314,14 +1314,16 @@ private struct NotificationPermissionStepView: View {
                 
                 await MainActor.run {
                     isRequestingPermission = false
-                    permissionGranted = granted
-                    
+
                     if granted {
                         print("🔔 Notification permission granted")
+                        permissionError = nil
                     } else {
                         print("🔔 Notification permission denied")
                         permissionError = "Notification access was denied. You can enable it later in Settings > Notifications."
                     }
+
+                    updatePermissionStatus()
                 }
                 
                 // Double-check the permission status after a brief delay
@@ -1329,23 +1331,16 @@ private struct NotificationPermissionStepView: View {
                 try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
                 
                 await MainActor.run {
-                    let currentStatus = notificationService.authorizationStatus
-                    let finalGranted = currentStatus == .authorized
-                    if finalGranted != permissionGranted {
-                        print("🔔 Correcting notification permission status: \(finalGranted)")
-                        permissionGranted = finalGranted
-                        if finalGranted {
-                            permissionError = nil
-                        }
-                    }
+                    updatePermissionStatus()
                 }
                 
             } catch {
                 await MainActor.run {
                     isRequestingPermission = false
-                    permissionGranted = false
                     permissionError = "Failed to request notification permission: \(error.localizedDescription)"
                     print("🔔 Notification permission request error: \(error)")
+
+                    updatePermissionStatus()
                 }
             }
         }

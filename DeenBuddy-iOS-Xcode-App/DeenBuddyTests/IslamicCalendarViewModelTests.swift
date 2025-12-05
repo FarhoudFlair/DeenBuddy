@@ -406,7 +406,25 @@ private class MockIslamicCalendarService: IslamicCalendarServiceProtocol {
 
 // MARK: - Mock Location Service
 
-private class MockLocationService: LocationServiceProtocol {
+@MainActor
+private class MockLocationService: LocationServiceProtocol, ObservableObject {
+    @Published var authorizationStatus: CLAuthorizationStatus = .authorizedWhenInUse
+    @Published var currentLocation: CLLocation? = nil
+    @Published var currentLocationInfo: LocationInfo? = nil
+    @Published var isUpdatingLocation: Bool = false
+    @Published var locationError: Error? = nil
+    @Published var currentHeading: Double = 0
+    @Published var headingAccuracy: Double = 5.0
+    @Published var isUpdatingHeading: Bool = false
+
+    var permissionStatus: CLAuthorizationStatus { authorizationStatus }
+
+    private let locationSubject = PassthroughSubject<CLLocation, Error>()
+    private let headingSubject = PassthroughSubject<CLHeading, Error>()
+
+    var locationPublisher: AnyPublisher<CLLocation, Error> { locationSubject.eraseToAnyPublisher() }
+    var headingPublisher: AnyPublisher<CLHeading, Error> { headingSubject.eraseToAnyPublisher() }
+
     var mockLocation: CLLocation?
     var shouldFailWithError: Error?
 
@@ -414,10 +432,29 @@ private class MockLocationService: LocationServiceProtocol {
         if let error = shouldFailWithError {
             throw error
         }
-        return mockLocation ?? CLLocation(latitude: 37.7749, longitude: -122.4194) // Default to San Francisco
+        return mockLocation ?? CLLocation(latitude: 37.7749, longitude: -122.4194)
     }
 
-    var authorizationStatus: CLAuthorizationStatus {
-        return .authorizedWhenInUse
+    func requestLocationPermission() {}
+    func requestLocationPermissionAsync() async -> CLAuthorizationStatus { return .authorizedWhenInUse }
+    func requestLocation() async throws -> CLLocation { return try await getCurrentLocation() }
+    func startUpdatingLocation() {}
+    func stopUpdatingLocation() {}
+    func startBackgroundLocationUpdates() {}
+    func stopBackgroundLocationUpdates() {}
+    func startUpdatingHeading() {}
+    func stopUpdatingHeading() {}
+    func geocodeCity(_ cityName: String) async throws -> CLLocation {
+        return CLLocation(latitude: 37.7749, longitude: -122.4194)
     }
+    func searchCity(_ cityName: String) async throws -> [LocationInfo] { return [] }
+    func getLocationInfo(for coordinate: LocationCoordinate) async throws -> LocationInfo {
+        return LocationInfo(coordinate: coordinate, accuracy: 10.0, city: "Test", country: "Test")
+    }
+    func getCachedLocation() -> CLLocation? { return currentLocation }
+    func isCachedLocationValid() -> Bool { return true }
+    func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
+    func isCurrentLocationFromCache() -> Bool { return false }
+    func getLocationAge() -> TimeInterval? { return 30.0 }
+    func setManualLocation(_ location: CLLocation) async { currentLocation = location }
 }

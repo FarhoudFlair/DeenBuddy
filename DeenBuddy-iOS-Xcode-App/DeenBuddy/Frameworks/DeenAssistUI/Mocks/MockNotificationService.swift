@@ -5,10 +5,10 @@ import UserNotifications
 /// Mock implementation of NotificationServiceProtocol for UI development
 @MainActor
 public class MockNotificationService: NotificationServiceProtocol {
-    @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    
-    public var authorizationStatusPublisher: AnyPublisher<UNAuthorizationStatus, Never> {
-        $authorizationStatus.eraseToAnyPublisher()
+    @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined {
+        didSet {
+            updateAuthorizationStatusPublisher(authorizationStatus)
+        }
     }
     
     @Published public var notificationsEnabled: Bool = false

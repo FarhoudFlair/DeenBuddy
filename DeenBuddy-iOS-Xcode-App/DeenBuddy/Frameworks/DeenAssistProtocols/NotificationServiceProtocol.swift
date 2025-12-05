@@ -4,7 +4,7 @@ import Combine
 
 /// Protocol for notification services
 @MainActor
-public protocol NotificationServiceProtocol: ObservableObject {
+public protocol NotificationServiceProtocol: AnyObject, ObservableObject {
     /// Current notification authorization status
     var authorizationStatus: UNAuthorizationStatus { get }
     
@@ -53,6 +53,43 @@ public protocol NotificationServiceProtocol: ObservableObject {
     
     /// Update badge count when prayer is completed
     func updateBadgeForCompletedPrayer() async
+}
+
+// MARK: - Default Authorization Status Publisher
+
+@MainActor
+private enum NotificationAuthorizationPublisherStorage {
+    static var subjects: [ObjectIdentifier: CurrentValueSubject<UNAuthorizationStatus, Never>] = [:]
+}
+
+/// Default main-actor publisher implementation so conformers remain source-compatible.
+/// Conformers must call `updateAuthorizationStatusPublisher(_:)` whenever `authorizationStatus` changes.
+@MainActor
+public extension NotificationServiceProtocol {
+    /// Default publisher emitting authorization status changes on the main actor.
+    var authorizationStatusPublisher: AnyPublisher<UNAuthorizationStatus, Never> {
+        Self.authorizationStatusSubject(for: self).eraseToAnyPublisher()
+    }
+    
+    /// Call this whenever `authorizationStatus` mutates to keep the publisher in sync.
+    public func updateAuthorizationStatusPublisher(_ status: UNAuthorizationStatus) {
+        Self.authorizationStatusSubject(for: self).send(status)
+    }
+    
+    @discardableResult
+    private static func authorizationStatusSubject(
+        for instance: NotificationServiceProtocol
+    ) -> CurrentValueSubject<UNAuthorizationStatus, Never> {
+        let key = ObjectIdentifier(instance as AnyObject)
+        
+        if let existing = NotificationAuthorizationPublisherStorage.subjects[key] {
+            return existing
+        }
+        
+        let subject = CurrentValueSubject<UNAuthorizationStatus, Never>(instance.authorizationStatus)
+        NotificationAuthorizationPublisherStorage.subjects[key] = subject
+        return subject
+    }
 }
 
 /// Prayer time data structure for notifications

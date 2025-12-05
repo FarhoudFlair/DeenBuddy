@@ -400,4 +400,5 @@ class Phase1MockLocationService: LocationServiceProtocol, ObservableObject {
         return CLLocation(latitude: 0, longitude: 0)
     }
     func searchCity(_ cityName: String) async throws -> [LocationInfo] { return [] }
+    func setManualLocation(_ location: CLLocation) async { currentLocation = location }
 }

@@ -17,24 +17,27 @@ jobs:
 
       - name: Build
         run: |
-          mkdir -p firebase-dist
+          mkdir -p firebase-dist/public
           if [ -d "public" ]; then
-            cp -R public/* firebase-dist/
+            cp -R public/* firebase-dist/public/
           else
             echo "Warning: public/ directory not found. Skipping copy."
           fi
+          cp firebase.json firebase-dist/
 
       - name: Test
         run: |
-          if [ ! -f firebase-dist/index.html ]; then
+          if [ ! -f firebase-dist/public/index.html ]; then
             echo "Error: index.html missing"
             exit 1
           fi
 
       - name: Pre-deploy Security Scan
         run: |
-          if find firebase-dist -type f \( -name ".env*" -o -name "*.key" -o -name "config.js" -o -name "*.pem" -o -name "*.crt" -o -name "*.p12" -o -name ".git" \) | grep .; then
-            echo "Error: Sensitive files found in deploy artifact"
+          matches=$(find firebase-dist \( -type f -o -type d \) \( -name ".env*" -o -name "*.key" -o -name "config.js" -o -name "*.pem" -o -name "*.crt" -o -name "*.p12" -o -name ".git" \))
+          if [ -n "$matches" ]; then
+            echo "Error: Sensitive files/directories found in deploy artifact:"
+            echo "$matches"
             exit 1
           fi
 

@@ -81,20 +81,47 @@ copy_dsyms_from() {
 copy_dsyms_from "$SRC_DIR"
 
 # 2. Search in SourcePackages (SPM location)
-DERIVED_DATA_PROJ_DIR=$(cd "$SRC_DIR/../../../../../../.." && pwd)
-SOURCE_PACKAGES_DIR="$DERIVED_DATA_PROJ_DIR/SourcePackages"
+DERIVED_DATA_PROJ_DIR=""
 
-if [ ! -d "$SOURCE_PACKAGES_DIR" ]; then
-    log "Could not locate SourcePackages directory at expected path: $SOURCE_PACKAGES_DIR"
-    # Try searching for it
-    POSSIBLE_SOURCE_PACKAGES=$(find "$DERIVED_DATA_PROJ_DIR" -name "SourcePackages" -type d -maxdepth 3 | head -n 1)
+# Prefer Xcode-provided paths over hardcoded traversal
+if [ -n "$BUILD_DIR" ]; then
+    DERIVED_DATA_PROJ_DIR=$(cd "$BUILD_DIR/.." 2>/dev/null && pwd)
+elif [ -n "$BUILT_PRODUCTS_DIR" ]; then
+    DERIVED_DATA_PROJ_DIR=$(cd "$BUILT_PRODUCTS_DIR/../../.." 2>/dev/null && pwd)
+fi
+
+# Fallback: derive from source root if available
+if [ -z "$DERIVED_DATA_PROJ_DIR" ] && [ -n "${SRCROOT:-$SOURCE_ROOT}" ]; then
+    DERIVED_DATA_PROJ_DIR=$(cd "${SRCROOT:-$SOURCE_ROOT}/.." 2>/dev/null && pwd)
+fi
+
+# Validate derived data directory
+if [ -n "$DERIVED_DATA_PROJ_DIR" ] && [ ! -d "$DERIVED_DATA_PROJ_DIR" ]; then
+    log "Computed DerivedData directory does not exist: $DERIVED_DATA_PROJ_DIR"
+    DERIVED_DATA_PROJ_DIR=""
+fi
+
+if [ -z "$DERIVED_DATA_PROJ_DIR" ]; then
+    log "Could not resolve DerivedData project directory from build settings."
+fi
+
+SOURCE_PACKAGES_DIR=""
+if [ -n "$DERIVED_DATA_PROJ_DIR" ]; then
+    SOURCE_PACKAGES_DIR="$DERIVED_DATA_PROJ_DIR/SourcePackages"
+fi
+
+if [ -z "$SOURCE_PACKAGES_DIR" ] || [ ! -d "$SOURCE_PACKAGES_DIR" ]; then
+    log "Could not locate SourcePackages directory at expected path: ${SOURCE_PACKAGES_DIR:-<unset>}"
+    # Try searching for it starting from derived data or source root as a safe fallback
+    SEARCH_ROOT="${DERIVED_DATA_PROJ_DIR:-${SRCROOT:-${SOURCE_ROOT:-$PWD}}}"
+    POSSIBLE_SOURCE_PACKAGES=$(find "$SEARCH_ROOT" -maxdepth 5 -type d -name "SourcePackages" | head -n 1)
     if [ -n "$POSSIBLE_SOURCE_PACKAGES" ]; then
          log "Found SourcePackages via search: $POSSIBLE_SOURCE_PACKAGES"
          SOURCE_PACKAGES_DIR="$POSSIBLE_SOURCE_PACKAGES"
     fi
 fi
 
-if [ -d "$SOURCE_PACKAGES_DIR" ]; then
+if [ -n "$SOURCE_PACKAGES_DIR" ] && [ -d "$SOURCE_PACKAGES_DIR" ]; then
     log "Found SourcePackages dir: $SOURCE_PACKAGES_DIR"
     
     # DIAGNOSTIC: Check content of FirebaseAnalytics.xcframework to see if dSYMs are inside

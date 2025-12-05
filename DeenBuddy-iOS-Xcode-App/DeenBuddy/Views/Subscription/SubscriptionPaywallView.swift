@@ -264,7 +264,8 @@ public struct SubscriptionPaywallView: View {
                             Text(benefit.title)
                                 .font(.subheadline)
                                 .fontWeight(.medium)
-                            if showComingSoonBadge || benefit.isComingSoon {
+                            // Badge visibility is caller-driven; benefits are already separated at call sites.
+                            if showComingSoonBadge {
                                 Text("Coming Soon")
                                     .font(.caption2.weight(.semibold))
                                     .padding(.horizontal, 8)

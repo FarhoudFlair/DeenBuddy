@@ -53,11 +53,26 @@ struct QuranSearchView: View {
                 if newValue.isEmpty {
                     // Clear state back to welcome view when search is cleared
                     searchTask?.cancel()
-                    searchService.searchResults = []
-                    searchService.enhancedSearchResults = []
-                    searchService.lastQuery = ""
+                    searchService.clearSearchState()
                 } else {
-                    searchService.generateSearchSuggestions(for: newValue)
+                    // Debounce suggestion generation to avoid excessive work during typing
+                    searchTask?.cancel()
+                    let pendingQuery = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    searchTask = Task {
+                        do {
+                            try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                        } catch {
+                            return // Task cancelled
+                        }
+                        
+                        guard !Task.isCancelled else { return }
+                        guard !pendingQuery.isEmpty else { return }
+                        
+                        await MainActor.run {
+                            await searchService.generateSearchSuggestions(for: pendingQuery)
+                        }
+                    }
                 }
             }
             .toolbar {

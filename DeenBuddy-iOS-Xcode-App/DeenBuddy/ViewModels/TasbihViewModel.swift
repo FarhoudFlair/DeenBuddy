@@ -63,7 +63,6 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
         }
 
         // Default to a random Dhikr from the list
-        // Default to a random Dhikr from the list
         if let randomDhikr = service.availableDhikr.randomElement() {
             print("Force starting default session with random Dhikr: \(randomDhikr.transliteration)")
             selectedDhikrID = randomDhikr.id
@@ -121,9 +120,8 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
 
         do {
             await service.updateTargetCount(newTarget)
-            // Service call succeeded, keep the local change
+            if let error = service.error { throw error }
         } catch {
-            // Service call failed, revert the local change to maintain consistency
             targetCount = originalTarget
             present(error)
             print("⚠️ Failed to update target count in service, reverted local change: \(error.localizedDescription)")

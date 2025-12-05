@@ -4,7 +4,7 @@ import Combine
 
 /// Protocol for prayer time calculation services
 @MainActor
-public protocol PrayerTimeServiceProtocol: ObservableObject {
+public protocol PrayerTimeServiceProtocol: AnyObject, ObservableObject {
     /// Current prayer times for today
     var todaysPrayerTimes: [AppPrayerTime] { get }
     

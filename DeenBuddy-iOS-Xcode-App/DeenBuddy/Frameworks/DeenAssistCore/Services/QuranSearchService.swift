@@ -1161,6 +1161,14 @@ public class QuranSearchService: ObservableObject {
 
     // MARK: - Public Search Methods
     
+    /// Clear search results and related query state.
+    @MainActor
+    public func clearSearchState() {
+        searchResults = []
+        enhancedSearchResults = []
+        lastQuery = ""
+    }
+    
     /// Perform comprehensive search across Quran verses
     public func searchVerses(query: String, searchOptions: QuranSearchOptions = QuranSearchOptions()) async {
         print("🔧 DEBUG: searchVerses called with query: '\(query)'")

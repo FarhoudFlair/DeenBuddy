@@ -724,6 +724,11 @@ class TestMockLocationService: LocationServiceProtocol, ObservableObject {
             country: "Test Country"
         )
     }
+
+    func setManualLocation(_ location: CLLocation) async {
+        currentLocation = location
+        locationSubject.send(location)
+    }
 }
 
 // MARK: - Mock Islamic Calendar Service

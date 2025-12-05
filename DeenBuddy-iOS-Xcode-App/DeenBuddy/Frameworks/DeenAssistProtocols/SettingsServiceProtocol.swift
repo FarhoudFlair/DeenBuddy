@@ -3,7 +3,7 @@ import Combine
 
 /// Protocol for user settings management
 @MainActor
-public protocol SettingsServiceProtocol: ObservableObject {
+public protocol SettingsServiceProtocol: AnyObject, ObservableObject {
     /// Current calculation method
     var calculationMethod: CalculationMethod { get set }
     

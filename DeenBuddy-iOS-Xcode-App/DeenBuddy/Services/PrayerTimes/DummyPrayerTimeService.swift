@@ -5,10 +5,10 @@ import CoreLocation
 /// A dummy implementation of PrayerTimeServiceProtocol for testing and preview purposes
 @MainActor
 public class DummyPrayerTimeService: PrayerTimeServiceProtocol {
-    public var todaysPrayerTimes: [PrayerTime] = []
+    @Published public var todaysPrayerTimes: [PrayerTime] = []
     
     public var todaysPrayerTimesPublisher: AnyPublisher<[PrayerTime], Never> {
-        Just(todaysPrayerTimes).eraseToAnyPublisher()
+        $todaysPrayerTimes.eraseToAnyPublisher()
     }
     public var nextPrayer: PrayerTime? = nil
     public var timeUntilNextPrayer: TimeInterval? = nil

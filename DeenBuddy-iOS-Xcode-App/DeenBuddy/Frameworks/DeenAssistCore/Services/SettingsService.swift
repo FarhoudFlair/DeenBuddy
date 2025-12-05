@@ -171,7 +171,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         didSet {
             // Skip observer actions during rollback operations
             guard !isRestoring else { return }
-            
+
+            // Validate range before persisting
+            guard notificationOffset >= notificationOffsetMin && notificationOffset <= notificationOffsetMax else {
+                print("⚠️ Invalid notificationOffset \(notificationOffset); valid range is \(notificationOffsetMin)-\(notificationOffsetMax). Reverting to \(oldValue)")
+                isRestoring = true
+                notificationOffset = oldValue
+                isRestoring = false
+                return
+            }
+
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
                     await MainActor.run {
@@ -273,7 +282,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
             guard maxLookaheadMonths >= maxLookaheadMin && maxLookaheadMonths <= maxLookaheadMax else {
                 print("⚠️ Invalid maxLookaheadMonths \(maxLookaheadMonths); reverting to \(oldValue)")
+                isRestoring = true
                 maxLookaheadMonths = oldValue
+                isRestoring = false
                 return
             }
 
@@ -370,6 +381,8 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     private let currentSettingsVersion = 1
     private let maxLookaheadMin = 0
     private let maxLookaheadMax = 120
+    private let notificationOffsetMin: TimeInterval = 0
+    private let notificationOffsetMax: TimeInterval = 3600
     
     // MARK: - Initialization
     
@@ -398,7 +411,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     public func saveSettings() async throws {
         do {
             // Pre-save validation: Ensure property values are valid before persisting
-            guard notificationOffset >= 0 && notificationOffset <= 3600 else {
+            guard notificationOffset >= notificationOffsetMin && notificationOffset <= notificationOffsetMax else {
                 throw SettingsError.validationFailed(
                     "Cannot save: notificationOffset out of range: \(notificationOffset)"
                 )
@@ -600,7 +613,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
         // Check for reasonable notification offset values
         let offset = userDefaults.double(forKey: UnifiedSettingsKeys.notificationOffset)
-        if offset < 0 || offset > 3600 { // 0 to 1 hour
+        if offset < notificationOffsetMin || offset > notificationOffsetMax { // 0 to 1 hour
             throw SettingsError.validationFailed("Notification offset out of valid range: \(offset)")
         }
 
@@ -636,9 +649,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     /// Throws SettingsError if any value is out of valid range
     private func validateSnapshot(_ snapshot: SettingsSnapshot) throws {
         // Validate notificationOffset (0 to 3600 seconds)
-        guard snapshot.notificationOffset >= 0 && snapshot.notificationOffset <= 3600 else {
+        guard snapshot.notificationOffset >= notificationOffsetMin && snapshot.notificationOffset <= notificationOffsetMax else {
             throw SettingsError.validationFailed(
-                "Snapshot notificationOffset out of range: \(snapshot.notificationOffset) (valid: 0-3600)"
+                "Snapshot notificationOffset out of range: \(snapshot.notificationOffset) (valid: \(notificationOffsetMin)-\(notificationOffsetMax))"
             )
         }
 

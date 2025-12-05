@@ -434,4 +434,5 @@ class BackgroundSyncMockLocationService: LocationServiceProtocol, ObservableObje
     func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
     func isCurrentLocationFromCache() -> Bool { return false }
     func getLocationAge() -> TimeInterval? { return 30.0 }
+    func setManualLocation(_ location: CLLocation) async { currentLocation = location }
 }

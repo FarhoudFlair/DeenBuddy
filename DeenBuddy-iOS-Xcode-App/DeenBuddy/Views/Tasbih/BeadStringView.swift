@@ -84,7 +84,10 @@ struct BeadStringView: View {
             .contentShape(Rectangle())
             .clipped()
         }
-        .onChange(of: currentCount) {
+        .onAppear {
+            animateBeadMovement()
+        }
+        .onChange(of: currentCount) { _ in
             animateBeadMovement()
         }
     }
