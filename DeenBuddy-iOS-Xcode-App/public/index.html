@@ -543,8 +543,91 @@
             box-shadow: 0 15px 50px rgba(212, 165, 116, 0.4);
         }
 
-        /* Footer */
-        footer {
+        /* Trust Section */
+        .trust-section {
+            padding: 6rem 2rem;
+            background: var(--bg-primary);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .trust-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 3rem auto 0;
+        }
+
+        .trust-card {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .trust-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .trust-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            color: var(--primary);
+        }
+
+        .authorities-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        .authority-tag {
+            background: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+            padding: 0.4rem 0.8rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        /* Contact Section */
+        .contact-section {
+            padding: 6rem 2rem;
+            background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1) 0%, rgba(var(--secondary-rgb), 0.1) 100%);
+            text-align: center;
+        }
+
+        .contact-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .contact-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.8rem;
+            background: var(--primary);
+            color: var(--bg-primary);
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-weight: 700;
+            text-decoration: none;
+            margin-top: 2rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .contact-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(var(--primary-rgb), 0.3);
+        }
+
+        /* Footer & Support Updates */
+        .footer {
             padding: 60px 0 30px;
             border-top: 1px solid var(--card-border);
         }
@@ -787,8 +870,54 @@
         </div>
     </section>
 
+    <!-- Trust & Accuracy Section -->
+    <section class="trust-section">
+        <div class="glow-orb" style="top: 20%; left: 10%;"></div>
+        <div class="section-header">
+            <span class="badge">Verified Sources</span>
+            <h2>Precision You Can Trust</h2>
+            <p>We don't guess. All our data comes from verified astronomical standards and authoritative Islamic
+                institutions.</p>
+        </div>
+
+        <div class="trust-grid">
+            <div class="trust-card">
+                <span class="trust-icon">🕌</span>
+                <h3>Prayer Calculations</h3>
+                <p>Powered by the <strong>Adhan Swift</strong> library (v1.4.0), implementing established astronomical
+                    standards used by millions worldwide.</p>
+            </div>
+
+            <div class="trust-card">
+                <span class="trust-icon">🌍</span>
+                <h3>Global Authorities</h3>
+                <div class="authorities-list">
+                    <span class="authority-tag">Muslim World League</span>
+                    <span class="authority-tag">Umm Al-Qura</span>
+                    <span class="authority-tag">ISNA</span>
+                    <span class="authority-tag">Diyanet</span>
+                    <span class="authority-tag">Karachi</span>
+                </div>
+            </div>
+
+            <div class="trust-card">
+                <span class="trust-icon">🧭</span>
+                <h3>Precise Qibla</h3>
+                <p>Features Great Circle algorithms with <strong>magnetic declination correction</strong> for ±1°
+                    precision to the Kaaba.</p>
+            </div>
+
+            <div class="trust-card">
+                <span class="trust-icon">📖</span>
+                <h3>Verified Quran</h3>
+                <p>Text vertically sourced from the <strong>King Fahd Complex</strong> (Mushaf Al-Madinah) to ensure
+                    absolute authenticity.</p>
+            </div>
+        </div>
+    </section>
+
     <!-- Reviews Section -->
-    <section class="reviews" id="reviews">
+    <section id="reviews" class="reviews-section">
         <div class="container">
             <div class="section-header">
                 <h2>Loved by Muslims Across Canada</h2>
@@ -872,20 +1001,32 @@
     </section>
 
     <!-- Support Section -->
-    <section class="support" id="support">
-        <div class="container">
-            <div class="support-card">
-                <h2>☕ Support DeenBuddy</h2>
-                <p>DeenBuddy is a free app built with love. If you find it helpful, consider supporting our work so we
-                    can keep improving and adding new features.</p>
-                <a href="https://buymeacoffee.com/deenbuddy" target="_blank" class="btn btn-gold" id="support-btn">Buy
-                    Me a Coffee</a>
-            </div>
+    <section id="support" class="support-section">
+        <div class="support-content">
+            <span class="badge">Support The Mission</span>
+            <h2>100% Free & Ad-Free Forever</h2>
+            <p>DeenBuddy is built for the sake of Allah, not for profit. We will never sell your data or show verified
+                ads. If you'd like to support our server costs and future development, you can buy us a coffee.</p>
+            <a href="https://buymeacoffee.com/deenbuddy" target="_blank" class="coffee-button">
+                ☕ Buy me a coffee
+            </a>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="contact-section">
+        <div class="contact-container">
+            <h2>We'd Love to Hear From You</h2>
+            <p>Have a suggestion, found a bug, or just want to say salam? Your feedback helps us make DeenBuddy better
+                for the entire Ummah.</p>
+            <a href="mailto:support@deenbuddy.app?subject=DeenBuddy%20Feedback" class="contact-btn">
+                📩 Send Feedback
+            </a>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer>
+    <footer class="footer">
         <div class="container">
             <div class="footer-content">
                 <div class="logo">🕌 DeenBuddy</div>
