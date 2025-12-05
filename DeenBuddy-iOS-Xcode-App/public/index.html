@@ -1203,12 +1203,11 @@
                 <h3 style="font-size: 1.5rem; margin-bottom: 8px;">Send Feedback</h3>
                 <p style="color: var(--text-muted); font-size: 0.95rem;">We usually reply within 24 hours via email.</p>
 
-                <form class="feedback-form" action="https://formsubmit.co/ajax/farhoud.engineer@gmail.com" method="POST"
-                    id="feedbackForm">
-                    <!-- FormSubmit Configuration -->
-                    <input type="hidden" name="_subject" value="New DeenBuddy Feedback">
-                    <input type="hidden" name="_captcha" value="false">
-                    <input type="hidden" name="_template" value="table">
+                <form class="feedback-form" action="https://api.web3forms.com/submit" method="POST" id="feedbackForm">
+                    <!-- Web3Forms Configuration - Get your key at https://web3forms.com -->
+                    <input type="hidden" name="access_key" value="63813b8f-eb46-49a1-89e8-e10770a8d3e5">
+                    <input type="hidden" name="subject" value="New DeenBuddy Feedback">
+                    <input type="hidden" name="from_name" value="DeenBuddy Website">
 
                     <div class="form-group">
                         <label for="name">Name</label>
@@ -1285,14 +1284,12 @@
 
         function openFeedbackModal() {
             modal.classList.add('active');
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            document.body.style.overflow = 'hidden';
         }
 
         function closeFeedbackModal() {
             modal.classList.remove('active');
             document.body.style.overflow = '';
-
-            // Output reset after delay if successful
             if (document.getElementById('successMessage').style.display === 'flex') {
                 setTimeout(() => {
                     document.getElementById('modalContent').style.display = 'block';
@@ -1302,12 +1299,11 @@
             }
         }
 
-        // Close on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeFeedbackModal();
         });
 
-        // Handle AJAX Submission
+        // Web3Forms AJAX Submission
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             const btn = form.querySelector('.submit-btn');
@@ -1317,31 +1313,31 @@
             btn.disabled = true;
             btn.style.opacity = '0.7';
 
-            fetch(form.action, {
+            const formData = new FormData(form);
+            const object = Object.fromEntries(formData);
+            const json = JSON.stringify(object);
+
+            fetch('https://api.web3forms.com/submit', {
                 method: 'POST',
-                body: new FormData(form),
                 headers: {
+                    'Content-Type': 'application/json',
                     'Accept': 'application/json'
-                }
+                },
+                body: json
             })
-                .then(response => {
-                    console.log('FormSubmit response status:', response.status);
-                    if (response.ok) {
+                .then(async (response) => {
+                    let result = await response.json();
+                    console.log('Web3Forms response:', result);
+                    if (result.success) {
                         document.getElementById('modalContent').style.display = 'none';
                         document.getElementById('successMessage').style.display = 'flex';
                     } else {
-                        response.json().then(data => {
-                            console.error('FormSubmit error:', data);
-                            alert('Error: ' + (data.message || 'Problem submitting form'));
-                        }).catch(err => {
-                            console.error('FormSubmit text error:', err);
-                            alert('Oops! There was a problem submitting your form. Please try again.');
-                        });
+                        alert('Error: ' + (result.message || 'Something went wrong'));
                     }
                 })
                 .catch(error => {
                     console.error('Fetch error:', error);
-                    alert('Connection error. Please check your internet or try again later.');
+                    alert('Connection error. Please try again.');
                 })
                 .finally(() => {
                     btn.innerText = originalText;
