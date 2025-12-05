@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeenBuddy - Your Daily Companion for Faith</title>
-    <meta name="description" content="DeenBuddy helps Muslims stay connected to their faith with accurate prayer times, Qibla compass, Islamic calendar, prayer tracking, and more.">
+    <meta name="description"
+        content="DeenBuddy helps Muslims stay connected to their faith with accurate prayer times, Qibla compass, Islamic calendar, prayer tracking, and more.">
     <meta name="keywords" content="prayer times, salah, qibla, islamic calendar, hijri, tasbih, dhikr, muslim app">
-    
+
     <!-- Open Graph -->
     <meta property="og:title" content="DeenBuddy - Your Daily Companion for Faith">
-    <meta property="og:description" content="Stay connected to your faith with accurate prayer times, Qibla compass, and spiritual tracking.">
+    <meta property="og:description"
+        content="Stay connected to your faith with accurate prayer times, Qibla compass, and spiritual tracking.">
     <meta property="og:type" content="website">
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <style>
         :root {
             --primary: #667eea;
@@ -182,6 +185,23 @@
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
             box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .btn-primary:hover::after {
+            left: 100%;
         }
 
         .btn-primary:hover {
@@ -205,48 +225,69 @@
             justify-content: center;
         }
 
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
         .app-mockup {
-            width: 300px;
-            height: 600px;
-            background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
+            width: 280px;
             border-radius: 40px;
-            padding: 12px;
             box-shadow: 0 50px 100px rgba(0, 0, 0, 0.5);
             position: relative;
+            overflow: hidden;
+            animation: float 6s ease-in-out infinite;
         }
 
-        .app-screen {
+        .app-mockup img {
             width: 100%;
-            height: 100%;
-            background: var(--dark);
-            border-radius: 32px;
-            display: flex;
-            flex-direction: column;
+            height: auto;
+            display: block;
+        }
+
+        .ad-free-badge {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
-            text-align: center;
-        }
-
-        .app-screen .mosque-icon {
-            font-size: 4rem;
+            gap: 8px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
             margin-bottom: 20px;
+            animation: pulse 2s infinite;
         }
 
-        .app-screen h3 {
-            font-size: 1.5rem;
-            margin-bottom: 10px;
-        }
-
-        .app-screen .prayer-time {
-            font-size: 3rem;
-            font-weight: 800;
-            color: var(--gold);
-        }
-
-        .app-screen .prayer-name {
-            color: var(--text-muted);
-            margin-top: 8px;
+        .feature-screenshot {
+            width: 100%;
+            max-width: 200px;
+            border-radius: 16px;
+            margin-top: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
         }
 
         /* Features Section */
@@ -413,7 +454,11 @@
         .reviews-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
+            gap: 24px;
+        }
+
+        .reviews-grid.expanded {
+            grid-template-columns: repeat(2, 1fr);
         }
 
         .review-card {
@@ -535,6 +580,7 @@
 
         /* Responsive */
         @media (max-width: 1024px) {
+
             .hero .container,
             .mission .container {
                 grid-template-columns: 1fr;
@@ -589,6 +635,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Navigation -->
     <nav>
@@ -608,12 +655,15 @@
     <section class="hero">
         <div class="container">
             <div class="hero-content">
+                <div class="ad-free-badge">🚫 100% AD-FREE FOREVER</div>
                 <h1>Your Daily Companion for Faith</h1>
-                <p>Stay connected to your deen with accurate prayer times, Qibla direction, and spiritual tracking. Built for Muslims, by Muslims.</p>
+                <p>Stay connected to your deen with accurate prayer times, Qibla direction, and spiritual tracking.
+                    Built for Muslims, by Muslims — with zero ads, ever.</p>
                 <div class="cta-buttons">
                     <a href="https://apps.apple.com/app/id6749211036" class="btn btn-primary">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                            <path
+                                d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                         </svg>
                         Download on App Store
                     </a>
@@ -622,12 +672,7 @@
             </div>
             <div class="hero-visual">
                 <div class="app-mockup">
-                    <div class="app-screen">
-                        <div class="mosque-icon">🕌</div>
-                        <h3>Next Prayer</h3>
-                        <div class="prayer-time">2:15:30</div>
-                        <div class="prayer-name">until Maghrib</div>
-                    </div>
+                    <img src="/images/1.png" alt="DeenBuddy Home Screen">
                 </div>
             </div>
         </div>
@@ -644,17 +689,20 @@
                 <div class="feature-card">
                     <div class="feature-icon">🕐</div>
                     <h3>Accurate Prayer Times</h3>
-                    <p>Precise prayer times based on your location with customizable calculation methods and adhan notifications.</p>
+                    <p>Precise prayer times based on your location with customizable calculation methods and adhan
+                        notifications.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🧭</div>
                     <h3>Qibla Compass</h3>
-                    <p>Find the direction to Makkah with our beautiful, easy-to-use compass. Perfect for prayers anywhere.</p>
+                    <p>Find the direction to Makkah with our beautiful, easy-to-use compass. Perfect for prayers
+                        anywhere.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📅</div>
                     <h3>Islamic Calendar</h3>
-                    <p>Stay aware of important Islamic dates, holidays, and events with our integrated Hijri calendar.</p>
+                    <p>Stay aware of important Islamic dates, holidays, and events with our integrated Hijri calendar.
+                    </p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">✅</div>
@@ -664,7 +712,8 @@
                 <div class="feature-card">
                     <div class="feature-icon">📿</div>
                     <h3>Tasbih Counter</h3>
-                    <p>Digital dhikr counter with haptic feedback and customizable targets for your daily remembrance.</p>
+                    <p>Digital dhikr counter with haptic feedback and customizable targets for your daily remembrance.
+                    </p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">📊</div>
@@ -680,22 +729,21 @@
         <div class="container">
             <div class="mission-content">
                 <h2>Built for Muslims, by Muslims</h2>
-                <p>DeenBuddy was created with a simple mission: to help Muslims stay connected to their faith in the modern world.</p>
-                <p>We believe technology should enhance your spiritual journey, not distract from it. That's why we focus on privacy, accuracy, and simplicity.</p>
+                <p>DeenBuddy was created with a simple mission: to help Muslims stay connected to their faith in the
+                    modern world.</p>
+                <p>We believe technology should enhance your spiritual journey, not distract from it. That's why we're
+                    committed to being <strong>100% ad-free, forever</strong>.</p>
                 <ul class="mission-points">
+                    <li><span class="check">✓</span> <strong>AD-FREE FOREVER</strong> — No interruptions, no
+                        distractions</li>
                     <li><span class="check">✓</span> Privacy-first design — your data stays on your device</li>
                     <li><span class="check">✓</span> Accurate prayer times from trusted sources</li>
                     <li><span class="check">✓</span> Beautiful, distraction-free interface</li>
-                    <li><span class="check">✓</span> No ads, no tracking, no compromise</li>
                 </ul>
             </div>
             <div class="mission-visual">
                 <div class="app-mockup">
-                    <div class="app-screen">
-                        <div class="mosque-icon">🤲</div>
-                        <h3>Bismillah</h3>
-                        <p style="color: var(--text-muted); margin-top: 20px;">Start your journey with DeenBuddy</p>
-                    </div>
+                    <img src="/images/2.png" alt="DeenBuddy Prayer Times">
                 </div>
             </div>
         </div>
@@ -712,7 +760,8 @@
                 <div class="coming-card">
                     <span class="badge">In Development</span>
                     <h3>🤖 AI-Powered Features</h3>
-                    <p>Get personalized Islamic insights and answers to your questions with our upcoming AI assistant.</p>
+                    <p>Get personalized Islamic insights and answers to your questions with our upcoming AI assistant.
+                    </p>
                 </div>
                 <div class="coming-card">
                     <span class="badge">Planned</span>
@@ -732,40 +781,79 @@
     <section class="reviews" id="reviews">
         <div class="container">
             <div class="section-header">
-                <h2>Loved by Muslims Worldwide</h2>
+                <h2>Loved by Muslims Across Canada</h2>
                 <p>See what our community has to say</p>
             </div>
             <div class="reviews-grid">
                 <div class="review-card">
                     <div class="stars">★★★★★</div>
-                    <blockquote>"Finally, a prayer app that just works. Clean design, accurate times, and the Qibla compass is spot on. JazakAllah khair to the developers!"</blockquote>
+                    <blockquote>"Finally, a prayer app that just works. Clean design, accurate times, and the Qibla
+                        compass is spot on. JazakAllah khair to the developers!"</blockquote>
                     <div class="reviewer">
                         <div class="reviewer-avatar">AH</div>
                         <div class="reviewer-info">
                             <h4>Ahmed H.</h4>
-                            <span>Toronto, Canada</span>
+                            <span>Ottawa, ON</span>
                         </div>
                     </div>
                 </div>
                 <div class="review-card">
                     <div class="stars">★★★★★</div>
-                    <blockquote>"The prayer tracking feature has helped me stay consistent with my salah. Love the streak counter — it keeps me motivated every day!"</blockquote>
+                    <blockquote>"The prayer tracking feature has helped me stay consistent with my salah. Love the
+                        streak counter — it keeps me motivated every day!"</blockquote>
                     <div class="reviewer">
                         <div class="reviewer-avatar">FM</div>
                         <div class="reviewer-info">
                             <h4>Fatima M.</h4>
-                            <span>London, UK</span>
+                            <span>Ottawa, ON</span>
                         </div>
                     </div>
                 </div>
                 <div class="review-card">
                     <div class="stars">★★★★★</div>
-                    <blockquote>"Beautiful app with everything I need. The tasbih counter with haptic feedback feels so natural. Highly recommend for all Muslims."</blockquote>
+                    <blockquote>"Beautiful app with everything I need. The tasbih counter with haptic feedback feels so
+                        natural. Highly recommend for all Muslims."</blockquote>
                     <div class="reviewer">
                         <div class="reviewer-avatar">YK</div>
                         <div class="reviewer-info">
                             <h4>Yusuf K.</h4>
-                            <span>New York, USA</span>
+                            <span>Toronto, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"No ads! That alone makes this the best Muslim app out there. The Islamic calendar is
+                        super helpful for knowing upcoming events."</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">SK</div>
+                        <div class="reviewer-info">
+                            <h4>Sara K.</h4>
+                            <span>Ottawa, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"I've tried so many prayer apps and this is by far the best. Simple, beautiful, and
+                        actually respects my privacy. 10/10!"</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">OA</div>
+                        <div class="reviewer-info">
+                            <h4>Omar A.</h4>
+                            <span>Ottawa, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"The analytics feature helped me realize I was missing Fajr too often. Now I have a
+                        30-day streak! MashaAllah."</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">MR</div>
+                        <div class="reviewer-info">
+                            <h4>Mariam R.</h4>
+                            <span>Ottawa, ON</span>
                         </div>
                     </div>
                 </div>
@@ -778,9 +866,10 @@
         <div class="container">
             <div class="support-card">
                 <h2>☕ Support DeenBuddy</h2>
-                <p>DeenBuddy is a free app built with love. If you find it helpful, consider supporting our work so we can keep improving and adding new features.</p>
-                <a href="#" class="btn btn-gold" id="support-btn">Buy Me a Coffee</a>
-                <p style="font-size: 0.85rem; margin-top: 20px; opacity: 0.7;">Buy Me a Coffee integration coming soon!</p>
+                <p>DeenBuddy is a free app built with love. If you find it helpful, consider supporting our work so we
+                    can keep improving and adding new features.</p>
+                <a href="https://buymeacoffee.com/deenbuddy" target="_blank" class="btn btn-gold" id="support-btn">Buy
+                    Me a Coffee</a>
             </div>
         </div>
     </section>
@@ -796,7 +885,7 @@
                     <li><a href="#support">Support</a></li>
                 </ul>
             </div>
-            <p class="copyright">© 2024 DeenBuddy. Made with ❤️ for the Ummah.</p>
+            <p class="copyright">© 2025 DeenBuddy. Made with ❤️ for the Ummah.</p>
         </div>
     </footer>
 
@@ -823,4 +912,5 @@
         });
     </script>
 </body>
+
 </html>
