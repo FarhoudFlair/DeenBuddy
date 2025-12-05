@@ -14,9 +14,9 @@ public class NotificationScheduler: ObservableObject {
     private let settingsService: any SettingsServiceProtocol
 
     // Expose dependencies for identity checks without allowing mutation
-    public var notificationServiceRef: any NotificationServiceProtocol { notificationService }
-    public var prayerTimeServiceRef: any PrayerTimeServiceProtocol { prayerTimeService }
-    public var settingsServiceRef: any SettingsServiceProtocol { settingsService }
+    public var notificationServiceRef: AnyObject { notificationService as AnyObject }
+    public var prayerTimeServiceRef: AnyObject { prayerTimeService as AnyObject }
+    public var settingsServiceRef: AnyObject { settingsService as AnyObject }
     
     // MARK: - Properties
     

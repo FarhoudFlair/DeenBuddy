@@ -412,7 +412,7 @@ private final class PreviewUserAccountService: UserAccountServiceProtocol {
             locationService: MockLocationService()
         ),
         islamicCacheManager: IslamicCacheManager(),
-        userAccountService: PreviewUserAccountService(),
+        userAccountService: MockUserAccountService(),
         notificationScheduler: NotificationScheduler(
             notificationService: MockNotificationService(),
             prayerTimeService: MockPrayerTimeService(),

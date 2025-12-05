@@ -69,9 +69,7 @@ struct QuranSearchView: View {
                         guard !Task.isCancelled else { return }
                         guard !pendingQuery.isEmpty else { return }
                         
-                        await MainActor.run {
-                            await searchService.generateSearchSuggestions(for: pendingQuery)
-                        }
+                        await searchService.generateSearchSuggestions(for: pendingQuery)
                     }
                 }
             }

@@ -47,7 +47,11 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
     }
     
     deinit {
-        cleanupAudio()
+        // Use Task to properly clean up MainActor-isolated resources
+        // This is safe because we're just stopping and releasing audio players
+        Task { @MainActor [tasbihPlayers] in
+            tasbihPlayers.forEach { $0.stop() }
+        }
     }
     
     // MARK: - Setup Methods
