@@ -466,9 +466,9 @@ public class ServiceFactory {
            // Swift protocols are not classes, so === might not work directly on the existential unless it's a class-bound protocol.
            // NotificationServiceProtocol, PrayerTimeServiceProtocol, SettingsServiceProtocol ARE class-bound (@MainActor implies class usually, or they inherit from ObservableObject which is class-bound).
            // Let's check the protocols. They inherit from ObservableObject, which is a class protocol (AnyObject).
-           (existingInstance.notificationService as AnyObject) === (notificationService as AnyObject),
-           (existingInstance.prayerTimeService as AnyObject) === (prayerTimeService as AnyObject),
-           (existingInstance.settingsService as AnyObject) === (settingsService as AnyObject) {
+           (existingInstance.notificationServiceRef as AnyObject) === (notificationService as AnyObject),
+           (existingInstance.prayerTimeServiceRef as AnyObject) === (prayerTimeService as AnyObject),
+           (existingInstance.settingsServiceRef as AnyObject) === (settingsService as AnyObject) {
             print("🔄 Reusing existing NotificationScheduler instance")
             return existingInstance
         }

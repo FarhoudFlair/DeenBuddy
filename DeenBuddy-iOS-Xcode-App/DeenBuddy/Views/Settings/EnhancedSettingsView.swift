@@ -1,5 +1,4 @@
 import SwiftUI
-import DeenAssistProtocols
 
 /// Enhanced settings view with profile section and improved UI state synchronization
 public struct EnhancedSettingsView: View {
@@ -97,7 +96,7 @@ public struct EnhancedSettingsView: View {
                 }
 
                 // Location Section
-                Section("Location") {
+                Section {
                     SettingsRow(
                         icon: "location.fill",
                         title: "Enter City Manually",
@@ -106,6 +105,8 @@ public struct EnhancedSettingsView: View {
                             showingManualLocationEntry = true
                         }
                     )
+                } header: {
+                    Text("Location")
                 } footer: {
                     Text("Use this if GPS is unavailable or inaccurate. We'll search for your city and update prayer times accordingly.")
                         .font(Typography.labelSmall)
