@@ -19,7 +19,7 @@ public final class TasbihViewModel<Service: TasbihServiceProtocol>: ObservableOb
     public init(service: Service) {
         self.service = service
         bind()
-        Task { await ensureSession() }
+
     }
 
     private func bind() {

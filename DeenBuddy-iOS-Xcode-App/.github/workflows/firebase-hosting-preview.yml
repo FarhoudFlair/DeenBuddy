@@ -18,11 +18,16 @@ jobs:
 
       - name: Build
         run: |
+          set -e
           mkdir -p firebase-dist/public
           if [ -d "public" ]; then
             cp -R public/* firebase-dist/public/
           else
-            echo "Warning: public/ directory not found. Skipping copy."
+            echo "Warning: public/ directory not found. Skipping copy." >&2
+          fi
+          if [ ! -f firebase.json ]; then
+            echo "Error: firebase.json not found in repository root" >&2
+            exit 1
           fi
           cp firebase.json firebase-dist/
 

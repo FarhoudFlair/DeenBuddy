@@ -59,7 +59,10 @@ public protocol NotificationServiceProtocol: AnyObject, ObservableObject {
 
 @MainActor
 private enum NotificationAuthorizationPublisherStorage {
-    static var subjects: [ObjectIdentifier: CurrentValueSubject<UNAuthorizationStatus, Never>] = [:]
+    static let subjects = NSMapTable<AnyObject, CurrentValueSubject<UNAuthorizationStatus, Never>>(
+        keyOptions: .weakMemory,
+        valueOptions: .strongMemory
+    )
 }
 
 /// Default main-actor publisher implementation so conformers remain source-compatible.
@@ -75,20 +78,29 @@ public extension NotificationServiceProtocol {
     public func updateAuthorizationStatusPublisher(_ status: UNAuthorizationStatus) {
         Self.authorizationStatusSubject(for: self).send(status)
     }
+
+    /// Remove the stored publisher for this instance to prevent leaks once deallocated.
+    public func clearAuthorizationStatusPublisher() {
+        Self.removeAuthorizationStatusSubject(for: self)
+    }
     
     @discardableResult
     private static func authorizationStatusSubject(
         for instance: NotificationServiceProtocol
     ) -> CurrentValueSubject<UNAuthorizationStatus, Never> {
-        let key = ObjectIdentifier(instance as AnyObject)
-        
-        if let existing = NotificationAuthorizationPublisherStorage.subjects[key] {
+        if let existing = NotificationAuthorizationPublisherStorage.subjects.object(forKey: instance as AnyObject) {
             return existing
         }
         
         let subject = CurrentValueSubject<UNAuthorizationStatus, Never>(instance.authorizationStatus)
-        NotificationAuthorizationPublisherStorage.subjects[key] = subject
+        NotificationAuthorizationPublisherStorage.subjects.setObject(subject, forKey: instance as AnyObject)
         return subject
+    }
+
+    private static func removeAuthorizationStatusSubject(
+        for instance: NotificationServiceProtocol
+    ) {
+        NotificationAuthorizationPublisherStorage.subjects.removeObject(forKey: instance as AnyObject)
     }
 }
 

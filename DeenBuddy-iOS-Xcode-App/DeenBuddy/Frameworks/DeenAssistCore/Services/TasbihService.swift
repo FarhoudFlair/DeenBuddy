@@ -154,7 +154,8 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
             // Restore current counter from available counters if possible
             // We try to match by ID if we had a saved session, or fall back to default
             if let session = currentSession,
-               let match = counters.first(where: { $0.id == (session.counterId ?? currentCounter.id) }) {
+               let counterId = session.counterId,
+               let match = counters.first(where: { $0.id == counterId }) {
                 currentCounter = match
             } else if let defaultCounter = counters.first(where: { $0.isDefault }) {
                 currentCounter = defaultCounter
@@ -580,7 +581,6 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
     }
     
     private func cleanupAudio() {
-        sessionTimer?.invalidate()
         tasbihPlayers.forEach { $0.stop() }
         tasbihPlayers.removeAll()
     }

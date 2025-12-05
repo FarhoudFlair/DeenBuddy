@@ -335,10 +335,14 @@ public struct EnhancedSettingsView: View {
                 NavigationView {
                     VStack {
                         Spacer()
-                        Text("Manual location is unavailable. Please enable location services.")
+                        Text("Manual location entry is currently unavailable. Please try again later or contact support.")
                             .foregroundColor(ColorPalette.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding()
+                        Button("Close") {
+                            showingManualLocationEntry = false
+                        }
+                        .padding(.top, 12)
                         Spacer()
                     }
                     .navigationTitle("Manual Location")

@@ -9,6 +9,9 @@ struct VerseResultCard: View {
     let onBookmark: () -> Void
 
     @State private var cachedHighlightedText: AttributedString?
+    private var fallbackHighlightedText: AttributedString {
+        attributedHighlight(from: result.highlightedText) ?? AttributedString(result.highlightedText)
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -51,7 +54,7 @@ struct VerseResultCard: View {
                     .padding(.vertical, 4)
                 
                 // Translation with highlighting (supports bold+italic markdown)
-                Text(cachedHighlightedText ?? AttributedString(result.highlightedText))
+                Text(cachedHighlightedText ?? fallbackHighlightedText)
                     .font(.body)
                     .foregroundColor(ColorPalette.textPrimary)
                     .multilineTextAlignment(.leading)
@@ -384,6 +387,9 @@ struct EnhancedVerseResultCard: View {
     let onRelatedTap: (QuranVerse) -> Void
 
     @State private var cachedHighlightedText: AttributedString?
+    private var fallbackHighlightedText: AttributedString {
+        attributedHighlight(from: result.highlightedText) ?? AttributedString(result.highlightedText)
+    }
 
     var body: some View {
         Button(action: onTap) {
@@ -426,7 +432,7 @@ struct EnhancedVerseResultCard: View {
                     .padding(.vertical, 4)
                 
                 // Highlighted translation
-                Text(cachedHighlightedText ?? AttributedString(result.highlightedText))
+                Text(cachedHighlightedText ?? fallbackHighlightedText)
                     .font(.body)
                     .foregroundColor(ColorPalette.textPrimary)
                     .multilineTextAlignment(.leading)

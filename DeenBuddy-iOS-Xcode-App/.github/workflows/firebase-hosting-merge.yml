@@ -23,6 +23,10 @@ jobs:
           else
             echo "Warning: public/ directory not found. Skipping copy."
           fi
+          if [ ! -f firebase.json ]; then
+            echo "Error: firebase.json not found at repository root"
+            exit 1
+          fi
           cp firebase.json firebase-dist/
 
       - name: Test

@@ -63,6 +63,8 @@ public class PerformanceMonitor: ObservableObject {
         isMonitoring = false
         metricsTimer?.invalidate()
         metricsTimer = nil
+        consecutiveHighCPUCount = 0
+        consecutiveCriticalCPUCount = 0
         
         print("📊 Performance monitoring stopped")
     }
@@ -131,6 +133,8 @@ public class PerformanceMonitor: ObservableObject {
     public func clearHistory() {
         performanceHistory.removeAll()
         performanceIssues.removeAll()
+        consecutiveHighCPUCount = 0
+        consecutiveCriticalCPUCount = 0
         print("📊 Performance history cleared")
     }
     

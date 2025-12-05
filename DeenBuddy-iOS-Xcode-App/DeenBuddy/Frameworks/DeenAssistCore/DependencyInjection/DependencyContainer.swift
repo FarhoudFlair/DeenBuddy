@@ -633,7 +633,8 @@ public extension DependencyContainer {
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
         let resolvedUserAccountService: any UserAccountServiceProtocol = MockUserAccountService()
         
-        let resolvedNotificationScheduler = ServiceFactory.createNotificationScheduler(
+        // Use a fresh scheduler instance for tests to avoid singleton state leakage between tests
+        let resolvedNotificationScheduler = NotificationScheduler(
             notificationService: resolvedNotificationService,
             prayerTimeService: resolvedPrayerTimeService,
             settingsService: resolvedSettingsService

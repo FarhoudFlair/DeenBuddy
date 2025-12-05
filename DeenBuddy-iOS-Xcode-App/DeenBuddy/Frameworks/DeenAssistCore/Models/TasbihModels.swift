@@ -183,6 +183,7 @@ public struct TasbihCounter: Codable, Identifiable, Equatable {
     public let isDefault: Bool
     public let createdAt: Date
     
+    /// Defaults to `soundFeedback = true` so new counters provide audible cues unless explicitly disabled.
     public init(
         id: UUID = UUID(),
         name: String,

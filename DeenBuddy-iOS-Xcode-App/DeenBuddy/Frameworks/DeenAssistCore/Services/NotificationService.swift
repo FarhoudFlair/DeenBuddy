@@ -26,11 +26,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     
     // MARK: - Published Properties
     
-    @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined {
-        didSet {
-            updateAuthorizationStatusPublisher(authorizationStatus)
-        }
-    }
+    @Published public var authorizationStatus: UNAuthorizationStatus = .notDetermined
     @Published public var notificationsEnabled: Bool = true
     
     // MARK: - Publishers
@@ -109,6 +105,9 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         
         // Cancel any pending settings update task
         settingsUpdateTask?.cancel()
+
+        // Clean up authorization publisher storage to avoid retaining this instance
+        clearAuthorizationStatusPublisher()
 
         logger.debug("NotificationService deinit - cleaned up \(observerCount) observers")
     }

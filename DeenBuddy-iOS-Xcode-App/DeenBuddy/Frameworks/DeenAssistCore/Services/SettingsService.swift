@@ -478,6 +478,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
         } catch {
             print("❌ Failed to save settings: \(error)")
+            if error is SettingsError {
+                throw error
+            }
             throw SettingsError.saveFailed(error)
         }
     }
