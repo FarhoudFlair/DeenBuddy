@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Inject current date into legal docs
+        run: |
+          CURRENT_DATE=$(date "+%B %d, %Y")
+          sed -i "s/{{LAST_UPDATED_TERMS}}/$CURRENT_DATE/g" DeenBuddy-iOS-Xcode-App/public/terms.html
+          sed -i "s/{{LAST_UPDATED_PRIVACY}}/$CURRENT_DATE/g" DeenBuddy-iOS-Xcode-App/public/privacy.html
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
