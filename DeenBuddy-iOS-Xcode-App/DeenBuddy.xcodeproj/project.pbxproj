@@ -1114,7 +1114,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Live Activity Widget ExtensionExtension.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
@@ -1147,7 +1147,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Live Activity Widget ExtensionExtension.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
@@ -1307,7 +1307,7 @@
 				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				ENABLE_PREVIEWS = YES;
@@ -1357,7 +1357,7 @@
 				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;

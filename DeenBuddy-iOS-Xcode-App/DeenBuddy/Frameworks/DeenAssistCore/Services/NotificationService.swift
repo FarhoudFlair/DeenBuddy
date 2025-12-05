@@ -82,34 +82,24 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
 
     deinit {
         // Remove specific observers to prevent memory leaks
+        // NotificationCenter observers are safe to remove from deinit
         if let observer = settingsObserver {
             NotificationCenter.default.removeObserver(observer)
-            settingsObserver = nil
-            observerCount = max(0, observerCount - 1)
         }
 
         if let observer = appLifecycleObserver {
             NotificationCenter.default.removeObserver(observer)
-            appLifecycleObserver = nil
-            observerCount = max(0, observerCount - 1)
         }
 
         if let observer = prayerCompletedObserver {
             NotificationCenter.default.removeObserver(observer)
-            prayerCompletedObserver = nil
-            observerCount = max(0, observerCount - 1)
         }
 
         // Cancel all Combine subscriptions
         cancellables.removeAll()
-        
+
         // Cancel any pending settings update task
         settingsUpdateTask?.cancel()
-
-        // Clean up authorization publisher storage to avoid retaining this instance
-        clearAuthorizationStatusPublisher()
-
-        logger.debug("NotificationService deinit - cleaned up \(observerCount) observers")
     }
     
     // MARK: - Protocol Implementation

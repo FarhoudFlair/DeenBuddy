@@ -313,9 +313,10 @@ public class PerformanceMonitor: ObservableObject {
         }
         
         if consecutiveCriticalCPUCount >= consecutiveSampleThreshold {
+            let cpuFormatted = String(format: "%.1f", metrics.cpuUsage)
             addPerformanceIssue(PerformanceIssue(
                 type: .highCPUUsage,
-                description: "Sustained high CPU usage detected over \(consecutiveCriticalCPUCount) samples (current: \(String(format: \"%.1f\", metrics.cpuUsage))%)",
+                description: "Sustained high CPU usage detected over \(consecutiveCriticalCPUCount) samples (current: \(cpuFormatted)%)",
                 severity: .critical,
                 timestamp: metrics.timestamp,
                 metadata: ["cpu_usage": metrics.cpuUsage]
@@ -323,9 +324,10 @@ public class PerformanceMonitor: ObservableObject {
             consecutiveCriticalCPUCount = 0
             consecutiveHighCPUCount = 0
         } else if consecutiveHighCPUCount >= consecutiveSampleThreshold {
+            let cpuFormatted = String(format: "%.1f", metrics.cpuUsage)
             addPerformanceIssue(PerformanceIssue(
                 type: .highCPUUsage,
-                description: "Sustained high CPU usage detected over \(consecutiveHighCPUCount) samples (current: \(String(format: \"%.1f\", metrics.cpuUsage))%)",
+                description: "Sustained high CPU usage detected over \(consecutiveHighCPUCount) samples (current: \(cpuFormatted)%)",
                 severity: .high,
                 timestamp: metrics.timestamp,
                 metadata: ["cpu_usage": metrics.cpuUsage]
