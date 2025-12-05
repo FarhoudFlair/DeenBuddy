@@ -126,6 +126,9 @@ public protocol LocationServiceProtocol: ObservableObject {
     /// Get location preferring cached if valid, otherwise request fresh
     func getLocationPreferCached() async throws -> CLLocation
 
+    /// Set a manual location (e.g., from city search) and notify subscribers
+    func setManualLocation(_ location: CLLocation) async
+
     /// Check if current location is from cache
     func isCurrentLocationFromCache() -> Bool
 

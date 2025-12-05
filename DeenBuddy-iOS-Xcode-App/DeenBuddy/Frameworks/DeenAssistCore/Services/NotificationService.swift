@@ -46,6 +46,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     // Memory leak prevention: Store observer tokens for proper cleanup
     private var settingsObserver: NSObjectProtocol?
     private var appLifecycleObserver: NSObjectProtocol?
+    private var prayerCompletedObserver: NSObjectProtocol?
     private var cancellables = Set<AnyCancellable>()
 
     // Observer management for memory leak prevention
@@ -81,25 +82,24 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
 
     deinit {
         // Remove specific observers to prevent memory leaks
+        // NotificationCenter observers are safe to remove from deinit
         if let observer = settingsObserver {
             NotificationCenter.default.removeObserver(observer)
-            settingsObserver = nil
-            observerCount = max(0, observerCount - 1)
         }
 
         if let observer = appLifecycleObserver {
             NotificationCenter.default.removeObserver(observer)
-            appLifecycleObserver = nil
-            observerCount = max(0, observerCount - 1)
+        }
+
+        if let observer = prayerCompletedObserver {
+            NotificationCenter.default.removeObserver(observer)
         }
 
         // Cancel all Combine subscriptions
         cancellables.removeAll()
-        
+
         // Cancel any pending settings update task
         settingsUpdateTask?.cancel()
-
-        logger.debug("NotificationService deinit - cleaned up \(observerCount) observers")
     }
     
     // MARK: - Protocol Implementation
@@ -130,6 +130,48 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         @unknown default:
             return false
         }
+    }
+
+    /// Request permission that includes the critical alert entitlement.
+    public func requestCriticalAlertPermission() async throws -> Bool {
+        #if DEBUG
+        if mockNotificationCenter != nil {
+            logger.debug("Skipping critical alert permission request in mock mode")
+            return true
+        }
+        #endif
+
+        let options: UNAuthorizationOptions = [.alert, .sound, .badge, .criticalAlert]
+
+        do {
+            let granted = try await notificationCenter.requestAuthorization(options: options)
+            await updatePermissionStatus()
+            if granted {
+                logger.info("Critical alert permission granted")
+            } else {
+                logger.warning("Critical alert permission denied")
+            }
+            return granted
+        } catch {
+            logger.error("Failed to request critical alert permission: \(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    public func getCriticalAlertAuthorizationStatus() async -> Bool {
+        #if DEBUG
+        if mockNotificationCenter != nil {
+            return true
+        }
+        #endif
+
+        let settings = await notificationCenter.notificationSettings()
+
+        if #available(iOS 12.0, *) {
+            return settings.criticalAlertSetting == .enabled
+        }
+
+        return false
     }
     
     /// Schedules prayer notifications for the given prayer times with enhanced per-prayer configuration.
@@ -277,7 +319,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
     
     public func cancelAllNotifications() async {
         removeAllPendingNotificationRequests()
-        print("Cancelled all prayer notifications")
+        logger.debug("Cancelled all prayer notifications")
     }
 
     /// Schedule a prayer tracking notification with interactive actions
@@ -286,6 +328,12 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         at prayerTime: Date,
         reminderMinutes: Int = 0
     ) async throws {
+        // Gate by global notifications enabled setting
+        guard notificationSettings.isEnabled else {
+            logger.info("Tracking notifications disabled globally; skipping \(prayer.displayName)")
+            return
+        }
+        
         guard authorizationStatus == .authorized || authorizationStatus == .provisional else {
             throw NotificationError.permissionDenied
         }
@@ -404,7 +452,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         notificationsEnabled = settings.isEnabled
         saveSettings()
         
-        print("Updated notification settings - enabled: \(settings.isEnabled), reminder: \(settings.reminderMinutes) minutes")
+        logger.debug("Updated notification settings - enabled: \(settings.isEnabled), reminder: \(settings.reminderMinutes) minutes")
     }
     
     public func getNotificationSettings() -> NotificationSettings {
@@ -477,14 +525,14 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         // Create notification categories
         let prayerReminderCategory = UNNotificationCategory(
             identifier: "PRAYER_REMINDER",
-            actions: [completedAction, willDoLaterAction, openQiblaAction],
+            actions: [completedAction, willDoLaterAction, snooze5Action, snooze10Action, openQiblaAction],
             intentIdentifiers: [],
             options: [.customDismissAction, .allowInCarPlay]
         )
 
         let prayerTimeCategory = UNNotificationCategory(
             identifier: "PRAYER_TIME",
-            actions: [completedAction, willDoLaterAction, skipAction, openQiblaAction],
+            actions: [completedAction, willDoLaterAction, snooze5Action, snooze10Action, skipAction, openQiblaAction],
             intentIdentifiers: [],
             options: [.customDismissAction, .allowInCarPlay]
         )
@@ -550,7 +598,38 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
             observerCount += 1
         }
 
-        print("📱 NotificationService observers setup - active observers: \(observerCount)/\(Self.maxObservers)")
+        if prayerCompletedObserver == nil {
+            prayerCompletedObserver = NotificationCenter.default.addObserver(
+                forName: .prayerMarkedAsPrayed,
+                object: nil,
+                queue: nil
+            ) { [weak self] notification in
+                guard let self = self else { return }
+                guard let userInfo = notification.userInfo,
+                      let rawValue = userInfo["prayer"] as? String,
+                      let prayer = Prayer(rawValue: rawValue) else {
+                    return
+                }
+
+                let source = userInfo["source"] as? String ?? "external"
+
+                // Skip if the notification service already handled the action directly
+                if source == "notification_action" {
+                    return
+                }
+
+                Task {
+                    await self.cancelNotificationsForPrayer(prayer)
+                    await self.updateBadgeForCompletedPrayer()
+                }
+            }
+
+            if prayerCompletedObserver != nil {
+                observerCount += 1
+            }
+        }
+
+        logger.debug("NotificationService observers setup - active observers: \(self.observerCount)/\(Self.maxObservers)")
     }
 
     /// Handle settings changes that affect notifications with proper debouncing
@@ -582,7 +661,7 @@ public class NotificationService: NSObject, NotificationServiceProtocol, Observa
         loadSettings()
         
         // Only reschedule notifications if necessary to avoid excessive rescheduling during onboarding
-        print("🔄 Notification settings updated due to settings change (debounced)")
+        logger.debug("Notification settings updated due to settings change (debounced)")
         
         // Note: In a production implementation, you might want to reschedule all notifications
         // when settings change, but this should be done carefully to avoid excessive rescheduling
@@ -714,7 +793,11 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
         // Handle different actions
         switch actionIdentifier {
         case "MARK_PRAYED":
-            handleMarkPrayedAction(for: prayer, userInfo: userInfo)
+            Task { @MainActor in
+                await handleMarkPrayedAction(for: prayer, userInfo: userInfo)
+                completionHandler()
+            }
+            return
 
         // New Prayer Tracking Actions
         case "PRAYER_COMPLETED":
@@ -755,7 +838,7 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
 
     // MARK: - Notification Action Handlers
 
-    private func handleMarkPrayedAction(for prayer: Prayer?, userInfo: [AnyHashable: Any]) {
+    private func handleMarkPrayedAction(for prayer: Prayer?, userInfo: [AnyHashable: Any]) async {
         guard let prayer = prayer else { return }
 
         print("✅ User marked \(prayer.displayName) as prayed")
@@ -764,14 +847,12 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
         NotificationCenter.default.post(
             name: .prayerMarkedAsPrayed,
             object: nil,
-            userInfo: ["prayer": prayer.rawValue, "timestamp": Date()]
+            userInfo: ["prayer": prayer.rawValue, "timestamp": Date(), "source": "notification_action"]
         )
 
         // Cancel any remaining notifications for this prayer and update badge
-        Task {
-            await cancelNotificationsForPrayer(prayer)
-            await updateBadgeForCompletedPrayer()
-        }
+        await cancelNotificationsForPrayer(prayer)
+        await updateBadgeForCompletedPrayer()
     }
 
     private func handleSnoozeAction(minutes: Int, for prayer: Prayer?, userInfo: [AnyHashable: Any]) {
@@ -970,15 +1051,34 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
     
     /// Update app badge count for prayer notifications
     public func updateAppBadge() async {
-        // Get count of active prayer notifications
+        // Badge strategy: count distinct enabled prayers scheduled for today that are not yet completed
+        // This requires PrayerTrackingService to check completion status
+        // For now, we'll count distinct enabled prayers from pending notifications for today
         let pendingNotifications = await getPendingNotifications()
-        let upcomingPrayerCount = pendingNotifications.filter { notification in
-            // Only count prayer notifications that are coming up soon (within 24 hours)
-            let hoursUntil = notification.scheduledTime.timeIntervalSince(Date()) / 3600
-            return hoursUntil >= 0 && hoursUntil <= 24
-        }.count
         
-        await setBadgeCount(upcomingPrayerCount)
+        // Get distinct prayers scheduled for today
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        
+        var distinctPrayers = Set<Prayer>()
+        for notification in pendingNotifications {
+            // Only count prayer notifications scheduled for today
+            guard notification.scheduledTime >= today && notification.scheduledTime < tomorrow else {
+                continue
+            }
+            
+            let prayer = notification.prayer
+            
+            // Check if this prayer is enabled in settings
+            let config = notificationSettings.configForPrayer(prayer)
+            if config.isEnabled {
+                distinctPrayers.insert(prayer)
+            }
+        }
+        
+        let badgeCount = distinctPrayers.count
+        await setBadgeCount(badgeCount)
     }
     
     /// Set app badge count
@@ -1004,14 +1104,8 @@ extension NotificationService: @preconcurrency UNUserNotificationCenterDelegate 
     
     /// Update badge count when prayer is completed
     public func updateBadgeForCompletedPrayer() async {
-        // Decrease badge count by 1 when a prayer is marked as completed
-        await MainActor.run {
-            let currentBadge = UIApplication.shared.applicationIconBadgeNumber
-            if currentBadge > 0 {
-                UIApplication.shared.applicationIconBadgeNumber = currentBadge - 1
-                print("📱 Decreased app badge count to \(currentBadge - 1) for completed prayer")
-            }
-        }
+        // Recalculate badge count based on remaining uncompleted prayers
+        await updateAppBadge()
     }
 
     // MARK: - Helper Methods

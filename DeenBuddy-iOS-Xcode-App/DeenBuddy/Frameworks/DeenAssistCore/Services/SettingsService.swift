@@ -171,7 +171,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         didSet {
             // Skip observer actions during rollback operations
             guard !isRestoring else { return }
-            
+
+            // Validate range before persisting
+            guard notificationOffset >= notificationOffsetMin && notificationOffset <= notificationOffsetMax else {
+                print("⚠️ Invalid notificationOffset \(notificationOffset); valid range is \(notificationOffsetMin)-\(notificationOffsetMax). Reverting to \(oldValue)")
+                isRestoring = true
+                notificationOffset = oldValue
+                isRestoring = false
+                return
+            }
+
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
                     await MainActor.run {
@@ -247,10 +256,103 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
     }
 
+    @Published public var enableIslamicPatterns: Bool = false {
+        didSet {
+            // Skip observer actions during rollback operations
+            guard !isRestoring else { return }
+            
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.enableIslamicPatterns = oldValue
+                    }
+                },
+                propertyName: "enableIslamicPatterns",
+                oldValue: oldValue,
+                newValue: enableIslamicPatterns
+            )
+        }
+    }
+
+    @Published public var maxLookaheadMonths: Int = 12 {
+        didSet {
+            guard !isRestoring else { return }
+
+            guard maxLookaheadMonths >= maxLookaheadMin && maxLookaheadMonths <= maxLookaheadMax else {
+                print("⚠️ Invalid maxLookaheadMonths \(maxLookaheadMonths); reverting to \(oldValue)")
+                isRestoring = true
+                maxLookaheadMonths = oldValue
+                isRestoring = false
+                return
+            }
+
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.maxLookaheadMonths = oldValue
+                    }
+                },
+                propertyName: "maxLookaheadMonths",
+                oldValue: oldValue,
+                newValue: maxLookaheadMonths
+            )
+        }
+    }
+
+    @Published public var useRamadanIshaOffset: Bool = true {
+        didSet {
+            guard !isRestoring else { return }
+
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.useRamadanIshaOffset = oldValue
+                    }
+                },
+                propertyName: "useRamadanIshaOffset",
+                oldValue: oldValue,
+                newValue: useRamadanIshaOffset
+            )
+        }
+    }
+
+    @Published public var showLongRangePrecision: Bool = false {
+        didSet {
+            guard !isRestoring else { return }
+
+            notifyAndSaveSettings(
+                rollbackAction: { [weak self] in
+                    await MainActor.run {
+                        self?.isRestoring = true
+                        defer { self?.isRestoring = false }
+                        self?.showLongRangePrecision = oldValue
+                    }
+                },
+                propertyName: "showLongRangePrecision",
+                oldValue: oldValue,
+                newValue: showLongRangePrecision
+            )
+        }
+    }
+
     // Alias for enableNotifications
     public var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    public var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    public var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
     }
     
     // MARK: - Private Properties
@@ -277,6 +379,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     // MARK: - Constants
     
     private let currentSettingsVersion = 1
+    private let maxLookaheadMin = 0
+    private let maxLookaheadMax = 120
+    private let notificationOffsetMin: TimeInterval = 0
+    private let notificationOffsetMax: TimeInterval = 3600
     
     // MARK: - Initialization
     
@@ -304,6 +410,19 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     public func saveSettings() async throws {
         do {
+            // Pre-save validation: Ensure property values are valid before persisting
+            guard notificationOffset >= notificationOffsetMin && notificationOffset <= notificationOffsetMax else {
+                throw SettingsError.validationFailed(
+                    "Cannot save: notificationOffset out of range: \(notificationOffset)"
+                )
+            }
+
+            guard maxLookaheadMonths >= maxLookaheadMin && maxLookaheadMonths <= maxLookaheadMax else {
+                throw SettingsError.validationFailed(
+                    "Cannot save: maxLookaheadMonths out of range: \(maxLookaheadMonths)"
+                )
+            }
+
             // Save calculation method
             userDefaults.set(calculationMethod.rawValue, forKey: UnifiedSettingsKeys.calculationMethod)
 
@@ -340,17 +459,28 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             // Save Live Activities setting
             userDefaults.set(liveActivitiesEnabled, forKey: UnifiedSettingsKeys.liveActivitiesEnabled)
 
+            // Save Islamic patterns setting
+            userDefaults.set(enableIslamicPatterns, forKey: UnifiedSettingsKeys.enableIslamicPatterns)
+
+            // Save future prayer time settings
+            userDefaults.set(maxLookaheadMonths, forKey: UnifiedSettingsKeys.maxLookaheadMonths)
+            userDefaults.set(useRamadanIshaOffset, forKey: UnifiedSettingsKeys.useRamadanIshaOffset)
+            userDefaults.set(showLongRangePrecision, forKey: UnifiedSettingsKeys.showLongRangePrecision)
+
             // Save metadata
             userDefaults.set(Date(), forKey: UnifiedSettingsKeys.lastSyncDate)
             userDefaults.set(currentSettingsVersion, forKey: UnifiedSettingsKeys.settingsVersion)
             
             // Synchronize to disk
             userDefaults.synchronize()
-            
-            print("Settings saved successfully")
+
+            print("✓ Settings saved successfully (validated)")
             
         } catch {
-            print("Failed to save settings: \(error)")
+            print("❌ Failed to save settings: \(error)")
+            if error is SettingsError {
+                throw error
+            }
             throw SettingsError.saveFailed(error)
         }
     }
@@ -445,6 +575,28 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             liveActivitiesEnabled = true // Default to true for new feature adoption
         }
 
+        // Load Islamic patterns setting (default to false - opt-in feature)
+        if userDefaults.object(forKey: UnifiedSettingsKeys.enableIslamicPatterns) != nil {
+            enableIslamicPatterns = userDefaults.bool(forKey: UnifiedSettingsKeys.enableIslamicPatterns)
+        } else {
+            enableIslamicPatterns = false // Default to false - users can opt-in
+        }
+
+        // Load future prayer time settings with safe defaults
+        if let lookahead = userDefaults.object(forKey: UnifiedSettingsKeys.maxLookaheadMonths) as? Int {
+            maxLookaheadMonths = lookahead
+        } else {
+            maxLookaheadMonths = 60
+        }
+
+        if userDefaults.object(forKey: UnifiedSettingsKeys.useRamadanIshaOffset) != nil {
+            useRamadanIshaOffset = userDefaults.bool(forKey: UnifiedSettingsKeys.useRamadanIshaOffset)
+        } else {
+            useRamadanIshaOffset = true
+        }
+
+        showLongRangePrecision = userDefaults.bool(forKey: UnifiedSettingsKeys.showLongRangePrecision)
+
         // Perform comprehensive validation
         try validateSettingsConsistency()
     }
@@ -464,8 +616,14 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
         // Check for reasonable notification offset values
         let offset = userDefaults.double(forKey: UnifiedSettingsKeys.notificationOffset)
-        if offset < 0 || offset > 3600 { // 0 to 1 hour
+        if offset < notificationOffsetMin || offset > notificationOffsetMax { // 0 to 1 hour
             throw SettingsError.validationFailed("Notification offset out of valid range: \(offset)")
+        }
+
+        // Validate max lookahead bounds
+        let lookahead = userDefaults.integer(forKey: UnifiedSettingsKeys.maxLookaheadMonths)
+        if lookahead < maxLookaheadMin || lookahead > maxLookaheadMax {
+            throw SettingsError.validationFailed("Max lookahead out of valid range: \(lookahead)")
         }
 
         // Check for duplicate or conflicting legacy keys
@@ -488,6 +646,46 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
 
         print("✅ Settings validation passed")
+    }
+
+    /// Validates a settings snapshot before applying it
+    /// Throws SettingsError if any value is out of valid range
+    private func validateSnapshot(_ snapshot: SettingsSnapshot) throws {
+        // Validate notificationOffset (0 to 3600 seconds)
+        guard snapshot.notificationOffset >= notificationOffsetMin && snapshot.notificationOffset <= notificationOffsetMax else {
+            throw SettingsError.validationFailed(
+                "Snapshot notificationOffset out of range: \(snapshot.notificationOffset) (valid: \(notificationOffsetMin)-\(notificationOffsetMax))"
+            )
+        }
+
+        // Validate maxLookaheadMonths (0 to 120)
+        guard snapshot.maxLookaheadMonths >= maxLookaheadMin &&
+              snapshot.maxLookaheadMonths <= maxLookaheadMax else {
+            throw SettingsError.validationFailed(
+                "Snapshot maxLookaheadMonths out of range: \(snapshot.maxLookaheadMonths) (valid: \(maxLookaheadMin)-\(maxLookaheadMax))"
+            )
+        }
+
+        // Validate enum values can be constructed
+        guard CalculationMethod(rawValue: snapshot.calculationMethod) != nil else {
+            throw SettingsError.validationFailed(
+                "Invalid calculation method in snapshot: \(snapshot.calculationMethod)"
+            )
+        }
+
+        guard Madhab(rawValue: snapshot.madhab) != nil else {
+            throw SettingsError.validationFailed(
+                "Invalid madhab in snapshot: \(snapshot.madhab)"
+            )
+        }
+
+        guard TimeFormat(rawValue: snapshot.timeFormat) != nil else {
+            throw SettingsError.validationFailed(
+                "Invalid time format in snapshot: \(snapshot.timeFormat)"
+            )
+        }
+
+        print("✓ Snapshot validation passed")
     }
 
     /// Recover from corrupted settings by attempting repair or reset
@@ -544,6 +742,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             UnifiedSettingsKeys.userName,
             UnifiedSettingsKeys.showArabicSymbolInWidget,
             UnifiedSettingsKeys.liveActivitiesEnabled,
+            UnifiedSettingsKeys.enableIslamicPatterns,
+            UnifiedSettingsKeys.maxLookaheadMonths,
+            UnifiedSettingsKeys.useRamadanIshaOffset,
+            UnifiedSettingsKeys.showLongRangePrecision,
             UnifiedSettingsKeys.settingsVersion
         ]
 
@@ -566,8 +768,12 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
                 isRestoring = true
                 defer { isRestoring = false }
 
-                calculationMethod = .muslimWorldLeague
-                madhab = .shafi
+                let defaultConfig = DefaultPrayerConfigurationProvider().configuration(
+                    coordinate: nil,
+                    countryName: nil
+                )
+                calculationMethod = defaultConfig.calculationMethod
+                madhab = defaultConfig.madhab
                 useAstronomicalMaghrib = false
                 notificationsEnabled = true
                 theme = .dark
@@ -578,6 +784,10 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
                 userName = "" // Reset user name to empty string
                 showArabicSymbolInWidget = true
                 liveActivitiesEnabled = true
+                enableIslamicPatterns = false
+                maxLookaheadMonths = 60
+                useRamadanIshaOffset = true
+                showLongRangePrecision = false
             }
 
             // Save the defaults
@@ -762,6 +972,37 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         
         // Save imported settings
         try await saveSettings()
+    }
+    
+    /// Apply a settings snapshot (e.g., from cloud sync) in a single, debounced update
+    public func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        // Validate snapshot BEFORE applying to prevent corrupted cloud data
+        try validateSnapshot(snapshot)
+
+        await MainActor.run {
+            isRestoring = true
+            defer { isRestoring = false }
+
+            calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? .muslimWorldLeague
+            madhab = Madhab(rawValue: snapshot.madhab) ?? .shafi
+            // useAstronomicalMaghrib is not included in SettingsSnapshot; keep existing local value
+            notificationsEnabled = snapshot.notificationsEnabled
+            // theme is not included in SettingsSnapshot; preserve local device preference
+            timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? .twelveHour
+            notificationOffset = snapshot.notificationOffset
+            // overrideBatteryOptimization is not included in SettingsSnapshot; preserve local device preference
+            hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+            userName = snapshot.userName
+            showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+            liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+            enableIslamicPatterns = snapshot.enableIslamicPatterns
+            maxLookaheadMonths = snapshot.maxLookaheadMonths
+            useRamadanIshaOffset = snapshot.useRamadanIshaOffset
+            showLongRangePrecision = snapshot.showLongRangePrecision
+        }
+
+        try await saveSettings()
+        print("☁️ Applied validated cloud settings snapshot")
     }
     
     /// Get the last sync date

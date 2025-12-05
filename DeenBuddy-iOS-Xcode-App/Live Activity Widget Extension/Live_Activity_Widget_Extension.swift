@@ -10,43 +10,7 @@ import SwiftUI
 import WidgetKit
 import ActivityKit
 
-// MARK: - App Launch Live Activity Definition (Widget Extension)
-
-@available(iOS 16.1, *)
-public struct AppLaunchActivity: ActivityAttributes {
-    
-    // MARK: - Content State
-    
-    public struct ContentState: Codable, Hashable {
-        public let greeting: String
-        public let subGreeting: String
-        public let isLoading: Bool
-        public let progress: Double
-        
-        public init(
-            greeting: String = "بسم الله",
-            subGreeting: String = "Welcome to DeenBuddy",
-            isLoading: Bool = true,
-            progress: Double = 0.0
-        ) {
-            self.greeting = greeting
-            self.subGreeting = subGreeting
-            self.isLoading = isLoading
-            self.progress = progress
-        }
-    }
-    
-    // Fixed attributes that don't change during the activity
-    public let launchId: String
-    public let startTime: Date
-    public let appVersion: String?
-    
-    public init(launchId: String = UUID().uuidString, startTime: Date = Date(), appVersion: String? = nil) {
-        self.launchId = launchId
-        self.startTime = startTime
-        self.appVersion = appVersion
-    }
-}
+// MARK: - Note: AppLaunchActivity is defined in DeenAssistCore and imported above
 
 // MARK: - Widget Bundle
 
@@ -83,10 +47,13 @@ struct PrayerTimesWidgetBundle: WidgetBundle {
 struct NextPrayerWidget: Widget {
     let kind: String = "NextPrayerWidget"
 
-    var body: StaticConfiguration<NextPrayerWidgetView> {
+    var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             NextPrayerWidgetView(entry: entry)
         }
+        .configurationDisplayName("Next Prayer")
+        .description("Shows the next upcoming prayer with a countdown.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -96,10 +63,13 @@ struct NextPrayerWidget: Widget {
 struct TodaysPrayerTimesWidget: Widget {
     let kind: String = "TodaysPrayerTimesWidget"
 
-    var body: StaticConfiguration<TodaysPrayerTimesWidgetView> {
+    var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             TodaysPrayerTimesWidgetView(entry: entry)
         }
+        .configurationDisplayName("Today's Prayer Times")
+        .description("Displays all of today's prayer times.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -109,10 +79,13 @@ struct TodaysPrayerTimesWidget: Widget {
 struct PrayerCountdownWidget: Widget {
     let kind: String = "PrayerCountdownWidget"
 
-    var body: StaticConfiguration<PrayerCountdownWidgetView> {
+    var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             PrayerCountdownWidgetView(entry: entry)
         }
+        .configurationDisplayName("Prayer Countdown")
+        .description("Countdown to the next prayer.")
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -122,10 +95,13 @@ struct PrayerCountdownWidget: Widget {
 struct NextPrayerLockScreenWidget: Widget {
     let kind: String = "NextPrayerLockScreenWidget"
     
-    var body: StaticConfiguration<NextPrayerLockScreenView> {
+    var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             NextPrayerLockScreenView(entry: entry)
         }
+        .configurationDisplayName("Next Prayer (Lock Screen)")
+        .description("Lock screen widget for the next prayer.")
+        .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryRectangular])
     }
 }
 
@@ -133,10 +109,13 @@ struct NextPrayerLockScreenWidget: Widget {
 struct PrayerCountdownLockScreenWidget: Widget {
     let kind: String = "PrayerCountdownLockScreenWidget"
     
-    var body: StaticConfiguration<PrayerCountdownLockScreenView> {
+    var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PrayerTimeProvider()) { entry in
             PrayerCountdownLockScreenView(entry: entry)
         }
+        .configurationDisplayName("Prayer Countdown (Lock Screen)")
+        .description("Lock screen countdown to the next prayer.")
+        .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryRectangular])
     }
 }
 
@@ -144,10 +123,10 @@ struct PrayerCountdownLockScreenWidget: Widget {
 
 @available(iOS 16.1, *)
 struct PrayerCountdownLiveActivity: Widget {
-    var body: ActivityConfiguration<PrayerCountdownActivity> {
+    var body: some WidgetConfiguration {
         ActivityConfiguration(for: PrayerCountdownActivity.self) { context in
             // Lock screen/banner UI goes here
-            LiveActivityLockScreenView()
+            LiveActivityLockScreenView(context: context)
         } dynamicIsland: { context in
             // Dynamic Island implementation with white Arabic Allah symbol
             return DynamicIsland {
@@ -160,8 +139,8 @@ struct PrayerCountdownLiveActivity: Widget {
                             .fontWeight(.bold)
                             .foregroundColor(.white)
                         
-                        Image(systemName: context.state.nextPrayer.prayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.prayer.systemImageName)
-                            .foregroundColor(context.state.nextPrayer.prayer.color)
+                        Image(systemName: context.state.nextPrayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.systemImageName)
+                            .foregroundColor(context.state.nextPrayer.color)
                             .font(.title3)
                     }
                 }
@@ -174,23 +153,29 @@ struct PrayerCountdownLiveActivity: Widget {
                             .foregroundColor(context.state.isImminent ? .red : .white)
                             .monospacedDigit()
                         
-                        Text(formatPrayerTime(context.state.nextPrayer.time))
+                        Text(formatPrayerTime(context.state.prayerTime))
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
                 }
                 
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack {
-                        Text(context.state.nextPrayer.location ?? "Current Location")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
-                        
-                        Text(context.state.arabicSymbol)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(context.state.location)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Spacer()
+
+                            Text(context.state.hijriDate)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        if #available(iOS 17.0, *) {
+                            PrayerCompletionIntentButton(prayer: context.state.nextPrayer)
+                        }
                     }
                 }
             } compactLeading: {
@@ -201,8 +186,8 @@ struct PrayerCountdownLiveActivity: Widget {
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                     
-                    Image(systemName: context.state.nextPrayer.prayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.prayer.systemImageName)
-                        .foregroundColor(context.state.nextPrayer.prayer.color)
+                    Image(systemName: context.state.nextPrayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.systemImageName)
+                        .foregroundColor(context.state.nextPrayer.color)
                         .font(.title3)
                 }
             } compactTrailing: {
@@ -219,8 +204,8 @@ struct PrayerCountdownLiveActivity: Widget {
                         .fontWeight(.bold)
                         .foregroundColor(.white)
                     
-                    Image(systemName: context.state.nextPrayer.prayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.prayer.systemImageName)
-                        .foregroundColor(context.state.nextPrayer.prayer.color)
+                    Image(systemName: context.state.nextPrayer.systemImageName.isEmpty ? "exclamationmark.triangle" : context.state.nextPrayer.systemImageName)
+                        .foregroundColor(context.state.nextPrayer.color)
                         .font(.caption)
                 }
             }
@@ -290,7 +275,7 @@ struct PrayerCountdownLiveActivity: Widget {
 
 @available(iOS 16.1, *)
 struct AppLaunchLiveActivity: Widget {
-    var body: ActivityConfiguration<AppLaunchActivity> {
+    var body: some WidgetConfiguration {
         ActivityConfiguration(for: AppLaunchActivity.self) { context in
             // Lock screen/banner UI for app launch
             AppLaunchLockScreenView(state: context.state)

@@ -1,10 +1,15 @@
 import Foundation
+import Combine
 import CoreLocation
 
 /// A dummy implementation of PrayerTimeServiceProtocol for testing and preview purposes
 @MainActor
 public class DummyPrayerTimeService: PrayerTimeServiceProtocol {
-    public var todaysPrayerTimes: [PrayerTime] = []
+    @Published public var todaysPrayerTimes: [PrayerTime] = []
+    
+    public var todaysPrayerTimesPublisher: AnyPublisher<[PrayerTime], Never> {
+        $todaysPrayerTimes.eraseToAnyPublisher()
+    }
     public var nextPrayer: PrayerTime? = nil
     public var timeUntilNextPrayer: TimeInterval? = nil
     public var calculationMethod: CalculationMethod = .muslimWorldLeague
@@ -27,6 +32,22 @@ public class DummyPrayerTimeService: PrayerTimeServiceProtocol {
 
     public func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] {
         throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
+    public func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
+    public func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] {
+        throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
+    public func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel {
+        throw NSError(domain: "DummyPrayerTimeService", code: -1, userInfo: nil)
+    }
+
+    public func isHighLatitudeLocation(_ location: CLLocation) -> Bool {
+        false
     }
 
     public func getCurrentLocation() async throws -> CLLocation {

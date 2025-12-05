@@ -177,6 +177,9 @@ public class PrayerTrackingCoordinator: ObservableObject {
                 print("❌ Failed to schedule tracking notification for \(prayerTime.prayer.displayName): \(error)")
             }
         }
+        
+        // Update badge count after scheduling all notifications
+        await notificationService.updateAppBadge()
     }
 
     // MARK: - Integration Helper Methods

@@ -6,108 +6,119 @@ public struct CountdownTimer: View {
     let timeRemaining: TimeInterval?
     
     @State private var currentTime = Date()
+    @State private var isPulsing = false
     @StateObject private var timerManager = CountdownTimerManager()
     @Environment(\.currentTheme) private var currentTheme
-    
+    @Environment(\.colorScheme) private var colorScheme
+
     public init(nextPrayer: PrayerTime?, timeRemaining: TimeInterval?) {
         self.nextPrayer = nextPrayer
         self.timeRemaining = timeRemaining
     }
-    
+
     private var themeColors: ThemeAwareColorPalette {
         ThemeAwareColorPalette(theme: currentTheme)
     }
-    
+
+    private var premiumTokens: PremiumDesignTokens {
+        PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
+    }
+
+    private var isImminent: Bool {
+        guard let interval = timeRemainingInterval else { return false }
+        return interval < 300 // Less than 5 minutes
+    }
+
+    private var borderGlowOpacity: CGFloat {
+        switch currentTheme {
+        case .dark where colorScheme == .dark:
+            return 0.40 // System Dark: 40%
+        case .islamicGreen:
+            return 0.25 // Islamic Green: 25%
+        default:
+            return 0.30 // System Light: 30%
+        }
+    }
+
     public var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             if let nextPrayer = nextPrayer {
-                // Next prayer info
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Next Prayer")
-                        .labelLarge()
+                        .font(.caption)
                         .foregroundColor(ColorPalette.textSecondary)
-                    
-                    Text(nextPrayer.prayer.displayName)
-                        .headlineMedium()
-                        .foregroundColor(ColorPalette.textPrimary)
-                    
+                        .textCase(.uppercase)
+
                     Text(prayerTimeString)
-                        .titleMedium()
-                        .foregroundColor(ColorPalette.textSecondary)
+                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                        .foregroundColor(ColorPalette.textPrimary)
+                        .minimumScaleFactor(0.8)
+
+                    Text(nextPrayer.prayer.displayName)
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundColor(ColorPalette.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(ColorPalette.primary.opacity(0.1))
+                        )
                 }
-                
-                // Countdown display
-                if let remaining = calculatedTimeRemaining, remaining > 0 {
-                    VStack(spacing: 4) {
-                        Text("Time Remaining")
-                            .labelMedium()
+
+                if let components = timeRemainingComponents {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Starts In")
+                            .font(.caption)
                             .foregroundColor(ColorPalette.textSecondary)
-                        
-                        Text(formatTimeRemaining(remaining))
-                            .timerLarge()
-                            .foregroundColor(themeColors.nextPrayerHighlight)
-                            .monospacedDigit()
-                            .appAnimation(AppAnimations.timerUpdate, value: remaining)
-                            .countdownAccessibility(
-                                prayer: nextPrayer.prayer.displayName,
-                                timeRemaining: formatTimeRemaining(remaining)
-                            )
+                            .textCase(.uppercase)
+
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(components.display)
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                                .foregroundStyle(premiumTokens.countdownGradient)
+                                .appAnimation(AppAnimations.timerUpdate, value: components.display)
+                                .countdownAccessibility(
+                                    prayer: nextPrayer.prayer.displayName,
+                                    timeRemaining: components.accessibility
+                                )
+
+                            Text("remaining")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(ColorPalette.textSecondary)
+                        }
                     }
                 } else {
-                    Text("Prayer time has arrived")
-                        .titleLarge()
-                        .foregroundColor(ColorPalette.success)
+                    Text("Prayer time is starting now")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(ColorPalette.textSecondary)
                 }
             } else {
-                // No upcoming prayer
-                VStack(spacing: 8) {
-                    Image(systemName: "moon.stars.fill")
-                        .font(.system(size: 48))
-                        .foregroundColor(themeColors.nextPrayerHighlight)
-                    
+                VStack(alignment: .leading, spacing: 10) {
                     Text("All prayers completed")
-                        .headlineSmall()
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundColor(ColorPalette.textPrimary)
-                    
-                    Text("Next prayer is Fajr tomorrow")
-                        .bodyMedium()
+
+                    Text("We'll notify you when the next prayer is available")
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(ColorPalette.textSecondary)
                 }
             }
         }
-        .padding(24)
+        .padding(28)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            ZStack {
-                // Main card background with subtle gradient
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                ColorPalette.surfacePrimary,
-                                ColorPalette.surfacePrimary.opacity(0.95)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                
-                // Subtle inner highlight for depth
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color.white.opacity(0.3),
-                                Color.clear
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 0.5
-                    )
-            }
-            .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 6)
-            .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+            RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
+                .fill(themeColors.surfacePrimary)
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: PremiumDesignTokens.cornerRadius24)
+                .stroke(
+                    themeColors.primary.opacity(borderGlowOpacity),
+                    lineWidth: 1
+                )
+        )
+        .premiumShadow(.level3)
+        .scaleEffect(isImminent && isPulsing ? 1.02 : 1.0)
         .onReceive(timerManager.$currentTime) { time in
             currentTime = time
         }
@@ -117,35 +128,76 @@ public struct CountdownTimer: View {
         .onDisappear {
             timerManager.stopTimer()
         }
+        .onChange(of: isImminent) { newValue in
+            handleImminentChange(isImminent: newValue)
+        }
+    }
+
+    private func handleImminentChange(isImminent: Bool) {
+        if isImminent {
+            // Start pulsing animation when imminent
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+        } else {
+            // Stop pulsing and reset scale when not imminent
+            withAnimation(.easeOut(duration: 0.3)) {
+                isPulsing = false
+            }
+        }
     }
     
     private var prayerTimeString: String {
         guard let nextPrayer = nextPrayer else { return "" }
         
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: nextPrayer.time)
+        return Self.timeFormatter.string(from: nextPrayer.time)
     }
     
     private var calculatedTimeRemaining: TimeInterval? {
         guard let nextPrayer = nextPrayer else { return nil }
-        
+
         let remaining = nextPrayer.time.timeIntervalSince(currentTime)
-        return remaining > 0 ? remaining : 0
+        return remaining > 0 ? remaining : nil
     }
-    
-    private func formatTimeRemaining(_ timeInterval: TimeInterval) -> String {
-        let totalSeconds = Int(timeInterval)
+
+    private var timeRemainingInterval: TimeInterval? {
+        if let explicit = timeRemaining, explicit > 0 {
+            return explicit
+        }
+        return calculatedTimeRemaining
+    }
+
+    private var timeRemainingComponents: (display: String, accessibility: String)? {
+        guard let interval = timeRemainingInterval, interval > 0 else { return nil }
+
+        let totalSeconds = Int(interval)
         let hours = totalSeconds / 3600
         let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        
+
         if hours > 0 {
-            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+            let display = "\(hours)h \(minutes)m"
+
+            var accessibility = "\(hours) hour\(hours == 1 ? "" : "s")"
+            if minutes > 0 {
+                accessibility += " and \(minutes) minute\(minutes == 1 ? "" : "s")"
+            }
+
+            return (display, accessibility)
+        } else if minutes > 0 {
+            let display = "\(minutes)m"
+            let accessibility = "\(minutes) minute\(minutes == 1 ? "" : "s")"
+            return (display, accessibility)
         } else {
-            return String(format: "%02d:%02d", minutes, seconds)
+            return ("<1m", "less than one minute")
         }
     }
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        formatter.locale = Locale.autoupdatingCurrent
+        return formatter
+    }()
 }
 
 // MARK: - Timer Manager

@@ -110,9 +110,10 @@ class WidgetTimelineManager {
             let timeUntilNext = nextPrayerTime.timeIntervalSince(date)
             if timeUntilNext > 0 {
                 updatedWidgetData = WidgetData(
-                    nextPrayer: updatedWidgetData.nextPrayer,
-                    timeUntilNextPrayer: timeUntilNext,
-                    todaysPrayerTimes: updatedWidgetData.todaysPrayerTimes,
+            nextPrayer: updatedWidgetData.nextPrayer,
+            timeUntilNextPrayer: timeUntilNext,
+            currentPrayerInterval: updatedWidgetData.currentPrayerInterval ?? computeInterval(from: updatedWidgetData),
+            todaysPrayerTimes: updatedWidgetData.todaysPrayerTimes,
                     hijriDate: updatedWidgetData.hijriDate,
                     location: updatedWidgetData.location,
                     calculationMethod: updatedWidgetData.calculationMethod,
@@ -126,6 +127,18 @@ class WidgetTimelineManager {
             widgetData: updatedWidgetData,
             configuration: baseEntry.configuration
         )
+    }
+
+    private func computeInterval(from data: WidgetData) -> TimeInterval? {
+        guard let next = data.nextPrayer else { return nil }
+        let sorted = data.todaysPrayerTimes.sorted { $0.time < $1.time }
+        guard let nextIndex = sorted.firstIndex(where: { $0.prayer == next.prayer && abs($0.time.timeIntervalSince(next.time)) < 1 }) ?? sorted.firstIndex(where: { $0.time > next.time }) else {
+            return nil
+        }
+        let previous = sorted[..<nextIndex].last
+        guard let prevTime = previous?.time else { return nil }
+        let interval = next.time.timeIntervalSince(prevTime)
+        return interval > 0 ? interval : nil
     }
     
     private func generatePrayerTransitionEntries(from baseEntry: PrayerWidgetEntry, startingFrom: Date) -> [PrayerWidgetEntry] {
@@ -164,9 +177,10 @@ class WidgetTimelineManager {
                 let updatedHijriDate = HijriDate(from: midnight)
                 var updatedWidgetData = baseEntry.widgetData
                 updatedWidgetData = WidgetData(
-                    nextPrayer: updatedWidgetData.nextPrayer,
-                    timeUntilNextPrayer: updatedWidgetData.timeUntilNextPrayer,
-                    todaysPrayerTimes: updatedWidgetData.todaysPrayerTimes,
+            nextPrayer: updatedWidgetData.nextPrayer,
+            timeUntilNextPrayer: updatedWidgetData.timeUntilNextPrayer,
+            currentPrayerInterval: updatedWidgetData.currentPrayerInterval ?? computeInterval(from: updatedWidgetData),
+            todaysPrayerTimes: updatedWidgetData.todaysPrayerTimes,
                     hijriDate: updatedHijriDate,
                     location: updatedWidgetData.location,
                     calculationMethod: updatedWidgetData.calculationMethod,

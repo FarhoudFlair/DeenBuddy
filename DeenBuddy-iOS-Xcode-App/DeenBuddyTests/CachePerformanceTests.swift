@@ -418,6 +418,7 @@ class CachePerformanceTestMockLocationService: LocationServiceProtocol, Observab
     func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
     func isCurrentLocationFromCache() -> Bool { return false }
     func getLocationAge() -> TimeInterval? { return 30.0 }
+    func setManualLocation(_ location: CLLocation) async { currentLocation = location }
 }
 
 @MainActor
@@ -433,10 +434,19 @@ class CachePerformanceMockSettingsService: SettingsServiceProtocol, ObservableOb
     @Published var userName: String = ""
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
     }
 
     func saveSettings() async throws {}
@@ -444,6 +454,17 @@ class CachePerformanceMockSettingsService: SettingsServiceProtocol, ObservableOb
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 // MARK: - Mock Islamic Calendar Service

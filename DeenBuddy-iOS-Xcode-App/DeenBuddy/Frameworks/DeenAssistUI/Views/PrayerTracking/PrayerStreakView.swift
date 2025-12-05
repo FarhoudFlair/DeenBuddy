@@ -8,9 +8,12 @@ public struct PrayerStreakView: View {
     private let prayerTrackingService: any PrayerTrackingServiceProtocol
     
     // MARK: - State
-    
+
     @State private var selectedMonth: Date = Date()
-    
+    @State private var individualStreaks: [Prayer: IndividualPrayerStreak] = [:]
+    @State private var isLoadingStreaks: Bool = false
+    @State private var loadError: Error?
+
     // MARK: - Initialization
     
     public init(prayerTrackingService: any PrayerTrackingServiceProtocol) {
@@ -24,20 +27,32 @@ public struct PrayerStreakView: View {
             VStack(spacing: 20) {
                 // Current Streak Card
                 currentStreakCard
-                
+
+                // Individual Prayer Streaks (NEW)
+                individualPrayerStreaksSection
+
                 // Streak History
                 streakHistorySection
-                
+
                 // Calendar Heat Map
                 calendarHeatMapSection
-                
+
                 // Achievements
                 achievementsSection
-                
+
                 // Motivational Section
                 motivationalSection
             }
             .padding()
+        }
+        .task {
+            do {
+                try await loadIndividualStreaks()
+                loadError = nil // Clear any previous errors on success
+            } catch {
+                loadError = error
+                print("⚠️ Failed to load individual prayer streaks: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -104,8 +119,64 @@ public struct PrayerStreakView: View {
         }
     }
     
+    // MARK: - Individual Prayer Streaks Section
+
+    @ViewBuilder
+    private var individualPrayerStreaksSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("Individual Prayer Streaks")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                if isLoadingStreaks {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                }
+            }
+
+            if isLoadingStreaks {
+                ModernCard {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading streaks...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .frame(height: 150)
+                }
+            } else if let error = loadError {
+                individualStreaksErrorView(error)
+            } else {
+                // Display individual streak cards for all 5 prayers
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(Prayer.allCases, id: \.self) { prayer in
+                        if let streak = individualStreaks[prayer] {
+                            IndividualPrayerStreakCard(streak: streak)
+                        } else {
+                            // Fallback empty card
+                            IndividualPrayerStreakCard(
+                                streak: IndividualPrayerStreak(
+                                    prayer: prayer,
+                                    currentStreak: 0,
+                                    longestStreak: 0,
+                                    lastCompleted: nil,
+                                    isActiveToday: false,
+                                    startDate: nil
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Streak History Section
-    
+
     @ViewBuilder
     private var streakHistorySection: some View {
         VStack(spacing: 16) {
@@ -276,7 +347,7 @@ public struct PrayerStreakView: View {
             
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: 4) {
                 // Weekday headers
-                ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { day in
+                ForEach(Array(["S", "M", "T", "W", "T", "F", "S"].enumerated()), id: \.offset) { _, day in
                     Text(day)
                         .font(.caption)
                         .fontWeight(.medium)
@@ -429,6 +500,56 @@ public struct PrayerStreakView: View {
         case 0.51...0.75: return Color.blue.opacity(0.6)
         case 0.76...1.0: return Color.blue.opacity(0.8)
         default: return Color.gray.opacity(0.1)
+        }
+    }
+
+    // Load individual prayer streaks
+    private func loadIndividualStreaks() async throws {
+        // Guard against concurrent loads, but allow reloading even if empty (after errors)
+        guard !isLoadingStreaks else {
+            return
+        }
+
+        isLoadingStreaks = true
+        defer { isLoadingStreaks = false }
+
+        // Fetch individual prayer streaks with error propagation
+        individualStreaks = try await prayerTrackingService.getIndividualPrayerStreaks()
+    }
+    
+    private func retryLoadIndividualStreaks() {
+        Task {
+            loadError = nil
+            do {
+                try await loadIndividualStreaks()
+                loadError = nil
+            } catch {
+                loadError = error
+            }
+        }
+    }
+    
+    private func individualStreaksErrorView(_ error: Error) -> some View {
+        ModernCard {
+            VStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundColor(.orange)
+                Text("Unable to Load Streaks")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Text(error.localizedDescription)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+
+                Button("Retry") {
+                    retryLoadIndividualStreaks()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+            .padding()
         }
     }
 }

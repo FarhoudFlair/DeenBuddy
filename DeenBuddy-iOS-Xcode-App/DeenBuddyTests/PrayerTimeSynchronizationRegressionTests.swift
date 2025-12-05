@@ -627,10 +627,19 @@ class RegressionMockSettingsService: SettingsServiceProtocol, ObservableObject {
     @Published var userName: String = ""
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
     }
 
     // Track if service is being deallocated to prevent notifications during cleanup
@@ -657,6 +666,17 @@ class RegressionMockSettingsService: SettingsServiceProtocol, ObservableObject {
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 @MainActor
@@ -665,12 +685,16 @@ class RegressionMockNotificationService: NotificationServiceProtocol, Observable
     @Published var notificationsEnabled: Bool = true
 
     func requestNotificationPermission() async throws -> Bool { return true }
+    func requestCriticalAlertPermission() async throws -> Bool { return true }
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {}
     func cancelAllNotifications() async {}
     func cancelNotifications(for prayer: Prayer) async {}
     func schedulePrayerTrackingNotification(for prayer: Prayer, at prayerTime: Date, reminderMinutes: Int) async throws {}
     func getNotificationSettings() -> NotificationSettings { return .default }
     func updateNotificationSettings(_ settings: NotificationSettings) {}
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }
 
 @MainActor
@@ -725,6 +749,7 @@ class RegressionMockLocationService: LocationServiceProtocol, ObservableObject {
     func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
     func isCurrentLocationFromCache() -> Bool { return false }
     func getLocationAge() -> TimeInterval? { return 30.0 }
+    func setManualLocation(_ location: CLLocation) async { currentLocation = location }
 }
 
 // MARK: - Mock Islamic Calendar Service
@@ -798,5 +823,3 @@ class RegressionMockIslamicCalendarService: IslamicCalendarServiceProtocol {
     func clearCache() async {}
     func updateFromExternalSources() async {}
 }
-
-

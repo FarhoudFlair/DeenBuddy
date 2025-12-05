@@ -115,9 +115,13 @@ public class ShareService: ObservableObject {
         Download it and join me in strengthening our faith together! 🤲
         """
         
-        // TODO: Replace with actual App Store URL when app is published
-        // Add App Store URL when available
-        if let appStoreURL = URL(string: "https://apps.apple.com/app/deenbuddy") {
+        // Get App Store URL from Info.plist with fallback
+        let appStoreURLString = Bundle.main.object(forInfoDictionaryKey: "AppStoreURL") as? String
+        let fallbackURLString = "https://apps.apple.com/app/deenbuddy"
+        
+        // Try Info.plist value first, then fallback
+        let urlString = appStoreURLString ?? fallbackURLString
+        if let appStoreURL = URL(string: urlString) {
             return [shareText, appStoreURL]
         }
         

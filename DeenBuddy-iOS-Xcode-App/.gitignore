@@ -129,6 +129,10 @@ docs/build/
 .env.local
 config.local.json
 
+## Firebase configuration (contains sensitive keys)
+GoogleService-Info.plist
+**/GoogleService-Info.plist
+
 ## Profiling
 *.trace
 
@@ -201,3 +205,11 @@ userinput.py
 
 ## Documentation files that are generated
 *.md.backup
+.clinerules/byterover-rules.md
+.kilocode/rules/byterover-rules.md
+.roo/rules/byterover-rules.md
+.windsurf/rules/byterover-rules.md
+.cursor/rules/byterover-rules.mdc
+.kiro/steering/byterover-rules.md
+.qoder/rules/byterover-rules.md
+.augment/rules/byterover-rules.md

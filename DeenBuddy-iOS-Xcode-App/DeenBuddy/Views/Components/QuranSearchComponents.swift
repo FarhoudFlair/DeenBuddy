@@ -7,7 +7,12 @@ struct VerseResultCard: View {
     let isBookmarked: Bool
     let onTap: () -> Void
     let onBookmark: () -> Void
-    
+
+    @State private var cachedHighlightedText: AttributedString?
+    private var fallbackHighlightedText: AttributedString {
+        attributedHighlight(from: result.highlightedText) ?? AttributedString(result.highlightedText)
+    }
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 12) {
@@ -48,8 +53,8 @@ struct VerseResultCard: View {
                     .frame(maxWidth: .infinity, alignment: .trailing)
                     .padding(.vertical, 4)
                 
-                // Translation with highlighting
-                Text(result.highlightedText)
+                // Translation with highlighting (supports bold+italic markdown)
+                Text(cachedHighlightedText ?? fallbackHighlightedText)
                     .font(.body)
                     .foregroundColor(ColorPalette.textPrimary)
                     .multilineTextAlignment(.leading)
@@ -99,6 +104,9 @@ struct VerseResultCard: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .task(id: result.highlightedText) {
+            cachedHighlightedText = attributedHighlight(from: result.highlightedText)
+        }
     }
 }
 
@@ -135,6 +143,19 @@ extension MatchType {
             return .purple
         }
     }
+}
+
+// MARK: - Highlight Utility
+
+private func attributedHighlight(from text: String) -> AttributedString {
+    var options = AttributedString.MarkdownParsingOptions()
+    options.interpretedSyntax = .full
+    options.allowsExtendedAttributes = true
+
+    if let attributed = try? AttributedString(markdown: text, options: options) {
+        return attributed
+    }
+    return AttributedString(text)
 }
 
 // MARK: - Verse Detail View
@@ -364,7 +385,12 @@ struct EnhancedVerseResultCard: View {
     let onTap: () -> Void
     let onBookmark: () -> Void
     let onRelatedTap: (QuranVerse) -> Void
-    
+
+    @State private var cachedHighlightedText: AttributedString?
+    private var fallbackHighlightedText: AttributedString {
+        attributedHighlight(from: result.highlightedText) ?? AttributedString(result.highlightedText)
+    }
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 12) {
@@ -384,9 +410,6 @@ struct EnhancedVerseResultCard: View {
                     Spacer()
                     
                     HStack(spacing: 8) {
-                        // Combined relevance score
-                        ScoreIndicator(score: result.combinedScore)
-                        
                         // Match type indicator
                         MatchTypeIndicator(matchType: result.matchType)
                         
@@ -409,7 +432,7 @@ struct EnhancedVerseResultCard: View {
                     .padding(.vertical, 4)
                 
                 // Highlighted translation
-                Text(result.highlightedText)
+                Text(cachedHighlightedText ?? fallbackHighlightedText)
                     .font(.body)
                     .foregroundColor(ColorPalette.textPrimary)
                     .multilineTextAlignment(.leading)
@@ -483,35 +506,8 @@ struct EnhancedVerseResultCard: View {
             .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(PlainButtonStyle())
-    }
-}
-
-/// Score indicator for search results
-struct ScoreIndicator: View {
-    let score: Double
-    
-    var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: "star.fill")
-                .font(.caption2)
-                .foregroundColor(scoreColor)
-            
-            Text(String(format: "%.1f", score))
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundColor(scoreColor)
-        }
-        .padding(.horizontal, 4)
-        .padding(.vertical, 2)
-        .background(scoreColor.opacity(0.1))
-        .cornerRadius(4)
-    }
-    
-    private var scoreColor: Color {
-        switch score {
-        case 0.8...1.0: return .green
-        case 0.6..<0.8: return .orange
-        default: return .gray
+        .task(id: result.highlightedText) {
+            cachedHighlightedText = attributedHighlight(from: result.highlightedText)
         }
     }
 }
@@ -614,4 +610,3 @@ struct QueryExpansionCard: View {
         )
     }
 }
-

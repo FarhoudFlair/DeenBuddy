@@ -136,13 +136,9 @@ public class AppLaunchLiveActivityManager: ObservableObject {
             isLoading: isLoading,
             progress: progress
         )
-        
-        do {
-            await activity.update(using: updatedState)
-            print("🔄 Updated App Launch Activity: \(Int(progress * 100))%")
-        } catch {
-            print("❌ Failed to update App Launch Activity: \(error)")
-        }
+
+        await activity.update(using: updatedState)
+        print("🔄 Updated App Launch Activity: \(Int(progress * 100))%")
     }
     
     /// End the app launch Live Activity
@@ -156,19 +152,15 @@ public class AppLaunchLiveActivityManager: ObservableObject {
             progress: 1.0
         )
         
-        do {
-            // Keep the activity visible for just 2 seconds after completion
-            await activity.end(using: finalState, dismissalPolicy: .after(Date().addingTimeInterval(2)))
-            
-            await MainActor.run {
-                self.currentActivity = nil
-                self.isActivityActive = false
-            }
-            
-            print("✅ Ended App Launch Live Activity")
-        } catch {
-            print("❌ Failed to end App Launch Live Activity: \(error)")
+        // Keep the activity visible for just 2 seconds after completion
+        await activity.end(using: finalState, dismissalPolicy: .after(Date().addingTimeInterval(2)))
+        
+        await MainActor.run {
+            self.currentActivity = nil
+            self.isActivityActive = false
         }
+
+        print("✅ Ended App Launch Live Activity")
     }
     
     /// Check if Live Activities are available and enabled
@@ -189,7 +181,7 @@ public class AppLaunchLiveActivityManager: ObservableObject {
                 guard currentActivity?.id == activity.id else { break }
                 
                 let progress = Double(step) / Double(steps)
-                var greeting = "الله"
+                let greeting = "الله"
                 var subGreeting = "بسم الله الرحمن الرحيم"
                 
                 // Progressive greeting messages

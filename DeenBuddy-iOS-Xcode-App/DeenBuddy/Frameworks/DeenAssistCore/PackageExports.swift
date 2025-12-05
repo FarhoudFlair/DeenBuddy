@@ -3,15 +3,14 @@
 //  DeenAssistCore
 //
 //  Package integration helper for iOS app
-//  This file re-exports all package dependencies to make imports easier
+//  This file centralizes package imports and documents intentional public exports
 //
 
-// MARK: - Package Dependencies Re-exports
+// MARK: - Package Dependencies Imports
 
 /// Adhan Swift library for Islamic prayer time calculations
 /// Provides accurate prayer times based on location and calculation methods
-// TODO: Re-enable when Adhan dependency is properly configured
-// @_exported import Adhan
+import Adhan
 
 // MARK: - Core Exports
 
@@ -29,17 +28,17 @@
 
 // MARK: - Usage Instructions
 /*
- This file allows the main iOS app to import DeenAssistCore and automatically
- get access to all package dependencies without needing separate imports.
+ This file documents how the main iOS app gains access to DeenAssistCore package
+ dependencies and which external symbols are intentionally surfaced.
  
  In your iOS app, simply use:
  ```swift
  import DeenAssistCore
  
  // Now you have access to:
- // - Adhan prayer time calculations
  // - Islamic feature flags system
  // - All core services and models
+ // - Explicit Adhan helper typealiases (see bottom of this file)
  
  // Check feature flags:
  if FeatureFlag.enhancedPrayerTracking {
@@ -52,9 +51,19 @@
  }
  ```
  
- Instead of needing multiple imports:
+ When you need the full Adhan API, add an explicit import:
  ```swift
  import DeenAssistCore
  import Adhan
  ```
 */
+
+// MARK: - Explicit Adhan Public API
+
+/// Minimal, opt-in Adhan surface area that DeenAssistCore intentionally exposes.
+/// Clients needing broader Adhan access should import Adhan directly.
+public typealias AdhanCalculationMethod = Adhan.CalculationMethod
+public typealias AdhanCalculationParameters = Adhan.CalculationParameters
+public typealias AdhanCoordinates = Adhan.Coordinates
+public typealias AdhanMadhab = Adhan.Madhab
+public typealias AdhanPrayerTimes = Adhan.PrayerTimes

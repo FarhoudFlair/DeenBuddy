@@ -3,6 +3,13 @@ import Charts
 
 // MARK: - Temporary Data Models
 
+struct ChartDataPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+    let prayer: String?
+}
+
 struct InsightData: Identifiable {
     let id = UUID()
     let icon: String
@@ -61,82 +68,112 @@ public struct PrayerAnalyticsView: View {
 
     // MARK: - Properties
 
-    // Temporarily using Any to avoid type resolution issues
-    private let prayerTrackingService: Any
+    private let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     private let onDismiss: () -> Void
+    private let isEmbedded: Bool
 
     // MARK: - State
 
-    @State private var selectedPeriod: String = "week"
+    @State private var selectedPeriod: AnalyticsPeriod = .week
     @State private var selectedMetric: String = "completion"
-    @State private var insights: [InsightData] = []
+    @State private var insights: [PrayerInsight] = []
     @State private var isLoadingInsights: Bool = false
     @State private var showingExportSheet: Bool = false
     @State private var exportStatus: ExportStatus = .idle
     @State private var exportMessage: String = ""
+    @State private var dailyCompletionData: [DailyCompletionData] = []
+    @State private var isLoadingChartData: Bool = false
 
     // MARK: - Initialization
 
+    /// Creates a PrayerAnalyticsView
+    /// - Parameters:
+    ///   - prayerAnalyticsService: Service for analytics data
+    ///   - isEmbedded: When true, view is embedded in parent NavigationView (no wrapping NavigationView, no Done button)
+    ///   - onDismiss: Callback when view should be dismissed
     public init(
-        prayerTrackingService: Any,
+        prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
+        isEmbedded: Bool = false,
         onDismiss: @escaping () -> Void
     ) {
-        self.prayerTrackingService = prayerTrackingService
+        self.prayerAnalyticsService = prayerAnalyticsService
+        self.isEmbedded = isEmbedded
         self.onDismiss = onDismiss
     }
     
     // MARK: - Body
     
     public var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Period Selector
-                    periodSelector
-                    
-                    // Key Metrics Cards
-                    keyMetricsSection
-                    
-                    // Charts Section
-                    chartsSection
-                    
-                    // Prayer Breakdown
-                    prayerBreakdownSection
-                    
-                    // Insights Section
-                    insightsSection
+        Group {
+            if isEmbedded {
+                // When embedded in parent NavigationView, don't wrap in another NavigationView
+                analyticsContent
+            } else {
+                // Standalone mode: wrap in NavigationView
+                NavigationView {
+                    analyticsContent
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarLeading) {
+                                Button("Done") {
+                                    onDismiss()
+                                }
+                            }
+                        }
                 }
-                .padding()
             }
-            .navigationTitle("Prayer Analytics")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Done") {
-                        onDismiss()
-                    }
+        }
+    }
+    
+    // MARK: - Analytics Content
+    
+    @ViewBuilder
+    private var analyticsContent: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Period Selector
+                periodSelector
+                
+                // Key Metrics Cards
+                keyMetricsSection
+                
+                // Charts Section
+                chartsSection
+                
+                // Prayer Breakdown
+                prayerBreakdownSection
+                
+                // Insights Section
+                insightsSection
+            }
+            .padding()
+        }
+        .navigationTitle(isEmbedded ? "" : "Prayer Analytics")
+        .navigationBarTitleDisplayMode(isEmbedded ? .inline : .large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: {
+                    showingExportSheet = true
+                }) {
+                    Image(systemName: "square.and.arrow.up")
                 }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        showingExportSheet = true
-                    }) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
+            }
+        }
+        .task {
+            await loadInsights()
+            await loadChartData()
+        }
+        .onChange(of: selectedPeriod) { _ in
+            Task {
+                await loadChartData()
+            }
+        }
+        .sheet(isPresented: $showingExportSheet) {
+            ExportOptionsView(
+                selectedPeriod: selectedPeriod.title,
+                onExport: { format in
+                    exportData(format: format)
                 }
-
-            }
-            .task {
-                await loadInsights()
-            }
-            .sheet(isPresented: $showingExportSheet) {
-                ExportOptionsView(
-                    selectedPeriod: selectedPeriod,
-                    onExport: { format in
-                        exportData(format: format)
-                    }
-                )
-            }
+            )
         }
     }
     
@@ -144,78 +181,71 @@ public struct PrayerAnalyticsView: View {
     
     @ViewBuilder
     private var periodSelector: some View {
-        let periods = ["week", "month", "year"]
+        let periods: [AnalyticsPeriod] = [.week, .month, .year]
         let periodTitles = ["This Week", "This Month", "This Year"]
 
-        HStack(spacing: 0) {
-            ForEach(Array(zip(periods, periodTitles)), id: \.0) { period, title in
-                Button(action: {
-                    selectedPeriod = period
-                }) {
-                    Text(title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(selectedPeriod == period ? .white : .blue)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(selectedPeriod == period ? .blue : Color.clear)
-                        )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(zip(periods, periodTitles)), id: \.0) { period, title in
+                    Button(action: {
+                        selectedPeriod = period
+                    }) {
+                        Text(title)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(selectedPeriod == period ? .white : ColorPalette.primary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(selectedPeriod == period ? ColorPalette.primary : ColorPalette.surfaceSecondary)
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(4)
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(.background)
-        )
     }
     
     // MARK: - Key Metrics Section
     
     @ViewBuilder
     private var keyMetricsSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Key Metrics")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-            }
-            
-            HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Key Metrics")
+                .font(.headline)
+                .fontWeight(.semibold)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), spacing: 16)], spacing: 16) {
                 PrayerMetricCard(
                     title: "Completion Rate",
-                    value: "85%",
-                    change: "+5%",
+                    value: "\(Int(completionRateForPeriod * 100))%",
+                    change: "",
                     isPositive: true,
                     icon: "checkmark.circle.fill"
                 )
 
                 PrayerMetricCard(
-                    title: "Current Streak",
-                    value: "5",
-                    change: "+2 days",
+                    title: "Best Streak",
+                    value: "\(prayerAnalyticsService.bestStreak)",
+                    change: "",
                     isPositive: true,
                     icon: "flame.fill"
                 )
-            }
 
-            HStack(spacing: 16) {
                 PrayerMetricCard(
-                    title: "Total Prayers",
-                    value: "127",
-                    change: "+12",
+                    title: "Avg Streak",
+                    value: String(format: "%.1f", prayerAnalyticsService.averageStreakLength),
+                    change: "",
                     isPositive: true,
-                    icon: "list.bullet"
+                    icon: "chart.line.uptrend.xyaxis"
                 )
 
                 PrayerMetricCard(
                     title: "Best Prayer",
-                    value: mostConsistentPrayer,
-                    change: "85%",
+                    value: prayerAnalyticsService.mostConsistentPrayer?.displayName ?? "N/A",
+                    change: "",
                     isPositive: true,
                     icon: "sunrise.fill"
                 )
@@ -223,11 +253,19 @@ public struct PrayerAnalyticsView: View {
         }
     }
     
+    private var completionRateForPeriod: Double {
+        switch selectedPeriod {
+        case .week: return prayerAnalyticsService.weeklyCompletionRate
+        case .month: return prayerAnalyticsService.monthlyCompletionRate
+        case .year: return prayerAnalyticsService.yearlyCompletionRate
+        }
+    }
+    
     // MARK: - Charts Section
     
     @ViewBuilder
     private var chartsSection: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Trends")
                     .font(.headline)
@@ -247,21 +285,21 @@ public struct PrayerAnalyticsView: View {
                 .pickerStyle(MenuPickerStyle())
             }
 
-            // Chart
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .overlay(
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text(metricTitle(for: selectedMetric))
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(.secondary)
+            // Chart Container with proper layout
+            VStack(alignment: .leading, spacing: 12) {
+                Text(metricTitle(for: selectedMetric))
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(ColorPalette.textSecondary)
 
-                        // Placeholder for chart - would use Swift Charts in real implementation
-                        chartPlaceholder
-                    }
-                    .padding()
-                )
+                chartPlaceholder
+            }
+            .padding()
+            .frame(maxWidth: .infinity, minHeight: 280, alignment: .topLeading)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ColorPalette.surfaceSecondary)
+            )
         }
     }
     
@@ -269,34 +307,32 @@ public struct PrayerAnalyticsView: View {
     
     @ViewBuilder
     private var prayerBreakdownSection: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Text("Prayer Breakdown")
-                    .font(.headline)
-                    .fontWeight(.semibold)
-                
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Prayer Breakdown")
+                .font(.headline)
+                .fontWeight(.semibold)
             
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .overlay(
-                    VStack(spacing: 12) {
-                        let prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
-                        ForEach(Array(prayers.enumerated()), id: \.offset) { index, prayer in
-                            PrayerBreakdownRow(
-                                prayer: prayer,
-                                completionRate: getPrayerCompletionRate(prayer),
-                                totalCount: getPrayerCount(prayer)
-                            )
+            VStack(spacing: 12) {
+                let prayers = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"]
+                ForEach(Array(prayers.enumerated()), id: \.offset) { index, prayer in
+                    PrayerBreakdownRow(
+                        prayer: prayer,
+                        completionRate: getPrayerCompletionRate(prayer),
+                        totalCount: getPrayerCount(prayer)
+                    )
 
-                            if index < prayers.count - 1 {
-                                Divider()
-                            }
-                        }
+                    if index < prayers.count - 1 {
+                        Divider()
+                            .background(ColorPalette.textSecondary.opacity(0.3))
                     }
-                    .padding()
-                )
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ColorPalette.surfaceSecondary)
+            )
         }
     }
     
@@ -304,7 +340,7 @@ public struct PrayerAnalyticsView: View {
 
     @ViewBuilder
     private var insightsSection: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Insights")
                     .font(.headline)
@@ -320,38 +356,63 @@ public struct PrayerAnalyticsView: View {
 
             if insights.isEmpty && !isLoadingInsights {
                 // Empty state
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.background)
-                    .overlay(
-                        VStack(spacing: 12) {
-                            Image(systemName: "lightbulb")
-                                .font(.title2)
-                                .foregroundColor(.secondary)
+                VStack(spacing: 12) {
+                    Image(systemName: "lightbulb")
+                        .font(.system(size: 32))
+                        .foregroundColor(ColorPalette.textSecondary)
 
-                            Text("No insights available")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+                    Text("No insights available")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(ColorPalette.textSecondary)
 
-                            Text("Complete more prayers to see personalized insights")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding()
-                    )
-                    .frame(height: 120)
+                    Text("Complete more prayers to see personalized insights")
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, minHeight: 120)
+                .padding()
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(ColorPalette.surfaceSecondary)
+                )
             } else {
                 VStack(spacing: 12) {
                     ForEach(insights) { insight in
                         InsightCard(
-                            icon: insight.icon,
+                            icon: iconForInsightType(insight.type),
                             title: insight.title,
                             description: insight.description,
-                            color: insight.color
+                            color: colorForInsightType(insight.type)
                         )
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Helper Methods
+    
+    private func iconForInsightType(_ type: PrayerInsightType) -> String {
+        switch type {
+        case .streak: return "flame.fill"
+        case .improvement: return "arrow.up.circle.fill"
+        case .achievement: return "star.fill"
+        case .pattern: return "chart.line.uptrend.xyaxis"
+        case .concern: return "exclamationmark.triangle.fill"
+        case .recommendation: return "lightbulb.fill"
+        }
+    }
+    
+    private func colorForInsightType(_ type: PrayerInsightType) -> Color {
+        switch type {
+        case .streak: return .orange
+        case .improvement: return .blue
+        case .achievement: return .green
+        case .pattern: return .cyan
+        case .concern: return .red
+        case .recommendation: return .purple
         }
     }
 
@@ -361,8 +422,16 @@ public struct PrayerAnalyticsView: View {
         isLoadingInsights = true
         defer { isLoadingInsights = false }
 
-        // Generate sample insights based on mock data
-        insights = generateSampleInsights()
+        // Load real insights from PrayerAnalyticsService
+        insights = await prayerAnalyticsService.getPrayerInsights()
+    }
+
+    private func loadChartData() async {
+        isLoadingChartData = true
+        defer { isLoadingChartData = false }
+
+        // Load real daily completion data from PrayerAnalyticsService
+        dailyCompletionData = await prayerAnalyticsService.getDailyCompletionData(for: selectedPeriod)
     }
 
     private func generateSampleInsights() -> [InsightData] {
@@ -388,28 +457,112 @@ public struct PrayerAnalyticsView: View {
         ]
     }
 
-    // MARK: - Chart Placeholder
-    
+    // MARK: - Chart View
+
     @ViewBuilder
     private var chartPlaceholder: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .fill(.background)
-            .frame(height: 200)
-            .overlay(
-                VStack {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 40))
-                        .foregroundColor(.secondary)
+        if isLoadingChartData {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(ColorPalette.surfacePrimary)
+                .frame(height: 200)
+                .overlay(
+                    VStack(spacing: 12) {
+                        ProgressView()
+                        Text("Loading chart data...")
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                    }
+                )
+        } else if dailyCompletionData.isEmpty {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(ColorPalette.surfacePrimary)
+                .frame(height: 200)
+                .overlay(
+                    VStack {
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 40))
+                            .foregroundColor(ColorPalette.textSecondary)
 
-                    Text("Chart will be implemented with Swift Charts")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.center)
+                        Text("Complete more prayers to see trends")
+                            .font(.caption)
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                )
+        } else {
+            // Actual Swift Chart
+            Chart(dailyCompletionData) { dataPoint in
+                LineMark(
+                    x: .value("Date", dataPoint.date),
+                    y: .value("Completion", dataPoint.completionRate)
+                )
+                .foregroundStyle(ColorPalette.primary)
+                .interpolationMethod(.catmullRom)
+
+                AreaMark(
+                    x: .value("Date", dataPoint.date),
+                    y: .value("Completion", dataPoint.completionRate)
+                )
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [ColorPalette.primary.opacity(0.3), ColorPalette.primary.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .interpolationMethod(.catmullRom)
+            }
+            .chartXAxis {
+                AxisMarks(values: axisStride(for: selectedPeriod)) { _ in
+                    AxisGridLine()
+                    AxisValueLabel(format: axisFormat(for: selectedPeriod))
                 }
-            )
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let doubleValue = value.as(Double.self) {
+                            Text("\(Int(doubleValue * 100))%")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .chartYScale(domain: 0...1)
+            .frame(height: 200)
+        }
     }
     
     // MARK: - Helper Methods
+    
+    /// Returns appropriate axis stride based on selected period
+    /// - Parameter period: The selected time period (AnalyticsPeriod)
+    /// - Returns: AxisMarkValues for appropriate stride
+    private func axisStride(for period: AnalyticsPeriod) -> AxisMarkValues {
+        switch period {
+        case .week:
+            return .stride(by: .day)
+        case .month:
+            return .stride(by: .day, count: 5)
+        case .year:
+            return .stride(by: .month)
+        }
+    }
+    
+    /// Returns appropriate date format style based on selected period
+    /// - Parameter period: The selected time period (AnalyticsPeriod)
+    /// - Returns: Date.FormatStyle for axis labels
+    private func axisFormat(for period: AnalyticsPeriod) -> Date.FormatStyle {
+        switch period {
+        case .week:
+            return .dateTime.weekday(.abbreviated)
+        case .month:
+            return .dateTime.day()
+        case .year:
+            return .dateTime.month(.abbreviated)
+        }
+    }
 
     private var mostConsistentPrayer: String {
         // Placeholder for most consistent prayer
@@ -459,7 +612,7 @@ public struct PrayerAnalyticsView: View {
 
     private func generateExportData() -> ExportData {
         return ExportData(
-            period: selectedPeriod,
+            period: selectedPeriod.title,
             completionRate: "85%",
             currentStreak: "5 days",
             totalPrayers: "127",
@@ -502,7 +655,7 @@ public struct PrayerAnalyticsView: View {
             csvContent += "\(escapeCsvValue(insight))\n"
         }
 
-        shareContent(csvContent, fileName: "prayer_analytics_\(data.period).csv")
+        shareContent(csvContent, fileName: "prayer_analytics_\(selectedPeriod.rawValue).csv")
     }
 
     private func sharePDF(data: ExportData) {
@@ -515,7 +668,7 @@ public struct PrayerAnalyticsView: View {
             return
         }
 
-        shareContent(pdfContent, fileName: "prayer_analytics_\(data.period).txt")
+        shareContent(pdfContent, fileName: "prayer_analytics_\(selectedPeriod.rawValue).pdf")
     }
 
     private func shareText(data: ExportData) {
@@ -527,7 +680,7 @@ public struct PrayerAnalyticsView: View {
             return
         }
 
-        shareContent(textContent, fileName: "prayer_analytics_\(data.period).txt")
+        shareContent(textContent, fileName: "prayer_analytics_\(selectedPeriod.rawValue).txt")
     }
 
     private func formatDataForPDF(_ data: ExportData) -> String {
@@ -686,32 +839,40 @@ private struct PrayerMetricCard: View {
     let icon: String
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(.background)
-            .overlay(
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: icon)
-                            .foregroundColor(.blue)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(ColorPalette.primary)
 
-                        Spacer()
+                Spacer()
 
-                        Text(change)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundColor(isPositive ? .green : .red)
-                    }
-
-                    Text(value)
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text(title)
+                if !change.isEmpty {
+                    Text(change)
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .fontWeight(.medium)
+                        .foregroundColor(isPositive ? .green : .red)
                 }
-                .padding()
-            )
+            }
+
+            Text(value)
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(ColorPalette.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Text(title)
+                .font(.caption)
+                .foregroundColor(ColorPalette.textSecondary)
+                .lineLimit(1)
+        }
+        .padding()
+        .frame(minHeight: 100)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ColorPalette.surfaceSecondary)
+        )
     }
 }
 
@@ -786,30 +947,37 @@ private struct InsightCard: View {
     let color: Color
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(.background)
-            .overlay(
-                HStack(spacing: 12) {
-                    Image(systemName: icon)
-                        .font(.title2)
-                        .foregroundColor(color)
-                        .frame(width: 30)
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundColor(color)
+                .frame(width: 36, height: 36)
+                .background(
+                    Circle()
+                        .fill(color.opacity(0.15))
+                )
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(ColorPalette.textPrimary)
 
-                        Text(description)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.leading)
-                    }
+                Text(description)
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.textSecondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
-                    Spacer()
-                }
-                .padding()
-            )
+            Spacer()
+        }
+        .padding()
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(ColorPalette.surfaceSecondary)
+        )
     }
 }
 
@@ -873,38 +1041,39 @@ private struct ExportFormatRow: View {
 
     var body: some View {
         Button(action: onTap) {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .overlay(
-                    HStack(spacing: 16) {
-                        Image(systemName: format.icon)
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                            .frame(width: 40)
+            HStack(spacing: 16) {
+                Image(systemName: format.icon)
+                    .font(.title2)
+                    .foregroundColor(ColorPalette.primary)
+                    .frame(width: 40)
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(format.rawValue)
-                                .font(.headline)
-                                .fontWeight(.semibold)
-                                .foregroundColor(.primary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(format.rawValue)
+                        .font(.headline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(ColorPalette.textPrimary)
 
-                            Text(format.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                    Text(format.description)
+                        .font(.caption)
+                        .foregroundColor(ColorPalette.textSecondary)
+                }
 
-                        Spacer()
+                Spacer()
 
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding()
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(.secondary.opacity(0.2), lineWidth: 1)
-                )
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(ColorPalette.textSecondary)
+            }
+            .padding()
+            .frame(maxWidth: .infinity, minHeight: 70)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(ColorPalette.surfaceSecondary)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(ColorPalette.textSecondary.opacity(0.2), lineWidth: 1)
+            )
         }
         .buttonStyle(PlainButtonStyle())
     }

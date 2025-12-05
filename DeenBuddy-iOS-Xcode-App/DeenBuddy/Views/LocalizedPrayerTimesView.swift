@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import CoreLocation
+import OSLog
 
 struct LocalizedPrayerTimesView: View {
     @StateObject private var localizationService = LocalizationService()
@@ -19,7 +21,10 @@ struct LocalizedPrayerTimesView: View {
         islamicCacheManager: IslamicCacheManager(),
         islamicCalendarService: IslamicCalendarService()
     )
+    @StateObject private var qiblaCache = QiblaDirectionCache()
     @State private var showingLanguageSettings = false
+    @State private var qiblaDirection: Double?
+    @State private var qiblaError = false
     
     var body: some View {
         NavigationStack {
@@ -47,13 +52,18 @@ struct LocalizedPrayerTimesView: View {
                     .padding()
                 }
                 .refreshable {
+                    qiblaError = false
                     await prayerTimeService.refreshPrayerTimes()
+                    await loadQiblaDirection()
                 }
             }
-            .navigationTitle(localizationService.localizedString(for: .navPrayerTimes))
             .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    MascotTitleView.navigationTitle(titleText: localizationService.localizedString(for: .navPrayerTimes))
+                }
+                
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(action: {
                         showingLanguageSettings = true
@@ -70,6 +80,7 @@ struct LocalizedPrayerTimesView: View {
             }
             .task {
                 await prayerTimeService.refreshPrayerTimes()
+                await loadQiblaDirection()
             }
         }
     }
@@ -232,7 +243,7 @@ struct LocalizedPrayerTimesView: View {
                 VStack(spacing: 8) {
                     LocationInfoRow(
                         title: localizationService.localizedString(for: "qibla.direction"),
-                        value: String(format: "%.1f°", 45.0), // TODO: Get from Qibla service
+                        value: qiblaDirectionText,
                         localizationService: localizationService
                     )
                     
@@ -253,6 +264,16 @@ struct LocalizedPrayerTimesView: View {
         }
     }
     
+    private var qiblaDirectionText: String {
+        if let direction = qiblaDirection {
+            return String(format: "%.1f°", direction)
+        } else if qiblaError {
+            return "Unavailable"
+        } else {
+            return "Calculating..."
+        }
+    }
+
     private var loadingOrErrorView: some View {
         ModernCard {
             VStack(spacing: 16) {
@@ -270,7 +291,9 @@ struct LocalizedPrayerTimesView: View {
                     
                     Button(localizationService.localizedString(for: .actionRetry)) {
                         Task {
+                            qiblaError = false
                             await prayerTimeService.refreshPrayerTimes()
+                            await loadQiblaDirection()
                         }
                     }
                     .buttonStyle(PrimaryModernButtonStyle())
@@ -294,6 +317,36 @@ struct LocalizedPrayerTimesView: View {
         } else {
             let minutesText = localizationService.localizedString(for: .timeMinutes)
             return "\(localizationService.localizedNumber(minutes)) \(minutesText)"
+        }
+    }
+    
+    private func loadQiblaDirection() async {
+        qiblaError = false
+        do {
+            let location = try await prayerTimeService.locationService.requestLocation()
+            let coordinate = location.coordinate
+            let latitude = coordinate.latitude
+            let longitude = coordinate.longitude
+            let clLocation = CLLocation(latitude: latitude, longitude: longitude)
+            
+            // Try cache first
+            if let cached = qiblaCache.getCachedDirection(for: clLocation) {
+                qiblaDirection = cached.direction
+                qiblaError = false
+                return
+            }
+            
+            // Calculate and cache
+            let coord = LocationCoordinate(latitude: latitude, longitude: longitude)
+            let direction = QiblaDirection.calculate(from: coord)
+            qiblaCache.cacheDirection(direction, for: clLocation)
+            qiblaDirection = direction.direction
+            qiblaError = false
+        } catch {
+            let logger = Logger(subsystem: "com.deenbuddy.app", category: "LocalizedPrayerTimesView")
+            logger.error("Failed to load Qibla direction: \(error.localizedDescription)")
+            qiblaDirection = nil
+            qiblaError = true
         }
     }
 }

@@ -23,18 +23,8 @@ public class DynamicIslandManager: ObservableObject {
     
     /// Check if device supports Dynamic Island
     public func checkDynamicIslandSupport() {
-        // Dynamic Island is available on iPhone 14 Pro and later
-        let deviceModel = UIDevice.current.model
-        let systemVersion = UIDevice.current.systemVersion
-        
-        // Check for iOS 16.1+ and iPhone 14 Pro models
-        if #available(iOS 16.1, *) {
-            // In a real implementation, you would check specific device models
-            // For now, we'll assume it's supported if Live Activities are available
-            isDynamicIslandSupported = ActivityAuthorizationInfo().areActivitiesEnabled
-        } else {
-            isDynamicIslandSupported = false
-        }
+        // Dynamic Island requires Live Activities enabled and supported hardware
+        isDynamicIslandSupported = ActivityAuthorizationInfo().areActivitiesEnabled && hasDynamicIslandHardware()
         
         print("📱 Dynamic Island support: \(isDynamicIslandSupported)")
     }
@@ -156,6 +146,7 @@ public enum DynamicIslandError: Error, LocalizedError {
     case notSupported
     case activityNotFound
     case updateFailed
+    case invalidPrayerRawValue(String)
     
     public var errorDescription: String? {
         switch self {
@@ -165,6 +156,8 @@ public enum DynamicIslandError: Error, LocalizedError {
             return "No active Dynamic Island activity found"
         case .updateFailed:
             return "Failed to update Dynamic Island content"
+        case .invalidPrayerRawValue(let raw):
+            return "Invalid prayer value: \(raw)"
         }
     }
 }
@@ -335,6 +328,28 @@ public struct PrayerDynamicIslandView: View {
 }
 #endif
 
+@available(iOS 16.1, *)
+private extension DynamicIslandManager {
+    func hasDynamicIslandHardware() -> Bool {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let modelCode = withUnsafePointer(to: &systemInfo.machine) { ptr -> String in
+            let int8Ptr = UnsafeRawPointer(ptr).assumingMemoryBound(to: CChar.self)
+            return String(cString: int8Ptr)
+        }
+
+        // Dynamic Island exists on iPhone 14 Pro/Pro Max and newer Pro models
+        let supportedModels: Set<String> = [
+            "iPhone15,2", // 14 Pro
+            "iPhone15,3", // 14 Pro Max
+            "iPhone16,1", // 15 Pro
+            "iPhone16,2"  // 15 Pro Max
+        ]
+
+        return supportedModels.contains(modelCode)
+    }
+}
+
 // MARK: - Dynamic Island Integration Service
 
 @available(iOS 16.1, *)
@@ -351,7 +366,7 @@ public class DynamicIslandIntegrationService: ObservableObject {
     // MARK: - Integration Methods
     
     /// Start prayer countdown with automatic Dynamic Island integration
-    public func startPrayerCountdownWithDynamicIsland(
+    internal func startPrayerCountdownWithDynamicIsland(
         prayerTime: PrayerTime,
         location: String,
         hijriDate: HijriDate,
@@ -363,8 +378,13 @@ public class DynamicIslandIntegrationService: ObservableObject {
             throw DynamicIslandError.updateFailed
         }
         
+        // Convert WidgetPrayer to Prayer using the widgetRawValue initializer
+        guard let convertedPrayer = Prayer(widgetRawValue: prayerTime.prayer.rawValue) else {
+            throw DynamicIslandError.updateFailed
+        }
+
         try await DynamicIslandManager.shared.startPrayerCountdownInDynamicIsland(
-            for: prayerTime.prayer,
+            for: convertedPrayer,
             prayerTime: prayerTime.time,
             location: location,
             hijriDate: hijriDate.formatted,

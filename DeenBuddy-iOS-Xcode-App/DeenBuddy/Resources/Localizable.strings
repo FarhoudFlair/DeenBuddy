@@ -1,0 +1,23 @@
+/* Subscription UI */
+"MostPopularLabel" = "Most Popular";
+"per_period_format" = "per %@";
+
+/* User account error messages */
+"UserAccountError.notAuthenticated" = "You must be signed in to perform this action.";
+"UserAccountError.invalidEmail" = "Please enter a valid email address.";
+"UserAccountError.weakPassword" = "Password must be at least 6 characters.";
+"UserAccountError.emailAlreadyInUse" = "This email is already registered.";
+"UserAccountError.userNotFound" = "No account found with this email.";
+"UserAccountError.wrongPassword" = "Incorrect password.";
+"UserAccountError.networkError" = "Network error. Please check your connection.";
+
+/* Account Settings Screen */
+"AccountSettings.signedInAs" = "Signed in as";
+"AccountSettings.noEmailAssociated" = "No email associated with this account";
+"AccountSettings.linkEmail" = "Link Email";
+"AccountSettings.linkEmailDescription" = "Enter your email address to link it to your account. We'll send you a sign-in link to verify your email.";
+"AccountSettings.emailPlaceholder" = "Email address";
+"AccountSettings.sendLinkButton" = "Send Link";
+"AccountSettings.linkEmailSent" = "A sign-in link has been sent to %@. Check your inbox to complete the linking process.";
+"AccountSettings.invalidEmailError" = "Please enter a valid email address.";
+"AccountSettings.cancel" = "Cancel";

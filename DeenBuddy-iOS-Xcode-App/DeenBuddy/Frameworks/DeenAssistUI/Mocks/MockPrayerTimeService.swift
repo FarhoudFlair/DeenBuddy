@@ -6,6 +6,10 @@ import CoreLocation
 @MainActor
 public class MockPrayerTimeService: PrayerTimeServiceProtocol {
     @Published public var todaysPrayerTimes: [PrayerTime] = []
+    
+    public var todaysPrayerTimesPublisher: AnyPublisher<[PrayerTime], Never> {
+        $todaysPrayerTimes.eraseToAnyPublisher()
+    }
     @Published public var nextPrayer: PrayerTime? = nil
     @Published public var timeUntilNextPrayer: TimeInterval? = nil
     @Published public var calculationMethod: CalculationMethod = .muslimWorldLeague
@@ -77,6 +81,63 @@ public class MockPrayerTimeService: PrayerTimeServiceProtocol {
     
     public func getCurrentLocation() async throws -> CLLocation {
         return mockLocation
+    }
+    
+    public func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        let targetLocation = location ?? mockLocation
+        let disclaimer = try validateLookaheadDate(date)
+        let hijriDate = HijriDate(from: date)
+        let isHighLat = isHighLatitudeLocation(targetLocation)
+
+        return FuturePrayerTimeResult(
+            date: date,
+            prayerTimes: generateMockPrayerTimes(for: date),
+            hijriDate: hijriDate,
+            isRamadan: false,
+            disclaimerLevel: disclaimer,
+            calculationTimezone: TimeZone.current,
+            isHighLatitude: isHighLat,
+            precision: disclaimer == .today || disclaimer == .shortTerm ? .exact : .window(minutes: 30)
+        )
+    }
+
+    public func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] {
+        var results: [FuturePrayerTimeResult] = []
+        var current = startDate
+        let calendar = Calendar.current
+        while current <= endDate {
+            results.append(try await getFuturePrayerTimes(for: current, location: location))
+            guard let next = calendar.date(byAdding: .day, value: 1, to: current) else { break }
+            current = next
+        }
+        return results
+    }
+
+    public func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel {
+        let calendar = Calendar.current
+        let today = Date()
+
+        if calendar.isDate(date, inSameDayAs: today) {
+            return .today
+        }
+
+        guard let months = calendar.dateComponents([.month], from: today, to: date).month else {
+            throw PrayerTimeError.invalidDate
+        }
+
+        if months < 0 {
+            throw PrayerTimeError.invalidDate
+        }
+
+        switch months {
+        case 0...12: return .shortTerm
+        case 13...60: return .mediumTerm
+        default: return .longTerm
+        }
+    }
+
+    public func isHighLatitudeLocation(_ location: CLLocation) -> Bool {
+        abs(location.coordinate.latitude) > 55.0
     }
     
     public func triggerDynamicIslandForNextPrayer() async {

@@ -4,6 +4,9 @@ import SwiftUI
 public struct EnhancedSettingsView: View {
     @ObservedObject private var settingsService: SettingsService
     @ObservedObject private var themeManager: ThemeManager
+    private let notificationService: (any NotificationServiceProtocol)?
+    private let userAccountService: (any UserAccountServiceProtocol)?
+    private let locationService: (any LocationServiceProtocol)?
     private let onDismiss: () -> Void
 
     @State private var showingCalculationMethodPicker = false
@@ -13,17 +16,29 @@ public struct EnhancedSettingsView: View {
     @State private var showingCalculationSources = false
     @State private var showingResetConfirmation = false
     @State private var showingNotificationSettings = false
+    @State private var showingPerPrayerNotificationSettings = false
     @State private var showingTimeFormatPicker = false
+    @State private var showingAccountSettings = false
     @State private var editingUserName = false
     @State private var tempUserName = ""
+    @State private var criticalAlertsEnabled = false
+    @State private var showingCriticalAlertError = false
+    @State private var criticalAlertErrorMessage = ""
+    @State private var showingManualLocationEntry = false
 
     public init(
         settingsService: SettingsService,
         themeManager: ThemeManager,
+        notificationService: (any NotificationServiceProtocol)? = nil,
+        userAccountService: (any UserAccountServiceProtocol)? = nil,
+        locationService: (any LocationServiceProtocol)? = nil,
         onDismiss: @escaping () -> Void
     ) {
         self._settingsService = ObservedObject(wrappedValue: settingsService)
         self._themeManager = ObservedObject(wrappedValue: themeManager)
+        self.notificationService = notificationService
+        self.userAccountService = userAccountService
+        self.locationService = locationService
         self.onDismiss = onDismiss
     }
     
@@ -52,23 +67,91 @@ public struct EnhancedSettingsView: View {
                     )
                 }
                 
-                // Prayer Settings Section
+                // Account Section
+                if let userAccountService = userAccountService {
+                    Section("Account") {
+                        SettingsRow(
+                            icon: "person.circle.fill",
+                            title: "Account Settings",
+                            value: userAccountService.currentUser?.email ?? "Not signed in",
+                            action: { showingAccountSettings = true }
+                        )
+                    }
+                }
+                
                 Section("Prayer Settings") {
+                    SettingsRow(
+                        icon: "book.closed.fill",
+                        title: "School of Thought (Madhab)",
+                        value: settingsService.madhab.displayName,
+                        action: { showingMadhabPicker = true }
+                    )
+
                     SettingsRow(
                         icon: "moon.stars.fill",
                         title: "Calculation Method",
                         value: settingsService.calculationMethod.displayName,
                         action: { showingCalculationMethodPicker = true }
                     )
-                    
-                    SettingsRow(
-                        icon: "book.closed.fill",
-                        title: "Madhab",
-                        value: settingsService.madhab.displayName,
-                        action: { showingMadhabPicker = true }
-                    )
                 }
-                
+
+                // Location Section
+                Section {
+                    SettingsRow(
+                        icon: "location.fill",
+                        title: "Enter City Manually",
+                        value: "",
+                        action: {
+                            showingManualLocationEntry = true
+                        }
+                    )
+                } header: {
+                    Text("Location")
+                } footer: {
+                    Text("Use this if GPS is unavailable or inaccurate. We'll search for your city and update prayer times accordingly.")
+                        .font(Typography.labelSmall)
+                }
+
+                // Islamic Calendar & Future Prayer Times Section
+                Section {
+                    HStack {
+                        Image(systemName: "calendar.badge.clock")
+                            .foregroundColor(ColorPalette.primary)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Future Prayer Times Range")
+                                .font(Typography.bodyMedium)
+                                .foregroundColor(ColorPalette.textPrimary)
+
+                            Text("Maximum months ahead to calculate")
+                                .font(Typography.labelSmall)
+                                .foregroundColor(ColorPalette.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Stepper(
+                            value: Binding(
+                                get: { settingsService.maxLookaheadMonths },
+                                set: { settingsService.maxLookaheadMonths = $0 }
+                            ),
+                            in: 12...60,
+                            step: 6
+                        ) {
+                            Text("\(settingsService.maxLookaheadMonths) months")
+                                .font(Typography.bodyMedium)
+                                .foregroundColor(ColorPalette.primary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Islamic Calendar & Future Prayer Times")
+                } footer: {
+                    Text("Adjust how far into the future you can view prayer times. Higher values provide more long-term planning capability but may have lower accuracy. Recommended: 12-60 months.")
+                        .font(Typography.labelSmall)
+                }
+
                 // Notification Settings Section
                 Section("Notifications") {
                     SettingsToggle(
@@ -87,6 +170,27 @@ public struct EnhancedSettingsView: View {
                         value: "\(Int(settingsService.notificationOffset / 60)) min before",
                         action: { showingNotificationSettings = true }
                     )
+                    
+                    if notificationService != nil {
+                        SettingsRow(
+                            icon: "bell.badge.fill",
+                            title: "Prayer Notifications (Per-prayer)",
+                            value: "",
+                            action: { showingPerPrayerNotificationSettings = true }
+                        )
+                        
+                        SettingsToggle(
+                            icon: "exclamationmark.triangle.fill",
+                            title: "Critical Alerts",
+                            description: "Allow time-sensitive prayer alerts even when Do Not Disturb is on",
+                            isOn: $criticalAlertsEnabled
+                        )
+                        .onChange(of: criticalAlertsEnabled) { newValue in
+                            if newValue {
+                                requestCriticalAlertPermission()
+                            }
+                        }
+                    }
                 }
                 
                 // Appearance Section
@@ -207,6 +311,50 @@ public struct EnhancedSettingsView: View {
                 onDismiss: { showingTimeFormatPicker = false }
             )
         }
+        .sheet(isPresented: $showingPerPrayerNotificationSettings) {
+            if let notificationService = notificationService {
+                NotificationSettingsScreen(
+                    notificationService: notificationService,
+                    settingsService: settingsService
+                )
+            }
+        }
+        .sheet(isPresented: $showingAccountSettings) {
+            if let userAccountService = userAccountService {
+                AccountSettingsScreen(userAccountService: userAccountService)
+            }
+        }
+        .sheet(isPresented: $showingManualLocationEntry) {
+            if let locationService = locationService {
+                ManualLocationEntrySheet(
+                    locationService: locationService,
+                    onSuccess: { showingManualLocationEntry = false },
+                    onCancel: { showingManualLocationEntry = false }
+                )
+            } else {
+                NavigationView {
+                    VStack {
+                        Spacer()
+                        Text("Manual location entry is currently unavailable. Please try again later or contact support.")
+                            .foregroundColor(ColorPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding()
+                        Button("Close") {
+                            showingManualLocationEntry = false
+                        }
+                        .padding(.top, 12)
+                        Spacer()
+                    }
+                    .navigationTitle("Manual Location")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Close") { showingManualLocationEntry = false }
+                        }
+                    }
+                }
+            }
+        }
         .alert("Reset Settings", isPresented: $showingResetConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Reset", role: .destructive) {
@@ -214,6 +362,16 @@ public struct EnhancedSettingsView: View {
             }
         } message: {
             Text("This will reset all settings to their default values. This action cannot be undone.")
+        }
+        .alert("Critical Alert Permission", isPresented: $showingCriticalAlertError) {
+            Button("OK", role: .cancel) {
+                criticalAlertErrorMessage = ""
+            }
+        } message: {
+            Text(criticalAlertErrorMessage)
+        }
+        .task {
+            await loadCriticalAlertStatus()
         }
     }
     
@@ -230,6 +388,130 @@ public struct EnhancedSettingsView: View {
     private func resetSettings() {
         Task {
             try? await settingsService.resetToDefaults()
+        }
+    }
+    
+    private func requestCriticalAlertPermission() {
+        Task {
+            guard let notificationService = notificationService else {
+                print("⚠️ Critical alert permission request failed: notification service unavailable")
+                await MainActor.run {
+                    criticalAlertsEnabled = false
+                    criticalAlertErrorMessage = "Prayer notification services are unavailable. Please try again later."
+                    showingCriticalAlertError = true
+                }
+                return
+            }
+
+            do {
+                let granted = try await notificationService.requestCriticalAlertPermission()
+                
+                await MainActor.run {
+                    if !granted {
+                        // User denied permission, revert toggle
+                        criticalAlertsEnabled = false
+                    }
+                }
+            } catch {
+                print("Failed to request critical alert permission: \(error)")
+                await MainActor.run {
+                    criticalAlertsEnabled = false
+                    criticalAlertErrorMessage = "We couldn't enable critical alerts. Please review your Notification Settings and try again."
+                    showingCriticalAlertError = true
+                }
+            }
+        }
+    }
+    
+    private func loadCriticalAlertStatus() async {
+        guard let notificationService = notificationService else {
+            await MainActor.run {
+                criticalAlertsEnabled = false
+            }
+            return
+        }
+
+        let isCriticalAlertAuthorized = await notificationService.getCriticalAlertAuthorizationStatus()
+
+        await MainActor.run {
+            criticalAlertsEnabled = isCriticalAlertAuthorized
+            print("📊 Loaded critical alert status: \(isCriticalAlertAuthorized)")
+        }
+    }
+}
+
+// MARK: - Manual Location Entry Sheet (Settings)
+
+private struct ManualLocationEntrySheet: View {
+    let locationService: any LocationServiceProtocol
+    let onSuccess: () -> Void
+    let onCancel: () -> Void
+
+    @State private var cityName: String = ""
+    @State private var isSearching = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Text("Enter Your City")
+                    .headlineSmall()
+                    .foregroundColor(ColorPalette.textPrimary)
+
+                TextField("City name", text: $cityName)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .disableAutocorrection(true)
+                    .textInputAutocapitalization(.words)
+                    .onSubmit { search() }
+
+                if let errorMessage = errorMessage {
+                    Text(errorMessage)
+                        .bodySmall()
+                        .foregroundColor(ColorPalette.error)
+                        .multilineTextAlignment(.center)
+                }
+
+                if isSearching {
+                    LoadingView.dots(message: "Searching for city...")
+                } else {
+                    CustomButton.primary("Search") {
+                        search()
+                    }
+                    .disabled(cityName.isEmpty)
+                }
+
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("Manual Location")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { onCancel() }
+                }
+            }
+        }
+    }
+
+    private func search() {
+        guard !cityName.isEmpty else { return }
+        isSearching = true
+        errorMessage = nil
+
+        Task {
+            do {
+                let location = try await locationService.geocodeCity(cityName)
+                await locationService.setManualLocation(location)
+                await MainActor.run {
+                    isSearching = false
+                    onSuccess()
+                }
+            } catch {
+                await MainActor.run {
+                    isSearching = false
+                    errorMessage = error.localizedDescription
+                }
+            }
         }
     }
 }
@@ -291,6 +573,8 @@ private struct SettingsToggle: View {
                     Text(description)
                         .font(.caption)
                         .foregroundColor(ColorPalette.textSecondary)
+                        .lineLimit(nil) // Allow unlimited lines for long descriptions (e.g., Live Activities 125-char text)
+                        .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                 }
             }
 

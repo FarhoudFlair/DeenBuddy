@@ -53,12 +53,10 @@ class LocationDiagnosticTests: XCTestCase {
             prayerTimeService: mockPrayerTimeService,
             locationService: mockLocationService,
             settingsService: mockSettingsService,
-            notificationService: LocationDiagnosticMockNotificationService(),
             onCompassTapped: {},
             onGuidesTapped: {},
             onQuranSearchTapped: {},
-            onSettingsTapped: {},
-            onNotificationsTapped: {}
+            onSettingsTapped: {}
         )
         
         // Then
@@ -115,6 +113,7 @@ class LocationDiagnosticMockLocationService: LocationServiceProtocol, Observable
     func getLocationPreferCached() async throws -> CLLocation { return try await requestLocation() }
     func isCurrentLocationFromCache() -> Bool { return false }
     func getLocationAge() -> TimeInterval? { return 30.0 }
+    func setManualLocation(_ location: CLLocation) async { currentLocation = location }
 }
 
 @MainActor
@@ -137,11 +136,30 @@ class LocationDiagnosticMockSettingsService: SettingsServiceProtocol, Observable
         set { notificationsEnabled = newValue }
     }
 
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
+    }
+
     func saveSettings() async throws {}
     func loadSettings() async throws {}
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 @MainActor
@@ -162,6 +180,22 @@ class LocationDiagnosticMockPrayerTimeService: PrayerTimeServiceProtocol, Observ
     func refreshTodaysPrayerTimes() async {}
     func getPrayerTimes(from startDate: Date, to endDate: Date) async throws -> [Date: [PrayerTime]] { return [:] }
     func getTomorrowPrayerTimes(for location: CLLocation) async throws -> [PrayerTime] { return [] }
+    func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        return FuturePrayerTimeResult(
+            date: date,
+            prayerTimes: [],
+            hijriDate: HijriDate(from: date),
+            isRamadan: false,
+            disclaimerLevel: .shortTerm,
+            calculationTimezone: TimeZone.current,
+            isHighLatitude: false,
+            precision: .exact
+        )
+    }
+
+    func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] { return [] }
+    func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel { .today }
+    func isHighLatitudeLocation(_ location: CLLocation) -> Bool { false }
     func getCurrentLocation() async throws -> CLLocation {
         return CLLocation(latitude: 37.7749, longitude: -122.4194)
     }
@@ -174,10 +208,14 @@ class LocationDiagnosticMockNotificationService: NotificationServiceProtocol, Ob
     @Published var notificationsEnabled: Bool = true
 
     func requestNotificationPermission() async throws -> Bool { return true }
+    func requestCriticalAlertPermission() async throws -> Bool { return true }
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws {}
     func cancelAllNotifications() async {}
     func cancelNotifications(for prayer: Prayer) async {}
     func schedulePrayerTrackingNotification(for prayer: Prayer, at prayerTime: Date, reminderMinutes: Int) async throws {}
     func getNotificationSettings() -> NotificationSettings { return .default }
     func updateNotificationSettings(_ settings: NotificationSettings) {}
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }

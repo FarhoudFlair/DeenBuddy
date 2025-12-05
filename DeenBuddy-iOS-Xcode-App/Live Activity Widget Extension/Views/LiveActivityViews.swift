@@ -1,6 +1,7 @@
 import SwiftUI
 import ActivityKit
 import WidgetKit
+import AppIntents
 
 // MARK: - Widget Settings Helper
 
@@ -12,26 +13,26 @@ private func shouldShowArabicSymbol() -> Bool {
 
 @available(iOS 16.1, *)
 struct LiveActivityLockScreenView: View {
-    // Temporarily disabled until we can resolve ActivityViewContext
-    // let context: ActivityViewContext<PrayerCountdownActivity>
+    let context: ActivityViewContext<PrayerCountdownActivity>
 
     var body: some View {
-        // Placeholder view until ActivityViewContext is resolved
         HStack(spacing: 12) {
             // Islamic symbol
-            Text("☪")
-                .font(.title2)
+            Image("IslamicSymbol")
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 20, height: 20)
                 .foregroundColor(.green)
 
             VStack(alignment: .leading, spacing: 4) {
                 // Prayer name
-                Text("Next Prayer")
+                Text(context.state.nextPrayer.displayName)
                     .font(.headline)
                     .fontWeight(.semibold)
                     .foregroundColor(.primary)
 
                 // Prayer time
-                Text("Live Activity Placeholder")
+                Text(formatTime(context.state.prayerTime))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -39,17 +40,29 @@ struct LiveActivityLockScreenView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                // Arabic symbol
-                Text("🕌")
+                // Arabic symbol based on prayer
+                Text("الله")
                     .font(.title2)
                     .foregroundColor(.green)
 
                 // Countdown
-                Text("--:--")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(.green)
-                    .monospacedDigit()
+                if context.state.hasPassed {
+                    Text("Prayer Time")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.orange)
+                } else {
+                    Text(timerInterval: Date()...context.state.prayerTime, countsDown: true)
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(context.state.isImminent ? .red : .green)
+                        .monospacedDigit()
+                }
+
+                if #available(iOS 17.0, *) {
+                    PrayerCompletionIntentButton(prayer: context.state.nextPrayer)
+                        .padding(.top, 4)
+                }
             }
         }
         .padding()
@@ -57,180 +70,53 @@ struct LiveActivityLockScreenView: View {
         .cornerRadius(12)
     }
 
-    // Helper methods temporarily disabled
-    // private func formatTime(_ date: Date) -> String {
-    //     let formatter = DateFormatter()
-    //     formatter.timeStyle = .short
-    //     return formatter.string(from: date)
-    // }
-    //
-    // private func formatTimeRemaining(_ timeInterval: TimeInterval) -> String {
-    //     let hours = Int(timeInterval) / 3600
-    //     let minutes = Int(timeInterval) % 3600 / 60
-    //
-    //     if hours > 0 {
-    //         return "\(hours)h \(minutes)m"
-    //     } else {
-    //         return "\(minutes)m"
-    //     }
-    // }
-}
-
-// MARK: - Live Activity Views
-
-@available(iOS 16.1, *)
-struct PrayerCountdownLiveActivityView: View {
-    let state: PrayerCountdownActivity.ContentState
-    
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(state.prayerSymbol)
-                    .font(.title2)
-                    .foregroundColor(.accentColor)
-                
-                Text(state.nextPrayer.displayName)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-            }
-            
-            Spacer()
-            
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(state.formattedTimeRemaining)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                
-                Text(timeString(from: state.nextPrayer.time))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-    }
-    
-    private func timeString(from date: Date) -> String {
+    private func formatTime(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
 }
 
-@available(iOS 16.1, *)
-extension PrayerCountdownLiveActivityView {
-    
-    func dynamicIslandCompactLeading() -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            // Configurable Arabic prayer symbol
-            if shouldShowArabicSymbol() {
-                Text(state.prayerSymbol)
+@available(iOS 17.0, *)
+struct PrayerCompletionIntentButton: View {
+    let prayer: Prayer
+
+    var body: some View {
+        if let intentOption = PrayerIntentOption(prayer: prayer) {
+            Button(intent: ConfirmPrayerCompletionIntent(prayer: intentOption)) {
+                Label("Completed", systemImage: "checkmark.circle.fill")
                     .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.primary)
-                    .accessibilityLabel("Prayer symbol")
-                    .accessibilityHint("Islamic symbol indicating prayer time")
             }
-
-            Text(state.nextPrayer.displayName)
-                .font(.caption2)
-                .foregroundColor(.primary)
-        }
-        .padding(4)
-    }
-    
-    func dynamicIslandCompactTrailing() -> some View {
-        VStack(alignment: .trailing, spacing: 1) {
-            Text(state.formattedTimeRemaining)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .tint(.green)
+            .accessibilityLabel("Mark \(prayer.displayName) as completed")
+        } else {
+            Label("Unavailable", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
-            
-            Text(timeString(from: state.nextPrayer.time))
-                .font(.caption2)
-                .foregroundColor(.secondary)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Unable to mark \(prayer.displayName) as completed")
         }
-        .padding(4)
-    }
-    
-    func dynamicIslandMinimal() -> some View {
-        HStack(spacing: 2) {
-            // Configurable Arabic prayer symbol for minimal persistent display
-            if shouldShowArabicSymbol() {
-                Text(state.prayerSymbol)
-                    .font(.caption2)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-                    .accessibilityLabel("Prayer symbol")
-                    .accessibilityHint("Islamic symbol indicating prayer time")
-            }
-
-            Text(state.formattedTimeRemaining)
-                .font(.caption2)
-                .foregroundColor(.primary)
-        }
-        .padding(2)
-    }
-    
-    func dynamicIslandExpanded() -> some View {
-        VStack(spacing: 8) {
-            HStack {
-                HStack(spacing: 6) {
-                    // Use only the prayer symbol for consistency
-                    if shouldShowArabicSymbol() {
-                        Text(state.prayerSymbol)
-                            .font(.title)
-                            .foregroundColor(.accentColor)
-                            .accessibilityLabel("Prayer symbol")
-                            .accessibilityHint("Islamic symbol indicating prayer time")
-                    }
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(state.nextPrayer.displayName)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text(timeString(from: state.nextPrayer.time))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            // Prayer countdown progress
-            VStack(spacing: 4) {
-                HStack {
-                    Text("Time Remaining")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    Spacer()
-                    
-                    Text(state.formattedTimeRemaining)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.primary)
-                }
-                
-                // Progress bar (conceptual - would need actual prayer time data)
-                ProgressView(value: 0.7) // Placeholder value
-                    .progressViewStyle(LinearProgressViewStyle())
-                    .accentColor(.accentColor)
-            }
-            
-            // Islamic quote or verse
-            Text("\"And establish prayer and give zakah and bow with those who bow.\"")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .italic()
-        }
-        .padding()
     }
 }
+
+@available(iOS 16.1, *)
+extension LiveActivityLockScreenView {
+    @ViewBuilder
+    func diagnosticOverlay() -> some View {
+        if WidgetDataManager.shared.loadWidgetData() == nil {
+            Text("Please open the app to load prayer times")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        } else {
+            EmptyView()
+        }
+    }
+}
+
+// MARK: - Live Activity Views (using shared PrayerCountdownLiveActivityView from DeenAssistCore)
+
+// MARK: - Dynamic Island methods are provided by the shared PrayerCountdownLiveActivityView from DeenAssistCore
 
 // MARK: - App Launch Lock Screen View
 
@@ -286,6 +172,8 @@ struct PrayerTimeProvider: TimelineProvider {
         return .placeholder()
     }
     
+    // MARK: - TimelineProvider methods (for StaticConfiguration widgets)
+    
     func getSnapshot(in context: Context, completion: @escaping (PrayerWidgetEntry) -> Void) {
         let entry: PrayerWidgetEntry
         
@@ -304,29 +192,107 @@ struct PrayerTimeProvider: TimelineProvider {
         let currentEntry = getCurrentEntry()
         var entries: [PrayerWidgetEntry] = []
         let currentDate = Date()
+        let calendar = Calendar.current
         
         print("🔧 Widget Timeline: Generating entries starting from \(currentDate)")
         
-        // Generate a timeline for the next 60 minutes, updating every minute
-        for minuteOffset in 0..<60 {
-            let entryDate = Calendar.current.date(byAdding: .minute, value: minuteOffset, to: currentDate)!
-            var updatedData = currentEntry.widgetData
+        // Strategy: Generate entries at key moments for accurate countdown display
+        // 1. Immediate entry (now)
+        // 2. Entries at each remaining prayer time today
+        // 3. Entries every 15 minutes for countdown updates
+        // 4. Entry at midnight for day transition
+        
+        let todaysPrayers = currentEntry.widgetData.todaysPrayerTimes
+        let upcomingPrayers = todaysPrayers.filter { $0.time > currentDate }
+        
+        // Add immediate entry
+        entries.append(currentEntry)
+        
+        // Generate entries every 15 minutes for the next 24 hours for smooth countdown
+        var entryTime = currentDate
+        let endTime = calendar.date(byAdding: .hour, value: 24, to: currentDate) ?? currentDate
+        var prayerIndex = 0
+        
+        while entryTime < endTime && entries.count < 96 { // Max 96 entries (every 15 min for 24h)
+            // Check if we've passed a prayer time - create an entry at that moment
+            while prayerIndex < upcomingPrayers.count && upcomingPrayers[prayerIndex].time <= entryTime {
+                let prayerTime = upcomingPrayers[prayerIndex].time
+                
+                // Create entry at prayer time (countdown = 0)
+                var prayerMomentData = currentEntry.widgetData
+                prayerMomentData.timeUntilNextPrayer = 0
+                
+                let prayerEntry = PrayerWidgetEntry(
+                    date: prayerTime,
+                    widgetData: prayerMomentData,
+                    configuration: currentEntry.configuration
+                )
+                
+                // Avoid duplicate entries
+                if !entries.contains(where: { abs($0.date.timeIntervalSince(prayerTime)) < 60 }) {
+                    entries.append(prayerEntry)
+                }
+                
+                prayerIndex += 1
+            }
             
-            // Recalculate time until next prayer for the entry's date
-            if let nextPrayerTime = updatedData.nextPrayer?.time {
-                updatedData.timeUntilNextPrayer = nextPrayerTime.timeIntervalSince(entryDate)
+            // Advance by 15 minutes
+            guard let nextTime = calendar.date(byAdding: .minute, value: 15, to: entryTime) else { break }
+            entryTime = nextTime
+            
+            // Find the current next prayer for this time
+            let nextPrayerForTime = todaysPrayers.first { $0.time > entryTime }
+            
+            var updatedData = currentEntry.widgetData
+            if let nextPrayer = nextPrayerForTime {
+                updatedData.timeUntilNextPrayer = nextPrayer.time.timeIntervalSince(entryTime)
+                // Update nextPrayer reference if it changed
+                updatedData = WidgetData(
+                    nextPrayer: nextPrayer,
+                    timeUntilNextPrayer: nextPrayer.time.timeIntervalSince(entryTime),
+                    currentPrayerInterval: computeInterval(from: updatedData),
+                    todaysPrayerTimes: updatedData.todaysPrayerTimes,
+                    hijriDate: updatedData.hijriDate,
+                    location: updatedData.location,
+                    calculationMethod: updatedData.calculationMethod,
+                    lastUpdated: updatedData.lastUpdated
+                )
+            } else {
+                // All prayers passed - set nil
+                updatedData = WidgetData(
+                    nextPrayer: nil,
+                    timeUntilNextPrayer: nil,
+                    currentPrayerInterval: nil,
+                    todaysPrayerTimes: updatedData.todaysPrayerTimes,
+                    hijriDate: updatedData.hijriDate,
+                    location: updatedData.location,
+                    calculationMethod: updatedData.calculationMethod,
+                    lastUpdated: updatedData.lastUpdated
+                )
             }
             
             let entry = PrayerWidgetEntry(
-                date: entryDate,
+                date: entryTime,
                 widgetData: updatedData,
                 configuration: currentEntry.configuration
             )
             entries.append(entry)
         }
-
-        // Set the refresh policy to update after the last generated entry
-        let nextRefreshDate = entries.last?.date ?? Calendar.current.date(byAdding: .hour, value: 1, to: currentDate)!
+        
+        // Sort entries by date
+        entries.sort { $0.date < $1.date }
+        
+        // Determine next refresh time - at the next prayer time or 1 hour from last entry
+        let nextRefreshDate: Date
+        if let nextPrayer = upcomingPrayers.first {
+            // Refresh at next prayer time to update the "next prayer" reference
+            nextRefreshDate = nextPrayer.time
+        } else {
+            // All prayers done, refresh at midnight or 1 hour
+            let tomorrow = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate
+            let midnight = calendar.startOfDay(for: tomorrow)
+            nextRefreshDate = min(midnight, calendar.date(byAdding: .hour, value: 1, to: entries.last?.date ?? currentDate) ?? currentDate)
+        }
         
         let timeline = Timeline(
             entries: entries,
@@ -336,6 +302,7 @@ struct PrayerTimeProvider: TimelineProvider {
         print("✅ Widget Timeline: Generated \(entries.count) entries, next refresh: \(nextRefreshDate)")
         completion(timeline)
     }
+    
     
     // MARK: - Helper Methods
     
@@ -348,17 +315,37 @@ struct PrayerTimeProvider: TimelineProvider {
             print("🔍 Widget: Next prayer: \(widgetData.nextPrayer?.prayer.displayName ?? "None")")
             print("🔍 Widget: Location: \(widgetData.location)")
             
+            // Load configuration from shared container
             let configuration = WidgetDataManager.shared.loadWidgetConfiguration()
+            
+            // Validate data freshness (if data is older than 24 hours, show error state)
+            let dataAge = Date().timeIntervalSince(widgetData.lastUpdated)
+            if dataAge > 24 * 60 * 60 { // 24 hours
+                print("⚠️ Widget: Data is stale (age: \(Int(dataAge/3600)) hours), using error state")
+                return PrayerWidgetEntry.errorEntry()
+            }
+            
+            let dataWithInterval = WidgetData(
+                nextPrayer: widgetData.nextPrayer,
+                timeUntilNextPrayer: widgetData.timeUntilNextPrayer,
+                currentPrayerInterval: computeInterval(from: widgetData),
+                todaysPrayerTimes: widgetData.todaysPrayerTimes,
+                hijriDate: widgetData.hijriDate,
+                location: widgetData.location,
+                calculationMethod: widgetData.calculationMethod,
+                lastUpdated: widgetData.lastUpdated
+            )
             return PrayerWidgetEntry(
                 date: Date(),
-                widgetData: widgetData,
+                widgetData: dataWithInterval,
                 configuration: configuration
             )
         } else {
-            print("⚠️ Widget: No widget data available - using placeholder")
+            print("⚠️ Widget: No widget data available - using error state")
             print("🔍 Widget: This usually means the main app hasn't saved widget data yet")
-            // Return placeholder if no data available
-            return PrayerWidgetEntry.placeholder()
+            print("💡 Widget: User should open the DeenBuddy app to initialize widget data")
+            // Return error state if no data available
+            return PrayerWidgetEntry.errorEntry()
         }
     }
     
@@ -381,6 +368,7 @@ struct PrayerTimeProvider: TimelineProvider {
                     updatedWidgetData = WidgetData(
                         nextPrayer: updatedWidgetData.nextPrayer,
                         timeUntilNextPrayer: timeUntilNext,
+                        currentPrayerInterval: computeInterval(from: updatedWidgetData),
                         todaysPrayerTimes: updatedWidgetData.todaysPrayerTimes,
                         hijriDate: updatedWidgetData.hijriDate,
                         location: updatedWidgetData.location,
@@ -422,4 +410,17 @@ struct PrayerTimeProvider: TimelineProvider {
         
         return min(midnight, defaultRefresh)
     }
+
+    private func computeInterval(from data: WidgetData) -> TimeInterval? {
+        guard let next = data.nextPrayer else { return nil }
+        let sorted = data.todaysPrayerTimes.sorted { $0.time < $1.time }
+        guard let idx = sorted.firstIndex(where: { $0.time == next.time && $0.prayer == next.prayer }) ?? sorted.firstIndex(where: { $0.time > next.time }) else {
+            return nil
+        }
+        let previous = sorted[..<idx].last
+        guard let prevTime = previous?.time else { return nil }
+        let interval = next.time.timeIntervalSince(prevTime)
+        return interval > 0 ? interval : nil
+    }
+
 }

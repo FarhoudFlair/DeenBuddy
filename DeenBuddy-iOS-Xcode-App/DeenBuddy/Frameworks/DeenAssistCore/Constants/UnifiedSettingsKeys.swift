@@ -51,7 +51,19 @@ public enum UnifiedSettingsKeys {
     
     /// Whether Live Activities are enabled for prayer countdowns
     public static let liveActivitiesEnabled = "DeenBuddy.Settings.LiveActivitiesEnabled"
-    
+
+    /// Whether to show subtle Islamic geometric patterns in the UI
+    public static let enableIslamicPatterns = "DeenBuddy.Settings.EnableIslamicPatterns"
+
+    /// Maximum future lookahead for prayer times (months)
+    public static let maxLookaheadMonths = "DeenBuddy.Settings.MaxLookaheadMonths"
+
+    /// Whether to apply +30m Isha during Ramadan for Umm Al Qura/Qatar
+    public static let useRamadanIshaOffset = "DeenBuddy.Settings.UseRamadanIshaOffset"
+
+    /// Whether to show exact long-range times (>12 months)
+    public static let showLongRangePrecision = "DeenBuddy.Settings.ShowLongRangePrecision"
+
     /// Last settings synchronization date
     public static let lastSyncDate = "DeenBuddy.Settings.LastSyncDate"
     

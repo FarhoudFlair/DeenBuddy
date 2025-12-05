@@ -1,0 +1,19 @@
+/* Accessibility for Dynamic Island prayer icon */
+"Prayer_Fajr" = "Fajr";
+"Prayer_Dhuhr" = "Dhuhr";
+"Prayer_Asr" = "Asr";
+"Prayer_Maghrib" = "Maghrib";
+"Prayer_Isha" = "Isha";
+"PrayerLabelFormat" = "%@ prayer";
+"ImminentHint" = "Imminent, starts soon";
+"UrgentLabel" = "urgent";
+"PrayerTimeHint" = "Prayer time";
+
+/* User account error messages (shared with main app) */
+"UserAccountError.notAuthenticated" = "You must be signed in to perform this action.";
+"UserAccountError.invalidEmail" = "Please enter a valid email address.";
+"UserAccountError.weakPassword" = "Password must be at least 6 characters.";
+"UserAccountError.emailAlreadyInUse" = "This email is already registered.";
+"UserAccountError.userNotFound" = "No account found with this email.";
+"UserAccountError.wrongPassword" = "Incorrect password.";
+"UserAccountError.networkError" = "Network error. Please check your connection.";

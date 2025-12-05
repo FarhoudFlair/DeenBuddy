@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 /// Time format picker view
 public struct TimeFormatPickerView: View {
@@ -45,6 +46,8 @@ public struct TimeFormatPickerView: View {
                     Text("Choose how prayer times are displayed throughout the app.")
                         .bodySmall()
                         .foregroundColor(ColorPalette.textSecondary)
+                        .lineLimit(nil) // Allow unlimited lines to prevent truncation
+                        .fixedSize(horizontal: false, vertical: true) // Allow vertical expansion
                 }
             }
             .navigationTitle("Time Format")
@@ -114,10 +117,22 @@ private class TimeFormatPreviewMockSettingsService: SettingsServiceProtocol, Obs
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
     @Published var liveActivitiesEnabled: Bool = true
+    @Published var enableIslamicPatterns: Bool = false
+    @Published var maxLookaheadMonths: Int = 12
+    @Published var useRamadanIshaOffset: Bool = false
+    @Published var showLongRangePrecision: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
     }
     
     func saveSettings() async throws {}
@@ -125,4 +140,18 @@ private class TimeFormatPreviewMockSettingsService: SettingsServiceProtocol, Obs
     func resetToDefaults() async throws {}
     func saveImmediately() async throws {}
     func saveOnboardingSettings() async throws {}
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        maxLookaheadMonths = snapshot.maxLookaheadMonths
+        useRamadanIshaOffset = snapshot.useRamadanIshaOffset
+        showLongRangePrecision = snapshot.showLongRangePrecision
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }

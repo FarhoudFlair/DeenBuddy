@@ -4,62 +4,140 @@ import SwiftUI
 public struct EmptyStateView: View {
     let state: EmptyState
     let onAction: (() -> Void)?
-    
+
+    @Environment(\.currentTheme) private var currentTheme
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var hasAppeared = false
+
+    private var premiumTokens: PremiumDesignTokens {
+        PremiumDesignTokens(theme: currentTheme, colorScheme: colorScheme)
+    }
+
+    private var themeColors: ThemeAwareColorPalette {
+        ThemeAwareColorPalette(theme: currentTheme)
+    }
+
     public init(state: EmptyState, onAction: (() -> Void)? = nil) {
         self.state = state
         self.onAction = onAction
     }
-    
+
     public var body: some View {
-        VStack(spacing: 24) {
-            // Illustration or icon
+        VStack(spacing: 32) {
+            // Illustration or icon with gradient glow
             VStack(spacing: 16) {
                 if let illustration = state.illustration {
-                    illustration
-                        .font(.system(size: 80))
-                        .foregroundColor(ColorPalette.textTertiary)
+                    ZStack {
+                        // Gradient glow background
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        themeColors.primary.opacity(0.15),
+                                        themeColors.primary.opacity(0.05),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 40,
+                                    endRadius: 100
+                                )
+                            )
+                            .frame(width: 160, height: 160)
+                            .blur(radius: 8)
+
+                        illustration
+                            .font(.system(size: 80))
+                            .foregroundStyle(premiumTokens.countdownGradient)
+                    }
+                    .opacity(hasAppeared ? 1 : 0)
+                    .scaleEffect(hasAppeared ? 1 : 0.8)
+                    .appAnimation(AppAnimations.staggeredEntry(delay: 0.0), value: hasAppeared)
                 } else {
-                    Image(systemName: state.iconName)
-                        .font(.system(size: 64))
-                        .foregroundColor(ColorPalette.textTertiary)
+                    ZStack {
+                        // Gradient glow background
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        themeColors.primary.opacity(0.15),
+                                        themeColors.primary.opacity(0.05),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 30,
+                                    endRadius: 80
+                                )
+                            )
+                            .frame(width: 140, height: 140)
+                            .blur(radius: 8)
+
+                        Image(systemName: state.iconName)
+                            .font(.system(size: 64, weight: .light))
+                            .foregroundStyle(premiumTokens.countdownGradient)
+                    }
+                    .opacity(hasAppeared ? 1 : 0)
+                    .scaleEffect(hasAppeared ? 1 : 0.8)
+                    .appAnimation(AppAnimations.staggeredEntry(delay: 0.0), value: hasAppeared)
                 }
             }
-            
+
             // Content
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 Text(state.title)
-                    .headlineSmall()
-                    .foregroundColor(ColorPalette.textPrimary)
+                    .font(.title.weight(.bold))
+                    .foregroundColor(themeColors.textPrimary)
                     .multilineTextAlignment(.center)
-                
+                    .dynamicTypeSize(.medium ... .accessibility5)
+                    .minimumScaleFactor(0.85)
+                    .opacity(hasAppeared ? 1 : 0)
+                    .offset(y: hasAppeared ? 0 : 10)
+                    .appAnimation(AppAnimations.staggeredEntry(delay: 0.1), value: hasAppeared)
+
                 Text(state.message)
-                    .bodyMedium()
-                    .foregroundColor(ColorPalette.textSecondary)
+                    .font(.headline)
+                    .foregroundColor(themeColors.textSecondary)
                     .multilineTextAlignment(.center)
-                
+                    .dynamicTypeSize(.medium ... .accessibility5)
+                    .minimumScaleFactor(0.9)
+                    .opacity(hasAppeared ? 1 : 0)
+                    .offset(y: hasAppeared ? 0 : 10)
+                    .appAnimation(AppAnimations.staggeredEntry(delay: 0.2), value: hasAppeared)
+
                 if let suggestion = state.suggestion {
                     Text(suggestion)
-                        .bodySmall()
-                        .foregroundColor(ColorPalette.textTertiary)
+                        .font(.subheadline)
+                        .foregroundColor(themeColors.textTertiary)
                         .multilineTextAlignment(.center)
+                        .dynamicTypeSize(.small ... .accessibility5)
+                        .minimumScaleFactor(0.9)
                         .padding(.top, 8)
+                        .opacity(hasAppeared ? 1 : 0)
+                        .offset(y: hasAppeared ? 0 : 10)
+                        .appAnimation(AppAnimations.staggeredEntry(delay: 0.3), value: hasAppeared)
                 }
             }
-            
+            .padding(.horizontal, 32)
+
             // Action button
             if let actionTitle = state.actionTitle, let onAction = onAction {
                 CustomButton.primary(actionTitle) {
                     onAction()
                 }
+                .opacity(hasAppeared ? 1 : 0)
+                .offset(y: hasAppeared ? 0 : 10)
+                .appAnimation(AppAnimations.staggeredEntry(delay: 0.4), value: hasAppeared)
                 .padding(.top, 8)
             }
         }
-        .padding(32)
+        .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(ColorPalette.backgroundPrimary)
+        .background(themeColors.backgroundPrimary)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(state.accessibilityLabel)
         .accessibilityHint(state.accessibilityHint)
+        .onAppear {
+            hasAppeared = true
+        }
     }
 }
 

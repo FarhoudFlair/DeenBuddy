@@ -266,6 +266,7 @@
 				Frameworks/DeenAssistCore/LiveActivities/AppLaunchActivity.swift,
 				Frameworks/DeenAssistCore/LiveActivities/DynamicIslandManager.swift,
 				Frameworks/DeenAssistCore/LiveActivities/PrayerCountdownActivity.swift,
+				Frameworks/DeenAssistCore/LiveActivities/PrayerLiveActivityActionBridge.swift,
 				Frameworks/DeenAssistCore/Models/Prayer.swift,
 			);
 			target = 23837F432E3C794F003AEF75 /* Live Activity Widget ExtensionExtension */;

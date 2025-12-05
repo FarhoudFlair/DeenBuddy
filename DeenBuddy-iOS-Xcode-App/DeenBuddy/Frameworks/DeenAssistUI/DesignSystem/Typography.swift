@@ -69,6 +69,17 @@ public struct Typography {
     
     /// Caption small font for very small details
     public static let captionSmall = Font.system(size: 9, weight: .regular, design: .default)
+
+    // MARK: - Hero Fonts (Premium Design)
+
+    /// Hero extra large for countdown and large time displays
+    public static let heroXL = Font.system(size: 64, weight: .thin, design: .rounded)
+
+    /// Hero large for secondary hero elements
+    public static let heroL = Font.system(size: 52, weight: .light, design: .rounded)
+
+    /// Hero medium for tertiary hero elements
+    public static let heroM = Font.system(size: 42, weight: .regular, design: .rounded)
 }
 
 /// Text style modifiers for consistent styling
@@ -180,5 +191,19 @@ public extension Text {
     
     func captionSmall() -> some View {
         self.font(Typography.captionSmall)
+    }
+
+    // MARK: - Hero Styles
+
+    func heroXL() -> some View {
+        self.font(Typography.heroXL)
+    }
+
+    func heroL() -> some View {
+        self.font(Typography.heroL)
+    }
+
+    func heroM() -> some View {
+        self.font(Typography.heroM)
     }
 }

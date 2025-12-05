@@ -17,6 +17,10 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     // MARK: - Published Properties
     
     @Published public var todaysPrayerTimes: [PrayerTime] = []
+    
+    public var todaysPrayerTimesPublisher: AnyPublisher<[PrayerTime], Never> {
+        $todaysPrayerTimes.eraseToAnyPublisher()
+    }
     @Published public var nextPrayer: PrayerTime? = nil
     @Published public var timeUntilNextPrayer: TimeInterval? = nil
     // Computed properties that reference SettingsService (single source of truth)
@@ -48,6 +52,7 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     // MARK: - Performance & Debouncing
     private var widgetUpdateTask: Task<Void, Never>?
     private let widgetUpdateDebounceInterval: TimeInterval = 1.0 // 1 second debounce
+    private let locationAccuracyThreshold: CLLocationAccuracy = 100.0
     
     // Request coordinator for managing duplicate requests
     private let requestCoordinator = PrayerTimeRequestCoordinator()
@@ -75,10 +80,15 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         setupSettingsObservers()
         startTimer()
 
-        // Load any existing cached prayer times
+        // Load any existing cached prayer times and update widget immediately
         if let cachedTimes = loadCachedPrayerTimes() {
             todaysPrayerTimes = cachedTimes
             updateNextPrayer()
+            
+            // Trigger widget update with cached data so widgets display immediately on app launch
+            Task { @MainActor in
+                await self.updateWidgetData()
+            }
         }
     }
     
@@ -430,6 +440,85 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     public func refreshTodaysPrayerTimes() async {
         // Alias for refreshPrayerTimes() to satisfy BackgroundTaskManager requirements
         await refreshPrayerTimes()
+    }
+
+    public func getFuturePrayerTimes(for date: Date, location: CLLocation?) async throws -> FuturePrayerTimeResult {
+        let disclaimerLevel = try validateLookaheadDate(date)
+        let targetLocation = try await resolveLocation(location)
+        let isHighLat = isHighLatitudeLocation(targetLocation)
+        let prayerTimes = try await calculatePrayerTimes(for: targetLocation, date: date)
+        let hijriDate = HijriDate(from: date)
+        let isRamadan = await islamicCalendarService.isDateInRamadan(date)
+        let timezone = await determineTimeZone(for: targetLocation) ?? TimeZone.current
+        let precision = precisionLevel(for: disclaimerLevel)
+
+        return FuturePrayerTimeResult(
+            date: date,
+            prayerTimes: prayerTimes,
+            hijriDate: hijriDate,
+            isRamadan: isRamadan,
+            disclaimerLevel: disclaimerLevel,
+            calculationTimezone: timezone,
+            isHighLatitude: isHighLat,
+            precision: precision
+        )
+    }
+
+    public func getFuturePrayerTimes(from startDate: Date, to endDate: Date, location: CLLocation?) async throws -> [FuturePrayerTimeResult] {
+        let calendar = Calendar.current
+        guard let daysDiff = calendar.dateComponents([.day], from: startDate, to: endDate).day,
+              daysDiff <= 90,
+              daysDiff >= 0 else {
+            throw PrayerTimeError.dateRangeTooLarge
+        }
+
+        var results: [FuturePrayerTimeResult] = []
+        var currentDate = startDate
+
+        while currentDate <= endDate {
+            let result = try await getFuturePrayerTimes(for: currentDate, location: location)
+            results.append(result)
+
+            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: currentDate) else { break }
+            currentDate = nextDate
+        }
+
+        return results
+    }
+
+    public func validateLookaheadDate(_ date: Date) throws -> DisclaimerLevel {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let target = calendar.startOfDay(for: date)
+
+        if target < today {
+            throw PrayerTimeError.invalidDate
+        }
+
+        if calendar.isDate(target, inSameDayAs: today) {
+            return .today
+        }
+
+        guard let monthsDiff = calendar.dateComponents([.month], from: today, to: target).month else {
+            throw PrayerTimeError.invalidDate
+        }
+
+        if monthsDiff > settingsService.maxLookaheadMonths {
+            throw PrayerTimeError.lookaheadLimitExceeded(requested: monthsDiff, maximum: settingsService.maxLookaheadMonths)
+        }
+
+        switch monthsDiff {
+        case 0...12:
+            return .shortTerm
+        case 13...60:
+            return .mediumTerm
+        default:
+            return .longTerm
+        }
+    }
+
+    public func isHighLatitudeLocation(_ location: CLLocation) -> Bool {
+        abs(location.coordinate.latitude) > 55.0
     }
 
     public func getCurrentLocation() async throws -> CLLocation {
@@ -800,12 +889,31 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         }
 
         // Create widget data
+        let locationDescription: String
+        if let locationInfo = locationService.currentLocationInfo {
+            let currentLocation = locationService.currentLocation
+            if let city = locationInfo.city, !city.isEmpty {
+                // If accuracy is poor (>threshold), prefix with "Near"
+                if let currentLocation, currentLocation.horizontalAccuracy > locationAccuracyThreshold {
+                    locationDescription = "Near \(city)"
+                } else {
+                    locationDescription = city
+                }
+            } else if let country = locationInfo.country, !country.isEmpty {
+                locationDescription = country
+            } else {
+                locationDescription = "Current Location"
+            }
+        } else {
+            locationDescription = "Current Location"
+        }
+
         let widgetData = WidgetData(
             nextPrayer: nextPrayer,
             timeUntilNextPrayer: timeUntilNextPrayer,
             todaysPrayerTimes: todaysPrayerTimes,
             hijriDate: HijriDate(from: Date()),
-            location: "Current Location",
+            location: locationDescription,
             calculationMethod: calculationMethod,
             lastUpdated: Date()
         )
@@ -1068,12 +1176,12 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
     /// Apply Ramadan-specific adjustments for calculation methods that require them
     private func applyRamadanAdjustments(to params: inout CalculationParameters, for date: Date) async {
         // Only apply Ramadan adjustments for methods that use fixed Isha intervals
-        guard calculationMethod == .ummAlQura || calculationMethod == .qatar else {
+        guard (calculationMethod == .ummAlQura || calculationMethod == .qatar),
+              settingsService.useRamadanIshaOffset else {
             return
         }
 
-        // Check if the date is during Ramadan
-        let isRamadan = await islamicCalendarService.isRamadan()
+        let isRamadan = await islamicCalendarService.isDateInRamadan(date)
 
         if isRamadan {
             // During Ramadan, extend Isha interval from 90 to 120 minutes for KSA/Qatar methods
@@ -1494,6 +1602,29 @@ public class PrayerTimeService: PrayerTimeServiceProtocol, ObservableObject {
         logger.error("❌ All fallback calculation attempts failed")
         return nil
     }
+
+    private func resolveLocation(_ location: CLLocation?) async throws -> CLLocation {
+        if let location {
+            return location
+        }
+
+        guard let currentLocation = locationService.currentLocation else {
+            return try await locationService.requestLocation()
+        }
+
+        return currentLocation
+    }
+
+    private func precisionLevel(for disclaimerLevel: DisclaimerLevel) -> PrecisionLevel {
+        switch disclaimerLevel {
+        case .today, .shortTerm:
+            return .exact
+        case .mediumTerm:
+            return settingsService.showLongRangePrecision ? .exact : .window(minutes: 30)
+        case .longTerm:
+            return .window(minutes: 30)
+        }
+    }
     
     // MARK: - Timezone Methods
     
@@ -1666,6 +1797,8 @@ public enum PrayerTimeError: LocalizedError {
     case calculationFailed
     case locationUnavailable
     case invalidDate
+    case lookaheadLimitExceeded(requested: Int, maximum: Int)
+    case dateRangeTooLarge
     case permissionDenied
     case networkError
     
@@ -1677,6 +1810,10 @@ public enum PrayerTimeError: LocalizedError {
             return "Location is not available"
         case .invalidDate:
             return "Invalid date provided"
+        case .lookaheadLimitExceeded(let requested, let maximum):
+            return "Requested lookahead of \(requested) months exceeds maximum of \(maximum) months"
+        case .dateRangeTooLarge:
+            return "Date range exceeds the allowed limit"
         case .permissionDenied:
             return "Location permission denied"
         case .networkError:

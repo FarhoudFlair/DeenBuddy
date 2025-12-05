@@ -13,6 +13,11 @@ public struct SupabaseConfiguration {
     }
 }
 
+public struct FirebaseConfiguration {
+    // Dynamic Links is deprecated - consider Firebase Hosting or Universal Links instead
+    public init() {}
+}
+
 /// Configuration manager for secure app configuration
 @MainActor
 public class ConfigurationManager: ObservableObject {
@@ -308,19 +313,22 @@ public struct AppConfiguration {
     public let api: APIConfiguration
     public let features: FeatureFlags
     public let logging: LoggingConfiguration
+    public let firebase: FirebaseConfiguration?
     
     public init(
         environment: AppEnvironment,
         supabase: SupabaseConfiguration,
         api: APIConfiguration,
         features: FeatureFlags,
-        logging: LoggingConfiguration
+        logging: LoggingConfiguration,
+        firebase: FirebaseConfiguration? = nil
     ) {
         self.environment = environment
         self.supabase = supabase
         self.api = api
         self.features = features
         self.logging = logging
+        self.firebase = firebase
     }
 }
 
@@ -340,17 +348,20 @@ public struct FeatureFlags {
     public let enableCrashReporting: Bool
     public let enableBetaFeatures: Bool
     public let enableOfflineMode: Bool
+    public let enableEmailLinkAuth: Bool
     
     public init(
         enableAnalytics: Bool,
         enableCrashReporting: Bool,
         enableBetaFeatures: Bool,
-        enableOfflineMode: Bool
+        enableOfflineMode: Bool,
+        enableEmailLinkAuth: Bool = true
     ) {
         self.enableAnalytics = enableAnalytics
         self.enableCrashReporting = enableCrashReporting
         self.enableBetaFeatures = enableBetaFeatures
         self.enableOfflineMode = enableOfflineMode
+        self.enableEmailLinkAuth = enableEmailLinkAuth
     }
 }
 

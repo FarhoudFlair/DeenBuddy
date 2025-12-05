@@ -1,17 +1,27 @@
 import Foundation
 import UserNotifications
+import Combine
 
 /// Protocol for notification services
 @MainActor
-public protocol NotificationServiceProtocol: ObservableObject {
+public protocol NotificationServiceProtocol: AnyObject, ObservableObject {
     /// Current notification authorization status
     var authorizationStatus: UNAuthorizationStatus { get }
+    
+    /// Publisher for authorization status
+    var authorizationStatusPublisher: AnyPublisher<UNAuthorizationStatus, Never> { get }
     
     /// Whether notifications are enabled
     var notificationsEnabled: Bool { get }
     
     /// Request notification permission from user
     func requestNotificationPermission() async throws -> Bool
+
+    /// Request permission for critical alerts (if the entitlement is available)
+    func requestCriticalAlertPermission() async throws -> Bool
+
+    /// Check if critical alert authorization is currently enabled
+    func getCriticalAlertAuthorizationStatus() async -> Bool
     
     /// Schedule prayer notifications
     func schedulePrayerNotifications(for prayerTimes: [PrayerTime], date: Date?) async throws
@@ -45,6 +55,55 @@ public protocol NotificationServiceProtocol: ObservableObject {
     func updateBadgeForCompletedPrayer() async
 }
 
+// MARK: - Default Authorization Status Publisher
+
+@MainActor
+private enum NotificationAuthorizationPublisherStorage {
+    static let subjects = NSMapTable<AnyObject, CurrentValueSubject<UNAuthorizationStatus, Never>>(
+        keyOptions: .weakMemory,
+        valueOptions: .strongMemory
+    )
+}
+
+/// Default main-actor publisher implementation so conformers remain source-compatible.
+/// Conformers must call `updateAuthorizationStatusPublisher(_:)` whenever `authorizationStatus` changes.
+@MainActor
+public extension NotificationServiceProtocol {
+    /// Default publisher emitting authorization status changes on the main actor.
+    var authorizationStatusPublisher: AnyPublisher<UNAuthorizationStatus, Never> {
+        Self.authorizationStatusSubject(for: self).eraseToAnyPublisher()
+    }
+    
+    /// Call this whenever `authorizationStatus` mutates to keep the publisher in sync.
+    public func updateAuthorizationStatusPublisher(_ status: UNAuthorizationStatus) {
+        Self.authorizationStatusSubject(for: self).send(status)
+    }
+
+    /// Remove the stored publisher for this instance to prevent leaks once deallocated.
+    public func clearAuthorizationStatusPublisher() {
+        Self.removeAuthorizationStatusSubject(for: self)
+    }
+    
+    @discardableResult
+    private static func authorizationStatusSubject(
+        for instance: NotificationServiceProtocol
+    ) -> CurrentValueSubject<UNAuthorizationStatus, Never> {
+        if let existing = NotificationAuthorizationPublisherStorage.subjects.object(forKey: instance as AnyObject) {
+            return existing
+        }
+        
+        let subject = CurrentValueSubject<UNAuthorizationStatus, Never>(instance.authorizationStatus)
+        NotificationAuthorizationPublisherStorage.subjects.setObject(subject, forKey: instance as AnyObject)
+        return subject
+    }
+
+    private static func removeAuthorizationStatusSubject(
+        for instance: NotificationServiceProtocol
+    ) {
+        NotificationAuthorizationPublisherStorage.subjects.removeObject(forKey: instance as AnyObject)
+    }
+}
+
 /// Prayer time data structure for notifications
 public struct PrayerTime: Codable {
     public let prayer: Prayer
@@ -57,6 +116,9 @@ public struct PrayerTime: Codable {
         self.location = location
     }
 }
+
+/// Alias to avoid type-name ambiguity across modules
+public typealias AppPrayerTime = PrayerTime
 
 // MARK: - Notification Settings Types
 

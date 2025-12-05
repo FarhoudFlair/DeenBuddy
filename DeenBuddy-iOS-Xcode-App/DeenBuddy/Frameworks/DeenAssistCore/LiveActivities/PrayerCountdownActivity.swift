@@ -17,6 +17,7 @@ public struct PrayerCountdownActivity: ActivityAttributes {
         public let location: String
         public let hijriDate: String
         public let calculationMethod: String
+        public let arabicSymbol: Bool
         
         public init(
             nextPrayer: Prayer,
@@ -24,7 +25,8 @@ public struct PrayerCountdownActivity: ActivityAttributes {
             timeRemaining: TimeInterval,
             location: String,
             hijriDate: String,
-            calculationMethod: String
+            calculationMethod: String,
+            arabicSymbol: Bool = true
         ) {
             self.nextPrayer = nextPrayer
             self.prayerTime = prayerTime
@@ -32,6 +34,7 @@ public struct PrayerCountdownActivity: ActivityAttributes {
             self.location = location
             self.hijriDate = hijriDate
             self.calculationMethod = calculationMethod
+            self.arabicSymbol = arabicSymbol
         }
         
         /// Formatted time remaining for display
@@ -97,6 +100,8 @@ public class PrayerLiveActivityManager: ObservableObject {
     
     @Published public var currentActivity: Activity<PrayerCountdownActivity>?
     @Published public var isActivityActive: Bool = false
+
+    private var updateTask: Task<Void, Never>?
     
     // MARK: - Activity Management
     
@@ -109,23 +114,53 @@ public class PrayerLiveActivityManager: ObservableObject {
         calculationMethod: String
     ) async throws {
         
-        // End any existing activity first
-        await endCurrentActivity()
-        
         let timeRemaining = prayerTime.timeIntervalSince(Date())
         guard timeRemaining > 0 else {
             throw LiveActivityError.prayerTimePassed
         }
-        
-        let initialContentState = PrayerCountdownActivity.ContentState(
+
+        let updatedContentState = PrayerCountdownActivity.ContentState(
             nextPrayer: prayer,
             prayerTime: prayerTime,
             timeRemaining: timeRemaining,
             location: location,
             hijriDate: hijriDate,
-            calculationMethod: calculationMethod
+            calculationMethod: calculationMethod,
+            arabicSymbol: true
         )
-        
+
+        if let existingActivity = await resolveActiveActivity() {
+            let existingPrayer = existingActivity.contentState.nextPrayer
+            let existingTime = existingActivity.contentState.prayerTime
+
+            if existingActivity.activityState == .active && existingPrayer == prayer {
+                // If the prayer matches but time changed, update the content state and reschedule
+                if existingTime != prayerTime {
+                    await existingActivity.update(using: updatedContentState)
+                    await MainActor.run {
+                        self.currentActivity = existingActivity
+                        self.isActivityActive = true
+                    }
+                    scheduleActivityUpdates(for: existingActivity, prayerTime: prayerTime)
+                    print("🔄 Updated existing Live Activity for \(prayer.displayName) with new time")
+                    return
+                } else {
+                    // Same prayer and same time: just ensure state is current and keep running
+                    await existingActivity.update(using: updatedContentState)
+                    await MainActor.run {
+                        self.currentActivity = existingActivity
+                        self.isActivityActive = true
+                    }
+                    scheduleActivityUpdates(for: existingActivity, prayerTime: prayerTime)
+                    print("ℹ️ Reused existing Live Activity for \(prayer.displayName) (no time change)")
+                    return
+                }
+            }
+
+            // Different prayer or inactive state – end before starting a new activity
+            await endCurrentActivity()
+        }
+
         let activityAttributes = PrayerCountdownActivity(
             prayerId: "\(prayer.rawValue)_\(prayerTime.timeIntervalSince1970)",
             startTime: Date()
@@ -139,7 +174,7 @@ public class PrayerLiveActivityManager: ObservableObject {
 
             let activity = try Activity.request(
                 attributes: activityAttributes,
-                contentState: initialContentState,
+                contentState: updatedContentState,
                 pushType: .token
             )
 
@@ -174,7 +209,7 @@ public class PrayerLiveActivityManager: ObservableObject {
         location: String? = nil
     ) async {
         guard let activity = currentActivity else { return }
-        
+
         let currentState = activity.contentState
         let updatedState = PrayerCountdownActivity.ContentState(
             nextPrayer: currentState.nextPrayer,
@@ -182,21 +217,22 @@ public class PrayerLiveActivityManager: ObservableObject {
             timeRemaining: timeRemaining,
             location: location ?? currentState.location,
             hijriDate: currentState.hijriDate,
-            calculationMethod: currentState.calculationMethod
+            calculationMethod: currentState.calculationMethod,
+            arabicSymbol: currentState.arabicSymbol
         )
-        
+
         do {
-            await activity.update(using: updatedState)
+            try await activity.update(using: updatedState)
             print("🔄 Updated Live Activity countdown: \(updatedState.formattedTimeRemaining)")
         } catch {
-            print("❌ Failed to update Live Activity: \(error)")
+            print("⚠️ Failed to update Live Activity countdown: \(error)")
         }
     }
     
     /// End the current Live Activity
     public func endCurrentActivity() async {
         guard let activity = currentActivity else { return }
-        
+
         let finalState = activity.contentState
         let completedState = PrayerCountdownActivity.ContentState(
             nextPrayer: finalState.nextPrayer,
@@ -204,21 +240,25 @@ public class PrayerLiveActivityManager: ObservableObject {
             timeRemaining: 0,
             location: finalState.location,
             hijriDate: finalState.hijriDate,
-            calculationMethod: finalState.calculationMethod
+            calculationMethod: finalState.calculationMethod,
+            arabicSymbol: finalState.arabicSymbol
         )
         
+        // Keep the activity visible for 5 minutes after prayer time for better visibility
         do {
-            // Keep the activity visible for 5 minutes after prayer time for better visibility
-            await activity.end(using: completedState, dismissalPolicy: .after(Date().addingTimeInterval(300)))
-            
+            try await activity.end(using: completedState, dismissalPolicy: .after(Date().addingTimeInterval(300)))
+
             await MainActor.run {
                 self.currentActivity = nil
                 self.isActivityActive = false
             }
-            
+
+            updateTask?.cancel()
+            updateTask = nil
+
             print("✅ Ended Live Activity for \(finalState.nextPrayer.displayName) prayer")
         } catch {
-            print("❌ Failed to end Live Activity: \(error)")
+            print("⚠️ Failed to end Live Activity for \(finalState.nextPrayer.displayName): \(error)")
         }
     }
     
@@ -237,35 +277,65 @@ public class PrayerLiveActivityManager: ObservableObject {
     // MARK: - Private Methods
     
     private func scheduleActivityUpdates(for activity: Activity<PrayerCountdownActivity>, prayerTime: Date) {
-        Task {
+        updateTask?.cancel()
+        updateTask = Task { [weak self] in
+            guard let self else { return }
             let endTime = prayerTime
-            
-            while Date() < endTime && currentActivity?.id == activity.id {
+
+            while !Task.isCancelled {
+                guard let trackedActivity = await self.resolveActiveActivity(),
+                      trackedActivity.id == activity.id else { return }
+
                 let timeRemaining = endTime.timeIntervalSince(Date())
-                
-                // Dynamic update interval based on time remaining for better responsiveness
-                let updateInterval: TimeInterval
-                if timeRemaining <= 60 { // Last minute
-                    updateInterval = 5 // Every 5 seconds
-                } else if timeRemaining <= 300 { // Last 5 minutes
-                    updateInterval = 15 // Every 15 seconds
-                } else if timeRemaining <= 1800 { // Last 30 minutes
-                    updateInterval = 30 // Every 30 seconds
-                } else {
-                    updateInterval = 60 // Every minute
+                if timeRemaining <= 0 {
+                    await self.endCurrentActivity()
+                    return
                 }
-                
-                try await Task.sleep(nanoseconds: UInt64(updateInterval * 1_000_000_000))
-                
+
+                let updateInterval: TimeInterval
+                if timeRemaining <= 60 {
+                    updateInterval = 5
+                } else if timeRemaining <= 300 {
+                    updateInterval = 15
+                } else if timeRemaining <= 1800 {
+                    updateInterval = 30
+                } else {
+                    updateInterval = 60
+                }
+
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(updateInterval * 1_000_000_000))
+                } catch {
+                    return
+                }
+
                 let newTimeRemaining = endTime.timeIntervalSince(Date())
                 if newTimeRemaining > 0 {
-                    await updatePrayerCountdown(timeRemaining: newTimeRemaining)
+                    await self.updatePrayerCountdown(timeRemaining: newTimeRemaining)
                 } else {
-                    await endCurrentActivity()
-                    break
+                    await self.endCurrentActivity()
+                    return
                 }
             }
         }
+    }
+
+    private func resolveActiveActivity() async -> Activity<PrayerCountdownActivity>? {
+        if let current = currentActivity, current.activityState == .active {
+            return current
+        }
+
+        if #available(iOS 16.2, *) {
+            if let active = Activity<PrayerCountdownActivity>.activities.first(where: { $0.activityState == .active }) {
+                await MainActor.run {
+                    self.currentActivity = active
+                    self.isActivityActive = true
+                }
+                return active
+            }
+        }
+
+        return nil
     }
 }
 
@@ -307,10 +377,12 @@ struct PrayerCountdownLiveActivityView: View {
             HStack {
                 HStack(spacing: 8) {
                     // Arabic Allah symbol
-                    Text("الله")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(state.nextPrayer.color)
+                    if state.arabicSymbol {
+                        Text("الله")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(state.nextPrayer.color)
+                    }
                     
                     Image(systemName: state.nextPrayer.systemImageName)
                         .foregroundColor(state.nextPrayer.color)
@@ -321,15 +393,15 @@ struct PrayerCountdownLiveActivityView: View {
                     Text(state.nextPrayer.displayName)
                         .font(.headline)
                         .fontWeight(.semibold)
-
+                    
                     Text(state.nextPrayer.arabicName)
                         .font(.callout)
                         .foregroundColor(.secondary)
                         .fontWeight(.medium)
                 }
-
+                
                 Spacer()
-
+                
                 // Countdown
                 VStack(alignment: .trailing, spacing: 2) {
                     if state.hasPassed {
@@ -344,27 +416,27 @@ struct PrayerCountdownLiveActivityView: View {
                                 .foregroundColor(state.nextPrayer.color)
                         }
                     } else {
-                        Text(state.formattedTimeRemaining)
+                        Text(timerInterval: Date()...state.prayerTime, countsDown: true)
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(state.isImminent ? .red : state.nextPrayer.color)
                             .monospacedDigit()
                     }
-
+                    
                     Text(formatPrayerTime(state.prayerTime))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-
+            
             // Footer with location and date
             HStack {
                 Text(state.location)
                     .font(.caption)
                     .foregroundColor(.secondary)
-
+                
                 Spacer()
-
+                
                 Text(state.hijriDate)
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -391,10 +463,12 @@ extension PrayerCountdownLiveActivityView {
     func dynamicIslandCompactLeading() -> some View {
         HStack(spacing: 2) {
             // White Arabic Allah symbol
-            Text("الله")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.white)
+            if state.arabicSymbol {
+                Text("الله")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.white)
+            }
             
             Image(systemName: state.nextPrayer.systemImageName)
                 .foregroundColor(state.nextPrayer.color)
@@ -405,11 +479,12 @@ extension PrayerCountdownLiveActivityView {
     /// Compact trailing view for Dynamic Island
     @ViewBuilder
     func dynamicIslandCompactTrailing() -> some View {
-        Text(state.shortFormattedTime)
+        Text(timerInterval: Date()...state.prayerTime, countsDown: true)
             .font(.caption)
             .fontWeight(.semibold)
             .foregroundColor(state.isImminent ? .red : .primary)
             .monospacedDigit()
+            .multilineTextAlignment(.trailing)
     }
 
     /// Minimal view for Dynamic Island with Islamic symbol
@@ -417,10 +492,12 @@ extension PrayerCountdownLiveActivityView {
     func dynamicIslandMinimal() -> some View {
         HStack(spacing: 1) {
             // White Arabic Allah symbol for minimal persistent display in top-left
-            Text("الله")
-                .font(.caption2)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+            if state.arabicSymbol {
+                Text("الله")
+                    .font(.caption2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+            }
             
             Image(systemName: state.nextPrayer.systemImageName)
                 .foregroundColor(state.nextPrayer.color)
@@ -436,15 +513,17 @@ extension PrayerCountdownLiveActivityView {
             HStack {
                 HStack(spacing: 6) {
                     // White Arabic Allah symbol
-                    Text("الله")
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                    if state.arabicSymbol {
+                        Text("الله")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                    }
                     
                     Image(systemName: state.nextPrayer.systemImageName)
                         .foregroundColor(state.nextPrayer.color)
                         .font(.title3)
-
+                    
                     VStack(alignment: .leading, spacing: 1) {
                         Text(state.nextPrayer.displayName)
                             .font(.headline)
@@ -455,11 +534,11 @@ extension PrayerCountdownLiveActivityView {
                             .foregroundColor(.secondary)
                     }
                 }
-
+                
                 Spacer()
-
+                
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(state.formattedTimeRemaining)
+                    Text(timerInterval: Date()...state.prayerTime, countsDown: true)
                         .font(.title3)
                         .fontWeight(.bold)
                         .foregroundColor(state.isImminent ? .red : state.nextPrayer.color)
@@ -476,9 +555,9 @@ extension PrayerCountdownLiveActivityView {
                 Text(state.location)
                     .font(.caption)
                     .foregroundColor(.secondary)
-
+                
                 Spacer()
-
+                
                 Text(state.hijriDate)
                     .font(.caption)
                     .foregroundColor(.secondary)

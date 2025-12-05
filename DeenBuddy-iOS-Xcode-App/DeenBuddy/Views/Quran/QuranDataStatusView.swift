@@ -8,7 +8,7 @@ struct QuranDataStatusView: View {
     var body: some View {
         VStack(spacing: 16) {
             // Loading Progress
-            if searchService.isLoading {
+            if searchService.isBackgroundLoading {
                 loadingSection
             }
             
@@ -42,8 +42,13 @@ struct QuranDataStatusView: View {
 
             ProgressView(value: searchService.loadingProgress)
                 .progressViewStyle(LinearProgressViewStyle())
+                .accessibilityLabel("Loading progress: \(Int(searchService.loadingProgress * 100)) percent")
 
             Text("\(Int(searchService.loadingProgress * 100))% Complete")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            Text("\(searchService.getLoadedVersesCount()) / \(QuranDataValidator.EXPECTED_TOTAL_VERSES) verses")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -85,6 +90,12 @@ struct QuranDataStatusView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(searchService.getTotalSurahsCount() == QuranDataValidator.EXPECTED_TOTAL_SURAHS ? .green : .orange)
                 }
+            }
+
+            if let lastUpdate = searchService.getLastUpdateTimestamp() {
+                Text("Last updated: \(lastUpdate, style: .relative)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
     }
@@ -138,18 +149,24 @@ struct QuranDataStatusView: View {
                         Label("\(validation.missingVerses.count) verse count issues", systemImage: "exclamationmark.triangle")
                             .font(.caption)
                             .foregroundColor(.orange)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                     }
-                    
+
                     if !validation.missingSurahs.isEmpty {
                         Label("\(validation.missingSurahs.count) missing surahs", systemImage: "xmark.circle")
                             .font(.caption)
                             .foregroundColor(.red)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                     }
-                    
+
                     if !validation.invalidVerses.isEmpty {
                         Label("\(validation.invalidVerses.count) invalid verses", systemImage: "exclamationmark.circle")
                             .font(.caption)
                             .foregroundColor(.red)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
                     }
                 }
             }
@@ -175,6 +192,9 @@ struct QuranDataStatusView: View {
                 .cornerRadius(8)
             }
             .disabled(searchService.isLoading)
+            .accessibilityLabel("Refresh Quran data")
+            .accessibilityHint("Reloads the Quran verses from the server")
+            .accessibilityAddTraits(searchService.isLoading ? [.isButton, .updatesFrequently] : .isButton)
             
             if !searchService.isCompleteDataLoaded() {
                 Button(action: {
@@ -192,6 +212,9 @@ struct QuranDataStatusView: View {
                     .cornerRadius(8)
                 }
                 .disabled(searchService.isLoading)
+                .accessibilityLabel("Force reload Quran data")
+                .accessibilityHint("Downloads all Quran verses again, bypassing the cache")
+                .accessibilityAddTraits(searchService.isLoading ? [.isButton, .updatesFrequently] : .isButton)
             }
             
             Spacer()

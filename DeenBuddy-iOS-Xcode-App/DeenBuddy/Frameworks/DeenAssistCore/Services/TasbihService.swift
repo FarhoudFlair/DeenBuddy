@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import AVFoundation
 import UIKit
+import AudioToolbox
 
 /// Real implementation of TasbihServiceProtocol
 @MainActor
@@ -24,8 +25,6 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
     private let userDefaults = UserDefaults.standard
     private var cancellables = Set<AnyCancellable>()
     private var sessionTimer: Timer?
-    private var audioPlayer: AVAudioPlayer?
-    
     // MARK: - UserDefaults Keys
     
     private enum CacheKeys {
@@ -44,10 +43,15 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         setupDefaultData()
         loadCachedData()
         setupObservers()
+        setupAudio()
     }
     
     deinit {
-        sessionTimer?.invalidate()
+        // Use Task to properly clean up MainActor-isolated resources
+        // This is safe because we're just stopping and releasing audio players
+        Task { @MainActor [tasbihPlayers] in
+            tasbihPlayers.forEach { $0.stop() }
+        }
     }
     
     // MARK: - Setup Methods
@@ -104,7 +108,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         
         // Setup default counters
         let defaultCounters = [
-            TasbihCounter(name: "Default", maxCount: 99, isDefault: true),
+            TasbihCounter(name: "Default", maxCount: 33, isDefault: true),
             TasbihCounter(name: "33 Count", maxCount: 33),
             TasbihCounter(name: "100 Count", maxCount: 100),
             TasbihCounter(name: "Unlimited", maxCount: 9999)
@@ -150,6 +154,16 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         if let data = userDefaults.data(forKey: CacheKeys.counters),
            let counters = try? JSONDecoder().decode([TasbihCounter].self, from: data) {
             availableCounters = counters
+            
+            // Restore current counter from available counters if possible
+            // We try to match by ID if we had a saved session, or fall back to default
+            if let session = currentSession,
+               let counterId = session.counterId,
+               let match = counters.first(where: { $0.id == counterId }) {
+                currentCounter = match
+            } else if let defaultCounter = counters.first(where: { $0.isDefault }) {
+                currentCounter = defaultCounter
+            }
         }
         
         // Load statistics
@@ -173,6 +187,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
             
             let session = TasbihSession(
                 dhikr: dhikr,
+                counterId: (counter ?? currentCounter).id,
                 targetCount: targetCount ?? dhikr.targetCount
             )
             
@@ -208,6 +223,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         session = TasbihSession(
             id: session.id,
             dhikr: session.dhikr,
+            counterId: session.counterId,
             startTime: session.startTime,
             endTime: session.endTime,
             currentCount: session.currentCount,
@@ -236,6 +252,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         session = TasbihSession(
             id: session.id,
             dhikr: session.dhikr,
+            counterId: session.counterId,
             startTime: session.startTime,
             endTime: session.endTime,
             currentCount: session.currentCount,
@@ -263,15 +280,17 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         
         let endTime = Date()
         let duration = endTime.timeIntervalSince(session.startTime)
-        
+        let didReachTarget = currentCount >= session.targetCount
+
         session = TasbihSession(
             id: session.id,
             dhikr: session.dhikr,
+            counterId: session.counterId,
             startTime: session.startTime,
             endTime: endTime,
             currentCount: currentCount,
             targetCount: session.targetCount,
-            isCompleted: true,
+            isCompleted: didReachTarget,
             isPaused: false,
             totalDuration: duration,
             notes: notes,
@@ -321,6 +340,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         session = TasbihSession(
             id: session.id,
             dhikr: session.dhikr,
+            counterId: session.counterId,
             startTime: Date(), // Reset start time
             endTime: session.endTime,
             currentCount: 0,
@@ -345,7 +365,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
     
     // MARK: - Counting Operations
     
-    public func incrementCount(by increment: Int = 1) async {
+    public func incrementCount(by increment: Int = 1, playHaptics: Bool = true, playSound: Bool = true) async {
         guard var session = currentSession, !session.isPaused else { return }
         
         let newCount = min(session.currentCount + increment, currentCounter.maxCount)
@@ -369,7 +389,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         currentSession = session
         
         // Provide feedback
-        await provideFeedback()
+        await provideFeedback(haptics: playHaptics, sound: playSound)
         
         // Auto-complete if target reached
         if newCount >= session.targetCount && currentCounter.resetOnComplete {
@@ -442,6 +462,40 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
             self.error = error
         }
     }
+
+    public func updateTargetCount(_ target: Int) async {
+        guard var session = currentSession else { return }
+
+        let newTarget = max(1, min(target, currentCounter.maxCount))
+        // Preserve current count - don't reduce it when target is lowered
+        // Only clamp if count somehow exceeds the absolute maximum
+        let newCount = min(session.currentCount, currentCounter.maxCount)
+        currentCount = newCount
+
+        session = TasbihSession(
+            id: session.id,
+            dhikr: session.dhikr,
+            counterId: session.counterId,
+            startTime: session.startTime,
+            endTime: session.endTime,
+            currentCount: newCount,
+            targetCount: newTarget,
+            isCompleted: newCount >= newTarget,
+            isPaused: session.isPaused,
+            totalDuration: session.totalDuration,
+            notes: session.notes,
+            location: session.location,
+            mood: session.mood
+        )
+
+        currentSession = session
+
+        do {
+            try saveCachedData()
+        } catch {
+            self.error = error
+        }
+    }
     
     // MARK: - Private Helper Methods
     
@@ -477,28 +531,72 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
         currentSession = session
     }
     
-    private func provideFeedback() async {
+    private func provideFeedback(haptics: Bool = true, sound: Bool = true) async {
         // Haptic feedback
-        if currentCounter.hapticFeedback {
+        if haptics && currentCounter.hapticFeedback {
             let impactFeedback = UIImpactFeedbackGenerator(style: .light)
             impactFeedback.impactOccurred()
         }
         
         // Sound feedback
-        if currentCounter.soundFeedback, let soundName = currentCounter.soundName {
-            playSound(named: soundName)
+        if sound && currentCounter.soundFeedback {
+            playRandomSound()
         }
     }
     
-    private func playSound(named soundName: String) {
-        guard let url = Bundle.main.url(forResource: soundName, withExtension: "mp3") else { return }
-        
-        do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.play()
-        } catch {
-            // Handle audio error silently
+    // Play only sound feedback without haptics (used when UI supplies its own haptics)
+    public func playSoundFeedbackIfEnabled() async {
+        if currentCounter.soundFeedback {
+            playRandomSound()
         }
+    }
+    
+    // MARK: - Audio Setup
+
+    private var tasbihPlayers: [AVAudioPlayer] = []
+
+    private func setupAudio() {
+        configureAudioSession()
+
+        // Preload audio players for the 4 click variations
+        for i in 1...4 {
+            if let url = Bundle.main.url(forResource: "tasbih_click_\(i)", withExtension: "caf") {
+                do {
+                    let player = try AVAudioPlayer(contentsOf: url)
+                    player.prepareToPlay()
+                    // Keep volume at system media level; do not override here
+                    tasbihPlayers.append(player)
+                } catch {
+                    print("⚠️ Failed to load tasbih sound \(i): \(error)")
+                }
+            }
+        }
+    }
+    
+    private func configureAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            // Use media volume, mix with other audio, and allow playback in silent mode
+            try session.setCategory(.playback, options: [.mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            print("⚠️ Failed to configure audio session for tasbih: \(error)")
+        }
+    }
+    
+    private func cleanupAudio() {
+        tasbihPlayers.forEach { $0.stop() }
+        tasbihPlayers.removeAll()
+    }
+
+    private func playRandomSound() {
+        guard let player = tasbihPlayers.randomElement() else {
+            // Fallback to a minimal system click if players unavailable
+            AudioServicesPlaySystemSound(1104)
+            return
+        }
+        player.currentTime = 0
+        player.play()
     }
     
     private func saveCachedData() throws {
@@ -869,11 +967,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
             createdAt: currentCounter.createdAt
         )
 
-        do {
-            try saveCachedData()
-        } catch {
-            self.error = error
-        }
+        await updateCounter(currentCounter)
     }
 
     public func setSoundFeedback(_ enabled: Bool) async {
@@ -891,11 +985,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
             createdAt: currentCounter.createdAt
         )
 
-        do {
-            try saveCachedData()
-        } catch {
-            self.error = error
-        }
+        await updateCounter(currentCounter)
     }
 
     public func setVibrationPattern(_ pattern: VibrationPattern) async {
@@ -913,11 +1003,7 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
             createdAt: currentCounter.createdAt
         )
 
-        do {
-            try saveCachedData()
-        } catch {
-            self.error = error
-        }
+        await updateCounter(currentCounter)
     }
 
     public func setDefaultTargetCount(_ count: Int) async {
@@ -941,13 +1027,13 @@ public class TasbihService: TasbihServiceProtocol, ObservableObject {
                         "category": session.dhikr.category.rawValue
                     ],
                     "startTime": ISO8601DateFormatter().string(from: session.startTime),
-                    "endTime": session.endTime.map { ISO8601DateFormatter().string(from: $0) },
+                    "endTime": session.endTime.map { ISO8601DateFormatter().string(from: $0) } as String?,
                     "currentCount": session.currentCount,
                     "targetCount": session.targetCount,
                     "isCompleted": session.isCompleted,
                     "totalDuration": session.totalDuration,
-                    "notes": session.notes,
-                    "mood": session.mood?.rawValue
+                    "notes": session.notes as String?,
+                    "mood": session.mood?.rawValue as String?
                 ]
             },
             "exportDate": ISO8601DateFormatter().string(from: Date()),

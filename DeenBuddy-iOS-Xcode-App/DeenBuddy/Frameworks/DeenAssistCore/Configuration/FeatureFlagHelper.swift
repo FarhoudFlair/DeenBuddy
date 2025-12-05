@@ -239,7 +239,7 @@ public extension View {
 
 /// Environment key for feature flags
 public struct FeatureFlagsEnvironmentKey: EnvironmentKey {
-    public static let defaultValue = IslamicFeatureFlags.shared
+    @MainActor public static var defaultValue: IslamicFeatureFlags { .shared }
 }
 
 public extension EnvironmentValues {
@@ -265,7 +265,7 @@ public extension FeatureFlag {
             print("-" * 30)
 
             for feature in features {
-                let status = isEnabled(feature) ? "✅ ENABLED" : "❌ DISABLED"
+                let status = flags.isEnabled(feature) ? "✅ ENABLED" : "❌ DISABLED"
                 let risk = "[\(feature.riskLevel.displayName)]"
                 print("\(feature.displayName): \(status) \(risk)")
             }

@@ -10,6 +10,7 @@ public struct PrayerTrackingScreen: View {
     private let prayerTrackingService: any PrayerTrackingServiceProtocol
     private let prayerTimeService: any PrayerTimeServiceProtocol
     private let notificationService: any NotificationServiceProtocol
+    private let prayerAnalyticsService: any PrayerAnalyticsServiceProtocol
     
     // MARK: - State
 
@@ -30,11 +31,13 @@ public struct PrayerTrackingScreen: View {
         prayerTrackingService: any PrayerTrackingServiceProtocol,
         prayerTimeService: any PrayerTimeServiceProtocol,
         notificationService: any NotificationServiceProtocol,
+        prayerAnalyticsService: any PrayerAnalyticsServiceProtocol,
         onDismiss: @escaping () -> Void
     ) {
         self.prayerTrackingService = prayerTrackingService
         self.prayerTimeService = prayerTimeService
         self.notificationService = notificationService
+        self.prayerAnalyticsService = prayerAnalyticsService
         self.onDismiss = onDismiss
     }
     
@@ -158,7 +161,8 @@ public struct PrayerTrackingScreen: View {
     @ViewBuilder
     private var analyticsView: some View {
         PrayerAnalyticsView(
-            prayerTrackingService: prayerTrackingService,
+            prayerAnalyticsService: prayerAnalyticsService,
+            isEmbedded: true,
             onDismiss: { }
         )
     }

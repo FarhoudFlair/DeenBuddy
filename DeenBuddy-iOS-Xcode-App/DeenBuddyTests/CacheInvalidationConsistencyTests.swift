@@ -346,10 +346,19 @@ class CacheInvalidationConsistencyMockSettingsService: SettingsServiceProtocol, 
     @Published var userName: String = ""
     @Published var overrideBatteryOptimization: Bool = false
     @Published var showArabicSymbolInWidget: Bool = true
+    @Published var liveActivitiesEnabled: Bool = true
 
     var enableNotifications: Bool {
         get { notificationsEnabled }
         set { notificationsEnabled = newValue }
+    }
+
+    var notificationsEnabledPublisher: AnyPublisher<Bool, Never> {
+        $notificationsEnabled.eraseToAnyPublisher()
+    }
+
+    var notificationOffsetPublisher: AnyPublisher<TimeInterval, Never> {
+        $notificationOffset.eraseToAnyPublisher()
     }
 
     private func notifySettingsChanged() {
@@ -376,6 +385,18 @@ class CacheInvalidationConsistencyMockSettingsService: SettingsServiceProtocol, 
     func saveOnboardingSettings() async throws {
         // Mock implementation
     }
+
+    func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? calculationMethod
+        madhab = Madhab(rawValue: snapshot.madhab) ?? madhab
+        timeFormat = TimeFormat(rawValue: snapshot.timeFormat) ?? timeFormat
+        notificationsEnabled = snapshot.notificationsEnabled
+        notificationOffset = snapshot.notificationOffset
+        liveActivitiesEnabled = snapshot.liveActivitiesEnabled
+        showArabicSymbolInWidget = snapshot.showArabicSymbolInWidget
+        userName = snapshot.userName
+        hasCompletedOnboarding = snapshot.hasCompletedOnboarding
+    }
 }
 
 /// Mock notification service for cache invalidation consistency tests
@@ -385,6 +406,10 @@ class CacheInvalidationConsistencyMockNotificationService: NotificationServicePr
     @Published var notificationsEnabled: Bool = true
 
     func requestNotificationPermission() async throws -> Bool {
+        return true
+    }
+
+    func requestCriticalAlertPermission() async throws -> Bool {
         return true
     }
 
@@ -411,6 +436,10 @@ class CacheInvalidationConsistencyMockNotificationService: NotificationServicePr
     func updateNotificationSettings(_ settings: NotificationSettings) {
         // Mock implementation
     }
+
+    func updateAppBadge() async {}
+    func clearBadge() async {}
+    func updateBadgeForCompletedPrayer() async {}
 }
 
 /// Extended MockLocationService with mockLocation property for testing
@@ -517,6 +546,10 @@ class CacheInvalidationTestMockLocationService: LocationServiceProtocol, Observa
 
     func getLocationAge() -> TimeInterval? {
         return 30.0
+    }
+
+    func setManualLocation(_ location: CLLocation) async {
+        currentLocation = location
     }
 }
 

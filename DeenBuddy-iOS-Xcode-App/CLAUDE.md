@@ -5,34 +5,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 [byterover-mcp]
 
 # important 
-always use byterover-retrive-knowledge tool to get the related context before any tasks 
-always use byterover-store-knowledge to store all the critical informations after sucessful tasks
+always use the byterover-retrieve-knowledge tool to get the related context before any tasks 
+always use the byterover-store-knowledge tool to store all critical information after successful tasks
 
 ## Project Overview
 
-DeenBuddy is an Islamic prayer companion iOS app that provides accurate prayer times, Qibla direction, and comprehensive prayer guides. The project follows a protocol-first architecture with embedded frameworks and includes extensive testing for Islamic accuracy.
+DeenBuddy is an Islamic prayer companion iOS app that provides accurate prayer times, Qibla direction, and comprehensive prayer guides. The project follows a protocol-first architecture with embedded frameworks and includes extensive testing for Islamic accuracy. This is a production-ready app with Live Activities, Lock Screen Widgets, and comprehensive accessibility support.
 
 ## Development Commands
 
 ### iOS Development Workflow
 ```bash
-# Open iOS project in Xcode
+# Open iOS project in Xcode (requires Xcode 15.2+)
 open DeenBuddy.xcodeproj
 
-# Run tests (from iOS project directory)
+# Run tests (from iOS project directory) - uses iPhone 16 Pro simulator
 fastlane test
 
-# Run SwiftLint  
+# Run SwiftLint (requires .swiftlint.yml config)
 fastlane lint
 
 # Build for development
 fastlane build_dev
 
-# Deploy to TestFlight
+# Deploy to TestFlight (requires manual code signing for Live Activities)
 fastlane beta
 
 # Deploy to App Store
 fastlane release
+
+# Setup manual code signing for ActivityKit support
+fastlane setup_signing
 ```
 
 ### iOS-Specific Testing
@@ -79,6 +82,7 @@ cd ../QiblaKit && swift test
 │   │   ├── ViewModels/              # MVVM pattern view models
 │   │   ├── Services/                # iOS app-specific services
 │   │   └── Resources/               # Assets, localizations
+│   ├── Live Activity Widget Extension/  # WidgetKit & Live Activities
 │   ├── DeenBuddyTests/              # Unit & integration tests (25+ files)
 │   ├── DeenBuddyUITests/            # UI automation tests
 │   ├── fastlane/                    # Build automation (iOS-specific)
@@ -99,12 +103,14 @@ The app uses **dependency injection via protocols** to enable parallel developme
 - `SettingsServiceProtocol` - User preferences with rollback
 - `PrayerTrackingServiceProtocol` - Prayer completion tracking
 - `IslamicCalendarServiceProtocol` - Islamic calendar calculations
+- `TasbihServiceProtocol` - Prayer counter (Tasbih) functionality
 
 **Dependency Container System**:
 - Two-layer DI: Core container + MainActor app container
 - Both sync (`shared`) and async (`createAsync()`) initialization
 - Service lifecycle management and cleanup
 - Mock implementations for all protocols
+- Automatic service resolution via `@Environment(\.dependencyContainer)`
 
 ### Key Services and Relationships
 
@@ -119,6 +125,17 @@ The app uses **dependency injection via protocols** to enable parallel developme
 - **IslamicCacheManager**: Prayer time and calculation caching with 24-hour expiration
 - **PrayerTrackingService**: Prayer completion tracking and statistics
 - **QuranSearchService**: Semantic search with vector embeddings
+- **WidgetService**: Widget data management and Live Activities integration
+- **ARCompassSession**: AR-enhanced Qibla compass with Core Motion
+
+### Widget & Live Activities Architecture
+
+**Widget Extension** (`Live Activity Widget Extension/`):
+- **Lock Screen Widgets**: Circular, rectangular, and inline widgets showing prayer times
+- **Home Screen Widgets**: Next prayer, countdown, and today's prayer times
+- **Live Activities**: Prayer countdown with Dynamic Island integration
+- **Shared Data**: Uses App Groups (`group.com.deenbuddy.app`) for data sharing
+- **Error Handling**: Comprehensive fallbacks and asset validation
 
 ## Testing Strategy
 
@@ -156,9 +173,9 @@ Complete mock implementations enable UI development without backend dependencies
 - Test data covers global locations and seasonal variations
 - Configurable mock behavior for different test scenarios
 
-## Swift Development Patterns
+## SwiftUI & Combine Integration
 
-### SwiftUI & Combine Integration
+### Key Patterns
 - Use `@StateObject` for owned view models
 - Use `@ObservedObject` for passed view models  
 - Use `@Published` for reactive UI updates
@@ -222,6 +239,19 @@ APIError.serverError(let code, let message)
 - Proper `@MainActor` isolation for UI components
 - Safe cleanup in `deinit` methods without MainActor assumptions
 
+## Widget Development Guidelines
+
+### Lock Screen Widget Specific Requirements
+- **StaticConfiguration Only**: Use `StaticConfiguration` instead of `IntentConfiguration` for Lock Screen widgets
+- **Asset Fallbacks**: Always provide system icon fallbacks when custom assets fail to load
+- **Error States**: Display meaningful error messages when data is unavailable
+- **Data Freshness**: Validate widget data age and show error state for stale data (>24 hours)
+
+### Shared Data Management
+- **App Groups**: Use `group.com.deenbuddy.app` for data sharing
+- **Widget Data Manager**: Centralized data management with comprehensive logging
+- **Timeline Updates**: Generate 60-minute timelines with per-minute updates for countdown accuracy
+
 ## Common Development Tasks
 
 ### Adding New Islamic Features
@@ -238,24 +268,33 @@ APIError.serverError(let code, let message)
 4. Include madhab-specific validation
 5. Verify offline functionality
 
+### Widget Development
+1. Implement widget views with proper error handling
+2. Add asset fallbacks for missing images
+3. Use `WidgetDataManager` for shared data access
+4. Test on actual device (widgets don't work properly in simulator)
+5. Ensure proper App Group configuration in entitlements
+
 ### Debugging Common Issues
 - **Prayer times incorrect**: Check calculation method, madhab, and timezone determination
 - **Location services failing**: Verify permissions and mock location setup in tests
 - **Background updates not working**: Check BackgroundTaskManager and battery optimization settings
 - **Cache inconsistencies**: Verify cache invalidation logic and expiration handling
+- **Widget not displaying**: Check App Group entitlements and shared data availability
 
-## Migration Status & Architecture Evolution
+## Live Activities & Dynamic Island
 
-### Current State (Transitional)
-- **Local Embedded Frameworks**: Current implementation uses frameworks within Xcode project
-- **Planned Swift Packages**: Root `Package.swift` defines future SPM modules (not yet active)
-- **Hybrid Approach**: Some components (QiblaKit) exist as both local frameworks and standalone packages
+### Features
+- **Prayer Countdown**: Real-time countdown to next prayer with imminent state handling
+- **Dynamic Island**: Compact, minimal, and expanded views with Arabic Allah symbol
+- **App Launch Activity**: Loading progress display during app initialization
+- **Background Updates**: Automatic updates via Background App Refresh
 
-### Future Architecture
-- Migration from local frameworks to Swift Package Manager modules
-- Maintain protocol-first architecture during transition
-- Preserve comprehensive testing and mock implementations
-- Continue Islamic accuracy and offline-first principles
+### Implementation Notes
+- Activities require iOS 16.1+ and proper entitlements configuration
+- Use `ActivityKit` for Live Activity management
+- Implement proper error handling for activity start/update failures
+- Test on physical device with Dynamic Island support
 
 ## Important Notes
 
@@ -277,3 +316,25 @@ This app serves the Muslim community, so **religious accuracy is paramount**:
 - **Offline Capability**: Core Islamic functionality without internet dependency  
 - **Memory Efficiency**: Intelligent caching with automatic cleanup
 - **Accessibility**: VoiceOver support and Dynamic Type integration
+
+### Migration Status
+- **Current State**: Local embedded frameworks within Xcode project
+- **Future Direction**: Migration to Swift Package Manager modules (planned)
+- **Hybrid Approach**: QiblaKit exists as both local framework and standalone package
+
+You are given two tools from Byterover MCP server, including
+## 1. `byterover-store-knowledge`
+You `MUST` always use this tool when:
+
++ Learning new patterns, APIs, or architectural decisions from the codebase
++ Encountering error solutions or debugging techniques
++ Finding reusable code patterns or utility functions
++ Completing any significant task or plan implementation
+
+## 2. `byterover-retrieve-knowledge`
+You `MUST` always use this tool when:
+
++ Starting any new task or implementation to gather relevant context
++ Before making architectural decisions to understand existing patterns
++ When debugging issues to check for previous solutions
++ Working with unfamiliar parts of the codebase

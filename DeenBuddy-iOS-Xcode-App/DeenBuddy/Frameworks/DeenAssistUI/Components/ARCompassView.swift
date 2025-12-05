@@ -1,3 +1,8 @@
+// MARK: - AR COMPASS VIEW DISABLED - TOO BUGGY, FOCUSING ON 2D COMPASS
+// This entire file is commented out to resolve compilation issues
+// AR compass can be re-enabled in the future when issues are resolved
+
+/*
 import SwiftUI
 import ARKit
 import RealityKit
@@ -121,3 +126,4 @@ public struct ARCompassView: UIViewRepresentable {
 
 // MARK: - Preview Support
 // Preview removed due to AR dependency requirements
+*/ // End of AR Compass View disabled code

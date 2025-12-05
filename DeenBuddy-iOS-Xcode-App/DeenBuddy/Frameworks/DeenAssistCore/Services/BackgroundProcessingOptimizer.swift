@@ -270,13 +270,76 @@ public class BackgroundProcessingOptimizer: ObservableObject {
                 do {
                     print("📱 Refreshing widgets in background")
                     
-                    // Update widget data using WidgetKit directly
-                    if #available(iOS 14.0, *) {
-                        WidgetCenter.shared.reloadAllTimelines()
+                    // Load existing widget data and update time-sensitive fields
+                    let widgetManager = WidgetDataManager.shared
+                    
+                    if var existingData = widgetManager.loadWidgetData() {
+                        let calendar = Calendar.current
+                        if !calendar.isDateInToday(existingData.lastUpdated) {
+                            print("⚠️ Stale widget data detected (lastUpdated=\(existingData.lastUpdated)); reloading timelines and aborting refresh")
+                            WidgetCenter.shared.reloadAllTimelines()
+                            return
+                        }
+
+                        let now = Date()
+                        
+                        // Recalculate time until next prayer
+                        if let nextPrayer = existingData.nextPrayer {
+                            let timeUntil = nextPrayer.time.timeIntervalSince(now)
+                            
+                            if timeUntil > 0 {
+                                // Next prayer is still in the future - update countdown
+                                existingData.timeUntilNextPrayer = timeUntil
+                                widgetManager.saveWidgetData(existingData)
+                                print("✅ Widget data refreshed - next prayer: \(nextPrayer.prayer.displayName) in \(Int(timeUntil / 60)) minutes")
+                            } else {
+                                // Next prayer has passed - find the new next prayer
+                                let upcomingPrayers = existingData.todaysPrayerTimes.filter { $0.time > now }
+
+                                if let newNextPrayer = upcomingPrayers.min(by: { $0.time < $1.time }) {
+                                    let newTimeUntil = newNextPrayer.time.timeIntervalSince(now)
+                                    let updatedData = WidgetData(
+                                        nextPrayer: newNextPrayer,
+                                        timeUntilNextPrayer: newTimeUntil,
+                                        todaysPrayerTimes: existingData.todaysPrayerTimes,
+                                        hijriDate: existingData.hijriDate,
+                                        location: existingData.location,
+                                        calculationMethod: existingData.calculationMethod,
+                                        lastUpdated: now
+                                    )
+                                    widgetManager.saveWidgetData(updatedData)
+                                    print("✅ Widget data refreshed - advanced to next prayer: \(newNextPrayer.prayer.displayName)")
+                                } else {
+                                    // All prayers for today have passed - keep existing data but mark as updated
+                                    let updatedData = WidgetData(
+                                        nextPrayer: nil,
+                                        timeUntilNextPrayer: nil,
+                                        todaysPrayerTimes: existingData.todaysPrayerTimes,
+                                        hijriDate: existingData.hijriDate,
+                                        location: existingData.location,
+                                        calculationMethod: existingData.calculationMethod,
+                                        lastUpdated: now
+                                    )
+                                    widgetManager.saveWidgetData(updatedData)
+                                    print("ℹ️ Widget data refreshed - all prayers completed for today")
+                                }
+                            }
+                        }
+                    } else {
+                        print("⚠️ No existing widget data to refresh - main app needs to be opened")
                     }
                     
-                    // Simulate widget update processing
-                    try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                    // Reload widget timelines to display updated data
+                    WidgetCenter.shared.reloadAllTimelines()
+                    
+                    // Schedule next widget refresh (15 minutes or at next prayer time)
+                    await MainActor.run {
+                        self.scheduleBackgroundTask(
+                            identifier: BackgroundTaskIdentifiers.widgetRefresh,
+                            earliestBeginDate: Date().addingTimeInterval(900), // 15 minutes
+                            priority: .medium
+                        )
+                    }
                     
                     print("✅ Widgets refreshed successfully")
                 } catch {

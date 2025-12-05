@@ -79,6 +79,9 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     deinit {
         // Clean up notification observers
         NotificationCenter.default.removeObserver(self)
+        Task { @MainActor in
+            PrayerLiveActivityActionBridge.shared.unregisterConsumer()
+        }
     }
 
     // MARK: - Setup Methods
@@ -162,8 +165,32 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
 
             // Could add analytics tracking here
         }
+
+        PrayerLiveActivityActionBridge.shared.registerConsumer { [weak self] actions in
+            await self?.handleLiveActivityCompletions(actions)
+        }
     }
-    
+
+    @MainActor
+    private func handleLiveActivityCompletions(_ actions: [PrayerCompletionAction]) async {
+        guard !actions.isEmpty else { return }
+
+        for action in actions {
+            guard let prayer = Prayer(rawValue: action.prayerRawValue) else { continue }
+
+            NotificationCenter.default.post(
+                name: .prayerMarkedAsPrayed,
+                object: nil,
+                userInfo: [
+                    "prayer": prayer.rawValue,
+                    "timestamp": action.completedAt,
+                    "source": action.source,
+                    "action": "completed"
+                ]
+            )
+        }
+    }
+
     private func loadCachedData() {
         // Load recent entries
         var allEntries: [PrayerEntry] = []
@@ -468,11 +495,11 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     public func getPrayerStreak(for prayer: Prayer) async -> PrayerStreak? {
         let prayerEntries = recentEntries.filter { $0.prayer == prayer }
         guard !prayerEntries.isEmpty else { return nil }
-        
+
         let currentStreak = calculateStreakForPrayer(prayer)
         let longestStreak = calculateLongestStreakForPrayer(prayer)
         let isActive = currentStreak > 0
-        
+
         return PrayerStreak(
             current: currentStreak,
             longest: longestStreak,
@@ -481,8 +508,106 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
             isActive: isActive
         )
     }
-    
+
+    public func getIndividualPrayerStreaks() async -> [Prayer: IndividualPrayerStreak] {
+        var streaks: [Prayer: IndividualPrayerStreak] = [:]
+
+        for prayer in Prayer.allCases {
+            if let streak = await getIndividualPrayerStreak(for: prayer) {
+                streaks[prayer] = streak
+            }
+        }
+
+        return streaks
+    }
+
+    public func getIndividualPrayerStreak(for prayer: Prayer) async -> IndividualPrayerStreak? {
+        let calendar = Calendar.current
+        let prayerEntries = recentEntries
+            .filter { $0.prayer == prayer }
+            .sorted { $0.completedAt < $1.completedAt }
+
+        // If no entries, return nil to indicate missing/untracked data
+        guard !prayerEntries.isEmpty else {
+            return nil
+        }
+
+        // Calculate current streak using helper
+        let streakResult = calculateCurrentStreakForPrayer(prayer)
+        let currentStreak = streakResult.streak
+        let streakStartDate = streakResult.startDate
+
+        // Calculate longest streak
+        let longestStreak = calculateLongestStreakForPrayer(prayer)
+
+        // Check if prayer completed today
+        let today = calendar.startOfDay(for: Date())
+        let isActiveToday: Bool
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) {
+            isActiveToday = prayerEntries.contains { entry in
+                entry.completedAt >= today && entry.completedAt < tomorrow
+            }
+        } else {
+            print("⚠️ PrayerTrackingService: Failed to compute tomorrow's date while evaluating streak activity for \(prayer.displayName)")
+            isActiveToday = prayerEntries.contains { entry in
+                calendar.isDate(entry.completedAt, inSameDayAs: today)
+            }
+        }
+
+        // Get last completed date
+        let lastCompleted = prayerEntries.last?.completedAt
+
+        return IndividualPrayerStreak(
+            prayer: prayer,
+            currentStreak: currentStreak,
+            longestStreak: longestStreak,
+            lastCompleted: lastCompleted,
+            isActiveToday: isActiveToday,
+            startDate: streakStartDate
+        )
+    }
+
     // MARK: - Private Helper Methods
+    
+    /// Calculate current streak for a specific prayer by walking backwards from today
+    /// - Parameter prayer: The prayer type to calculate streak for
+    /// - Returns: A tuple containing the streak count and start date (nil if no streak)
+    private func calculateCurrentStreakForPrayer(_ prayer: Prayer) -> (streak: Int, startDate: Date?) {
+        let calendar = Calendar.current
+        let prayerEntries = recentEntries.filter { $0.prayer == prayer }
+            .sorted { $0.completedAt < $1.completedAt }
+        
+        guard !prayerEntries.isEmpty else { return (0, nil) }
+        
+        var streak = 0
+        var streakStartDate: Date?
+        var currentDate = calendar.startOfDay(for: Date())
+        
+        // Work backwards from today to find consecutive days with this prayer
+        while true {
+            guard let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDate) else {
+                break
+            }
+            
+            let dayEntries = prayerEntries.filter { entry in
+                entry.completedAt >= currentDate && entry.completedAt < nextDay
+            }
+            
+            if dayEntries.isEmpty {
+                break
+            }
+            
+            streak += 1
+            streakStartDate = currentDate
+            
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) else {
+                break
+            }
+            currentDate = previousDay
+        }
+        
+        return (streak, streakStartDate)
+    }
     
     private func getCurrentLocationString() -> String? {
         guard let location = locationService.currentLocation else { return nil }
@@ -540,8 +665,38 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     }
     
     private func calculateLongestStreak() -> Int {
-        // Simplified implementation - in reality, you'd want to analyze all historical data
-        return currentStreak // For now, return current streak
+        // Calculate the longest consecutive streak from all historical data
+        let calendar = Calendar.current
+
+        // Group entries by day
+        var daysCounted = Set<Date>()
+        for entry in recentEntries {
+            let dayStart = calendar.startOfDay(for: entry.completedAt)
+            daysCounted.insert(dayStart)
+        }
+
+        guard !daysCounted.isEmpty else { return 0 }
+
+        let sortedDays = daysCounted.sorted()
+        var longestStreak = 1
+        var currentStreakCount = 1
+
+        // Calculate longest consecutive streak
+        for i in 1..<sortedDays.count {
+            let previousDay = sortedDays[i-1]
+            let currentDay = sortedDays[i]
+
+            // Check if days are consecutive
+            if let nextDay = calendar.date(byAdding: .day, value: 1, to: previousDay),
+               calendar.isDate(nextDay, inSameDayAs: currentDay) {
+                currentStreakCount += 1
+                longestStreak = max(longestStreak, currentStreakCount)
+            } else {
+                currentStreakCount = 1
+            }
+        }
+
+        return longestStreak
     }
     
     private func calculateCompletionRate(for period: DateInterval) -> Double {
@@ -553,31 +708,7 @@ public class PrayerTrackingService: ObservableObject, PrayerTrackingServiceProto
     }
     
     private func calculateStreakForPrayer(_ prayer: Prayer) -> Int {
-        let calendar = Calendar.current
-        let prayerEntries = recentEntries.filter { $0.prayer == prayer }
-            .sorted { $0.completedAt < $1.completedAt }
-        
-        guard !prayerEntries.isEmpty else { return 0 }
-        
-        var streak = 0
-        var currentDate = calendar.startOfDay(for: Date())
-        
-        // Work backwards from today to find consecutive days with this prayer
-        while true {
-            let nextDay = calendar.date(byAdding: .day, value: 1, to: currentDate)!
-            let dayEntries = prayerEntries.filter { entry in
-                entry.completedAt >= currentDate && entry.completedAt < nextDay
-            }
-            
-            if dayEntries.isEmpty {
-                break
-            }
-            
-            streak += 1
-            currentDate = calendar.date(byAdding: .day, value: -1, to: currentDate)!
-        }
-        
-        return streak
+        return calculateCurrentStreakForPrayer(prayer).streak
     }
     
     private func calculateLongestStreakForPrayer(_ prayer: Prayer) -> Int {

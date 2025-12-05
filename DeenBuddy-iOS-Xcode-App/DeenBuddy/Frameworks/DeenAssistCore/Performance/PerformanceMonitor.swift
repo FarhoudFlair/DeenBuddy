@@ -20,6 +20,12 @@ public class PerformanceMonitor: ObservableObject {
     private let maxHistoryCount = 100
     private var cancellables = Set<AnyCancellable>()
     
+    // MARK: - Configuration
+    
+    private let consecutiveSampleThreshold = 3 // Number of consecutive samples needed to trigger an issue
+    private var consecutiveHighCPUCount = 0
+    private var consecutiveCriticalCPUCount = 0
+    
     private var previousCPUTime: Double = 0
     private var previousWallTime: Double = 0
     
@@ -57,6 +63,8 @@ public class PerformanceMonitor: ObservableObject {
         isMonitoring = false
         metricsTimer?.invalidate()
         metricsTimer = nil
+        consecutiveHighCPUCount = 0
+        consecutiveCriticalCPUCount = 0
         
         print("📊 Performance monitoring stopped")
     }
@@ -125,6 +133,8 @@ public class PerformanceMonitor: ObservableObject {
     public func clearHistory() {
         performanceHistory.removeAll()
         performanceIssues.removeAll()
+        consecutiveHighCPUCount = 0
+        consecutiveCriticalCPUCount = 0
         print("📊 Performance history cleared")
     }
     
@@ -288,15 +298,42 @@ public class PerformanceMonitor: ObservableObject {
     }
     
     private func checkForPerformanceIssues(_ metrics: DetailedPerformanceMetrics) {
-        // High CPU usage
-        if metrics.cpuUsage > 80 {
+        // High CPU usage - using streak-based detection to reduce noise
+        if metrics.cpuUsage > 95 {
+            // Track critical CPU streaks independently
+            consecutiveCriticalCPUCount += 1
+            consecutiveHighCPUCount = 0
+        } else if metrics.cpuUsage > 80 {
+            // Track high CPU streaks without affecting critical counter
+            consecutiveHighCPUCount += 1
+            consecutiveCriticalCPUCount = 0
+        } else {
+            consecutiveHighCPUCount = 0
+            consecutiveCriticalCPUCount = 0
+        }
+        
+        if consecutiveCriticalCPUCount >= consecutiveSampleThreshold {
+            let cpuFormatted = String(format: "%.1f", metrics.cpuUsage)
             addPerformanceIssue(PerformanceIssue(
                 type: .highCPUUsage,
-                description: "High CPU usage: \(String(format: "%.1f", metrics.cpuUsage))%",
-                severity: metrics.cpuUsage > 95 ? .critical : .high,
+                description: "Sustained high CPU usage detected over \(consecutiveCriticalCPUCount) samples (current: \(cpuFormatted)%)",
+                severity: .critical,
                 timestamp: metrics.timestamp,
                 metadata: ["cpu_usage": metrics.cpuUsage]
             ))
+            consecutiveCriticalCPUCount = 0
+            consecutiveHighCPUCount = 0
+        } else if consecutiveHighCPUCount >= consecutiveSampleThreshold {
+            let cpuFormatted = String(format: "%.1f", metrics.cpuUsage)
+            addPerformanceIssue(PerformanceIssue(
+                type: .highCPUUsage,
+                description: "Sustained high CPU usage detected over \(consecutiveHighCPUCount) samples (current: \(cpuFormatted)%)",
+                severity: .high,
+                timestamp: metrics.timestamp,
+                metadata: ["cpu_usage": metrics.cpuUsage]
+            ))
+            consecutiveHighCPUCount = 0
+            consecutiveCriticalCPUCount = 0
         }
         
         // High memory usage
