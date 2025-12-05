@@ -1325,15 +1325,23 @@
                 }
             })
                 .then(response => {
+                    console.log('FormSubmit response status:', response.status);
                     if (response.ok) {
                         document.getElementById('modalContent').style.display = 'none';
                         document.getElementById('successMessage').style.display = 'flex';
                     } else {
-                        alert('Oops! There was a problem submitting your form');
+                        response.json().then(data => {
+                            console.error('FormSubmit error:', data);
+                            alert('Error: ' + (data.message || 'Problem submitting form'));
+                        }).catch(err => {
+                            console.error('FormSubmit text error:', err);
+                            alert('Oops! There was a problem submitting your form. Please try again.');
+                        });
                     }
                 })
                 .catch(error => {
-                    alert('Oops! There was a problem submitting your form');
+                    console.error('Fetch error:', error);
+                    alert('Connection error. Please check your internet or try again later.');
                 })
                 .finally(() => {
                     btn.innerText = originalText;
