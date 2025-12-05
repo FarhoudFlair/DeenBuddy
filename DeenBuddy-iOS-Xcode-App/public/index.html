@@ -514,23 +514,41 @@
             text-align: center;
         }
 
-        .support-card {
+        .support-content {
             background: linear-gradient(135deg, var(--card-bg) 0%, rgba(212, 165, 116, 0.1) 100%);
             border: 1px solid var(--gold);
             border-radius: 32px;
             padding: 60px 40px;
-            max-width: 700px;
+            max-width: 800px;
             margin: 0 auto;
+            position: relative;
+            overflow: hidden;
         }
 
-        .support-card h2 {
+        .support-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gold), transparent);
+        }
+
+        .support-content h2 {
             font-size: 2rem;
-            margin-bottom: 16px;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        .support-card p {
+        .support-content p {
             color: var(--text-muted);
             margin-bottom: 30px;
+            font-size: 1.1rem;
+            line-height: 1.8;
         }
 
         .btn-gold {
@@ -1004,9 +1022,13 @@
     <section id="support" class="support-section">
         <div class="support-content">
             <span class="badge">Support The Mission</span>
-            <h2>100% Free & Ad-Free Forever</h2>
-            <p>DeenBuddy is built for the sake of Allah, not for profit. We will never sell your data or show verified
-                ads. If you'd like to support our server costs and future development, you can buy us a coffee.</p>
+            <h2>Why Support DeenBuddy?</h2>
+            <p>Every coffee helps us keep DeenBuddy's <strong>core features completely free and ad-free
+                    forever</strong>, cover our server costs, and develop exciting new features like the Quran and AI
+                Assistant.</p>
+            <p style="font-size: 0.95rem; opacity: 0.8; margin-top: -15px;">Note: Base features (Worldwide Prayer Times,
+                All Calculation Methods, Notifications, Qibla Finder) will <strong>always</strong> be free for everyone.
+            </p>
             <a href="https://buymeacoffee.com/deenbuddy" target="_blank" class="coffee-button">
                 ☕ Buy me a coffee
             </a>
