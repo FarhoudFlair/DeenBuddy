@@ -298,6 +298,18 @@ public class MockLocationService: LocationServiceProtocol {
         // For mock service, always return a small age
         return 30.0 // 30 seconds
     }
+
+    public func setManualLocation(_ location: CLLocation) async {
+        currentLocation = location
+        let coordinate = LocationCoordinate(from: location.coordinate)
+        currentLocationInfo = LocationInfo(
+            coordinate: coordinate,
+            accuracy: location.horizontalAccuracy,
+            city: "Manual Location",
+            country: "Unknown"
+        )
+        locationSubject.send(location)
+    }
 }
 
 // MARK: - Mock CLHeading

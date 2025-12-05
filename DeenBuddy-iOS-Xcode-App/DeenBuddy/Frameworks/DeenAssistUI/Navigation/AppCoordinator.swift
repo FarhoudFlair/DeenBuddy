@@ -895,6 +895,7 @@ private struct SimpleTabView: View {
                         themeManager: coordinator.themeManager,
                         notificationService: coordinator.notificationService,
                         userAccountService: coordinator.userAccountService,
+                        locationService: coordinator.locationService,
                         onDismiss: { } // No dismiss needed in tab mode
                     )
                 } else {

@@ -21,6 +21,7 @@ public class DependencyContainer: ObservableObject {
     @Published public private(set) var backgroundPrayerRefreshService: BackgroundPrayerRefreshService
     @Published public private(set) var islamicCacheManager: IslamicCacheManager
     @Published public private(set) var userAccountService: any UserAccountServiceProtocol
+    @Published public private(set) var notificationScheduler: NotificationScheduler
     
     // MARK: - Configuration
     
@@ -45,6 +46,7 @@ public class DependencyContainer: ObservableObject {
         backgroundPrayerRefreshService: BackgroundPrayerRefreshService,
         islamicCacheManager: IslamicCacheManager,
         userAccountService: any UserAccountServiceProtocol,
+        notificationScheduler: NotificationScheduler,
         apiConfiguration: APIConfiguration = .default,
         isTestEnvironment: Bool = true
     ) {
@@ -62,6 +64,7 @@ public class DependencyContainer: ObservableObject {
         self.backgroundPrayerRefreshService = backgroundPrayerRefreshService
         self.islamicCacheManager = islamicCacheManager
         self.userAccountService = userAccountService
+        self.notificationScheduler = notificationScheduler
         self.apiConfiguration = apiConfiguration
         self.isTestEnvironment = isTestEnvironment
     }
@@ -161,6 +164,12 @@ public class DependencyContainer: ObservableObject {
         
         let resolvedUserAccountService = await MainActor.run { ServiceFactory.createUserAccountService() }
 
+        let resolvedNotificationScheduler = await MainActor.run { ServiceFactory.createNotificationScheduler(
+            notificationService: resolvedNotificationService,
+            prayerTimeService: resolvedPrayerTimeService,
+            settingsService: resolvedSettingsService
+        ) }
+
         let container = DependencyContainer(
             locationService: resolvedLocationService,
             apiClient: resolvedApiClient,
@@ -176,6 +185,7 @@ public class DependencyContainer: ObservableObject {
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             islamicCacheManager: resolvedIslamicCacheManager,
             userAccountService: resolvedUserAccountService,
+            notificationScheduler: resolvedNotificationScheduler,
             apiConfiguration: apiConfiguration,
             isTestEnvironment: isTestEnvironment
         )
@@ -434,6 +444,44 @@ public class ServiceFactory {
         print("🏗️ Created new UserAccountService singleton instance")
         return newInstance
     }
+    
+    @MainActor
+    private static var _notificationSchedulerInstance: NotificationScheduler?
+    
+    @MainActor
+    public static func createNotificationScheduler(
+        notificationService: any NotificationServiceProtocol,
+        prayerTimeService: any PrayerTimeServiceProtocol,
+        settingsService: any SettingsServiceProtocol
+    ) -> NotificationScheduler {
+        // Only create singleton if services match existing instances
+        // We use identity comparison (===) to check if the dependencies are the same instances
+        if let existingInstance = _notificationSchedulerInstance,
+           // Note: We can't easily compare protocol types with === unless we cast to AnyObject or they are class-bound and we know the underlying types are classes.
+           // However, NotificationScheduler stores them as existentials.
+           // A safer check for now might be just checking if the instance exists, assuming dependencies don't change for the singleton container.
+           // But the requirement was "compare by identity".
+           // Let's try to cast to AnyObject for comparison if possible, or just rely on the singleton nature if we assume the container is stable.
+           // Given the prompt explicitly asked for "compare by identity", I should try to respect that.
+           // Swift protocols are not classes, so === might not work directly on the existential unless it's a class-bound protocol.
+           // NotificationServiceProtocol, PrayerTimeServiceProtocol, SettingsServiceProtocol ARE class-bound (@MainActor implies class usually, or they inherit from ObservableObject which is class-bound).
+           // Let's check the protocols. They inherit from ObservableObject, which is a class protocol (AnyObject).
+           (existingInstance.notificationServiceRef as AnyObject) === (notificationService as AnyObject),
+           (existingInstance.prayerTimeServiceRef as AnyObject) === (prayerTimeService as AnyObject),
+           (existingInstance.settingsServiceRef as AnyObject) === (settingsService as AnyObject) {
+            print("🔄 Reusing existing NotificationScheduler instance")
+            return existingInstance
+        }
+        
+        let newInstance = NotificationScheduler(
+            notificationService: notificationService,
+            prayerTimeService: prayerTimeService,
+            settingsService: settingsService
+        )
+        _notificationSchedulerInstance = newInstance
+        print("🏗️ Created new NotificationScheduler singleton instance")
+        return newInstance
+    }
 }
 
 // MARK: - Environment Detection
@@ -497,6 +545,12 @@ public extension DependencyContainer {
         
         let resolvedUserAccountService = ServiceFactory.createUserAccountService()
 
+        let resolvedNotificationScheduler = ServiceFactory.createNotificationScheduler(
+            notificationService: resolvedNotificationService,
+            prayerTimeService: resolvedPrayerTimeService,
+            settingsService: resolvedSettingsService
+        )
+
         return DependencyContainer(
             locationService: resolvedLocationService,
             apiClient: resolvedApiClient,
@@ -512,6 +566,7 @@ public extension DependencyContainer {
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             islamicCacheManager: resolvedIslamicCacheManager,
             userAccountService: resolvedUserAccountService,
+            notificationScheduler: resolvedNotificationScheduler,
             apiConfiguration: .default,
             isTestEnvironment: ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
         )
@@ -577,6 +632,13 @@ public extension DependencyContainer {
 
         let resolvedTasbihService: any TasbihServiceProtocol = TasbihService()
         let resolvedUserAccountService: any UserAccountServiceProtocol = MockUserAccountService()
+        
+        // Use a fresh scheduler instance for tests to avoid singleton state leakage between tests
+        let resolvedNotificationScheduler = NotificationScheduler(
+            notificationService: resolvedNotificationService,
+            prayerTimeService: resolvedPrayerTimeService,
+            settingsService: resolvedSettingsService
+        )
 
         return DependencyContainer(
             locationService: resolvedLocationService,
@@ -593,6 +655,7 @@ public extension DependencyContainer {
             backgroundPrayerRefreshService: resolvedBackgroundPrayerRefreshService,
             islamicCacheManager: resolvedIslamicCacheManager,
             userAccountService: resolvedUserAccountService,
+            notificationScheduler: resolvedNotificationScheduler,
             apiConfiguration: .default,
             isTestEnvironment: true
         )
@@ -603,19 +666,19 @@ public extension DependencyContainer {
 
 /// Lightweight mock user account service for tests and previews to avoid real Firebase initialization
 @MainActor
-private final class MockUserAccountService: UserAccountServiceProtocol {
-    var currentUser: AccountUser?
+public final class MockUserAccountService: UserAccountServiceProtocol {
+    public var currentUser: AccountUser?
 
-    func sendSignInLink(to email: String) async throws {}
-    func isSignInWithEmailLink(_ url: URL) -> Bool { false }
-    func signIn(withEmail email: String, linkURL: URL) async throws {}
-    func createUser(email: String, password: String) async throws {}
-    func signIn(email: String, password: String) async throws {}
-    func sendPasswordResetEmail(to email: String) async throws {}
-    func confirmPasswordReset(code: String, newPassword: String) async throws {}
-    func signOut() async throws { currentUser = nil }
-    func deleteAccount() async throws { currentUser = nil }
-    func updateMarketingOptIn(_ enabled: Bool) async throws {}
-    func syncSettingsSnapshot(_ snapshot: SettingsSnapshot) async throws {}
-    func fetchSettingsSnapshot() async throws -> SettingsSnapshot? { nil }
+    public func sendSignInLink(to email: String) async throws {}
+    public func isSignInWithEmailLink(_ url: URL) -> Bool { false }
+    public func signIn(withEmail email: String, linkURL: URL) async throws {}
+    public func createUser(email: String, password: String) async throws {}
+    public func signIn(email: String, password: String) async throws {}
+    public func sendPasswordResetEmail(to email: String) async throws {}
+    public func confirmPasswordReset(code: String, newPassword: String) async throws {}
+    public func signOut() async throws { currentUser = nil }
+    public func deleteAccount() async throws { currentUser = nil }
+    public func updateMarketingOptIn(_ enabled: Bool) async throws {}
+    public func syncSettingsSnapshot(_ snapshot: SettingsSnapshot) async throws {}
+    public func fetchSettingsSnapshot() async throws -> SettingsSnapshot? { nil }
 }

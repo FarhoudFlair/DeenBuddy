@@ -86,6 +86,7 @@ public enum DhikrCategory: String, Codable, CaseIterable {
 public struct TasbihSession: Codable, Identifiable, Equatable {
     public let id: UUID
     public let dhikr: Dhikr
+    public let counterId: UUID?
     public let startTime: Date
     public let endTime: Date?
     public let currentCount: Int
@@ -100,6 +101,7 @@ public struct TasbihSession: Codable, Identifiable, Equatable {
     public init(
         id: UUID = UUID(),
         dhikr: Dhikr,
+        counterId: UUID? = nil,
         startTime: Date = Date(),
         endTime: Date? = nil,
         currentCount: Int = 0,
@@ -113,6 +115,7 @@ public struct TasbihSession: Codable, Identifiable, Equatable {
     ) {
         self.id = id
         self.dhikr = dhikr
+        self.counterId = counterId
         self.startTime = startTime
         self.endTime = endTime
         self.currentCount = currentCount
@@ -180,13 +183,14 @@ public struct TasbihCounter: Codable, Identifiable, Equatable {
     public let isDefault: Bool
     public let createdAt: Date
     
+    /// Defaults to `soundFeedback = true` so new counters provide audible cues unless explicitly disabled.
     public init(
         id: UUID = UUID(),
         name: String,
         maxCount: Int = 99,
         resetOnComplete: Bool = true,
         hapticFeedback: Bool = true,
-        soundFeedback: Bool = false,
+        soundFeedback: Bool = true,
         soundName: String? = nil,
         vibrationPattern: VibrationPattern = .light,
         countIncrement: Int = 1,

@@ -1,94 +1,926 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>DeenBuddy - Sign In</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeenBuddy - Your Daily Companion for Faith</title>
+    <meta name="description"
+        content="DeenBuddy helps Muslims stay connected to their faith with accurate prayer times, Qibla compass, Islamic calendar, prayer tracking, and more.">
+    <meta name="keywords" content="prayer times, salah, qibla, islamic calendar, hijri, tasbih, dhikr, muslim app">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="DeenBuddy - Your Daily Companion for Faith">
+    <meta property="og:description"
+        content="Stay connected to your faith with accurate prayer times, Qibla compass, and spiritual tracking.">
+    <meta property="og:type" content="website">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            text-align: center;
-            padding: 50px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            min-height: 100vh;
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --gold: #d4a574;
+            --gold-light: #e8c9a0;
+            --dark: #1a1a2e;
+            --dark-light: #16213e;
+            --text: #ffffff;
+            --text-muted: rgba(255, 255, 255, 0.7);
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--dark) 0%, var(--dark-light) 50%, var(--secondary) 100%);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
         .container {
-            max-width: 400px;
+            max-width: 1200px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 40px;
-            border-radius: 10px;
-            backdrop-filter: blur(10px);
+            padding: 0 24px;
         }
-        h1 { margin-bottom: 20px; }
-        p { margin-bottom: 30px; opacity: 0.9; }
-        .btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background: white;
-            color: #667eea;
-            border: none;
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 20px 0;
+            background: rgba(26, 26, 46, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text);
+        }
+
+        .nav-cta {
+            background: var(--primary);
+            color: white;
+            padding: 10px 24px;
             border-radius: 25px;
+            text-decoration: none;
             font-weight: 600;
-            font-size: inherit;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: transform 0.3s, box-shadow 0.3s;
         }
-        .btn:hover { transform: translateY(-2px); }
-        .btn:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6), 0 0 0 5px rgba(102, 126, 234, 0.8);
+
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
         }
-        .btn:focus-visible {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6), 0 0 0 5px rgba(102, 126, 234, 0.8);
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding-top: 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 80%;
+            height: 150%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero-content h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--gold-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-content p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            margin-bottom: 40px;
+            max-width: 500px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 32px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: 0.5s;
+        }
+
+        .btn-primary:hover::after {
+            left: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 50px rgba(102, 126, 234, 0.5);
+        }
+
+        .btn-secondary {
+            background: var(--card-bg);
+            color: white;
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .hero-visual {
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        .app-mockup {
+            width: 280px;
+            border-radius: 40px;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .app-mockup img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .ad-free-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        .feature-screenshot {
+            width: 100%;
+            max-width: 200px;
+            border-radius: 16px;
+            margin-top: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 120px 0;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .section-header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px 30px;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Mission Section */
+        .mission {
+            padding: 120px 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(102, 126, 234, 0.1) 50%, transparent 100%);
+        }
+
+        .mission .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+        }
+
+        .mission-content h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        .mission-content p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .mission-points {
+            list-style: none;
+            margin-top: 30px;
+        }
+
+        .mission-points li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            font-weight: 500;
+        }
+
+        .mission-points .check {
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        /* Coming Soon Section */
+        .coming-soon {
+            padding: 120px 0;
+        }
+
+        .coming-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+        }
+
+        .coming-card {
+            background: linear-gradient(135deg, rgba(212, 165, 116, 0.1) 0%, rgba(102, 126, 234, 0.1) 100%);
+            border: 1px solid var(--gold);
+            border-radius: 24px;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .coming-card .badge {
+            display: inline-block;
+            background: var(--gold);
+            color: var(--dark);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .coming-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+        }
+
+        .coming-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Reviews Section */
+        .reviews {
+            padding: 120px 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(118, 75, 162, 0.1) 50%, transparent 100%);
+        }
+
+        .reviews-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .reviews-grid.expanded {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .review-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px 30px;
+        }
+
+        .stars {
+            color: var(--gold);
+            font-size: 1.25rem;
+            margin-bottom: 20px;
+        }
+
+        .review-card blockquote {
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 24px;
+            font-style: italic;
+        }
+
+        .reviewer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .reviewer-avatar {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .reviewer-info h4 {
+            font-size: 1rem;
+            margin-bottom: 2px;
+        }
+
+        .reviewer-info span {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Support Section */
+        .support {
+            padding: 120px 0;
+            text-align: center;
+        }
+
+        .support-card {
+            background: linear-gradient(135deg, var(--card-bg) 0%, rgba(212, 165, 116, 0.1) 100%);
+            border: 1px solid var(--gold);
+            border-radius: 32px;
+            padding: 60px 40px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .support-card h2 {
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+
+        .support-card p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+            color: var(--dark);
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 50px rgba(212, 165, 116, 0.4);
+        }
+
+        /* Footer */
+        footer {
+            padding: 60px 0 30px;
+            border-top: 1px solid var(--card-border);
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--text);
+        }
+
+        .copyright {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+
+            .hero .container,
+            .mission .container {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .hero-content p {
+                margin: 0 auto 40px;
+            }
+
+            .cta-buttons {
+                justify-content: center;
+            }
+
+            .features-grid,
+            .coming-grid,
+            .reviews-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .mission-points {
+                text-align: left;
+                max-width: 400px;
+                margin: 30px auto 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero-content h1 {
+                font-size: 2.5rem;
+            }
+
+            .features-grid,
+            .coming-grid,
+            .reviews-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .app-mockup {
+                width: 250px;
+                height: 500px;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                gap: 24px;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>🕌 DeenBuddy</h1>
-        <p>Welcome! Click below to open the app and complete your sign-in.</p>
-        <button type="button" class="btn" onclick="openApp()" aria-label="Open DeenBuddy app">Open DeenBuddy</button>
-    </div>
+    <!-- Navigation -->
+    <nav>
+        <div class="container">
+            <div class="logo">🕌 DeenBuddy</div>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#mission">Mission</a></li>
+                <li><a href="#coming-soon">Coming Soon</a></li>
+                <li><a href="#reviews">Reviews</a></li>
+            </ul>
+            <a href="https://apps.apple.com/app/id6749211036" class="nav-cta">Download</a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="ad-free-badge">🚫 100% AD-FREE FOREVER</div>
+                <h1>Your Daily Companion for Faith</h1>
+                <p>Stay connected to your deen with accurate prayer times, Qibla direction, and spiritual tracking.
+                    Built for Muslims, by Muslims — with zero ads, ever.</p>
+                <div class="cta-buttons">
+                    <a href="https://apps.apple.com/app/id6749211036" class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path
+                                d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                        </svg>
+                        Download on App Store
+                    </a>
+                    <a href="#features" class="btn btn-secondary">Learn More</a>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="app-mockup">
+                    <img src="/images/1.png" alt="DeenBuddy Home Screen">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Everything You Need</h2>
+                <p>Powerful features designed to support your daily spiritual practice</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🕐</div>
+                    <h3>Accurate Prayer Times</h3>
+                    <p>Precise prayer times based on your location with customizable calculation methods and adhan
+                        notifications.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧭</div>
+                    <h3>Qibla Compass</h3>
+                    <p>Find the direction to Makkah with our beautiful, easy-to-use compass. Perfect for prayers
+                        anywhere.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📅</div>
+                    <h3>Islamic Calendar</h3>
+                    <p>Stay aware of important Islamic dates, holidays, and events with our integrated Hijri calendar.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">✅</div>
+                    <h3>Prayer Tracking</h3>
+                    <p>Track your daily prayers and build consistent habits with visual progress indicators.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📿</div>
+                    <h3>Tasbih Counter</h3>
+                    <p>Digital dhikr counter with haptic feedback and customizable targets for your daily remembrance.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Analytics & Streaks</h3>
+                    <p>Track your spiritual journey with detailed insights, streaks, and progress analytics.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Mission Section -->
+    <section class="mission" id="mission">
+        <div class="container">
+            <div class="mission-content">
+                <h2>Built for Muslims, by Muslims</h2>
+                <p>DeenBuddy was created with a simple mission: to help Muslims stay connected to their faith in the
+                    modern world.</p>
+                <p>We believe technology should enhance your spiritual journey, not distract from it. That's why we're
+                    committed to being <strong>100% ad-free, forever</strong>.</p>
+                <ul class="mission-points">
+                    <li><span class="check">✓</span> <strong>AD-FREE FOREVER</strong> — No interruptions, no
+                        distractions</li>
+                    <li><span class="check">✓</span> Privacy-first design — your data stays on your device</li>
+                    <li><span class="check">✓</span> Accurate prayer times from trusted sources</li>
+                    <li><span class="check">✓</span> Beautiful, distraction-free interface</li>
+                </ul>
+            </div>
+            <div class="mission-visual">
+                <div class="app-mockup">
+                    <img src="/images/2.png" alt="DeenBuddy Prayer Times">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Coming Soon Section -->
+    <section class="coming-soon" id="coming-soon">
+        <div class="container">
+            <div class="section-header">
+                <h2>Coming Soon</h2>
+                <p>Exciting features on our roadmap</p>
+            </div>
+            <div class="coming-grid">
+                <div class="coming-card">
+                    <span class="badge">In Development</span>
+                    <h3>🤖 AI-Powered Features</h3>
+                    <p>Get personalized Islamic insights and answers to your questions with our upcoming AI assistant.
+                    </p>
+                </div>
+                <div class="coming-card">
+                    <span class="badge">Planned</span>
+                    <h3>📖 Quran Integration</h3>
+                    <p>Read, listen, and track your Quran reading progress with beautiful recitations.</p>
+                </div>
+                <div class="coming-card">
+                    <span class="badge">Planned</span>
+                    <h3>👥 Community Features</h3>
+                    <p>Connect with other Muslims, share achievements, and grow together in faith.</p>
+                </div>
+                <div class="coming-card">
+                    <span class="badge">Planned</span>
+                    <h3>📱 Android Version</h3>
+                    <p>Bringing the DeenBuddy experience to all Android devices. Join the waitlist!</p>
+                </div>
+                <div class="coming-card">
+                    <span class="badge">Planned</span>
+                    <h3>🖥️ iPad Support</h3>
+                    <p>A fully optimized interface designed specifically for the larger iPad display.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Reviews Section -->
+    <section class="reviews" id="reviews">
+        <div class="container">
+            <div class="section-header">
+                <h2>Loved by Muslims Across Canada</h2>
+                <p>See what our community has to say</p>
+            </div>
+            <div class="reviews-grid">
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"Finally, a prayer app that just works. Clean design, accurate times, and the Qibla
+                        compass is spot on. JazakAllah khair to the developers!"</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">AH</div>
+                        <div class="reviewer-info">
+                            <h4>Ahmed H.</h4>
+                            <span>Ottawa, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"The prayer tracking feature has helped me stay consistent with my salah. Love the
+                        streak counter — it keeps me motivated every day!"</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">FM</div>
+                        <div class="reviewer-info">
+                            <h4>Fatima M.</h4>
+                            <span>Ottawa, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"Beautiful app with everything I need. The tasbih counter with haptic feedback feels so
+                        natural. Highly recommend for all Muslims."</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">YK</div>
+                        <div class="reviewer-info">
+                            <h4>Yusuf K.</h4>
+                            <span>Toronto, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"No ads! That alone makes this the best Muslim app out there. The Islamic calendar is
+                        super helpful for knowing upcoming events."</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">SK</div>
+                        <div class="reviewer-info">
+                            <h4>Sara K.</h4>
+                            <span>Ottawa, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"I've tried so many prayer apps and this is by far the best. Simple, beautiful, and
+                        actually respects my privacy. 10/10!"</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">OA</div>
+                        <div class="reviewer-info">
+                            <h4>Omar A.</h4>
+                            <span>Ottawa, ON</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="review-card">
+                    <div class="stars">★★★★★</div>
+                    <blockquote>"The analytics feature helped me realize I was missing Fajr too often. Now I have a
+                        30-day streak! MashaAllah."</blockquote>
+                    <div class="reviewer">
+                        <div class="reviewer-avatar">MR</div>
+                        <div class="reviewer-info">
+                            <h4>Mariam R.</h4>
+                            <span>Ottawa, ON</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Support Section -->
+    <section class="support" id="support">
+        <div class="container">
+            <div class="support-card">
+                <h2>☕ Support DeenBuddy</h2>
+                <p>DeenBuddy is a free app built with love. If you find it helpful, consider supporting our work so we
+                    can keep improving and adding new features.</p>
+                <a href="https://buymeacoffee.com/deenbuddy" target="_blank" class="btn btn-gold" id="support-btn">Buy
+                    Me a Coffee</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="logo">🕌 DeenBuddy</div>
+                <ul class="footer-links">
+                    <li><a href="https://apps.apple.com/app/id6749211036">App Store</a></li>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#support">Support</a></li>
+                </ul>
+            </div>
+            <p class="copyright">© 2025 DeenBuddy. Made with ❤️ for the Ummah.</p>
+        </div>
+    </footer>
 
     <script>
-        function openApp() {
-            // Try to open the app with the current URL
-            const currentUrl = window.location.href;
-            const appScheme = 'deenbuddy://';
-
-            // Try app scheme first
-            window.location.href = appScheme + currentUrl.split('://')[1];
-
-            // Fallback: redirect to app store or show message
-            setTimeout(() => {
-                const container = document.querySelector('.container');
-                if (!container) {
-                    return;
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
+            });
+        });
 
-                container.innerHTML = '';
-
-                const title = document.createElement('h1');
-                title.textContent = '🕌 DeenBuddy';
-
-                const message = document.createElement('p');
-                message.textContent = "If the app didn't open automatically, please open DeenBuddy manually to complete your sign-in.";
-
-                const note = document.createElement('p');
-                note.textContent = 'You can close this browser tab now.';
-                note.style.fontSize = '14px';
-                note.style.opacity = '0.8';
-
-                container.append(title, message, note);
-            }, 2000);
-        }
-
-        // Auto-attempt to open app when page loads
-        window.onload = openApp;
+        // Add scroll effect to nav
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.style.background = 'rgba(26, 26, 46, 0.98)';
+            } else {
+                nav.style.background = 'rgba(26, 26, 46, 0.9)';
+            }
+        });
     </script>
 </body>
+
 </html>

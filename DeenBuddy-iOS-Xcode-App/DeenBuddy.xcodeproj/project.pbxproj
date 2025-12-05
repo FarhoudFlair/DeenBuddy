@@ -20,6 +20,8 @@
 		2390954F2EC9B426005B0EF1 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = 2390954E2EC9B426005B0EF1 /* FirebaseDatabase */; };
 		239095512EC9B426005B0EF1 /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 239095502EC9B426005B0EF1 /* FirebaseStorage */; };
 		239095532EC9B537005B0EF1 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 239095522EC9B537005B0EF1 /* FirebaseFirestore */; };
+		2390A5882EDD3617005B0EF1 /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2390A5872EDD3617005B0EF1 /* StoreKit.framework */; };
+		2390A58A2EDD36C0005B0EF1 /* DeenBuddy-StoreKit.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 2390A5892EDD36C0005B0EF1 /* DeenBuddy-StoreKit.storekit */; };
 		24B928272F1F3C9B002B85D2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 24B928262F1F3C9B002B85D2 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -249,6 +251,8 @@
 		2333331A2E29A91000B48D7A /* PackageExports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageExports.swift; sourceTree = "<group>"; };
 		23837F442E3C794F003AEF75 /* Live Activity Widget ExtensionExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "Live Activity Widget ExtensionExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		23837F6F2E3C8312003AEF75 /* Live Activity Widget ExtensionExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Live Activity Widget ExtensionExtension.entitlements"; sourceTree = "<group>"; };
+		2390A5872EDD3617005B0EF1 /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
+		2390A5892EDD36C0005B0EF1 /* DeenBuddy-StoreKit.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "DeenBuddy-StoreKit.storekit"; sourceTree = "<group>"; };
 		23F09EF82E17292A00E25D2F /* DeenBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DeenBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F052E17292B00E25D2F /* DeenBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		23F09F0F2E17292B00E25D2F /* DeenBuddyUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DeenBuddyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -338,6 +342,7 @@
 				239095472EC9B426005B0EF1 /* FirebaseAnalytics in Frameworks */,
 				2390954F2EC9B426005B0EF1 /* FirebaseDatabase in Frameworks */,
 				23837F712E3C8446003AEF75 /* WidgetKit.framework in Frameworks */,
+				2390A5882EDD3617005B0EF1 /* StoreKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -831,6 +836,7 @@
 		23EC89D92E20A2DE00BCAB83 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				2390A5872EDD3617005B0EF1 /* StoreKit.framework */,
 				2333331B2E29A91000B48D7A /* DeenAssistCore */,
 				232D68962EAF245000676A93 /* DeenAssistCore */,
 				233332AA2E29A19D00B48D7A /* ActivityKit.framework */,
@@ -843,6 +849,7 @@
 		23F09EEF2E17292A00E25D2F = {
 			isa = PBXGroup;
 			children = (
+				2390A5892EDD36C0005B0EF1 /* DeenBuddy-StoreKit.storekit */,
 				23837F6F2E3C8312003AEF75 /* Live Activity Widget ExtensionExtension.entitlements */,
 				23F09EFA2E17292A00E25D2F /* DeenBuddy */,
 				23F09F082E17292B00E25D2F /* DeenBuddyTests */,
@@ -1028,6 +1035,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2390A58A2EDD36C0005B0EF1 /* DeenBuddy-StoreKit.storekit in Resources */,
 				24B928272F1F3C9B002B85D2 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1106,7 +1114,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Live Activity Widget ExtensionExtension.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
@@ -1115,13 +1123,13 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.deenbuddy.app.Live-Activity-Widget-Extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1139,7 +1147,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Live Activity Widget ExtensionExtension.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Live Activity Widget Extension/Info.plist";
@@ -1148,13 +1156,13 @@
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_NSSupportsLiveActivitiesFrequentUpdates = YES;
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.deenbuddy.app.Live-Activity-Widget-Extension";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1198,7 +1206,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -1299,9 +1307,11 @@
 				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DeenBuddy/Info.plist;
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.deenbuddy.prayer-refresh com.deenbuddy.app.refresh com.deenbuddy.app.prayer-update";
@@ -1321,12 +1331,12 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1347,9 +1357,10 @@
 				CODE_SIGN_ENTITLEMENTS = DeenBuddy/DeenBuddy.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DeenBuddy/Info.plist;
 				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.deenbuddy.prayer-refresh com.deenbuddy.app.refresh com.deenbuddy.app.prayer-update";
@@ -1369,12 +1380,12 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_WKSupportsLiveActivityLaunchAttributeTypes = Yes;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.deenbuddy.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -1395,7 +1406,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1414,7 +1425,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1432,6 +1443,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1449,6 +1461,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 23TQMQNW28;
 				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = FarhoudTalebi.DeenBuddyUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";

@@ -18,3 +18,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEENBUDDY_E47EE }}
           projectId: deenbuddy-e47ee
+          entryPoint: DeenBuddy-iOS-Xcode-App

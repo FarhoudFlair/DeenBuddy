@@ -458,6 +458,10 @@ class CacheInvalidationBasicTestMockLocationService: LocationServiceProtocol, Ob
     func getLocationAge() -> TimeInterval? {
         return 30.0
     }
+
+    func setManualLocation(_ location: CLLocation) async {
+        currentLocation = location
+    }
 }
 
 // MARK: - Mock Islamic Calendar Service (if not already defined elsewhere)

@@ -861,6 +861,10 @@ class PrayerTimeSyncTestMockLocationService: LocationServiceProtocol, Observable
             country: "Test Country"
         )
     }
+
+    func setManualLocation(_ location: CLLocation) async {
+        currentLocation = location
+    }
 }
 
 // MARK: - Mock Islamic Calendar Service

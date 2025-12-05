@@ -1,0 +1,56 @@
+name: Firebase Hosting Preview
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          set -e
+          mkdir -p firebase-dist/public
+          if [ -d "public" ]; then
+            cp -R public/* firebase-dist/public/
+          else
+            echo "Warning: public/ directory not found. Skipping copy." >&2
+          fi
+          if [ ! -f firebase.json ]; then
+            echo "Error: firebase.json not found in repository root" >&2
+            exit 1
+          fi
+          cp firebase.json firebase-dist/
+
+      - name: Test
+        run: |
+          if [ ! -f firebase-dist/public/index.html ]; then
+            echo "Error: index.html missing"
+            exit 1
+          fi
+
+      - name: Pre-deploy Security Scan
+        run: |
+          if find firebase-dist \( -type f -o -type d \) \( -name ".env*" -o -name "*.key" -o -name "config.js" -o -name "*.pem" -o -name "*.crt" -o -name "*.p12" -o -name ".git" \) | grep .; then
+            echo "Error: Sensitive files/directories found in deploy artifact"
+            exit 1
+          fi
+
+      - name: Deploy to Firebase Hosting (preview channel)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
+          firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT_DEENBUDDY_E47EE }}"
+          projectId: deenbuddy-e47ee
+          entryPoint: "./firebase-dist"
+          channelId: preview
+          expires: 7d

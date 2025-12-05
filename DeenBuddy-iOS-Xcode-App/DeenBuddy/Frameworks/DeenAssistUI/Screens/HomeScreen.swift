@@ -225,7 +225,7 @@ public struct HomeScreen: View {
                     // Prayer time and countdown on same line
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(Self.prayerTimeFormatter.string(from: nextPrayer.time))
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
                             .foregroundColor(ColorPalette.textPrimary)
                             .monospacedDigit()
 
@@ -235,7 +235,7 @@ public struct HomeScreen: View {
                                 .font(.system(size: 24))
 
                             Text("in \(formatTimeRemaining(timeRemaining))")
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
+                                .font(.system(size: 34, weight: .bold, design: .rounded))
                                 .foregroundStyle(premiumTokens.countdownGradient)
                                 .appAnimation(AppAnimations.timerUpdate, value: formatTimeRemaining(timeRemaining))
                         }

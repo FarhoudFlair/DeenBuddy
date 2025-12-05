@@ -171,7 +171,16 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         didSet {
             // Skip observer actions during rollback operations
             guard !isRestoring else { return }
-            
+
+            // Validate range before persisting
+            guard notificationOffset >= notificationOffsetMin && notificationOffset <= notificationOffsetMax else {
+                print("⚠️ Invalid notificationOffset \(notificationOffset); valid range is \(notificationOffsetMin)-\(notificationOffsetMax). Reverting to \(oldValue)")
+                isRestoring = true
+                notificationOffset = oldValue
+                isRestoring = false
+                return
+            }
+
             notifyAndSaveSettings(
                 rollbackAction: { [weak self] in
                     await MainActor.run {
@@ -273,7 +282,9 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
             guard maxLookaheadMonths >= maxLookaheadMin && maxLookaheadMonths <= maxLookaheadMax else {
                 print("⚠️ Invalid maxLookaheadMonths \(maxLookaheadMonths); reverting to \(oldValue)")
+                isRestoring = true
                 maxLookaheadMonths = oldValue
+                isRestoring = false
                 return
             }
 
@@ -370,6 +381,8 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     private let currentSettingsVersion = 1
     private let maxLookaheadMin = 0
     private let maxLookaheadMax = 120
+    private let notificationOffsetMin: TimeInterval = 0
+    private let notificationOffsetMax: TimeInterval = 3600
     
     // MARK: - Initialization
     
@@ -397,6 +410,19 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     public func saveSettings() async throws {
         do {
+            // Pre-save validation: Ensure property values are valid before persisting
+            guard notificationOffset >= notificationOffsetMin && notificationOffset <= notificationOffsetMax else {
+                throw SettingsError.validationFailed(
+                    "Cannot save: notificationOffset out of range: \(notificationOffset)"
+                )
+            }
+
+            guard maxLookaheadMonths >= maxLookaheadMin && maxLookaheadMonths <= maxLookaheadMax else {
+                throw SettingsError.validationFailed(
+                    "Cannot save: maxLookaheadMonths out of range: \(maxLookaheadMonths)"
+                )
+            }
+
             // Save calculation method
             userDefaults.set(calculationMethod.rawValue, forKey: UnifiedSettingsKeys.calculationMethod)
 
@@ -447,11 +473,14 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
             
             // Synchronize to disk
             userDefaults.synchronize()
-            
-            print("Settings saved successfully")
+
+            print("✓ Settings saved successfully (validated)")
             
         } catch {
-            print("Failed to save settings: \(error)")
+            print("❌ Failed to save settings: \(error)")
+            if error is SettingsError {
+                throw error
+            }
             throw SettingsError.saveFailed(error)
         }
     }
@@ -587,7 +616,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
 
         // Check for reasonable notification offset values
         let offset = userDefaults.double(forKey: UnifiedSettingsKeys.notificationOffset)
-        if offset < 0 || offset > 3600 { // 0 to 1 hour
+        if offset < notificationOffsetMin || offset > notificationOffsetMax { // 0 to 1 hour
             throw SettingsError.validationFailed("Notification offset out of valid range: \(offset)")
         }
 
@@ -617,6 +646,46 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
 
         print("✅ Settings validation passed")
+    }
+
+    /// Validates a settings snapshot before applying it
+    /// Throws SettingsError if any value is out of valid range
+    private func validateSnapshot(_ snapshot: SettingsSnapshot) throws {
+        // Validate notificationOffset (0 to 3600 seconds)
+        guard snapshot.notificationOffset >= notificationOffsetMin && snapshot.notificationOffset <= notificationOffsetMax else {
+            throw SettingsError.validationFailed(
+                "Snapshot notificationOffset out of range: \(snapshot.notificationOffset) (valid: \(notificationOffsetMin)-\(notificationOffsetMax))"
+            )
+        }
+
+        // Validate maxLookaheadMonths (0 to 120)
+        guard snapshot.maxLookaheadMonths >= maxLookaheadMin &&
+              snapshot.maxLookaheadMonths <= maxLookaheadMax else {
+            throw SettingsError.validationFailed(
+                "Snapshot maxLookaheadMonths out of range: \(snapshot.maxLookaheadMonths) (valid: \(maxLookaheadMin)-\(maxLookaheadMax))"
+            )
+        }
+
+        // Validate enum values can be constructed
+        guard CalculationMethod(rawValue: snapshot.calculationMethod) != nil else {
+            throw SettingsError.validationFailed(
+                "Invalid calculation method in snapshot: \(snapshot.calculationMethod)"
+            )
+        }
+
+        guard Madhab(rawValue: snapshot.madhab) != nil else {
+            throw SettingsError.validationFailed(
+                "Invalid madhab in snapshot: \(snapshot.madhab)"
+            )
+        }
+
+        guard TimeFormat(rawValue: snapshot.timeFormat) != nil else {
+            throw SettingsError.validationFailed(
+                "Invalid time format in snapshot: \(snapshot.timeFormat)"
+            )
+        }
+
+        print("✓ Snapshot validation passed")
     }
 
     /// Recover from corrupted settings by attempting repair or reset
@@ -907,10 +976,13 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
     
     /// Apply a settings snapshot (e.g., from cloud sync) in a single, debounced update
     public func applySnapshot(_ snapshot: SettingsSnapshot) async throws {
+        // Validate snapshot BEFORE applying to prevent corrupted cloud data
+        try validateSnapshot(snapshot)
+
         await MainActor.run {
             isRestoring = true
             defer { isRestoring = false }
-            
+
             calculationMethod = CalculationMethod(rawValue: snapshot.calculationMethod) ?? .muslimWorldLeague
             madhab = Madhab(rawValue: snapshot.madhab) ?? .shafi
             // useAstronomicalMaghrib is not included in SettingsSnapshot; keep existing local value
@@ -930,7 +1002,7 @@ public class SettingsService: SettingsServiceProtocol, ObservableObject {
         }
 
         try await saveSettings()
-        print("☁️ Applied cloud settings snapshot")
+        print("☁️ Applied validated cloud settings snapshot")
     }
     
     /// Get the last sync date

@@ -50,8 +50,29 @@ struct QuranSearchView: View {
             }
             .onChange(of: searchText) { newValue in
                 // Generate real-time suggestions as user types
-                if !newValue.isEmpty {
-                    searchService.generateSearchSuggestions(for: newValue)
+                if newValue.isEmpty {
+                    // Clear state back to welcome view when search is cleared
+                    searchTask?.cancel()
+                    searchService.clearSearchState()
+                } else {
+                    // Debounce suggestion generation to avoid excessive work during typing
+                    searchTask?.cancel()
+                    let pendingQuery = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    searchTask = Task {
+                        do {
+                            try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                        } catch {
+                            return // Task cancelled
+                        }
+                        
+                        guard !Task.isCancelled else { return }
+                        guard !pendingQuery.isEmpty else { return }
+                        
+                        await MainActor.run {
+                            await searchService.generateSearchSuggestions(for: pendingQuery)
+                        }
+                    }
                 }
             }
             .toolbar {

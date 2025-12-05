@@ -172,6 +172,10 @@ struct TasbihView: View {
             await viewModel.ensureSession()
             localCount = viewModel.currentCount
         }
+        .onChange(of: viewModel.availableDhikr.count) { _ in
+            // If a session still hasn't started and dhikr list is ready, start one
+            Task { await viewModel.ensureSession() }
+        }
         .onChange(of: viewModel.currentSession?.id) { _ in
             viewModel.syncStateWithSession()
             localCount = viewModel.currentCount
