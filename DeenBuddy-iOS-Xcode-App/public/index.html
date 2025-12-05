@@ -644,6 +644,142 @@
             box-shadow: 0 10px 20px rgba(var(--primary-rgb), 0.3);
         }
 
+        /* Feedback Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .feedback-modal {
+            background: linear-gradient(135deg, var(--dark-light) 0%, var(--dark) 100%);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-overlay.active .feedback-modal {
+            transform: translateY(0);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+        }
+
+        .feedback-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 24px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            font-size: 0.95rem;
+            color: var(--text);
+        }
+
+        .form-control {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        .submit-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 8px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .success-message {
+            text-align: center;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 0;
+        }
+
+        .success-icon {
+            font-size: 3rem;
+            color: #10b981;
+            margin-bottom: 8px;
+        }
+
         /* Footer & Support Updates */
         .footer {
             padding: 60px 0 30px;
@@ -770,9 +906,10 @@
                     </a>
                     <a href="#features" class="btn btn-secondary">Learn More</a>
                     <div style="margin-top: 8px;">
-                        <a href="https://www.buymeacoffee.com/deenbuddy"><img
-                                src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee :)&emoji=☕&slug=deenbuddy&button_colour=40DCA5&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00"
-                                style="height: 50px !important;width: 200px !important;" /></a>
+                        <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js"
+                            data-name="bmc-button" data-slug="deenbuddy" data-color="#40DCA5" data-emoji="☕"
+                            data-font="Cookie" data-text="Buy me a coffee :)" data-outline-color="#000000"
+                            data-font-color="#ffffff" data-coffee-color="#FFDD00"></script>
                     </div>
                 </div>
             </div>
@@ -1038,10 +1175,9 @@
                 All Calculation Methods, Notifications, Qibla Finder) will <strong>always</strong> be free for everyone.
             </p>
             <div style="margin-top: 30px;">
-                <a href="https://buymeacoffee.com/deenbuddy" target="_blank"
-                    style="color: var(--gold); text-decoration: underline; font-weight: 600; font-size: 1.1rem;">
-                    https://buymeacoffee.com/deenbuddy
-                </a>
+                <a href="https://www.buymeacoffee.com/deenbuddy"><img
+                        src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee :)&emoji=☕&slug=deenbuddy&button_colour=40DCA5&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00"
+                        style="height: 50px !important;width: 200px !important;" /></a>
             </div>
         </div>
     </section>
@@ -1052,11 +1188,59 @@
             <h2>We'd Love to Hear From You</h2>
             <p>Have a suggestion, found a bug, or just want to say salam? Your feedback helps us make DeenBuddy better
                 for the entire Ummah.</p>
-            <a href="mailto:support@deenbuddy.app?subject=DeenBuddy%20Feedback" class="contact-btn">
+            <button onclick="openFeedbackModal()" class="contact-btn"
+                style="border: none; cursor: pointer; font-size: 1rem;">
                 📩 Send Feedback
-            </a>
+            </button>
         </div>
     </section>
+
+    <!-- Feedback Modal -->
+    <div class="modal-overlay" id="feedbackModal">
+        <div class="feedback-modal">
+            <button class="modal-close" onclick="closeFeedbackModal()">×</button>
+            <div id="modalContent">
+                <h3 style="font-size: 1.5rem; margin-bottom: 8px;">Send Feedback</h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">We usually reply within 24 hours via email.</p>
+
+                <form class="feedback-form" action="https://formsubmit.co/ajax/farhoud.engineer@gmail.com" method="POST"
+                    id="feedbackForm">
+                    <!-- FormSubmit Configuration -->
+                    <input type="hidden" name="_subject" value="New DeenBuddy Feedback">
+                    <input type="hidden" name="_captcha" value="false">
+                    <input type="hidden" name="_template" value="table">
+
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" name="name" class="form-control"
+                            placeholder="Your name (optional)">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" class="form-control" placeholder="your@email.com"
+                            required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="message">Message</label>
+                        <textarea id="message" name="message" class="form-control" rows="4"
+                            placeholder="How can we help you?" required></textarea>
+                    </div>
+
+                    <button type="submit" class="submit-btn">Send Message</button>
+                </form>
+            </div>
+
+            <div id="successMessage" class="success-message">
+                <div class="success-icon">✅</div>
+                <h3 style="font-size: 1.5rem;">Message Sent!</h3>
+                <p style="color: var(--text-muted);">JazakAllah Khair for your feedback. We'll be in touch soon.</p>
+                <button onclick="closeFeedbackModal()" class="btn btn-secondary"
+                    style="margin-top: 20px;">Close</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="footer">
@@ -1093,6 +1277,69 @@
             } else {
                 nav.style.background = 'rgba(26, 26, 46, 0.9)';
             }
+        });
+
+        // Feedback Modal Logic
+        const modal = document.getElementById('feedbackModal');
+        const form = document.getElementById('feedbackForm');
+
+        function openFeedbackModal() {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        }
+
+        function closeFeedbackModal() {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+
+            // Output reset after delay if successful
+            if (document.getElementById('successMessage').style.display === 'flex') {
+                setTimeout(() => {
+                    document.getElementById('modalContent').style.display = 'block';
+                    document.getElementById('successMessage').style.display = 'none';
+                    form.reset();
+                }, 500);
+            }
+        }
+
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeFeedbackModal();
+        });
+
+        // Handle AJAX Submission
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const btn = form.querySelector('.submit-btn');
+            const originalText = btn.innerText;
+
+            btn.innerText = 'Sending...';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'Accept': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('modalContent').style.display = 'none';
+                        document.getElementById('successMessage').style.display = 'flex';
+                    } else {
+                        alert('Oops! There was a problem submitting your form');
+                    }
+                })
+                .catch(error => {
+                    alert('Oops! There was a problem submitting your form');
+                })
+                .finally(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                });
         });
     </script>
     <script data-name="BMC-Widget" data-cfasync="false" src="https://cdnjs.buymeacoffee.com/1.0.0/widget.prod.min.js"
